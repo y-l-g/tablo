@@ -337,7 +337,11 @@ pub(crate) fn offered(cx: &Cx) -> bool {
 pub(super) fn register_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let next = next_from_query(cx).unwrap_or_default();
-        page_response(cx, &FormValues::new(), &FieldErrors::new(), next, None).await
+        // The page starts from each field's default, as the POST reads a disabled one.
+        let values = current_realm(cx)
+            .and_then(|panel| panel.auth.registrar())
+            .map_or_else(FormValues::new, |registrar| registrar.schema().defaults());
+        page_response(cx, &values, &FieldErrors::new(), next, None).await
     })
 }
 

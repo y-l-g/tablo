@@ -1,11 +1,12 @@
 //! Conditions: a field or a layout block that shows only while another field posts one of the
-//! values its condition names.
+//! values its condition names, and a field whose control is disabled while it does.
 //!
 //! The browser follows the watched field through one signal per condition, so the form needs no
-//! rerun. A hidden field or block sits in a disabled fieldset, which the browser neither validates
-//! nor submits. The server reads the same submission: [`Schema::condition_hidden`] names the
-//! fields it hides, and the panel drops their keys before parsing, so an edit keeps their stored
-//! values and a create takes their blank answers.
+//! rerun. A hidden field or block, and a disabled control, sit in a disabled fieldset, which the
+//! browser neither validates nor submits. The server reads the same submission:
+//! [`Schema::condition_hidden`] and [`Schema::condition_disabled`] name the fields they leave out,
+//! and the panel drops their keys before parsing, so an edit keeps their stored values and a
+//! create takes their blank answers, or a disabled field's default.
 
 use std::collections::HashMap;
 
@@ -60,7 +61,8 @@ impl<F> Watched<F> for CustomField<F> {
     }
 }
 
-/// Shows a field or a block while the field `watched` posts one of `values`.
+/// Shows a field or a block, or disables a field's control, while the field `watched` posts one
+/// of `values`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Condition {
     watched: String,
@@ -137,6 +139,27 @@ impl Condition {
             })
         })
     }
+}
+
+/// Renders `inner` in a fieldset the browser disables while `condition` holds, so the control
+/// neither validates nor posts.
+pub(crate) fn disable<'a>(
+    cx: &'a Cx,
+    condition: &Condition,
+    scope: &str,
+    values: &FormValues,
+    inner: BoxView<'a>,
+) -> BoxView<'a> {
+    let condition = condition.clone();
+    let initial = condition.holds(values);
+    let scope = scope.to_string();
+    async_page(async move {
+        let holds = shown(cx, &scope, &condition, initial);
+        Ok(view! {
+            cx =>
+            <fieldset class="contents" :disabled=$(holds.get())>(inner)</fieldset>
+        })
+    })
 }
 
 /// The signal holding whether `condition` holds in the form `scope`, shared by its guard and its
@@ -275,12 +298,22 @@ struct Scan<'s> {
     fields: Vec<(usize, Vec<&'s Condition>)>,
     /// Each condition with the conditions guarding the node it sits on.
     conditions: Vec<(&'s Condition, Vec<&'s Condition>)>,
+    /// Each field slot a condition disables, with that condition.
+    disabling: Vec<(usize, &'s Condition)>,
 }
 
 impl<'s> Scan<'s> {
     fn of(nodes: &'s [Node], fields: &'s [Field]) -> Self {
         let mut scan = Self::default();
         scan.walk(nodes, fields, &mut Vec::new());
+        // A field's control sits inside every block guarding it, so its disabling condition
+        // shows exactly while the field does.
+        for (index, chain) in &scan.fields {
+            if let Some(condition) = fields[*index].disabling() {
+                scan.disabling.push((*index, condition));
+                scan.conditions.push((condition, chain.clone()));
+            }
+        }
         scan
     }
 
@@ -336,17 +369,41 @@ impl<F> Schema<F> {
             .collect()
     }
 
-    /// Each key a condition watches, with the key of a field it guards, or `None` when it guards
-    /// none.
+    /// The keys of the fields a condition disables in the submission `values`, leaving out the
+    /// ones a condition hides: those take the blank answer, not the `default`.
+    pub(crate) fn condition_disabled(&self, values: &FormValues) -> Vec<String> {
+        let scan = Scan::of(&self.nodes, &self.fields);
+        let hidden: Vec<usize> = scan
+            .fields
+            .iter()
+            .filter(|(_, chain)| chain.iter().any(|condition| !condition.holds(values)))
+            .map(|(index, _)| *index)
+            .collect();
+        scan.disabling
+            .into_iter()
+            .filter(|(index, condition)| !hidden.contains(index) && condition.holds(values))
+            .map(|(index, _)| self.fields[index].name().to_string())
+            .collect()
+    }
+
+    /// Each key a condition watches, with the key of a field it guards or disables, or `None`
+    /// when it guards none.
     pub(crate) fn condition_watchers(&self) -> Vec<(String, Option<String>)> {
         let scan = Scan::of(&self.nodes, &self.fields);
         let mut watchers = Vec::new();
         for (condition, _) in &scan.conditions {
+            let disabled = scan
+                .disabling
+                .iter()
+                .filter(|(_, c)| std::ptr::eq(*c, *condition))
+                .map(|(index, _)| *index);
             let mut guards = scan
                 .fields
                 .iter()
                 .filter(|(_, chain)| chain.iter().any(|c| std::ptr::eq(*c, *condition)))
-                .map(|(index, _)| self.fields[*index].name().to_string())
+                .map(|(index, _)| *index)
+                .chain(disabled)
+                .map(|index| self.fields[index].name().to_string())
                 .peekable();
             if guards.peek().is_none() {
                 watchers.push((condition.watched.clone(), None));
@@ -369,8 +426,9 @@ impl<F> Schema<F> {
     }
 
     /// What is wrong with the schema's conditions: a watched field the schema does not place, one
-    /// a condition hides while what it guards still shows, a value the watched field never posts,
-    /// and a hidden field with no blank answer, which a submission that hides it could not parse.
+    /// a condition hides while what it guards still shows, one a condition disables, a value the
+    /// watched field never posts, and a hidden field with no blank answer, which a submission
+    /// that hides it could not parse.
     pub(crate) fn condition_errors(&self) -> Vec<DeclarationErrorKind> {
         let scan = Scan::of(&self.nodes, &self.fields);
         let mut errors = Vec::new();
@@ -383,16 +441,19 @@ impl<F> Schema<F> {
                 // The browser follows the watched field's last change, the server its posted
                 // value: they agree only while every condition hiding the watched field also
                 // hides what it guards.
-                Some(chain)
-                    if !chain
-                        .iter()
-                        .all(|hiding| guarding.iter().any(|c| std::ptr::eq(*c, *hiding))) =>
-                {
+                Some(chain) if !chain.iter().all(|hiding| guarding.contains(hiding)) => {
                     errors.push(DeclarationErrorKind::HiddenWatchedField {
                         field: watched.clone(),
                     });
                 }
                 Some(_) => {}
+            }
+            if let Some(field) = self.fields.iter().find(|f| f.name() == condition.watched)
+                && field.disabling().is_some()
+            {
+                errors.push(DeclarationErrorKind::DisabledWatchedField {
+                    field: watched.clone(),
+                });
             }
             if let Some(field) = self.fields.iter().find(|f| f.name() == condition.watched) {
                 for value in &condition.values {

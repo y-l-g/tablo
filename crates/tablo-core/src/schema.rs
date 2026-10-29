@@ -50,6 +50,13 @@ pub(crate) use tree::{Node, Retype, render_nodes};
 
 use crate::values::{FieldErrors, FormValue, FormValues};
 
+/// A form with a create and an edit form: every [`RecordForm`](crate::RecordForm), which
+/// `hidden_on_create` and `hidden_on_edit` take. A page's and an action's schema have one form.
+///
+/// `form` implements it for each record form, since `schema` sits below the record form's layer.
+#[doc(hidden)]
+pub trait EditsRecords {}
+
 /// Composes fields and layout blocks and resolves every field once into one list.
 ///
 /// `F` is the record form whose controls the schema places. A resource's form is a
@@ -180,9 +187,10 @@ impl<F> Schema<F> {
             .collect()
     }
 
-    /// Drops what a disabled control posted, which the browser never sends: on the edit form when
-    /// `editing`, else on the create form, where the field takes its `default`. Run it before
-    /// [`condition_hidden`](Self::condition_hidden), which drops a hidden field's default again.
+    /// Drops what a disabled or hidden control posted, which the browser never sends: on the edit
+    /// form when `editing`, else on the create form, where the field takes its `default`. Run it
+    /// before [`condition_hidden`](Self::condition_hidden), which drops a hidden field's
+    /// default again.
     pub(crate) fn drop_disabled(&self, values: &mut FormValues, editing: bool) {
         for field in self
             .fields
@@ -244,8 +252,8 @@ impl<F> Schema<F> {
     }
 
     /// What is wrong with the schema's dependent choices: a column of another model than the
-    /// relationship's source, or no relationship, and a parent the schema does not place, which
-    /// posts nothing to narrow the options by.
+    /// relationship's source, or no relationship, and a parent the schema does not place, or one
+    /// a condition disables, which posts nothing to narrow the options by.
     fn dependent_errors(&self) -> Vec<crate::DeclarationErrorKind> {
         let mut errors = Vec::new();
         for field in &self.fields {
@@ -276,6 +284,11 @@ impl<F> Schema<F> {
                 Some(_) if choice.is_listed() => {
                     errors.push(crate::DeclarationErrorKind::ListedDependentChoice {
                         field: field.name().to_string(),
+                    });
+                }
+                Some(parent) if parent.disabling().is_some() => {
+                    errors.push(crate::DeclarationErrorKind::DisabledWatchedField {
+                        field: parent.name().to_string(),
                     });
                 }
                 Some(_) => {}
@@ -342,7 +355,7 @@ impl<F> Schema<F> {
                 FormValue::List(items) => items.is_empty(),
                 FormValue::Rows(rows) => rows.is_empty(),
             });
-            if field.is_always_disabled() && field.is_required() && blank {
+            if field.may_post_nothing_on_create() && field.is_required() && blank {
                 errors.push(crate::DeclarationErrorKind::DisabledWithoutValue {
                     field: field.name().to_string(),
                 });
@@ -362,10 +375,11 @@ impl<F> Schema<F> {
             // A row's controls post under the repeater's key, which neither the disabled drop nor
             // the defaults read.
             if let Some(repeater) = field.as_repeater()
-                && let Some(leaf) = repeater
-                    .item_schema()
-                    .fields()
-                    .find(|leaf| leaf.is_disabled(true) || leaf.default_value().is_some())
+                && let Some(leaf) = repeater.item_schema().fields().find(|leaf| {
+                    leaf.is_disabled(true)
+                        || leaf.disabling().is_some()
+                        || leaf.default_value().is_some()
+                })
             {
                 errors.push(crate::DeclarationErrorKind::RepeaterLeafModifier {
                     field: field.name().to_string(),

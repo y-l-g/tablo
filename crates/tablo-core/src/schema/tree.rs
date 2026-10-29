@@ -9,7 +9,7 @@ use topcoat::{Result, context::Cx, view::*};
 
 use super::{
     Schema,
-    condition::{Condition, watch},
+    condition::{Condition, disable, watch},
     embedded::Embedded,
     fields::{Field, Placement},
     layouts::{Grid, Group, Section, Tab, Tabs},
@@ -207,6 +207,9 @@ impl Node {
                 if let Some(conditions) = source.watched.get(field.name()) {
                     view = watch(cx, field, conditions, &source.scope, source.values, view);
                 }
+                if let Some(condition) = field.disabling() {
+                    view = disable(cx, condition, &source.scope, source.values, view);
+                }
                 Ok(source.guard(cx, field.condition(), view))
             }
             // A block whose every field is masked renders no heading over nothing.
@@ -335,6 +338,7 @@ impl Node {
 /// rows' order posts its key.
 fn shows(field: &Field, source: &Source<'_>) -> bool {
     !(source.mask.hides(field.name())
+        || field.is_hidden(source.editing)
         || (source.mask.locks(field.name()) && field.as_repeater().is_some()))
 }
 

@@ -134,7 +134,8 @@ impl<F> Schema<F> {
     }
 
     /// A posted input as its parse reads it: [read](Self::read), with a condition-hidden field's
-    /// key removed, since the browser posts nothing for it.
+    /// key removed and a condition-disabled field's replaced by its default, since the browser
+    /// posts nothing for either.
     ///
     /// # Errors
     ///
@@ -161,6 +162,11 @@ impl<F> Schema<F> {
         for key in self.condition_hidden(&input) {
             input.remove(&key);
         }
+        let disabled = self.condition_disabled(&input);
+        for key in &disabled {
+            input.remove(key);
+        }
+        input.extend(self.defaults_of(disabled.iter().map(String::as_str)));
         Ok(input)
     }
 }

@@ -1,7 +1,5 @@
 //! The declaration mistakes a panel refuses to mount with, and the one place their wording lives.
 
-use std::fmt;
-
 mod action_input;
 mod auth;
 mod editable;
@@ -63,15 +61,6 @@ impl DeclarationError {
             site,
             kind,
         }
-    }
-}
-
-impl fmt::Display for DeclarationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(resource) = self.resource {
-            write!(f, "`{resource}`{}: ", self.site)?;
-        }
-        write!(f, "{}", self.kind)
     }
 }
 
@@ -387,8 +376,8 @@ pub enum DeclarationErrorKind {
         /// The shared name.
         name: String,
     },
-    /// A field disabled on the create form, with no `default` and no blank answer: no create
-    /// could fill it.
+    /// A field disabled or hidden on the create form, or one a condition can disable, with no
+    /// `default` and no blank answer: a create could not fill it.
     ///
     /// Give it a `default`, make it optional, or use `disabled_on_edit`.
     DisabledWithoutValue {
@@ -444,6 +433,15 @@ pub enum DeclarationErrorKind {
     ///
     /// Place the guarded field inside the block that hides the watched one.
     HiddenWatchedField {
+        /// The watched field.
+        field: String,
+    },
+    /// A condition, or a dependent choice, watches a field a condition disables, which posts
+    /// nothing while it is disabled: the browser would follow the value the user last chose, the
+    /// server the stored one or the default.
+    ///
+    /// Watch another field, or drop `disabled_when` from the watched one.
+    DisabledWatchedField {
         /// The watched field.
         field: String,
     },

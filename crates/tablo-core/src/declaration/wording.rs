@@ -2,7 +2,18 @@
 
 use std::fmt;
 
-use super::{DeclarationErrorKind, fmt_action_input, fmt_field_rule, fmt_many_to_many};
+use super::{
+    DeclarationError, DeclarationErrorKind, fmt_action_input, fmt_field_rule, fmt_many_to_many,
+};
+
+impl fmt::Display for DeclarationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(resource) = self.resource {
+            write!(f, "`{resource}`{}: ", self.site)?;
+        }
+        write!(f, "{}", self.kind)
+    }
+}
 
 impl fmt::Display for DeclarationErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -179,8 +190,9 @@ impl fmt::Display for DeclarationErrorKind {
             ),
             Self::DisabledWithoutValue { field } => write!(
                 f,
-                "field '{field}' is disabled and required, so no create can fill it: give it a \
-                 `default` (a file field takes none), make it optional, or use `disabled_on_edit`"
+                "field '{field}' is disabled or hidden on the create form, or a condition can \
+                 disable it, and it is required, so a create cannot fill it: give it a `default` \
+                 (a file field takes none), make it optional, or use `disabled_on_edit`"
             ),
             Self::RepeaterLeafModifier { field, leaf } => write!(
                 f,
@@ -198,22 +210,10 @@ impl fmt::Display for DeclarationErrorKind {
                 "field '{field}' defaults to '{value}', which its control never posts: spell the \
                  default as the field's form value, a list for a multiple choice"
             ),
-            Self::UnplacedWatchedField { field } => write!(
-                f,
-                "a condition watches field '{field}', which the schema does not place: place it \
-                 in the same schema"
-            ),
-            Self::HiddenWatchedField { field } => write!(
-                f,
-                "a condition watches field '{field}', which a condition hides while the guarded \
-                 field or block still shows: place the guarded one inside the block that hides \
-                 '{field}'"
-            ),
-            Self::UnpostedConditionValue { field, value } => write!(
-                f,
-                "a condition shows a field while '{field}' posts '{value}', which it never posts: \
-                 name one of its option values, or `true` or `false` for a toggle"
-            ),
+            Self::UnplacedWatchedField { .. }
+            | Self::HiddenWatchedField { .. }
+            | Self::DisabledWatchedField { .. }
+            | Self::UnpostedConditionValue { .. } => fmt_condition(f, self),
             Self::MisdeclaredDependentChoice { field } => write!(
                 f,
                 "choice '{field}' depends on a column its options do not have: call \
@@ -303,5 +303,34 @@ impl fmt::Display for DeclarationErrorKind {
             ),
             Self::ManyToMany { field, fault } => fmt_many_to_many(f, field, fault),
         }
+    }
+}
+
+/// The wording of a condition's [`DeclarationErrorKind`].
+fn fmt_condition(f: &mut fmt::Formatter<'_>, kind: &DeclarationErrorKind) -> fmt::Result {
+    match kind {
+        DeclarationErrorKind::UnplacedWatchedField { field } => write!(
+            f,
+            "a condition watches field '{field}', which the schema does not place: place it \
+             in the same schema"
+        ),
+        DeclarationErrorKind::HiddenWatchedField { field } => write!(
+            f,
+            "a condition watches field '{field}', which a condition hides while the guarded \
+             field or block still shows: place the guarded one inside the block that hides \
+             '{field}'"
+        ),
+        DeclarationErrorKind::DisabledWatchedField { field } => write!(
+            f,
+            "a condition or a dependent choice watches field '{field}', which a condition \
+             disables and so posts nothing: watch another field, or drop `disabled_when` from \
+             '{field}'"
+        ),
+        DeclarationErrorKind::UnpostedConditionValue { field, value } => write!(
+            f,
+            "a condition shows a field while '{field}' posts '{value}', which it never posts: \
+             name one of its option values, or `true` or `false` for a toggle"
+        ),
+        _ => unreachable!("not a condition's error"),
     }
 }

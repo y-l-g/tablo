@@ -1,8 +1,9 @@
 //! Conditional fields over HTTP.
 //!
-//! A field a condition hides renders in a disabled fieldset, so the browser posts nothing for it.
-//! The panel reads a crafted submission the same way: a hidden key is dropped before the parse, so
-//! a create takes the field's blank answer and an edit keeps its stored value.
+//! A field a condition hides, or a control a condition disables, renders in a disabled fieldset,
+//! so the browser posts nothing for it. The panel reads a crafted submission the same way: the key
+//! is dropped before the parse, so a create takes the field's blank answer, or a disabled field's
+//! default, and an edit keeps its stored value.
 
 use tablo::{
     Allow, Auth, Panel, Resource, ResourceDef, Schema, Tab, Table, Tabs, TextColumn, Uploader, lens,
@@ -82,6 +83,24 @@ impl Resource for TabbedCustomerResource {
     }
 }
 
+/// The same customers, the VAT number locked for a person.
+struct LockedCustomerResource;
+
+impl Resource for LockedCustomerResource {
+    type Model = Customer;
+    type Form = CustomerForm;
+
+    fn declare() -> ResourceDef<Self> {
+        let c = CustomerForm::controls();
+        let vat = c.vat.default("none").disabled_when(&c.kind, ["person"]);
+        ResourceDef::new()
+            .slug("locked-customers")
+            .policy(Allow)
+            .table(Table::new(TextColumn::new(lens!(Customer.name))))
+            .form(Schema::new((c.name, c.kind, vat, c.logo)))
+    }
+}
+
 #[derive(tablo::RecordForm)]
 #[form(model = Customer)]
 struct CustomerForm {
@@ -100,7 +119,8 @@ async fn customers() -> (Db, Router) {
             .auth(Auth::disabled())
             .uploads(KeepAll)
             .resource::<CustomerResource>()
-            .resource::<TabbedCustomerResource>(),
+            .resource::<TabbedCustomerResource>()
+            .resource::<LockedCustomerResource>(),
     )
     .expect("panel builds");
     (db, router)
@@ -285,4 +305,98 @@ async fn a_tab_a_condition_hides_drops_its_fields() {
         .await;
     assert!(response.status().is_redirection());
     assert_eq!(only_customer(&db).await.vat, None);
+}
+
+/// The fieldset around a control a condition disables is disabled exactly while the condition
+/// holds, and the control still renders.
+#[tokio::test]
+async fn a_disabled_control_renders_in_a_disabled_fieldset() {
+    let (db, router) = customers().await;
+    let client = TestClient::new(&router);
+    let vat_fieldset = |html: &str| {
+        let input = html.find("name=\"vat\"").expect("the vat input");
+        let start = html[..input].rfind("<fieldset").expect("its fieldset");
+        html[start..start + html[start..].find('>').unwrap()].to_string()
+    };
+    for (kind, disabled) in [("person", true), ("company", false)] {
+        let mut connection = db.clone();
+        Customer::all()
+            .delete()
+            .exec(&mut connection)
+            .await
+            .unwrap();
+        let body = format!("name=Ada&kind={kind}&vat=FR1");
+        let response = client
+            .submit("/admin/locked-customers/-/create", &body)
+            .await;
+        assert!(response.status().is_redirection());
+        let edit = format!(
+            "/admin/locked-customers/{}/edit",
+            only_customer(&db).await.id
+        );
+        let html = body_string(client.get(&edit).await).await;
+        let fieldset = vat_fieldset(&html);
+        assert_eq!(
+            fieldset.contains(" disabled"),
+            disabled,
+            "kind={kind}: {fieldset}"
+        );
+        assert!(!fieldset.contains(" hidden"), "kind={kind}: {fieldset}");
+    }
+}
+
+/// A create that disables the field drops its posted key and stores its default; one that
+/// enables it writes the posted value.
+#[tokio::test]
+async fn a_create_stores_the_default_of_a_field_a_condition_disables() {
+    for (kind, vat) in [("person", "none"), ("company", "FR123")] {
+        let (db, router) = customers().await;
+        let client = TestClient::new(&router);
+        let body = format!("name=Ada&kind={kind}&vat=FR123");
+        let response = client
+            .submit("/admin/locked-customers/-/create", &body)
+            .await;
+        assert!(
+            response.status().is_redirection(),
+            "kind={kind}: the create succeeds, got {} {}",
+            response.status(),
+            body_string(response).await
+        );
+        assert_eq!(
+            only_customer(&db).await.vat.as_deref(),
+            Some(vat),
+            "kind={kind}"
+        );
+    }
+}
+
+/// An edit that disables the field keeps its stored value, whatever the submission posts for it.
+#[tokio::test]
+async fn an_edit_keeps_the_stored_value_of_a_field_a_condition_disables() {
+    let (db, router) = customers().await;
+    let client = TestClient::new(&router);
+    let response = client
+        .submit(
+            "/admin/locked-customers/-/create",
+            "name=Acme&kind=company&vat=FR123",
+        )
+        .await;
+    assert!(response.status().is_redirection());
+    let id = only_customer(&db).await.id;
+
+    let response = client
+        .submit(
+            &format!("/admin/locked-customers/{id}/edit"),
+            "name=Acme&kind=person&vat=FR999",
+        )
+        .await;
+    assert!(
+        response.status().is_redirection(),
+        "the edit succeeds, got {} {}",
+        response.status(),
+        body_string(response).await
+    );
+    let customer = only_customer(&db).await;
+    assert_eq!(customer.kind, "person", "the watched field is written");
+    assert_eq!(customer.vat.as_deref(), Some("FR123"));
 }

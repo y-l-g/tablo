@@ -168,7 +168,7 @@ impl Field {
                     faults.push(FieldRuleFault::RefusedDefault(spelled));
                 }
             }
-            None if self.is_always_disabled() && self.check_unposted(&utc).is_some() => {
+            None if self.may_post_nothing_on_create() && self.check_unposted(&utc).is_some() => {
                 faults.push(FieldRuleFault::RefusedBlank);
             }
             None => {}

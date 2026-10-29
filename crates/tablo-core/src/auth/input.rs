@@ -40,6 +40,24 @@ pub(super) async fn parse<I: FormInput>(
     Ok(parsed.filter(|_| errors.is_empty()).ok_or(errors))
 }
 
+/// Keeps what `stored` holds for each control the page renders disabled, or a condition disables
+/// in `values`: it posts nothing the user may change, whatever a crafted POST carries.
+pub(super) fn keep_disabled(schema: &Schema, values: &mut FormValues, stored: &FormValues) {
+    let keep = |values: &mut FormValues, key: &str| {
+        match stored.get(key) {
+            Some(value) => values.insert(key, value.clone()),
+            None => values.remove(key),
+        };
+    };
+    for key in schema.disabled_keys(true) {
+        keep(values, key);
+    }
+    // A condition reads the watched field as posted, with the disabled keys restored.
+    for key in schema.condition_disabled(values) {
+        keep(values, &key);
+    }
+}
+
 /// Refuses `errors` when one names a key no control of `schema` renders, which the page would show
 /// no message for: a declaration error saying `who` refused it on the `form` page.
 pub(super) fn placed(

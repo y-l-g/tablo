@@ -158,3 +158,111 @@ fn a_condition_names_values_the_watched_field_posts() {
         ]
     );
 }
+
+/// A disabling condition leaves the field out of a submission only while it holds, and hides
+/// nothing: the control still renders.
+#[test]
+fn a_holding_disabling_condition_disables_its_field() {
+    let kind = kind();
+    let vat = Field::text(Customer::fields().vat()).disabled_when(&kind, ["person"]);
+    let schema = Schema::new((kind, vat));
+    assert_eq!(schema.condition_disabled(&values("person")), ["vat"]);
+    assert!(schema.condition_disabled(&values("company")).is_empty());
+    assert!(schema.condition_hidden(&values("person")).is_empty());
+}
+
+/// Field access refuses a watch over a restricted field by the keys it drives, so a disabled
+/// field counts as one its watched field drives.
+#[test]
+fn a_disabling_condition_drives_its_field() {
+    let kind = kind();
+    let vat = Field::text(Customer::fields().vat()).disabled_when(&kind, ["person"]);
+    assert_eq!(
+        Schema::new((kind, vat)).condition_watchers(),
+        [("kind".to_string(), Some("vat".to_string()))]
+    );
+}
+
+/// A disabled control posts nothing, so the server reads the stored value while the browser
+/// follows the one the user last chose: nothing may watch it.
+#[test]
+fn a_condition_cannot_watch_a_field_a_condition_disables() {
+    let kind = kind();
+    let company = Field::choice(Customer::fields().company())
+        .options(["eu", "other"])
+        .disabled_when(&kind, ["person"]);
+    let vat = Field::text(Customer::fields().vat()).visible_when(&company, ["eu"]);
+    assert_eq!(
+        Schema::new((kind, company, vat)).declaration_errors(),
+        [DeclarationErrorKind::DisabledWatchedField {
+            field: "company".to_string()
+        }]
+    );
+}
+
+/// The watched field of a disabling condition follows the hidden-block rule of any condition.
+#[test]
+fn a_disabling_condition_watches_a_hidden_field_only_inside_its_block() {
+    let active = Field::toggle(Customer::fields().active());
+    let kind = kind().visible_when(&active, ["true"]);
+    let vat = Field::text(Customer::fields().vat()).disabled_when(&kind, ["person"]);
+    assert_eq!(
+        Schema::new((active, kind, vat)).declaration_errors(),
+        [DeclarationErrorKind::HiddenWatchedField {
+            field: "kind".to_string()
+        }]
+    );
+}
+
+/// A field carrying the condition that hides its watched field hides with it, as one block
+/// around both would.
+#[test]
+fn a_field_hidden_with_its_watched_field_may_watch_it() {
+    let active = Field::toggle(Customer::fields().active());
+    let kind = kind().visible_when(&active, ["true"]);
+    let vat = Field::text(Customer::fields().vat())
+        .visible_when(&active, ["true"])
+        .disabled_when(&kind, ["person"]);
+    assert!(
+        Schema::new((active, kind, vat))
+            .declaration_errors()
+            .is_empty()
+    );
+}
+
+/// A field a condition both hides and disables is hidden: a create stores its blank answer, not
+/// its default.
+#[test]
+fn a_hidden_field_is_not_also_disabled() {
+    let kind = kind();
+    let vat = Field::text(Customer::fields().vat())
+        .default("none")
+        .visible_when(&kind, ["company"])
+        .disabled_when(&kind, ["person"]);
+    let schema = Schema::new((kind, vat));
+    assert_eq!(schema.condition_hidden(&values("person")), ["vat"]);
+    assert!(schema.condition_disabled(&values("person")).is_empty());
+}
+
+/// While the condition holds a create posts nothing for the field, so a required one needs a
+/// default to fill it.
+#[test]
+fn a_required_field_a_condition_disables_needs_a_default() {
+    let disabled = |default: Option<&str>| {
+        let kind = kind();
+        let mut note = Field::text(Customer::fields().note())
+            .required()
+            .disabled_when(&kind, ["person"]);
+        if let Some(default) = default {
+            note = note.default(default);
+        }
+        Schema::new((kind, note)).declaration_errors()
+    };
+    assert_eq!(
+        disabled(None),
+        [DeclarationErrorKind::DisabledWithoutValue {
+            field: "note".to_string()
+        }]
+    );
+    assert!(disabled(Some("none")).is_empty());
+}
