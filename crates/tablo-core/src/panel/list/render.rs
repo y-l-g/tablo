@@ -255,9 +255,12 @@ const SEARCH_ICON_CLASS: StaticClass = class!(
 );
 
 /// A table's own card: the surface every panel card shares (`tablo_ui::card`'s
-/// border, fill and shadow), clipped so the rows keep its rounded corners.
+/// border, fill and shadow), clipped so the rows keep its rounded corners. `relative` makes it
+/// the containing block of the table's `sr-only` labels: the table scrolls inside its own
+/// unpositioned wrapper, so without it a label takes the page as its containing block and
+/// widens the page.
 pub(crate) const TABLE_CARD_CLASS: StaticClass = class!(
-    "overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm"
+    "relative overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm"
 );
 
 /// A secondary link inside a bar ("Clear filters", "Clear search").
