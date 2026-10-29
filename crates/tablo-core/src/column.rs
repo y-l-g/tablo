@@ -2,8 +2,8 @@
 //! [`Column`] trait, the built-in [`TextColumn`], [`DateColumn`], [`ComputedColumn`],
 //! [`RelationColumn`], [`CountColumn`], [`BooleanColumn`], [`FileColumn`], [`ColorColumn`],
 //! [`ImageColumn`], [`IconColumn`], [`EmbeddedColumn`], [`RepeaterColumn`] and
-//! [`RichTextColumn`], and the
-//! [`IntoColumns`] seam.
+//! [`RichTextColumn`], the [`ToggleColumn`], [`SelectColumn`] and [`TextInputColumn`] that edit
+//! their field in a table's cell, and the [`IntoColumns`] seam.
 //!
 //! The module sits below both: `table` re-exports it, and `detail` implements
 //! [`IntoDetail`](crate::IntoDetail) for each built-in column.
@@ -127,6 +127,7 @@ mod cell;
 mod color;
 mod computed;
 mod date;
+mod editable;
 mod embedded;
 mod file;
 mod icon;
@@ -142,6 +143,7 @@ pub use boolean::BooleanColumn;
 pub use color::ColorColumn;
 pub use computed::ComputedColumn;
 pub use date::{DateColumn, DateValue};
+pub use editable::{Editor, SelectColumn, TextInputColumn, ToggleColumn};
 pub use embedded::EmbeddedColumn;
 pub use file::FileColumn;
 pub use icon::IconColumn;
@@ -296,6 +298,27 @@ pub trait Column<M>: Send + Sync {
     #[doc(hidden)]
     fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
         None
+    }
+
+    /// The control the column edits its field with in a table's cell, if it does: the mount
+    /// checks the resource's form edits the field [`name`](Self::name) names with it.
+    #[doc(hidden)]
+    fn edits(&self) -> Option<Editor> {
+        None
+    }
+
+    /// The options a [`Editor::Select`] offers, each a value and its label: the mount checks the
+    /// form's choice offers the same.
+    #[doc(hidden)]
+    fn edit_options(&self) -> Vec<(String, crate::Text)> {
+        Vec::new()
+    }
+
+    /// The control editing `row`'s field, posting the field's form key, which a table renders
+    /// in place of [`cell`](Self::cell) where the user may change the field.
+    #[doc(hidden)]
+    fn editor<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+        self.cell(cx, row)
     }
 }
 

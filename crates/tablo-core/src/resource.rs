@@ -12,6 +12,7 @@ mod action;
 mod check;
 mod commit;
 mod def;
+mod editable;
 mod field_access;
 mod global_search;
 mod header_action;

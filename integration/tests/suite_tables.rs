@@ -14,6 +14,7 @@ mod common;
 mod column;
 mod export;
 mod import;
+mod inline_edit;
 mod key_collisions;
 mod list;
 mod many_to_many;

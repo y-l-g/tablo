@@ -9,12 +9,12 @@ mod two_factor;
 pub use db::{TEST_DATABASE_URL, test_db};
 use http::header::{ACCEPT_LANGUAGE, CONTENT_TYPE, COOKIE};
 pub use protocol::{
-    Bell, BellNotification, ChartData, ChartSeries, DetailEntry, DisabledAction, EmptyReason,
-    EmptyTable, ErrorKind, FilterOption, Group, IgnoredFilter, IgnoredReason, ImportError,
-    ImportRefusal, LanguageChoice, PickerColumn, RecordTableData, Row, RowActions, SESSION_COOKIE,
-    SearchGroup, SearchResult, Section, StatTile, Tab, bell, body_bytes, body_string, charts,
-    column_picker, columns, confirms_first, cookie_header, detail_entries, dirty_form,
-    disabled_actions, empty_table, field_error, field_error_message, filter_options,
+    Bell, BellNotification, CellEdit, ChartData, ChartSeries, DetailEntry, DisabledAction,
+    EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, IgnoredFilter, IgnoredReason,
+    ImportError, ImportRefusal, LanguageChoice, PickerColumn, RecordTableData, Row, RowActions,
+    SESSION_COOKIE, SearchGroup, SearchResult, Section, StatTile, Tab, bell, body_bytes,
+    body_string, charts, column_picker, columns, confirms_first, cookie_header, detail_entries,
+    dirty_form, disabled_actions, empty_table, field_error, field_error_message, filter_options,
     find_href_with, form_body, groups, ignored_filters, import_columns, import_errors,
     import_refusal, input_value, input_values, language_choices, multipart_body, nav_badge,
     nav_links, notification, page_direction, page_language, page_title, record_tables,

@@ -166,7 +166,14 @@ pub(crate) fn wire_table_over<R: Resource>(
             .with_bulk_delete(true);
     }
     if chrome.edit {
-        table = table.with_edit(resource.url.clone());
+        // A cell posts its field to the edit route, which refuses a key the user may not change.
+        // A widget's table or a custom page may render it before anything else set the token.
+        crate::csrf::ensure_token(cx);
+        let mask = resource.form_mask(cx);
+        table = table.with_edit(resource.url.clone()).editing_cells(
+            move |key| mask.writes(key).is_none(),
+            <R::Model as crate::ModelColumns>::version,
+        );
     }
     if chrome.view {
         table = table.with_view(resource.url.clone());

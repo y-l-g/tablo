@@ -12,7 +12,8 @@ use crate::{
     column::{
         BooleanColumn, BoxColumn, ColorColumn, Column, ComputedColumn, CountColumn, DateColumn,
         EmbeddedColumn, FileColumn, IconColumn, ImageColumn, RelationColumn, RepeaterColumn,
-        TextColumn, include_relations, restrict_relations, shows, unavailable_sources,
+        SelectColumn, TextColumn, TextInputColumn, ToggleColumn, include_relations,
+        restrict_relations, shows, unavailable_sources,
     },
     schema::{Grid, Group, HoldsTabs, Section, Tab, Tabs, tab_id, tab_view, tabs_chrome},
 };
@@ -394,6 +395,9 @@ column_details!(
     ColorColumn<M, T>,
     IconColumn<M, T>,
     ImageColumn<M, T>,
+    ToggleColumn<M>,
+    SelectColumn<M, T>,
+    TextInputColumn<M, T>,
     EmbeddedColumn<M, T>,
     RepeaterColumn<M, T>,
 );

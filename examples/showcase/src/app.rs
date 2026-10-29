@@ -9,8 +9,8 @@ use tablo::{
     Notification, Notifications, Pagination, Panel, PanelHandle, PanelUser, PasswordReset,
     PublicLink, QueryFilter, Reads, Relation, RelationColumn, RepeaterColumn, Resource,
     ResourceDef, RichTextColumn, RouterBuilderPanelExt, Schema, Section, SelectFilter, Tab, Table,
-    Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn, TwoFactor, lens, relation,
-    tenant_id, when,
+    Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn, ToggleColumn, TwoFactor, lens,
+    relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -285,7 +285,8 @@ fn post_table() -> Table<Post> {
             .limit(60),
         // Each reader picks whether the status and the creation date show.
         TextColumn::new(lens!(Post.status)).badge().toggleable(),
-        BooleanColumn::new(lens!(Post.featured)),
+        // An editor features a post from the list: the switch saves the post as it flips.
+        ToggleColumn::new(lens!(Post.featured)),
         post_author_column(),
         CountColumn::of::<CommentResource>(relation!(Post.comments)),
         DateColumn::new(lens!(Post.created_at)).hidden_by_default(),

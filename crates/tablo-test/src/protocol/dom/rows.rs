@@ -1,8 +1,8 @@
-//! The rows of a rendered table: their cells, keys, actions, links and tint.
+//! The rows of a rendered table: their cells, keys, actions, links, tint and editable cells.
 
 use tablo_core::dom::row;
 
-use super::{Attrs, attr_value, elements, open_tags, strip_text};
+use super::{Attrs, attr_value, elements, is_selected, open_tags, strip_text};
 use crate::protocol::controls::{DisabledAction, disabled_actions};
 
 /// One data row of a rendered table.
@@ -20,6 +20,23 @@ pub struct Row {
     pub copies: Vec<String>,
     /// The color the table's row color tints it in, by its `#[option(color = "…")]` name.
     pub color: Option<String>,
+    /// Its cells that edit their field in place, in column order.
+    pub edits: Vec<CellEdit>,
+}
+
+/// One cell editing its field in place: a form posting the field alone to the record's edit
+/// route.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CellEdit {
+    /// The column's name, which is the form key the cell posts.
+    pub column: String,
+    /// Where the form posts: the record's edit route, with the table's return target.
+    pub action: String,
+    /// What the cell posts as rendered: a switch's `true` or `false`, a select's chosen option,
+    /// a text input's value.
+    pub value: Option<String>,
+    /// The record's version the form carries, when the model keeps one.
+    pub version: Option<String>,
 }
 
 /// The action targets of one row.
@@ -155,7 +172,46 @@ fn row(row_attrs: &Attrs, row_html: &str) -> Row {
         links,
         copies,
         color: attr_value(row_attrs, "data-row-color"),
+        edits: cell_edits(row_html),
     }
+}
+
+fn cell_edits(row_html: &str) -> Vec<CellEdit> {
+    elements(row_html, "form")
+        .into_iter()
+        .filter_map(|(_, attrs, inner)| {
+            let column = attr_value(&attrs, "data-cell-edit")?;
+            let action = attr_value(&attrs, "action").unwrap_or_default();
+            let mut value = None;
+            let mut version = None;
+            for (tag, attrs, _) in open_tags(&inner) {
+                let name = attr_value(&attrs, "name");
+                let kind = attr_value(&attrs, "type");
+                match (tag.as_str(), name.as_deref(), kind.as_deref()) {
+                    ("input", Some("record_version"), _) => version = attr_value(&attrs, "value"),
+                    ("input", Some(name), Some("checkbox")) if name == column => {
+                        let checked = attrs.iter().any(|(attr, _)| attr == "checked");
+                        value = Some(checked.to_string());
+                    }
+                    ("input", Some(name), kind) if name == column && kind != Some("hidden") => {
+                        value = attr_value(&attrs, "value");
+                    }
+                    _ => {}
+                }
+            }
+            for (_, attrs, _) in open_tags(&inner) {
+                if is_selected(&attrs) {
+                    value = attr_value(&attrs, "value");
+                }
+            }
+            Some(CellEdit {
+                column,
+                action,
+                value,
+                version,
+            })
+        })
+        .collect()
 }
 
 fn href_contains_key(href: &str, key: &str) -> bool {

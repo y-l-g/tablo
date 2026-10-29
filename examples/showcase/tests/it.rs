@@ -25,6 +25,7 @@ mod export;
 mod filter;
 mod gates;
 mod import;
+mod inline_edit;
 mod layouts;
 mod list;
 mod many_to_many;
