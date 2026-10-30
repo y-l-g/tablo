@@ -31,7 +31,7 @@ use crate::toasty_compat::pk::pk_set_filter;
 ///     posts: &[Post],
 ///     _: (),
 ///     ex: &mut dyn Executor,
-/// ) -> Result<tablo_core::Outcome, tablo_core::WriteError> {
+/// ) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> {
 ///     Post::filter(filter_keys(posts))
 ///         .update()
 ///         .status("published".to_string())

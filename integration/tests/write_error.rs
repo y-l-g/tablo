@@ -82,7 +82,6 @@ impl Resource for BookingResource {
             .importable()
             .action::<Extend>()
             .action::<Lock>()
-            .action::<Misfile>()
             .header_action::<Block>()
     }
 
@@ -129,7 +128,7 @@ impl Action<BookingResource> for Extend {
         bookings: &[Booking],
         extension: Extension,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, WriteError> {
+    ) -> Result<tablo::Outcome, WriteError<ExtensionField>> {
         for booking in bookings {
             let nights = booking.nights + extension.nights;
             booking
@@ -139,14 +138,14 @@ impl Action<BookingResource> for Extend {
                 .exec(&mut *ex)
                 .await?;
             if nights > MAX_NIGHTS {
-                return Err(WriteError::field("nights", "Too long a stay"));
+                return Err(WriteError::field(ExtensionField::Nights, "Too long a stay"));
             }
         }
         Ok(tablo::Outcome::done())
     }
 }
 
-/// Asks for nothing, so its refusal has no control to render under.
+/// Asks for nothing, so it has no field to refuse: an empty refusal has no message to render.
 struct Lock;
 
 impl Action<BookingResource> for Lock {
@@ -158,25 +157,8 @@ impl Action<BookingResource> for Lock {
         _: &[Booking],
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, WriteError> {
-        Err(WriteError::field("nights", "Locked"))
-    }
-}
-
-/// Refuses under a key its input does not declare.
-struct Misfile;
-
-impl Action<BookingResource> for Misfile {
-    type Input = Extension;
-    const NAME: &'static str = "misfile";
-
-    async fn run(
-        _cx: &Cx,
-        _: &[Booking],
-        _: Extension,
-        _: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, WriteError> {
-        Err(WriteError::field("night", "Misspelled"))
+    ) -> Result<tablo::Outcome, WriteError<std::convert::Infallible>> {
+        Err(FieldErrors::new().into())
     }
 }
 
@@ -196,10 +178,12 @@ impl HeaderAction for Block {
         _cx: &Cx,
         blocking: Blocking,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, WriteError> {
+    ) -> Result<tablo::Outcome, WriteError<BlockingField>> {
         match hold(&blocking.room, 0, ex).await {
             Ok(()) => Ok(tablo::Outcome::done()),
-            Err(WriteError::Refused(_)) => Err(WriteError::field("room", "Room is booked")),
+            Err(WriteError::Refused(_)) => {
+                Err(WriteError::field(BlockingField::Room, "Room is booked"))
+            }
             Err(WriteError::Failed(error)) => Err(WriteError::Failed(error)),
             Err(_) => unreachable!("`hold` answers only `Refused` and `Failed`"),
         }
@@ -342,17 +326,7 @@ async fn a_refused_bulk_action_keeps_its_selection() {
 }
 
 #[tokio::test]
-async fn a_refusal_under_a_key_the_input_does_not_render_is_a_declaration_error() {
-    let (db, router) = router().await;
-    let booking = book(&db, "101", 2).await;
-
-    let misfile = format!("/admin/bookings/{}/-/actions/misfile", booking.id);
-    let response = post_fields(&router, &misfile, &[("nights", "1")]).await;
-    assert_eq!(response.status(), 500);
-}
-
-#[tokio::test]
-async fn a_refused_action_without_input_is_a_declaration_error() {
+async fn an_empty_refusal_is_a_declaration_error() {
     let (db, router) = router().await;
     let booking = book(&db, "101", 2).await;
 

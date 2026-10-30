@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `Publish: tablo_core::Action<CommentResource>` is not satisfied
-  --> tests/compile_fail/ability_is_action_not_action.rs:39:25
+  --> tests/compile_fail/ability_is_action_not_action.rs:44:25
    |
-39 |     ability.is_action::<Publish, CommentResource>()
+44 |     ability.is_action::<Publish, CommentResource>()
    |             ---------   ^^^^^^^ unsatisfied trait bound
    |             |
    |             required by a bound introduced by this call

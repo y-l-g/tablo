@@ -24,7 +24,7 @@ impl Action<PostResource> for Publish {
         posts: &[Post],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, tablo::WriteError> {
+    ) -> Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         Post::filter(filter_keys(posts))
             .update()
             .status(PostStatus::Published)
@@ -75,7 +75,7 @@ impl Action<PostResource> for ChangeStatus {
         posts: &[Post],
         change: StatusChange,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, tablo::WriteError> {
+    ) -> Result<tablo::Outcome, tablo::WriteError<StatusChangeField>> {
         Post::filter(filter_keys(posts))
             .update()
             .status(change.status)
@@ -105,7 +105,7 @@ impl HeaderAction for PublishDrafts {
         cx: &Cx,
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, tablo::WriteError> {
+    ) -> Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         // No record is loaded: the action scopes its own query to the request's tenant.
         let drafts = scoped_query::<PostResource>(cx)?
             .filter(Post::fields().status().eq(PostStatus::Draft))

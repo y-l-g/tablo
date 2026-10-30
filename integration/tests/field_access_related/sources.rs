@@ -410,7 +410,7 @@ impl Action<PickCards> for Pick {
         _cards: &[Card],
         _choosing: Choosing,
         _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<Outcome, tablo::WriteError<std::convert::Infallible>> {
         Ok(Outcome::done())
     }
 }

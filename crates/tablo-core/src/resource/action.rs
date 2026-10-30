@@ -64,7 +64,7 @@ pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm",
 ///         posts: &[Post],
 ///         _: (),
 ///         ex: &mut dyn Executor,
-///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError> {
+///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> {
 ///         Post::filter(tablo_core::filter_keys(posts))
 ///             .update()
 ///             .status("published".to_string())
@@ -149,7 +149,7 @@ pub trait Action<R: Resource>: 'static {
     ///     type Input = ();
     ///     const NAME: &'static str = "archive/all";
     /// #   fn can_run(_: &Cx, _: &Post) -> bool { true }
-    /// #   async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
+    /// #   async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> { Ok(tablo_core::Outcome::done()) }
     /// }
     ///
     /// let def = ResourceDef::<PostResource>::new().action::<Archive>();
@@ -256,16 +256,16 @@ pub trait Action<R: Resource>: 'static {
     /// change to every record in one statement.
     ///
     /// A rule that reads the database refuses the input with [`WriteError::Refused`], keyed by
-    /// its form keys: the transaction rolls back and the input page renders with the errors. An
-    /// action that asks for nothing has no control to render them under, so its refusal is a
-    /// declaration error: it declines with [`WriteError::declined`] instead, which rolls back and
-    /// flashes the message.
+    /// the input's field enum, as [`validate_input`](Self::validate_input) is: the transaction
+    /// rolls back and the input page renders with the errors. An action that asks for nothing has
+    /// no field to refuse, its `WriteError<Infallible>`, and declines with
+    /// [`WriteError::declined`] instead, which rolls back and flashes the message.
     fn run(
         cx: &Cx,
         records: &[R::Model],
         input: Self::Input,
         ex: &mut dyn toasty::Executor,
-    ) -> impl Future<Output = Result<crate::Outcome, WriteError>> + Send;
+    ) -> impl Future<Output = Result<crate::Outcome, WriteError<<Self::Input as FormInput>::Field>>> + Send;
 
     /// The success notification after a commit. Defaults to the label and
     /// the record count: `"Publish: 3 records"`. A bulk run the action refused
@@ -525,5 +525,9 @@ fn run_erased<'a, R: Resource, A: Action<R>>(
     let input = *input
         .downcast::<A::Input>()
         .expect("the pipeline parses the input `run` takes");
-    Box::pin(A::run(cx, records, input, ex))
+    Box::pin(async move {
+        A::run(cx, records, input, ex)
+            .await
+            .map_err(|error| error.keyed(<A::Input as FormInput>::key))
+    })
 }

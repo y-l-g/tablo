@@ -109,7 +109,7 @@ impl Action<TicketResource> for Book {
         tickets: &[Ticket],
         booking: Booking,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -574,7 +574,7 @@ async fn a_misdeclared_list_or_checkbox_rule_refuses_the_mount() {
             _trips: &[Trip],
             _input: Misdeclared,
             _ex: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+        ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
             Ok(tablo::Outcome::done())
         }
     }

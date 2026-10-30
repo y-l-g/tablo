@@ -120,7 +120,7 @@ impl Action<InvoiceResource> for Void {
         invoices: &[Invoice],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, WriteError> {
+    ) -> Result<tablo::Outcome, WriteError<std::convert::Infallible>> {
         for invoice in invoices {
             enter(&invoice.number, invoice.status == "paid", FINAL, &mut *ex).await?;
         }

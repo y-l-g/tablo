@@ -29,7 +29,12 @@ impl Action<PostResource> for Publish {
     type Input = ();
     const NAME: &'static str = "publish";
 
-    async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> {
+    async fn run(
+        _: &Cx,
+        _: &[Post],
+        _: (),
+        _: &mut dyn toasty::Executor,
+    ) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> {
         Ok(tablo_core::Outcome::done())
     }
 }

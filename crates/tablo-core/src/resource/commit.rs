@@ -97,7 +97,7 @@ impl<M> Change<M> {
     /// # impl Action<PostResource> for Publish {
     /// #     type Input = ();
     /// #     const NAME: &'static str = "publish";
-    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
+    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> { Ok(tablo_core::Outcome::done()) }
     /// # }
     /// fn published(change: &Change<Post>) -> usize {
     ///     if change.is_action::<Publish, _>() {
@@ -129,7 +129,7 @@ impl<M> Change<M> {
     /// # impl HeaderAction for RecountTags {
     /// #     type Input = ();
     /// #     const NAME: &'static str = "recount-tags";
-    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
+    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> { Ok(tablo_core::Outcome::done()) }
     /// # }
     /// fn audited(change: &Change<Post>) -> bool {
     ///     !change.is_header_action::<RecountTags>()

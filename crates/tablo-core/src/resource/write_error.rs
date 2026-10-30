@@ -10,7 +10,7 @@ use crate::form::FieldErrors;
 /// - [`Refused`](Self::Refused) renders the form again with status 200, each error under the
 ///   control of the field it names, as a [`validate_record`](crate::Resource::validate_record)
 ///   error does. A record fn keys its errors by the record form's field enum, an action's run by
-///   its input's form keys.
+///   its input's, so a renamed field fails to compile rather than render no message.
 /// - [`Declined`](Self::Declined) refuses with a message that belongs to no field: a paid invoice
 ///   that cannot be deleted. A record form renders again with the message above its fields; a
 ///   delete, a restore or an action flashes it and lands back where it started.
@@ -82,6 +82,15 @@ impl<K> WriteError<K> {
     /// Decline the write with `message`, which names no field.
     pub fn declined(message: impl Into<crate::Text>) -> Self {
         Self::Declined(message.into())
+    }
+
+    /// This error, its refusal keyed by the form key `key` gives each field.
+    pub(crate) fn keyed(self, key: fn(K) -> &'static str) -> WriteError {
+        match self {
+            Self::Refused(errors) => WriteError::Refused(errors.keyed(key)),
+            Self::Declined(message) => WriteError::Declined(message),
+            Self::Failed(error) => WriteError::Failed(error),
+        }
     }
 }
 

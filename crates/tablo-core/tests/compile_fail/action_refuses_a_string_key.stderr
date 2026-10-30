@@ -1,0 +1,20 @@
+error[E0277]: the trait bound `NoteField: From<&str>` is not satisfied
+  --> tests/compile_fail/action_refuses_a_string_key.rs:36:31
+   |
+36 |         Err(WriteError::field("bdy", "Too short"))
+   |             ----------------- ^^^^^ unsatisfied trait bound
+   |             |
+   |             required by a bound introduced by this call
+   |
+help: the trait `From<&str>` is not implemented for `NoteField`
+  --> tests/compile_fail/action_refuses_a_string_key.rs:18:10
+   |
+18 | #[derive(FormInput)]
+   |          ^^^^^^^^^
+   = note: required for `&str` to implement `Into<NoteField>`
+note: required by a bound in `WriteError::<K>::field`
+  --> src/resource/write_error.rs
+   |
+   |     pub fn field(key: impl Into<K>, message: impl Into<crate::Text>) -> Self {
+   |                            ^^^^^^^ required by this bound in `WriteError::<K>::field`
+   = note: this error originates in the derive macro `FormInput` (in Nightly builds, run with -Z macro-backtrace for more info)

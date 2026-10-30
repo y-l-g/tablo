@@ -20,7 +20,7 @@ impl Action<Hidden> for Rename {
         _: &[Dummy],
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<crate::Outcome, crate::WriteError> {
+    ) -> topcoat::Result<crate::Outcome, crate::WriteError<std::convert::Infallible>> {
         Ok(crate::Outcome::done())
     }
 }

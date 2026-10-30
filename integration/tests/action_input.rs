@@ -72,7 +72,7 @@ impl Action<TicketResource> for Close {
         tickets: &[Ticket],
         closing: Closing,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<ClosingField>> {
         let suffix = if closing.reopenable { "" } else { " (final)" };
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
@@ -122,10 +122,7 @@ impl Action<TicketResource> for Purge {
         tickets: &[Ticket],
         purging: Purging,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
-        if purging.note == "misspelled" {
-            return Err(tablo::WriteError::field("notes", "No control renders this"));
-        }
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<PurgingField>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -182,7 +179,7 @@ impl Action<TicketResource> for Merge {
         tickets: &[Ticket],
         merging: Merging,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -501,20 +498,6 @@ async fn a_confirming_action_with_input_confirms_in_its_dialog_and_on_its_page()
     assert_eq!(ticket(&db, alpha.id).await.reason, "purged");
 }
 
-/// A run refusing a key no input control renders would show a page with no message on it, so
-/// it fails as a declaration error instead, and the action does not run.
-#[tokio::test]
-async fn a_refusal_no_control_renders_fails_closed() {
-    let db = db().await;
-    let alpha = seed(&db, "Alpha").await;
-    let router = router(&db, runs);
-    let url = format!("/admin/tickets/{}/-/actions/purge", alpha.id);
-
-    let response = post_fields(&router, &url, &[("confirm", "1"), ("note", "misspelled")]).await;
-    assert_eq!(response.status(), 500);
-    assert_eq!(ticket(&db, alpha.id).await.reason, "", "nothing ran");
-}
-
 /// An input field named like a key the action's POST carries.
 #[derive(FormInput)]
 struct Selecting {
@@ -582,7 +565,7 @@ impl Action<SelectResource> for Attach {
         _: &[Ticket],
         _: Attaching,
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         Ok(tablo::Outcome::done())
     }
 }
@@ -602,7 +585,7 @@ impl Action<SelectResource> for Refuse {
         _: &[Ticket],
         _: Strict,
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         Ok(tablo::Outcome::done())
     }
 }
@@ -622,7 +605,7 @@ impl Action<SelectResource> for Select {
         _: &[Ticket],
         _: Selecting,
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<SelectingField>> {
         Ok(tablo::Outcome::done())
     }
 }
