@@ -590,28 +590,28 @@ fn the_user_reads_back_as_the_apps_own_type_only() {
     assert_eq!(refused.into_response(&cx).unwrap().status(), 403);
 }
 
-/// A type no mounted panel loads can only read as nobody, so a debug build refuses it and names
-/// both types.
-#[cfg(debug_assertions)]
+/// A type no mounted panel loads reads as nobody in every build, and the logged reason names both
+/// types.
 #[test]
-fn a_type_no_panel_loads_panics_in_debug() {
+fn a_type_no_panel_loads_reads_as_nobody() {
     let admin = Arc::new(crate::panel::test_support::panel_state(
         "/admin",
         Auth::password(),
     ));
     for mounted in [None, Some(vec![Arc::clone(&admin)])] {
         let cx = mounted_cx(ada(), &admin, &admin, mounted);
-        let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            user::<Visitor>(&cx).is_none()
-        }))
-        .expect_err("a type no panel loads panics");
-        let message = panic.downcast_ref::<String>().expect("a formatted message");
+        assert!(user::<Visitor>(&cx).is_none());
+        let message = super::unloaded_type::<Visitor>(&cx).expect("a reason");
         assert!(
             message.contains(std::any::type_name::<Visitor>())
                 && message.contains(std::any::type_name::<AdminUser>()),
             "the message names both types, got {message:?}"
         );
     }
+    assert_eq!(
+        super::unloaded_type::<AdminUser>(&mounted_cx(ada(), &admin, &admin, None)),
+        None
+    );
 }
 
 #[test]
