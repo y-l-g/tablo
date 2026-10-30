@@ -5,7 +5,7 @@
 //! A column renders its own cell and a filter its own control. What a request wires onto a table
 //! and the list page around it belong to the panel: [`WiredTable`](crate::panel::WiredTable).
 
-use std::{marker::PhantomData, num::NonZeroUsize, sync::Arc};
+use std::{num::NonZeroUsize, sync::Arc};
 
 use derive_where::derive_where;
 use toasty::stmt::List;
@@ -138,7 +138,6 @@ pub struct Table<M> {
     default_field: Option<FieldOrder>,
     hide_search: bool,
     hide_filter_menu: bool,
-    _marker: PhantomData<M>,
 }
 
 impl<M> std::fmt::Debug for Table<M> {
@@ -195,7 +194,6 @@ impl<M> Table<M> {
             default_field: None,
             hide_search: false,
             hide_filter_menu: false,
-            _marker: PhantomData,
         }
     }
 
@@ -302,9 +300,9 @@ impl<M> Table<M> {
         self
     }
 
-    /// Set the page size.
-    pub fn paginate(mut self, per_page: usize) -> Self {
-        match NonZeroUsize::new(per_page) {
+    /// Show `size` rows a page; [`DEFAULT_PAGE_SIZE`] by default.
+    pub fn page_size(mut self, size: usize) -> Self {
+        match NonZeroUsize::new(size) {
             Some(size) => self.page_size = size,
             None => self.misdeclared.push(DeclarationErrorKind::ZeroPageSize),
         }
@@ -375,18 +373,18 @@ impl<M> Table<M> {
         errors
     }
 
-    /// The page size.
-    pub fn page_size(&self) -> usize {
+    /// The rows a page shows, as [`Self::page_size`] set them.
+    pub fn per_page(&self) -> usize {
         self.page_size.get()
     }
 
     /// How the table pages.
-    pub fn pagination_mode(&self) -> Pagination {
+    pub(crate) fn pagination_mode(&self) -> Pagination {
         self.pagination
     }
 
     /// Where the table puts a row's actions.
-    pub fn row_action_layout(&self) -> ActionLayout {
+    pub(crate) fn row_action_layout(&self) -> ActionLayout {
         self.action_layout
     }
 
@@ -397,7 +395,7 @@ impl<M> Table<M> {
             return Vec::new();
         }
         let mut sizes = self.per_page_options.clone();
-        sizes.push(self.page_size());
+        sizes.push(self.per_page());
         sizes.sort_unstable();
         sizes.dedup();
         sizes
@@ -410,7 +408,7 @@ impl<M> Table<M> {
             .per_page
             .and_then(|asked| usize::try_from(asked).ok())
             .filter(|asked| self.page_sizes().contains(asked))
-            .unwrap_or_else(|| self.page_size())
+            .unwrap_or_else(|| self.per_page())
     }
 
     /// The key of `record`'s row: its primary key's URL id.

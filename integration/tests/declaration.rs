@@ -684,10 +684,10 @@ resource!(DuplicateColumnResource, Doc => ResourceDef::new()
     TextColumn::new(lens!(Doc.title)),
     TextColumn::new(lens!(Doc.title)),
 ))));
-// A page of no rows: `Table::paginate` records zero.
+// A page of no rows: `Table::page_size` records zero.
 resource!(ZeroPageResource, Doc => ResourceDef::new()
     .slug("docs")
-    .table(Table::new(TextColumn::new(lens!(Doc.title))).paginate(0)));
+    .table(Table::new(TextColumn::new(lens!(Doc.title))).page_size(0)));
 resource!(Tickets, Ticket, TicketForm => ResourceDef::new()
     .slug("tickets")
     .tenancy(Tenancy::column(Ticket::fields().tenant_id()))

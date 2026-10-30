@@ -52,7 +52,7 @@ impl Resource for TicketResource {
         ResourceDef::new()
             .slug("tickets")
             .policy(Allow)
-            .table(Table::new(TextColumn::new(lens!(Ticket.title)).searchable()).paginate(2))
+            .table(Table::new(TextColumn::new(lens!(Ticket.title)).searchable()).page_size(2))
             .action::<Close>()
     }
 }

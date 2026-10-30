@@ -47,7 +47,7 @@ impl Resource for BookResource {
         ResourceDef::new()
             .slug("books")
             .policy(ReadOnly)
-            .table(Table::new(TextColumn::new(lens!(Book.title))).paginate(25))
+            .table(Table::new(TextColumn::new(lens!(Book.title))).page_size(25))
             .detail(tablo::Detail::new(TextColumn::new(lens!(Book.title))))
     }
 }

@@ -23,7 +23,7 @@ fn tickets_table() -> Table<Ticket> {
     Table::new(TextColumn::new(lens!(Ticket.title)).sortable())
         .group_by(lens!(Ticket.team))
         .group_by(lens!(Ticket.title))
-        .paginate(2)
+        .page_size(2)
         .per_page_options([])
 }
 

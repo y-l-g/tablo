@@ -195,7 +195,7 @@ The URL holds the list's whole state, so every view of a list is a link you can 
 `?f.<name>=` filters and `?group_by=` groups. [`Table`](https://y-l.fr/tablo/nightly/api/tablo/struct.Table.html) has the parameters' rules: how
 search matches, the default sort, and what an unusable filter does.
 
-A table shows 25 rows per page unless `.paginate(n)` sets another size, and offers the reader a
+A table shows 25 rows per page unless `.page_size(n)` sets another size, and offers the reader a
 choice of sizes that `.per_page_options([..])` changes. Each numbered page counts the result set,
 one more query, so a table too large to count, or one rows are written to while it is read, picks
 another [`Pagination`](https://y-l.fr/tablo/nightly/api/tablo/enum.Pagination.html): `Simple` drops the count, and `Cursor` pages by

@@ -32,7 +32,7 @@ impl Resource for UserResource {
                     TextColumn::new(lens!(User.age)).sortable(),
                     BooleanColumn::new(lens!(User.active)),
                 ))
-                .paginate(20),
+                .page_size(20),
             )
             // ANCHOR_END: user-table
             // ANCHOR: user-policy

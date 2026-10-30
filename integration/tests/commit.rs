@@ -67,7 +67,7 @@ impl Resource for AuditedResource {
             .slug("notes")
             .policy(Allow)
             .importable()
-            .table(Table::new(TextColumn::new(lens!(Note.title))).paginate(25))
+            .table(Table::new(TextColumn::new(lens!(Note.title))).page_size(25))
     }
 
     async fn before_commit(

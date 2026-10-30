@@ -12,7 +12,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | `->searchable()`, `->sortable()` | `.searchable()`, `.sortable()` on a column |
 | `->defaultSort('created_at', 'desc')` | `Table::default_sort_desc(lens!(Post.created_at))` |
 | table filters | `Table::filters`: `SelectFilter`, `TernaryFilter`, `DateFilter`, `QueryFilter` |
-| `->paginated([..])` | `Table::paginate(n)` |
+| `->paginated([..])` | `Table::per_page_options([..])` |
 | `->groups([..])` | `Table::group_by(lens)` |
 | `form()` | `ResourceDef::form`: a `Schema` of the [record form](./forms.md)'s controls |
 | `make:filament-resource --generate` | `#[derive(ModelForm)]` on the model, which writes the [record form](./forms.md#a-form-from-the-model) |

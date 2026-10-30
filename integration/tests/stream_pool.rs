@@ -23,7 +23,7 @@ impl Resource for PoolResource {
         ResourceDef::new()
             .slug("dummies")
             .policy(ReadOnly)
-            .table(Table::new(TextColumn::new(lens!(PoolDummy.name))).paginate(25))
+            .table(Table::new(TextColumn::new(lens!(PoolDummy.name))).page_size(25))
     }
 }
 

@@ -91,7 +91,7 @@ impl Resource for DocResource {
                     Ability::ViewAny | Ability::View(_) | Ability::Create | Ability::Update(_)
                 )
             })
-            .table(Table::new(TextColumn::new(lens!(Doc.title))).paginate(25))
+            .table(Table::new(TextColumn::new(lens!(Doc.title))).page_size(25))
     }
 }
 #[derive(tablo::RecordForm)]

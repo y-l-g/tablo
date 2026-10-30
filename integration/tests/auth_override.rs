@@ -139,7 +139,7 @@ impl Resource for MemberResource {
         ResourceDef::new()
             .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
             .tenancy(Tenancy::none())
-            .table(Table::new(TextColumn::new(lens!(Member.handle))).paginate(25))
+            .table(Table::new(TextColumn::new(lens!(Member.handle))).page_size(25))
     }
 }
 
@@ -168,7 +168,7 @@ impl Resource for NoteResource {
         ResourceDef::new()
             .policy(when(is_ada).and(tablo::ReadOnly))
             .tenancy(Tenancy::column(Note::fields().tenant_id()))
-            .table(Table::new(TextColumn::new(lens!(Note.body))).paginate(25))
+            .table(Table::new(TextColumn::new(lens!(Note.body))).page_size(25))
     }
 }
 
