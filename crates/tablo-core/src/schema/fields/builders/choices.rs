@@ -158,8 +158,8 @@ impl<F> ChoiceField<F> {
     ///   resource's policy, tenancy, field access, rules and hooks, as a create from its list does.
     ///   The link renders only while the panel mounts the resource with a create page and its
     ///   policy allows `ViewAny` and `Create`, and not while the choice renders disabled.
-    /// - The saved record becomes the choice only when the related resource lets the user view it
-    ///   in the request's tenant; otherwise the dialog says it was created and the choice stays as
+    /// - The saved record becomes the choice only when the related resource's scoped query holds
+    ///   it, as its options would; otherwise the dialog says it was created and the choice stays as
     ///   it was. The submission checks the key as for any relationship.
     /// - The option shows the record's [`record_title`](crate::ResourceDef::record_title) until the
     ///   form renders again, even under [`relationship_labelled`](Self::relationship_labelled).

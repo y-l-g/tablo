@@ -72,7 +72,9 @@ impl<M> Detail<M> {
         children.into_detail()
     }
 
-    /// A detail page showing nothing, which turns the page off.
+    /// A detail page showing nothing, for a resource that serves no view page: mounting refuses
+    /// it while the view page is served, which
+    /// [`without_page(ResourcePage::View)`](crate::ResourceDef::without_page) turns off.
     pub fn empty() -> Self {
         Self { nodes: Vec::new() }
     }
