@@ -3,10 +3,10 @@
   "private": true,
   "description": "The TipTap bundle rich_text.js imports; `cargo xtask vendor-tiptap` builds tiptap.js from this lockfile.",
   "dependencies": {
-    "@tiptap/core": "3.32.1",
-    "@tiptap/extensions": "3.32.1",
-    "@tiptap/pm": "3.32.1",
-    "@tiptap/starter-kit": "3.32.1"
+    "@tiptap/core": "3.32.2",
+    "@tiptap/extensions": "3.32.2",
+    "@tiptap/pm": "3.32.2",
+    "@tiptap/starter-kit": "3.32.2"
   },
   "devDependencies": {
     "esbuild": "0.28.2"
