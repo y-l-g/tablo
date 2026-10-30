@@ -5,7 +5,9 @@
 use tablo::{
     Ability, Action, NotificationStatus, Resource, ResourceDef, Table, TextColumn, WriteError,
     lens,
-    testing::{ImportError, TestClient, body_string, import_errors, mount_with_handle},
+    testing::{
+        ImportError, TestClient, body_string, import_errors, mount_with_handle, notification,
+    },
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -40,6 +42,7 @@ struct InvoiceForm {
 
 const RESERVED: &str = "Numbers starting with X are reserved";
 const FINAL: &str = "A paid invoice is final";
+const ALONE: &str = "Delete drafts one at a time";
 
 /// Takes an entry for `number`, then declines with `message` when `declines`.
 async fn enter<K>(
@@ -100,6 +103,12 @@ impl Resource for InvoiceResource {
         ex: &mut dyn toasty::Executor,
     ) -> Result<(), WriteError> {
         enter(&record.number, record.status == "paid", FINAL, &mut *ex).await?;
+        // A draft declines once its transaction has deleted another, whichever the batch takes
+        // first.
+        let after_another = Entry::all().exec(&mut *ex).await?.len() > 1;
+        if record.status == "draft" && after_another {
+            return Err(WriteError::declined(ALONE));
+        }
         Invoice::filter(Invoice::fields().id().eq(record.id))
             .delete()
             .exec(&mut *ex)
@@ -220,6 +229,32 @@ async fn a_declined_delete_flashes_the_message_and_keeps_the_record() {
     let reply = resource.delete(&open).submit().await;
     assert_eq!(reply.status(), 303, "a delete the rule passes lands");
     assert_eq!(invoices(&db).await.len(), 1);
+}
+
+/// The bulk delete runs each record's `delete_record` in one transaction, so a decline rolls back
+/// the delete the batch made before it.
+#[tokio::test]
+async fn a_declined_bulk_delete_keeps_every_record() {
+    let (db, router, handle) = router().await;
+    let first = issue(&db, "D1", "draft").await;
+    let second = issue(&db, "D2", "draft").await;
+    let client = TestClient::new(&router).panel(&handle);
+
+    let response = client
+        .submit(
+            "/admin/invoices/-/bulk-delete",
+            &format!("ids={},{}&confirm=1", first.id, second.id),
+        )
+        .await;
+    assert_eq!(response.status(), 303);
+    let note = notification(&response).expect("the decline flashes");
+    assert_eq!(note.title, ALONE);
+    assert_eq!(
+        invoices(&db).await.len(),
+        2,
+        "the first draft's delete rolls back"
+    );
+    assert_eq!(entries(&db).await, 0);
 }
 
 #[tokio::test]

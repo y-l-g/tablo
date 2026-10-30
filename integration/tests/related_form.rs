@@ -4,8 +4,8 @@
 use http::StatusCode;
 use tablo::{
     Ability, Change, DeclarationErrorKind, FieldErrors, NoForm, RelatedFormFault, Relation,
-    Resource, ResourceDef, ResourcePage, Site, TextColumn, lens,
-    testing::{TestClient, field_error, form_body, input_value, stale_form},
+    Resource, ResourceDef, ResourcePage, Site, TextColumn, WriteError, lens,
+    testing::{TestClient, declined_message, field_error, form_body, input_value, stale_form},
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -80,6 +80,17 @@ impl Resource for ProfileResource {
         errors
     }
 
+    async fn create_record(
+        cx: &Cx,
+        form: ProfileForm,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<Profile, WriteError<ProfileFormField>> {
+        if form.bio == "declined" {
+            return Err(WriteError::declined(DECLINED));
+        }
+        tablo::write_create::<Self>(cx, form, ex).await
+    }
+
     async fn before_commit(
         _cx: &Cx,
         change: &Change<Profile>,
@@ -103,6 +114,9 @@ struct ProfileForm {
     #[form(relationship = MemberResource)]
     member_id: Uuid,
 }
+
+/// The message the profile's `create_record` declines a bio of `declined` with.
+const DECLINED: &str = "Profiles are closed";
 
 /// Whether the request carries the cookie `name`: the switch the profile's policy reads.
 fn has_cookie(cx: &Cx, name: &str) -> bool {
@@ -204,6 +218,24 @@ async fn a_failing_child_hook_writes_neither_record() {
     )
     .await;
     assert!(response.status().is_server_error(), "{}", response.status());
+    assert!(members(&mut db).await.is_empty());
+    assert!(profiles(&mut db).await.is_empty());
+}
+
+/// A child that declines rolls the owner it was written after back, and the owner's form shows
+/// the message.
+#[tokio::test]
+async fn a_declined_child_writes_neither_record() {
+    let (router, mut db) = fixture().await;
+    let response = post_fields(
+        &router,
+        "/admin/members/-/create",
+        &[("name", "Ada"), ("profiles.bio", "declined")],
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let html = body_string(response).await;
+    assert_eq!(declined_message(&html).as_deref(), Some(DECLINED), "{html}");
     assert!(members(&mut db).await.is_empty());
     assert!(profiles(&mut db).await.is_empty());
 }
