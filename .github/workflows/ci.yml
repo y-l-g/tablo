@@ -159,6 +159,8 @@ jobs:
           --health-timeout 5s --health-retries 30
     env:
       TABLO_TEST_DATABASE_URL: mysql://root:mysql@localhost:3306/tablo
+      # Without debug info the test binaries link with less memory.
+      CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
       - uses: actions/checkout@v7
       - run: rustup toolchain install
@@ -166,7 +168,7 @@ jobs:
       - name: Sample used memory during the build
         run: |
           (while sleep 2; do
-            echo "$(date +%T) $(awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} END{print int((t-a)/1024)}' /proc/meminfo)"
+            echo "$(date +%T) $(awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} END{print int((t-a)/1024)}' /proc/meminfo) $(ps -eo rss=,comm= --sort=-rss | head -1 | awk '{print int($1/1024), $2}')"
           done > "$RUNNER_TEMP/memory.log" 2>&1) &
           echo $! > "$RUNNER_TEMP/memory.pid"
       - run: cargo test -p tablo-integration --features mysql --tests --locked
@@ -174,7 +176,7 @@ jobs:
         if: always()
         run: |
           kill "$(cat "$RUNNER_TEMP/memory.pid")" || true
-          awk '{ if ($2 > peak) peak = $2 } END { print "Peak used memory (MiB):", peak }' "$RUNNER_TEMP/memory.log"
+          awk '$2 > peak { peak = $2; line = $0 } END { print "Peak used memory (MiB):", peak; print "Sample at the peak (time, used MiB, largest process RSS MiB, name):", line }' "$RUNNER_TEMP/memory.log"
 
   turso:
     name: test (turso)
