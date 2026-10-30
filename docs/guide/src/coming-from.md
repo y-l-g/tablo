@@ -67,8 +67,9 @@ which the list, form and detail pages follow. This table maps their names to Tab
   `Schema` only lays its controls out. A POST with a key the form does not declare answers 400.
 - **The policy denies by default.** A new resource shows nothing until its policy allows
   `ViewAny`, and every write re-checks the policy on the row it loads.
-- **No inline editing.** A relation renders the related resource's table on the detail and edit
-  pages, or on a tab of its own, and its rows link to that resource's own forms. A list of values
-  edited in place is a repeater over a `#[document]` field.
+- **Relations edit through their own resource.** A relation renders the related resource's table
+  on the detail and edit pages, or on a tab of its own, and its rows link to that resource's own
+  forms. A list of values edited in place is a repeater over a `#[document]` field. A list cell
+  edits in place through `ToggleColumn`, `SelectColumn` or `TextInputColumn`.
 - **Server-rendered.** There is no Livewire or JavaScript component model: Topcoat reruns the
   page on the server and patches it in place.

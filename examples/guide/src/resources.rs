@@ -36,20 +36,15 @@ impl Resource for UserResource {
             )
             // ANCHOR_END: user-table
             // ANCHOR: user-policy
-            .policy_fn(|cx, ability: Ability<'_, User>| match ability {
-                Ability::ViewAny | Ability::View(_) => true,
-                Ability::Update(user) => !user.sso_managed,
-                Ability::Create
-                | Ability::DeleteAny
-                | Ability::Delete(_)
-                | Ability::RestoreAny
-                | Ability::Restore(_)
-                | Ability::ForceDeleteAny
-                | Ability::ForceDelete(_)
-                | Ability::RunAny { .. }
-                | Ability::Run { .. }
-                | Ability::RunHeader { .. } => is_admin(cx),
-            })
+            .policy(
+                Abilities::<User>::new()
+                    .view_any(|_cx| true)
+                    .view(|_cx, _user| true)
+                    .create(is_admin)
+                    .update(|_cx, user| !user.sso_managed)
+                    .delete(|cx, _user| is_admin(cx)),
+                // No restore or action: each is refused until the policy declares it.
+            )
             // ANCHOR_END: user-policy
             // ANCHOR: user-form
             .form(Schema::new(Section::new("Profile").schema((
