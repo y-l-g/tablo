@@ -45,7 +45,7 @@ async fn wired_table_carries_the_declared_action_chrome() {
                 .policy_fn(|_cx, ability| {
                     matches!(ability, Ability::DeleteAny | Ability::Delete(_))
                 })
-                .table(Table::new(TextColumn::new(lens!(User.name))).paginate(25))
+                .table(Table::new(TextColumn::new(lens!(User.name))).page_size(25))
         }
     }
 
@@ -65,8 +65,8 @@ async fn wired_table_carries_the_declared_action_chrome() {
         "wired_table must attach the delete/bulk chrome the resource declares"
     );
     assert_eq!(
-        wired.page_size(),
-        declared.table.page_size(),
+        wired.per_page(),
+        declared.table.per_page(),
         "wired_table must keep the declared page size"
     );
 }

@@ -33,7 +33,7 @@ struct ItemForm {
 }
 
 fn items_table() -> Table<Item> {
-    Table::new(TextColumn::new(lens!(Item.name)).searchable()).paginate(25)
+    Table::new(TextColumn::new(lens!(Item.name)).searchable()).page_size(25)
 }
 
 fn list_only(_cx: &Cx, ability: Ability<'_, Item>) -> bool {

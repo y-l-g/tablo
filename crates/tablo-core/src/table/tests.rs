@@ -78,9 +78,9 @@ async fn a_search_ors_its_term_across_the_searchable_columns() {
 }
 
 #[test]
-fn paginate_records_a_zero_page_size() {
+fn page_size_records_a_zero_page_size() {
     let errors = Table::<User>::new(TextColumn::new(lens!(User.name)))
-        .paginate(0)
+        .page_size(0)
         .declaration_errors();
     assert_eq!(errors, [DeclarationErrorKind::ZeroPageSize]);
 }
@@ -402,7 +402,7 @@ async fn seeded_users(names: &[&str]) -> topcoat::context::Cx {
 /// A cursor-paged table of users, `per_page` to a page: the cursor walk's subject.
 fn paged_users_table(per_page: usize) -> Table<User> {
     Table::<User>::new(TextColumn::new(lens!(User.name)).sortable())
-        .paginate(per_page)
+        .page_size(per_page)
         .pagination(crate::table::Pagination::Cursor)
 }
 
@@ -746,7 +746,7 @@ async fn stale_cursor_is_marked_for_retry() {
     let cx = topcoat::context::Cx::default().with(db);
     let table = || {
         Table::<Task>::new(TextColumn::new(lens!(Task.title)).sortable())
-            .paginate(2)
+            .page_size(2)
             .pagination(crate::table::Pagination::Cursor)
     };
     // The query orders by `title` then the PK to break ties, so a cursor
@@ -834,7 +834,7 @@ async fn numbered_page(
 #[tokio::test]
 async fn numbered_pages_count_and_clamp() {
     let cx = seeded_users(&["u01", "u02", "u03", "u04", "u05"]).await;
-    let table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable()).paginate(2);
+    let table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable()).page_size(2);
 
     let (rows, position) = numbered_page(&cx, &table, "").await;
     assert_eq!(rows, ["u01", "u02"]);
@@ -854,7 +854,7 @@ async fn numbered_pages_count_and_clamp() {
 
     // The count follows the search, so the pages do too.
     let searchable =
-        Table::<User>::new(TextColumn::new(lens!(User.name)).searchable().sortable()).paginate(2);
+        Table::<User>::new(TextColumn::new(lens!(User.name)).searchable().sortable()).page_size(2);
     let (rows, position) = numbered_page(&cx, &searchable, "q=u0&page=2").await;
     assert_eq!((rows.len(), position.total), (2, Some(5)));
     let (_, position) = numbered_page(&cx, &searchable, "q=u05").await;
@@ -880,7 +880,7 @@ async fn an_empty_numbered_table_is_page_one() {
 async fn simple_pages_look_one_row_ahead() {
     let cx = seeded_users(&["u01", "u02", "u03", "u04"]).await;
     let table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable())
-        .paginate(2)
+        .page_size(2)
         .pagination(crate::table::Pagination::Simple);
     let (rows, position) = numbered_page(&cx, &table, "").await;
     assert_eq!(rows, ["u01", "u02"]);
@@ -895,7 +895,7 @@ async fn simple_pages_look_one_row_ahead() {
 async fn per_page_reads_only_an_offered_size() {
     let cx = seeded_users(&["u01", "u02", "u03", "u04", "u05"]).await;
     let table = Table::<User>::new(TextColumn::new(lens!(User.name)).sortable())
-        .paginate(2)
+        .page_size(2)
         .per_page_options([4]);
     let (rows, position) = numbered_page(&cx, &table, "per_page=4").await;
     assert_eq!((rows.len(), position.per_page), (4, 4));

@@ -76,7 +76,7 @@ impl Resource for AuthorResource {
                     TextColumn::new(lens!(Author.name)).searchable().sortable(),
                     TextColumn::new(lens!(Author.email)),
                 ))
-                .paginate(2),
+                .page_size(2),
             )
     }
 }
@@ -101,7 +101,7 @@ impl Resource for PostResource {
                     // No resource administers comments.
                     CountColumn::unscoped(relation!(Post.comments)),
                 ))
-                .paginate(50),
+                .page_size(50),
             )
     }
 }
@@ -193,9 +193,9 @@ async fn bench_list_path(db: &Db, tenant: TenantId, iterations: usize) -> Vec<f6
         let start = Instant::now();
         let table = tablo_core::wired_table::<PostResource>(&cx).expect("PostResource is mounted");
         assert_eq!(
-            table.page_size(),
+            table.per_page(),
             50,
-            "declared .paginate(50) must reach the loader"
+            "declared .page_size(50) must reach the loader"
         );
         let query = tablo_core::scoped_query::<PostResource>(&cx).expect("tenant scope");
         // A page body declares the table's signals: the bench renders it as one.
@@ -277,7 +277,7 @@ mod tests;
 async fn run_bench(iterations: usize) {
     println!("=== Tablo bench (ungated): real list path ===");
     println!("workload: 50 rows, 2 includes (author + comments), tenancy set, policy enforced");
-    println!("path: wired_table -> WiredTable::render (scoped_query + .paginate(50)) -> HTML");
+    println!("path: wired_table -> WiredTable::render (scoped_query + .page_size(50)) -> HTML");
     println!("budget: <40ms p50 (50 rows, 2 includes), reference only");
 
     let sqlite = Db::builder()

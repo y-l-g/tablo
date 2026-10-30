@@ -284,7 +284,7 @@ pub enum DeclarationErrorKind {
     ///
     /// Declare columns; a resource whose model's table lists nothing declares its own `table`.
     NoColumns,
-    /// `Table::paginate(0)`.
+    /// `Table::page_size(0)`.
     ///
     /// Pass a page size of at least 1.
     ZeroPageSize,

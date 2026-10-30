@@ -11,10 +11,10 @@ use topcoat::{Result, context::Cx};
 
 use super::{Cursor, Table, TableState};
 
-/// The page size of a table that declares none with [`Table::paginate`].
+/// The page size of a table that declares none with [`Table::page_size`].
 pub const DEFAULT_PAGE_SIZE: NonZeroUsize = NonZeroUsize::new(25).unwrap();
 
-/// The page sizes a table offers a reader by default, beside its own [`Table::paginate`] size.
+/// The page sizes a table offers a reader by default, beside its own [`Table::page_size`] size.
 pub const DEFAULT_PER_PAGE_OPTIONS: [usize; 4] = [10, 25, 50, 100];
 
 /// How a table pages through its rows.

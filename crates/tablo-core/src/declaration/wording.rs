@@ -164,7 +164,7 @@ impl fmt::Display for DeclarationErrorKind {
             Self::NoColumns => f.write_str(
                 "no column: declare columns with `Table::new(columns)` or in `ResourceDef::table`",
             ),
-            Self::ZeroPageSize => f.write_str("`Table::paginate` needs a page size of at least 1"),
+            Self::ZeroPageSize => f.write_str("`Table::page_size` needs a page size of at least 1"),
             Self::UnsortableDefaultSort { column } => write!(
                 f,
                 "`Table::default_sort_by` sorts on '{column}', but the table declares no sortable column for it"

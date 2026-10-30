@@ -94,7 +94,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
             ResourceDef::new()
                 .slug("widgets")
                 .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
-                .table(Table::new(TextColumn::new(lens!(Widget.name))).paginate(25))
+                .table(Table::new(TextColumn::new(lens!(Widget.name))).page_size(25))
         }
 
         async fn create_record(
