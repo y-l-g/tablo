@@ -59,7 +59,7 @@ fn text_column_includes_accumulate_once_per_relation() {
         .include_unscoped(Pet::fields().vet())
         .include_unscoped(Pet::fields().owner());
     assert_eq!(
-        column.includes().len(),
+        column.includes().into_vec().len(),
         2,
         "two relations, one repeated: the column keeps each once"
     );
