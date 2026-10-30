@@ -6,7 +6,7 @@ use topcoat::context::Cx;
 use super::{ChoiceControl, Scope};
 use crate::{
     Text,
-    schema::relationship::{MAX_RELATIONSHIP_OPTIONS, OptionLoadError, RelatedCheck},
+    schema::relationship::{MAX_RELATIONSHIP_OPTIONS, OptionLoadError},
     text,
     values::FormValue,
 };
@@ -87,8 +87,8 @@ impl ChoiceControl {
                     )];
                 };
                 match (relationship.check)(cx, trimmed.to_string(), scope, &mut db).await {
-                    Ok(RelatedCheck::FoundViewable) => return Vec::new(),
-                    Ok(RelatedCheck::FoundHidden | RelatedCheck::NotFound) => "tablo-field-invalid",
+                    Ok(true) => return Vec::new(),
+                    Ok(false) => "tablo-field-invalid",
                     Err(error) => load_failure(&error),
                 }
             }
@@ -152,8 +152,8 @@ impl ChoiceControl {
             Scope::Nothing => return vec![text!("tablo-field-invalid", label = label)],
         };
         let failure = match (relationship.check)(cx, trimmed.to_string(), scope, ex).await {
-            Ok(RelatedCheck::FoundViewable) => return Vec::new(),
-            Ok(RelatedCheck::FoundHidden | RelatedCheck::NotFound) => "tablo-field-invalid",
+            Ok(true) => return Vec::new(),
+            Ok(false) => "tablo-field-invalid",
             Err(error) => load_failure(&error),
         };
         vec![text!(failure, label = label)]

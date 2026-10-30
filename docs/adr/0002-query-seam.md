@@ -35,6 +35,10 @@ from any other UUID column, so a lens to an unmarked column does not compile.
 
 ## Rejected
 
+- Hiding rows through the policy's `View`, asked of each loaded row: a policy runs in Rust, so
+  the rows it drops still count toward the page, the option cap and the totals, and each loader
+  would have to drop them itself. `View` decides who opens a record; reading rows asks `ViewAny`
+  only, and every loader shows the rows of the scoped query.
 - `Resource::query(cx)`, a static method of the trait: one resource type scopes its rows the same
   way on every panel, so a panel that serves fewer rows needs a second resource type.
 - A `#[tenant]` field attribute: `toasty::Model` derives only its own attributes.

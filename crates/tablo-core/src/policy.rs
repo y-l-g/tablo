@@ -38,13 +38,16 @@ pub use abilities::Abilities;
 #[derive(Debug)]
 #[derive_where(Clone, Copy)]
 pub enum Ability<'a, M> {
-    /// Open the list, export it, and offer the records as relationship options: asked by the list
-    /// and its live refresh, the sidebar entry, the export, related tables and relationship
-    /// options. It is the only ability the list asks: a policy cannot run in the database, so the
-    /// rows a user must not see belong out of [`ResourceDef::query`](crate::ResourceDef::query).
+    /// Read the resource's rows: asked by the list and its live refresh, the sidebar entry, the
+    /// export, related tables, relationship options and relation columns, and the global search.
+    /// All but the global search show every row of the resource's query, asking no record
+    /// ability of it: a
+    /// policy cannot run in the database, so the rows a user must not see belong out of
+    /// [`ResourceDef::query`](crate::ResourceDef::query).
     ViewAny,
-    /// See one record: asked by the detail page, the edit page and POST, deletes, each exported
-    /// row, each relationship option, and each row's actions.
+    /// Open one record: asked by the detail page, the edit page and POST, deletes, record pages
+    /// and each global search result, which leaves out a record it refuses. Every write asks it
+    /// of the records it loads, and a list row it refuses shows without its actions or checkbox.
     View(&'a M),
     /// Open the create form and submit it: asked by the create page and POST, and the Create
     /// button.

@@ -1,7 +1,7 @@
 //! The media library: the `medias` table and the page that fills it.
 
 use tablo::{
-    Ability, Notification, Page, PageDef, Uploader, csrf, db::db, extend::OptionSource,
+    Notification, Page, PageDef, Uploader, csrf, db::db, extend::OptionSource,
     notification::set_notification, require_tenant, sanitize_filename,
 };
 use topcoat::{
@@ -40,8 +40,8 @@ impl OptionSource for MediaLibrary {
             .filter(MediaAsset::fields().tenant_id().eq(tenant)))
     }
 
-    fn allows(_cx: &Cx, ability: Ability<'_, MediaAsset>) -> bool {
-        ability.is_read()
+    fn lists(_cx: &Cx) -> bool {
+        true
     }
 
     fn requires_tenant(_cx: &Cx) -> bool {

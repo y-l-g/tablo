@@ -110,7 +110,7 @@ pub(crate) struct Links<P> {
     /// The attach dialog's input: a choice of one child record.
     pub(crate) input: InputSpec,
     /// Links the record the key names, which the input's re-check proved a child record in
-    /// scope that the user may view; linking a linked record changes nothing. Answers the key as
+    /// scope; linking a linked record changes nothing. Answers the key as
     /// the child's URLs spell it.
     pub(crate) attach: LinkFn<P, String>,
     /// Unlinks the records the keys name: 404 unless each is linked and in scope, 403 unless the
@@ -316,9 +316,10 @@ where
     /// [`Change::Detach`](crate::Change::Detach).
     ///
     /// Attaching and detaching ask the owner's policy for `Update`, as editing it does: no button
-    /// renders without it, and the routes answer 403. A record the related resource's policy
-    /// refuses `View` is neither offered nor detached. Mounting refuses a join model a link
-    /// cannot write.
+    /// renders without it, and the routes answer 403. The attach dialog offers the related
+    /// resource's rows as its relationship choices do; a record its policy refuses `View` shows
+    /// without a Detach action, as it shows without its other row actions, and is not detached.
+    /// Mounting refuses a join model a link cannot write.
     pub fn belongs_to_many<C>(via: impl Into<Path<P, List<C::Model>>>) -> Self
     where
         C: Resource,

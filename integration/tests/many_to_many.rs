@@ -195,6 +195,19 @@ async fn library() -> Library {
     }
 }
 
+/// A panel over `db` whose books leave out the ones titled "Hidden".
+fn narrowed(db: &Db) -> Router {
+    mount(
+        db.clone(),
+        panel()
+            .resource::<ShelfResource>()
+            .resource_with::<BookResource>(|def| {
+                def.query(|_cx, query| query.filter(Book::fields().title().ne("Hidden")))
+            }),
+    )
+    .expect("the panel mounts")
+}
+
 /// The books `shelf` holds, by the join rows that place them.
 async fn held(db: &Db, shelf: &Shelf) -> Vec<Uuid> {
     let mut db = db.clone();
@@ -437,16 +450,12 @@ async fn a_refusing_hook_rolls_back_the_attach_or_detach_and_its_own_rows() {
 }
 
 #[tokio::test]
-async fn an_edit_leaves_linked_the_books_the_user_may_not_view() {
+async fn an_edit_leaves_linked_the_books_its_source_leaves_out() {
     let Library {
-        router,
-        db,
-        open,
-        hidden,
-        ..
+        db, open, hidden, ..
     } = library().await;
+    let router = narrowed(&db);
     let html = body_string(get(&router, &format!("/admin/shelves/{}/edit", open.id)).await).await;
-    // The shelf's books table under the form still lists it, as on the detail page.
     assert!(
         !html.contains(&format!("name=\"books\" value=\"{}\"", hidden.id)),
         "the form offers no hidden book: {html}"
@@ -464,13 +473,8 @@ async fn an_edit_leaves_linked_the_books_the_user_may_not_view() {
 
 #[tokio::test]
 async fn an_edit_keeps_its_links_past_the_option_cap() {
-    let Library {
-        router,
-        db,
-        open,
-        seen,
-        ..
-    } = library().await;
+    let Library { db, open, seen, .. } = library().await;
+    let router = narrowed(&db);
     let mut db_q = db.clone();
     for n in 0..=tablo::MAX_RELATIONSHIP_OPTIONS {
         let title = format!("Filler {n}");

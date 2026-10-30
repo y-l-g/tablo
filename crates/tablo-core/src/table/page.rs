@@ -353,7 +353,7 @@ where
 }
 
 /// Which side of a cursor a probe looks past.
-pub(crate) enum Past {
+enum Past {
     /// Rows after the cursor, in the query's order.
     After(Value),
     /// Rows before the cursor.
@@ -366,7 +366,7 @@ pub(crate) enum Past {
 /// ends exactly at the table's edge carries one with nothing behind it.
 /// The list loader validates the cursor its links carry with
 /// this, and the export asks it whether rows remain past its row cap.
-pub(crate) async fn row_exists_past<M>(
+async fn row_exists_past<M>(
     db: &mut toasty::Db,
     query: Query<List<M>>,
     past: Past,

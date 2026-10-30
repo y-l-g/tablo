@@ -595,7 +595,7 @@ struct Article {
     writer_id: uuid::Uuid,
 }
 
-/// The writers, but for the one named "Hidden", which the user may not view.
+/// The writers, but for the one named "Hidden", which the source's query leaves out.
 struct Writers;
 
 impl crate::schema::OptionSource for Writers {
@@ -606,13 +606,10 @@ impl crate::schema::OptionSource for Writers {
     fn scoped_query(
         _cx: &topcoat::context::Cx,
     ) -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Writer>>> {
-        Ok(toasty::stmt::Query::all())
+        Ok(toasty::stmt::Query::all().filter(Writer::fields().name().ne("Hidden")))
     }
-    fn allows(_cx: &topcoat::context::Cx, ability: crate::Ability<'_, Writer>) -> bool {
-        match ability {
-            crate::Ability::View(writer) => writer.name != "Hidden",
-            ability => ability.is_read(),
-        }
+    fn lists(_cx: &topcoat::context::Cx) -> bool {
+        true
     }
 }
 

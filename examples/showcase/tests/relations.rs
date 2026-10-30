@@ -142,7 +142,7 @@ async fn posts_list_shows_comments_count_via_include() {
             .await
             .unwrap()
             .unwrap_or_else(|| panic!("the seed creates {title}"));
-        // `CommentResource`'s policy hides a removed comment, so the count leaves it out.
+        // `CommentResource`'s query leaves a removed comment out, so the count does too.
         Comment::filter(
             Comment::fields()
                 .post_id()
@@ -368,7 +368,8 @@ async fn fixture_posts(db: &mut toasty::Db) -> (Post, Post) {
     (commented, bare)
 }
 
-/// The post's own comments, rendered by the comments list's table.
+/// The post's own comments, rendered by the comments list's table: the ones `CommentResource`'s
+/// query keeps.
 #[tokio::test]
 async fn the_post_page_lists_its_own_comments_through_the_comments_table() {
     let db = full_db().await;
@@ -378,6 +379,7 @@ async fn the_post_page_lists_its_own_comments_through_the_comments_table() {
     let (commented, bare) = fixture_posts(&mut db_q).await;
     let related = Comment::all()
         .filter(Comment::fields().post_id().eq(commented.id))
+        .filter(Comment::fields().body().ne(REMOVED_COMMENT_BODY))
         .exec(&mut db_q)
         .await
         .unwrap();
@@ -642,11 +644,10 @@ async fn comments_list_shows_body_and_post_title() {
         !html.contains("(unloaded)"),
         "unloaded marker leaked into list: {html}"
     );
-    // The removed placeholder keeps its row: the list still shows the
-    // moderation state instead of dropping the row.
+    // `CommentResource`'s query leaves a removed comment out of its list, as out of every count.
     assert!(
-        html.contains("[removed]"),
-        "the moderation placeholder must stay visible: {html}"
+        !html.contains("[removed]"),
+        "a removed comment must not list: {html}"
     );
 }
 

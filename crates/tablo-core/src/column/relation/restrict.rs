@@ -14,7 +14,6 @@ use topcoat::{Result, context::Cx};
 use super::ToOneRelation;
 use crate::{
     BoxFuture,
-    policy::Ability,
     schema::{OptionSource, ensure_option_access},
     toasty_compat::pk,
 };
@@ -93,8 +92,8 @@ fn checked<S: OptionSource>(cx: &Cx, _tenant: Option<crate::TenantId>) -> Arc<Ch
 /// How many keys one visibility query names, under every driver's bound-parameter limit.
 const KEYS_PER_QUERY: usize = 500;
 
-/// Record whether `S` shows each of `records` the request has not checked yet: its tenant-scoped
-/// query returns it and its policy allows viewing it. A source the request may not load from,
+/// Record whether `S` shows each of `records` the request has not checked yet: its scoped query
+/// returns it. A source the request may not load from,
 /// such as a tenant-scoped one without a tenant, shows none, as its relationship choices offer
 /// none.
 async fn check<S: OptionSource>(
@@ -134,10 +133,7 @@ async fn check<S: OptionSource>(
                 .exec(&mut *ex)
                 .await
                 .map_err(crate::error::unavailable)?;
-            for record in rows
-                .iter()
-                .filter(|record| S::allows(cx, Ability::View(record)))
-            {
+            for record in &rows {
                 answers.insert(pk::pk_text(record), true);
             }
         }

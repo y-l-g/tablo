@@ -4,7 +4,7 @@ use toasty::stmt::{List, Query};
 use topcoat::context::Cx;
 
 use crate::{
-    Ability, DeclarationErrorKind,
+    DeclarationErrorKind,
     schema::{ChoiceField, Field, OptionSource, Schema},
     test_support::memory_db,
     values::FormValue,
@@ -50,8 +50,8 @@ macro_rules! source {
             fn scoped_query(_cx: &Cx) -> topcoat::Result<Query<List<$model>>> {
                 Ok(Query::all())
             }
-            fn allows(_cx: &Cx, ability: Ability<'_, $model>) -> bool {
-                ability.is_read()
+            fn lists(_cx: &Cx) -> bool {
+                true
             }
         }
     };

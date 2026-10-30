@@ -8,7 +8,7 @@ use tablo::{
     testing::{CreateOptionLink, Picked, create_option_links, field_error, picked, posts_picking},
 };
 use toasty::Db;
-use topcoat::{context::Cx, router::Router};
+use topcoat::router::Router;
 use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, form_body, get, mount, panel, refusal, test_db};
@@ -36,14 +36,6 @@ struct AuthorForm {
     name: String,
 }
 
-/// Every author but the one named "Hidden", which the user may still create.
-fn all_but_hidden(_cx: &Cx, ability: Ability<'_, Author>) -> bool {
-    match ability {
-        Ability::View(author) => author.name != "Hidden",
-        _ => true,
-    }
-}
-
 struct AuthorResource;
 
 impl Resource for AuthorResource {
@@ -53,9 +45,11 @@ impl Resource for AuthorResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("authors")
-            .policy(all_but_hidden)
+            .policy(Allow)
             .table(Table::new(TextColumn::new(lens!(Author.name))))
             .record_title(lens!(Author.name))
+            // Every author but the one named "Hidden", which the user may still create.
+            .query(|_cx, query| query.filter(Author::fields().name().ne("Hidden")))
     }
 }
 
@@ -269,7 +263,7 @@ async fn a_framed_create_lands_on_the_record_the_choice_takes() {
 }
 
 #[tokio::test]
-async fn a_record_the_user_may_not_view_is_created_but_not_chosen() {
+async fn a_record_its_source_leaves_out_is_created_but_not_chosen() {
     let (db, router) = router().await;
 
     assert_eq!(

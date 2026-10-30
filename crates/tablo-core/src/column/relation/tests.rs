@@ -1,7 +1,7 @@
 use toasty::Db;
 
 use super::*;
-use crate::{Detail, policy::Ability, relation, test_support::memory_db};
+use crate::{Detail, relation, test_support::memory_db};
 
 #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
 struct Shelf {
@@ -130,7 +130,7 @@ impl crate::schema::OptionSource for Shelves {
         format!("Shelf {}", shelf.name)
     }
 
-    fn allows(_cx: &topcoat::context::Cx, _ability: Ability<'_, Shelf>) -> bool {
+    fn lists(_cx: &topcoat::context::Cx) -> bool {
         true
     }
 }
@@ -203,8 +203,8 @@ async fn the_page_loads_the_relations_its_relation_columns_read() {
     );
 }
 
-/// A column over a source drops the related records the source's query leaves out ("Solaris") and
-/// the ones its policy does not let the user view ("Ubik"), whatever the relation's shape.
+/// A column over a source drops the related records the source's query leaves out ("Solaris" and
+/// "Ubik"), whatever the relation's shape.
 #[tokio::test]
 async fn a_scoped_column_shows_only_what_its_source_shows() {
     let cx = crate::test_support::cx();
@@ -233,60 +233,62 @@ async fn a_scoped_column_shows_only_what_its_source_shows() {
     assert_eq!(count.text(&elsewhere, &shelves[0]), "0");
 }
 
-/// Books, labelled by their title: the query leaves "Solaris" out, and "Ubik" cannot be viewed.
+/// Books, labelled by their title: the query leaves "Solaris" and "Ubik" out.
 struct Titles;
 
 impl OptionSource for Titles {
     type Model = Book;
 
     fn scoped_query(_cx: &Cx) -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Book>>> {
-        Ok(toasty::stmt::Query::all().filter(Book::fields().title().ne("Solaris")))
+        Ok(toasty::stmt::Query::all()
+            .filter(Book::fields().title().ne("Solaris"))
+            .filter(Book::fields().title().ne("Ubik")))
     }
 
     fn label(_cx: &Cx, book: &Book) -> String {
         book.title.clone()
     }
 
-    fn allows(_cx: &Cx, ability: Ability<'_, Book>) -> bool {
-        !matches!(ability, Ability::View(book) if book.title == "Ubik")
+    fn lists(_cx: &Cx) -> bool {
+        true
     }
 }
 
-/// Shelves the user may list and none of which they may view.
+/// Shelves the user may list and whose query holds none.
 struct NoShelves;
 
 impl OptionSource for NoShelves {
     type Model = Shelf;
 
     fn scoped_query(_cx: &Cx) -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Shelf>>> {
-        Ok(toasty::stmt::Query::all())
+        Ok(toasty::stmt::Query::all().filter(crate::toasty_compat::never()))
     }
 
     fn label(_cx: &Cx, shelf: &Shelf) -> String {
         shelf.name.clone()
     }
 
-    fn allows(_cx: &Cx, ability: Ability<'_, Shelf>) -> bool {
-        matches!(ability, Ability::ViewAny)
+    fn lists(_cx: &Cx) -> bool {
+        true
     }
 }
 
-/// Readers the user may list and none of whom they may view.
+/// Readers the user may list and whose query holds none.
 struct NoReaders;
 
 impl OptionSource for NoReaders {
     type Model = Reader;
 
     fn scoped_query(_cx: &Cx) -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Reader>>> {
-        Ok(toasty::stmt::Query::all())
+        Ok(toasty::stmt::Query::all().filter(crate::toasty_compat::never()))
     }
 
     fn label(_cx: &Cx, reader: &Reader) -> String {
         reader.name.clone()
     }
 
-    fn allows(_cx: &Cx, ability: Ability<'_, Reader>) -> bool {
-        matches!(ability, Ability::ViewAny)
+    fn lists(_cx: &Cx) -> bool {
+        true
     }
 }
 

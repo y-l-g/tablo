@@ -241,7 +241,7 @@ where
     /// #     fn label(_cx: &topcoat::context::Cx, tag: &Tag) -> String {
     /// #         tag.name.clone()
     /// #     }
-    /// #     fn allows(_cx: &topcoat::context::Cx, _: tablo_core::Ability<'_, Tag>) -> bool {
+    /// #     fn lists(_cx: &topcoat::context::Cx) -> bool {
     /// #         true
     /// #     }
     /// # }
