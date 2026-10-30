@@ -130,8 +130,8 @@ pub enum DeclarationErrorKind {
     ///
     /// Keep one home page; register the other with `page`.
     SecondHome,
-    /// Every resource is [`navigation_hidden`](crate::ResourceDef::navigation_hidden) and the
-    /// panel has no home page, so its root, where a sign-in lands, leads nowhere.
+    /// Every resource declares [`without_navigation`](crate::ResourceDef::without_navigation) and
+    /// the panel has no home page, so its root, where a sign-in lands, leads nowhere.
     ///
     /// Show one resource in the sidebar, or register a page with `Panel::home`.
     NoRoot,
@@ -553,17 +553,23 @@ pub enum DeclarationErrorKind {
     /// A non-nullable column nothing writes on create, for a resource that serves a create page:
     /// not the form, not a Toasty `#[default(..)]`, not the tenant stamp, not a `create_column`.
     ///
-    /// Add the field to the form, a default to the model, or a `create_column`; or make the
-    /// resource `edit_only`.
+    /// Add the field to the form, a default to the model, or a `create_column`; or turn the
+    /// create page off with `without_page(ResourcePage::Create)`.
     UnwrittenColumn {
         /// The column.
         column: String,
     },
     /// [`importable`](crate::ResourceDef::importable) on a resource that serves no create page:
-    /// it has no record form, or is [`edit_only`](crate::ResourceDef::edit_only).
+    /// it has no record form, or turns the page off with
+    /// [`without_page`](crate::ResourceDef::without_page).
     ///
     /// Drop `importable`, or serve the create page.
     ImportWithoutCreate,
+    /// A detail listing no column on a resource that serves the view page.
+    ///
+    /// Declare a [`detail`](crate::ResourceDef::detail) or a table, or turn the page off with
+    /// `without_page(ResourcePage::View)`.
+    EmptyDetail,
     /// A `has_one` relation whose related form cannot render inside the owner's form.
     RelatedForm(RelatedFormFault),
     /// A many-to-many field or relation whose join model cannot link records.

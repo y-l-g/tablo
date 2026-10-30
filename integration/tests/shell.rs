@@ -75,7 +75,7 @@ async fn the_brand_cannot_break_out_of_the_shell() {
 #[tokio::test]
 async fn the_theme_cookie_overrides_the_dark_mode_default() {
     let light = books(panel()).await;
-    let dark = books(panel().dark_mode(true)).await;
+    let dark = books(panel().dark_by_default()).await;
     for (router, cookie, tag) in [
         (
             &light,
@@ -151,7 +151,7 @@ async fn the_sign_in_page_follows_the_dark_mode_default() {
         db,
         Panel::new("admin")
             .auth(tablo::Auth::password())
-            .dark_mode(true),
+            .dark_by_default(),
     )
     .expect("the panel mounts");
     let response = crate::common::get(&router, "/admin/login").await;

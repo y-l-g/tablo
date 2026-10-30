@@ -17,6 +17,7 @@ mod field_access;
 mod global_search;
 mod header_action;
 mod mounted;
+mod pages;
 mod query;
 mod record_page;
 mod record_title;
@@ -43,6 +44,8 @@ pub(crate) use mounted::{
     MountScope, Mounted, Mounts, is_mounted, is_restricted_model, is_tenant_model, model_rules,
     mounted, require_mounted, restricts_any,
 };
+pub(crate) use pages::Pages;
+pub use pages::ResourcePage;
 pub(crate) use query::QueryFn;
 pub(crate) use record_page::{
     RESERVED_SEGMENTS as RESERVED_RECORD_SEGMENTS, RecordPageEntry, check as check_record_pages,
@@ -532,7 +535,7 @@ impl<R: Resource> crate::schema::OptionSource for R {
     fn create_page(cx: &Cx) -> Option<String> {
         let mounted = mounted::<R>(cx)?;
         // The page a save lands on offers the record only to a user who may list the resource.
-        (mounted.creates && mounted.can_create(cx) && mounted.can(cx, crate::Ability::ViewAny))
+        (mounted.pages.create && mounted.can_create(cx) && mounted.can(cx, crate::Ability::ViewAny))
             .then(|| crate::naming::create_page_url(&mounted.url))
     }
 }

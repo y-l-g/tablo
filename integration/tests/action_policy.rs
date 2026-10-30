@@ -4,8 +4,8 @@
 //! `Panel::resource_with`, the guide's way to serve a resource read-only in a second panel.
 
 use tablo::{
-    Ability, Action, Allow, Detail, NoForm, NotificationStatus, Places, Policy, ReadOnly, Resource,
-    ResourceDef, Table, TextColumn, lens, url,
+    Ability, Action, Allow, NoForm, NotificationStatus, Places, Policy, ReadOnly, Resource,
+    ResourceDef, ResourcePage, Table, TextColumn, lens, url,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -225,7 +225,7 @@ async fn the_url_helpers_spell_a_records_routes() {
 
     // Without a detail or a record form, the panel serves no such page.
     let undetailed = panel()
-        .resource_with::<TicketResource>(|def| def.detail(Detail::empty()))
+        .resource_with::<TicketResource>(|def| def.without_page(ResourcePage::View))
         .handle(&db)
         .expect("panel builds")
         .context();

@@ -105,7 +105,8 @@ pub struct Panel {
     prefix: String,
     shell_assets: Option<ShellAssets>,
     brand: Option<Brand>,
-    dark_mode: Option<bool>,
+    /// Whether [`Self::dark_by_default`] starts a visitor who has not chosen a theme dark.
+    dark_mode: bool,
     /// Frames the panel's pages; `None` renders the shipped shell.
     layout: Option<LayoutRenderFn>,
     /// The resources and pages, in registration order.
@@ -153,7 +154,7 @@ impl Panel {
             prefix,
             shell_assets: None,
             brand: None,
-            dark_mode: None,
+            dark_mode: false,
             layout: None,
             registrations: Vec::new(),
             content_security_policy: headers::Policy::Default,
@@ -380,9 +381,9 @@ impl Panel {
         self
     }
 
-    /// Sets the theme a visitor who has not chosen one sees, dark when `true`.
-    pub fn dark_mode(mut self, enabled: bool) -> Self {
-        self.dark_mode = Some(enabled);
+    /// Starts a visitor who has not chosen a theme dark; without the call the panel starts light.
+    pub fn dark_by_default(mut self) -> Self {
+        self.dark_mode = true;
         self
     }
 

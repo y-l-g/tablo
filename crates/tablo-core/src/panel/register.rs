@@ -227,8 +227,8 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
         };
         let entries = mounted.actions.entries();
         let routes = OptionalRoutes {
-            create: mounted.creates,
-            import: mounted.creates && mounted.imports,
+            create: mounted.pages.create,
+            import: mounted.pages.create && mounted.imports,
             record: entries.iter().any(|a| a.places.intersects(Places::RECORD)),
             list: !mounted.header_actions.is_empty()
                 || entries.iter().any(|a| a.places.contains(Places::BULK)),
@@ -325,7 +325,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
 
 /// Which optional routes a resource serves.
 struct OptionalRoutes {
-    /// The create page: a record form, and not [`edit_only`](crate::ResourceDef::edit_only).
+    /// The create page: see [`ResourcePage::Create`](crate::ResourcePage::Create).
     create: bool,
     /// The CSV import beside the create page: [`importable`](crate::ResourceDef::importable).
     import: bool,

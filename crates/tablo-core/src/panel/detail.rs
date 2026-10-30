@@ -17,7 +17,6 @@ use super::{
 };
 use crate::{
     db::db,
-    form::RecordForm,
     policy::Ability,
     resource::{Places, PublicLink, Resource},
     topcoat_compat::async_page,
@@ -43,7 +42,7 @@ pub(crate) fn resource_view<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let back = resource.url.clone();
         let public_link = resource.public_link(cx, &record);
         let uri = topcoat::router::request::uri(cx);
-        let edit = (<R::Form as RecordForm>::HAS_FORM
+        let edit = (resource.pages.edit
             && !resource.is_trashed(&record)
             && resource.can(cx, Ability::Update(&record)))
         .then(|| format!("{}/{}", uri.path(), super::url::EDIT_ROUTE_SEGMENT));

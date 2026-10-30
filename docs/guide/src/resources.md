@@ -26,7 +26,8 @@ the model, or a `#[derive(RecordForm)]` struct, with one form control per field.
 | --- | --- | --- |
 | `table(..)` | the model's `ModelColumns::table()` | the list's columns, filters and options: [Tables](./tables.md) |
 | `form(..)` | every control, in declaration order | how the create and edit forms arrange the record form's controls: [Forms](./forms.md) |
-| `detail(..)` | the declared table's columns, else the model's `ModelColumns::detail()` | the detail page's columns; `Detail::empty()` turns the page off: [Detail pages](./detail-pages.md) |
+| `detail(..)` | the declared table's columns, else the model's `ModelColumns::detail()` | the detail page's columns: [Detail pages](./detail-pages.md) |
+| `without_page(ResourcePage::..)` | the list, the view page, and the create and edit pages of a resource with a record form | turns the create or the view page off; the policy decides who may open a page, never whether it exists |
 | `record_title(lens!(..))` | the label and the record's key | the detail page's heading, each relationship option over the resource, which also searches the column, each [global search](./panel-and-routing.md#global-search) result, and a `RelationColumn::of` cell |
 | `global_search(..)`, `without_global_search()` | searched, each result titled alone | the details under each result in the panel's [global search](./panel-and-routing.md#global-search), or the resource left out of it |
 | `public_link(..)` | none | the record's public page, linked from its detail and edit pages |
@@ -37,7 +38,7 @@ the model, or a `#[derive(RecordForm)]` struct, with one form control per field.
 | `tenancy(..)` | none: served to every tenant, which mounting refuses over tenant-owned rows | how rows belong to a tenant: [Policy, auth, tenancy](./policy-auth-tenancy.md#tenancy) |
 | `create_column(..)` | none | a column an overridden `create_record` sets itself, once per column |
 | `slug(..)`, `label(..)`, `plural_label(..)` | from the type names | URLs and titles: [Naming](#naming) |
-| `icon(..)`, `navigation_order(..)`, `navigation_group(..)`, `navigation(..)`, `navigation_hidden()` | the default entry | the sidebar entry; `navigation_hidden()` leaves it out: [Sidebar](./panel-and-routing.md#sidebar) |
+| `icon(..)`, `navigation_order(..)`, `navigation_group(..)`, `navigation(..)`, `without_navigation()` | the default entry | the sidebar entry; `without_navigation()` leaves it out: [Sidebar](./panel-and-routing.md#sidebar) |
 
 The panel builds the def once when it mounts and serves that copy to every request.
 `Panel::resource_with` adjusts it for one panel, so the same resource can mount read-only in a

@@ -37,7 +37,7 @@ pub(crate) use crate::naming::{
     CREATE_ROUTE_SEGMENT, DASH_ROUTE_SEGMENT, create_page_url, list_route,
 };
 use crate::{
-    Page, RecordForm, RecordPage,
+    Page, RecordPage,
     resource::{Action, Mounted, Places, Resource, mounted},
     topcoat_compat::href,
 };
@@ -104,7 +104,7 @@ pub fn record<R: Resource>(cx: &Cx, record: &R::Model) -> Option<String> {
 
 /// `record`'s edit page, e.g. `/admin/posts/42/edit`, or `None` when `R` has no record form.
 pub fn edit<R: Resource>(cx: &Cx, record: &R::Model) -> Option<String> {
-    keyed::<R>(cx, record, |_| <R::Form as RecordForm>::HAS_FORM)
+    keyed::<R>(cx, record, |mounted| mounted.pages.edit)
         .map(|(list, key)| row_edit_url(&list, &key))
 }
 
@@ -129,7 +129,7 @@ pub fn delete<R: Resource>(cx: &Cx, record: &R::Model) -> Option<String> {
 /// `R`'s create page, e.g. `/admin/posts/-/create`, or `None` when `R` serves none.
 pub fn create<R: Resource>(cx: &Cx) -> Option<String> {
     mounted::<R>(cx)
-        .filter(|mounted| mounted.creates)
+        .filter(|mounted| mounted.pages.create)
         .map(|mounted| create_page_url(&mounted.url))
 }
 

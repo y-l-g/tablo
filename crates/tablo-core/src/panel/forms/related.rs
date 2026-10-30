@@ -354,7 +354,7 @@ async fn open<C: Resource>(
         return Ok(None);
     }
     let creates = || {
-        (child.creates && child.can_create(cx)).then(|| Opened {
+        (child.pages.create && child.can_create(cx)).then(|| Opened {
             record: None,
             stored: FormValues::new(),
             id: None,

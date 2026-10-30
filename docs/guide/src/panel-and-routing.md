@@ -38,7 +38,7 @@ in before learning a path serves nothing. [`Panel`](https://y-l.fr/tablo/nightly
 | `page::<P>()` | registers a page at `/{prefix}/{slug}` | [Pages](#pages) |
 | `home::<P>()` | registers a page at `/{prefix}` | [Pages](#pages) |
 | `brand(Brand)` | sets the name and optional logo in the sidebar, the topbar, and above the sign-in and sign-up cards, and the optional favicon | [Branding](#branding-and-theme) |
-| `dark_mode(bool)` | sets the theme a first-time visitor sees | [Branding](#branding-and-theme) |
+| `dark_by_default()` | starts a first-time visitor dark | [Branding](#branding-and-theme) |
 | `login_hint(text)` | adds a line under the sign-in card | [Branding](#branding-and-theme) |
 | `locales(locales)` | lists the locales the panel offers, the default first, English by default | [Translations](./translations.md) |
 | `translations(locale, ftl)` | adds the app's Fluent catalog for a locale | [Translations](./translations.md#catalogs) |
@@ -136,7 +136,7 @@ below. The sidebar lists an entry only when the request's user may open it: a re
 when its policy allows `ViewAny`, a page's when its `PageDef::access` answers `true`. So a
 user never sees a link that would answer 403.
 
-A resource that calls `ResourceDef::navigation_hidden()` gets no entry. Its pages stay
+A resource that calls `ResourceDef::without_navigation()` gets no entry. Its pages stay
 mounted and answer at their URLs under its policy, but the topbar trail starts at the
 sidebar entry a page is under, so it has none for them unless another entry covers their
 path, such as the home page.
@@ -349,7 +349,7 @@ tenant predicate. See [Data access](./data-access.md).
   sign-in and sign-up cards, where the logo shows 40px tall. A brand without a logo shows its
   first letter. `favicon` links the icon of every page the panel renders, sign-in included;
   without it the browser asks for `/favicon.ico`.
-- `dark_mode(true)` makes the panel start dark for a visitor who has not chosen a theme. The user
+- `dark_by_default()` makes the panel start dark for a visitor who has not chosen a theme. The user
   menu offers light, dark and the system's theme; the choice is kept in the `tablo_theme` cookie
   and wins over this default. Under the system's theme, `tablo-ui`'s script mirrors the system's
   scheme into `tablo_scheme` for the server to render. Without the call the panel starts light.

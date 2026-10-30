@@ -16,7 +16,8 @@ impl Resource for PostResource {
 }
 ```
 
-A non-empty detail adds a View action to each row, and `Detail::empty()` turns the page off.
+The page adds a View action to each row, and `without_page(ResourcePage::View)` turns it off.
+Mounting refuses a resource that serves the page with a detail listing no column.
 [`ResourceDef::detail`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.detail) says what the page's header
 carries, what it loads and what it answers for a record the request may not see.
 

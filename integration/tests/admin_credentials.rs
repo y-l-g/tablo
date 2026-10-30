@@ -2,7 +2,7 @@
 //! same transaction; an edit that leaves both alone keeps them.
 
 use tablo::{
-    Auth, Resource, ResourceDef, Table, TextColumn,
+    Auth, Resource, ResourceDef, ResourcePage, Table, TextColumn,
     auth::{AdminUser, AuthSession, create_admin, mint_session},
     lens,
 };
@@ -26,7 +26,7 @@ impl Resource for AdminResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("admins")
-            .edit_only()
+            .without_page(ResourcePage::Create)
             .policy_fn(|_cx, _ability| true)
             .table(Table::new(TextColumn::new(lens!(AdminUser.email))))
     }

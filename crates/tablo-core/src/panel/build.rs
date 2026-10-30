@@ -307,7 +307,7 @@ impl Panel {
             }),
             nav_items,
             brand,
-            dark_mode: dark_mode.unwrap_or(false),
+            dark_mode,
             shell_assets,
             children,
             mounts,

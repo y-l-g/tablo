@@ -5,8 +5,8 @@ use std::collections::HashSet;
 use http::StatusCode;
 use tablo::{
     Ability, ComputedColumn, DeclarationErrorKind, Detail, FieldErrorKind, FieldErrors, FormValues,
-    NoForm, Panel, RecordForm, Resource, ResourceDef, Schema, Table, Tenancy, Tenant, TenantId,
-    TextColumn, lens, write_create,
+    NoForm, Panel, RecordForm, Resource, ResourceDef, ResourcePage, Schema, Table, Tenancy, Tenant,
+    TenantId, TextColumn, lens, write_create,
 };
 use toasty::Db;
 use topcoat::context::Cx;
@@ -566,7 +566,7 @@ async fn build_refuses_a_field_record_form_control_does_not_render() {
                 .slug("items")
                 .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny))
                 .table(item_table())
-                .edit_only()
+                .without_page(ResourcePage::Create)
         }
     }
 
@@ -759,7 +759,7 @@ async fn build_refuses_an_unset_column_whatever_the_policy() {
 /// An edit-only resource serves its edit page but no create page, so nothing checks what a
 /// create would leave unset.
 #[tokio::test]
-async fn an_edit_only_resource_serves_no_create_page() {
+async fn a_resource_without_its_create_page_serves_none() {
     struct Retitled;
 
     impl Resource for Retitled {
@@ -771,7 +771,7 @@ async fn an_edit_only_resource_serves_no_create_page() {
                 .slug("items")
                 .policy_fn(|_cx, _ability| true)
                 .table(item_table())
-                .edit_only()
+                .without_page(ResourcePage::Create)
         }
     }
 
@@ -817,7 +817,7 @@ async fn a_value_the_form_type_refuses_renders_inline() {
                 .slug("items")
                 .policy_fn(|_cx, ability| matches!(ability, Ability::View(_) | Ability::Update(_)))
                 .table(item_table())
-                .edit_only()
+                .without_page(ResourcePage::Create)
                 .form(
                     // A static-options select checks membership, not the column's type.
                     Schema::new(
@@ -906,7 +906,7 @@ async fn an_unkeyable_record_rule_fails_closed() {
                 .slug("items")
                 .policy_fn(|_cx, ability| matches!(ability, Ability::View(_) | Ability::Update(_)))
                 .table(item_table())
-                .edit_only()
+                .without_page(ResourcePage::Create)
         }
 
         fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors<PriorityFormField> {
@@ -981,7 +981,7 @@ async fn an_unkeyable_parse_failure_fails_closed() {
                 .slug("items")
                 .policy_fn(|_cx, ability| matches!(ability, Ability::View(_) | Ability::Update(_)))
                 .table(item_table())
-                .edit_only()
+                .without_page(ResourcePage::Create)
         }
     }
 

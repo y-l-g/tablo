@@ -13,7 +13,6 @@ use super::{
     url::{record_page_url, row_edit_url, row_view_url},
 };
 use crate::{
-    form::RecordForm,
     policy::Ability,
     resource::{Mounted, Resource},
     t,
@@ -46,7 +45,7 @@ pub(crate) fn record_navigation<R: Resource>(
         let url = row_view_url(&resource.url, &key);
         links.push((t!(cx, "tablo-crumb-view"), None, url));
     }
-    if <R::Form as RecordForm>::HAS_FORM
+    if resource.pages.edit
         && !resource.is_trashed(record)
         && resource.can(cx, Ability::Update(record))
     {

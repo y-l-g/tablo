@@ -89,6 +89,10 @@ features. release-plz takes the bump from the commits, so a breaking commit need
   modules. A public module is a namespace for functions and constants that read best qualified
   (`auth::user`, `csrf::verify`, `url::edit`), plus the types only that namespace uses, and it
   never re-exports a root item.
+- A builder switch takes no `bool`. A feature off by default turns on through a method named
+  after it (`notifications()`, `importable()`), one on by default turns off through
+  `without_<feature>()` (`without_global_search()`, `without_navigation()`), and a resource's
+  record pages turn off through `without_page(ResourcePage::..)`.
 - An `expect` names the invariant that makes its failure unreachable. Anything a request,
   a database row or an app's declaration can cause is an error, never a panic.
 - Shared dependency versions live in the root `[workspace.dependencies]`.
