@@ -28,7 +28,7 @@ impl<M> Ability<'_, M> {
     /// # impl Action<PostResource> for Publish {
     /// #     type Input = ();
     /// #     const NAME: &'static str = "publish";
-    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
+    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> { Ok(tablo_core::Outcome::done()) }
     /// # }
     /// # fn is_editor(_cx: &Cx) -> bool { true }
     /// fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
@@ -67,7 +67,7 @@ impl<M> crate::policy::Abilities<M> {
     /// # impl Action<PostResource> for Publish {
     /// #     type Input = ();
     /// #     const NAME: &'static str = "publish";
-    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
+    /// #     async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> { Ok(tablo_core::Outcome::done()) }
     /// # }
     /// let policy = Abilities::<Post>::new()
     ///     .view_any(|_cx| true)

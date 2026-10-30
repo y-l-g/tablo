@@ -36,7 +36,7 @@ use crate::{
 ///         _cx: &Cx,
 ///         _: (),
 ///         _ex: &mut dyn Executor,
-///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError> {
+///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> {
 ///         // Recount through `ex`, the framework's transaction.
 ///         Ok(tablo_core::Outcome::done())
 ///     }
@@ -128,7 +128,9 @@ pub trait HeaderAction: 'static {
         cx: &Cx,
         input: Self::Input,
         ex: &mut dyn toasty::Executor,
-    ) -> impl Future<Output = Result<crate::Outcome, crate::WriteError>> + Send;
+    ) -> impl Future<
+        Output = Result<crate::Outcome, crate::WriteError<<Self::Input as FormInput>::Field>>,
+    > + Send;
 
     /// The success notification after a commit. Defaults to the label: `"Recount tags: done"`.
     fn success() -> crate::Text {
@@ -149,7 +151,7 @@ impl<M> Ability<'_, M> {
     /// # impl HeaderAction for RecountTags {
     /// #     type Input = ();
     /// #     const NAME: &'static str = "recount-tags";
-    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
+    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> { Ok(tablo_core::Outcome::done()) }
     /// # }
     /// # fn is_admin(_cx: &Cx) -> bool { true }
     /// fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
@@ -188,7 +190,7 @@ impl<M> crate::policy::Abilities<M> {
 /// # impl HeaderAction for ClearCache {
 /// #     type Input = ();
 /// #     const NAME: &'static str = "clear-cache";
-/// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> { Ok(tablo_core::Outcome::done()) }
+/// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> { Ok(tablo_core::Outcome::done()) }
 /// # }
 /// let actions = HeaderActions::new().add::<ClearCache>();
 /// # let _ = actions;
@@ -228,7 +230,7 @@ impl HeaderActions {
     ///     type Input = ();
     ///     const NAME: &'static str = "clear cache";
     ///
-    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError> {
+    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> {
     ///         Ok(tablo_core::Outcome::done())
     ///     }
     /// }
@@ -314,5 +316,9 @@ fn run_header_erased<'a, A: HeaderAction>(
     let input = *input
         .downcast::<A::Input>()
         .expect("the pipeline parses the input `run` takes");
-    Box::pin(A::run(cx, input, ex))
+    Box::pin(async move {
+        A::run(cx, input, ex)
+            .await
+            .map_err(|error| error.keyed(<A::Input as FormInput>::key))
+    })
 }

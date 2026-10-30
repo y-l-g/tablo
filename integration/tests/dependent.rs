@@ -301,7 +301,7 @@ async fn an_action_input_cannot_hold_a_dependent_choice() {
             _: &[Address],
             _: Moving,
             _: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+        ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
             Ok(tablo::Outcome::done())
         }
     }

@@ -52,7 +52,7 @@ impl Action<TicketResource> for Close {
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -77,7 +77,7 @@ impl Action<TicketResource> for Reopen {
         _: &[Ticket],
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         Ok(tablo::Outcome::done())
     }
 }
@@ -95,7 +95,7 @@ impl Action<TicketResource> for Retitle {
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -119,7 +119,7 @@ impl HeaderAction for CloseAll {
         _cx: &Cx,
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         Ticket::filter(Ticket::fields().closed().eq(false))
             .update()
             .closed(true)
@@ -154,7 +154,7 @@ impl HeaderAction for OpenTicket {
         _cx: &Cx,
         opening: Opening,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<OpeningField>> {
         toasty::create!(Ticket {
             title: opening.title,
             closed: false,
@@ -180,7 +180,7 @@ impl HeaderAction for Flagged {
         _: &Cx,
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         Ok(tablo::Outcome::done())
     }
 }
@@ -196,7 +196,7 @@ impl HeaderAction for Explode {
         _cx: &Cx,
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         Ticket::filter(Ticket::fields().closed().eq(false))
             .update()
             .title("exploded".to_string())
@@ -217,7 +217,7 @@ impl HeaderAction for Vetoed {
         _cx: &Cx,
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         Ticket::filter(Ticket::fields().closed().eq(false))
             .update()
             .title("vetoed".to_string())
@@ -240,7 +240,7 @@ impl Action<TicketResource> for VetoedRow {
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -320,7 +320,7 @@ impl HeaderAction for Sweep {
         _cx: &Cx,
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         Ticket::filter(Ticket::fields().closed().eq(true))
             .delete()
             .exec(&mut *ex)
@@ -875,7 +875,7 @@ impl HeaderAction for CloseHeader {
         _: &Cx,
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         Ok(tablo::Outcome::done())
     }
 }

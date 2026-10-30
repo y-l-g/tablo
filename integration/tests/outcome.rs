@@ -37,7 +37,7 @@ impl Action<TicketResource> for Close {
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<Outcome, tablo::WriteError<std::convert::Infallible>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -67,7 +67,7 @@ impl Action<TicketResource> for Leave {
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<Outcome, tablo::WriteError<std::convert::Infallible>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -90,7 +90,7 @@ impl HeaderAction for Home {
         _: &Cx,
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<Outcome, tablo::WriteError<std::convert::Infallible>> {
         Ok(Outcome::done().redirect("/admin"))
     }
 }

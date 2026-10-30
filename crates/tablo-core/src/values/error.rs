@@ -109,6 +109,18 @@ impl<K> FieldErrors<K> {
     pub fn extend(&mut self, other: Self) {
         self.errors.extend(other.errors);
     }
+
+    /// These errors, each keyed by the form key `key` gives its field.
+    pub(crate) fn keyed(self, key: fn(K) -> &'static str) -> FieldErrors {
+        let mut keyed = FieldErrors::new();
+        for error in self {
+            keyed.push(FieldError {
+                key: key(error.key).to_string(),
+                kind: error.kind,
+            });
+        }
+        keyed
+    }
 }
 
 impl<K> IntoIterator for FieldErrors<K> {

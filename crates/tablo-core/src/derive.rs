@@ -111,7 +111,7 @@ pub use tablo_macros::EmbeddedForm;
 ///         posts: &[Post],
 ///         rejection: Rejection,
 ///         ex: &mut dyn toasty::Executor,
-///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError> {
+///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError<RejectionField>> {
 ///         // Store `rejection.reason`, notify when `rejection.notify_author` holds…
 ///         # let _ = (posts, rejection.reason, rejection.notify_author, ex);
 ///         Ok(tablo_core::Outcome::done())

@@ -179,7 +179,7 @@ impl HeaderAction for FeatureTagged {
         cx: &Cx,
         input: FeatureTag,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, tablo::WriteError> {
+    ) -> Result<tablo::Outcome, tablo::WriteError<FeatureTagField>> {
         let tag = input.tag.trim();
         let mut posts = scoped_query::<PostResource>(cx)?.exec(&mut *ex).await?;
         posts.retain(|post| post.tags.split(',').any(|t| t.trim() == tag));

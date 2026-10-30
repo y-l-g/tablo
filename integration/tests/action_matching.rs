@@ -32,7 +32,7 @@ impl Action<TicketResource> for Close {
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
         Ticket::filter(filter_keys(tickets))
             .update()
             .closed(true)
