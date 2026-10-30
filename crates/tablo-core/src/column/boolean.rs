@@ -52,7 +52,7 @@ impl<M> Column<M> for BooleanColumn<M>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
-    base_column_methods!(binding);
+    base_column_methods!();
 
     fn text(&self, cx: &Cx, row: &M) -> String {
         if *self.lens.read(row) {
@@ -66,14 +66,17 @@ where
         boolean_cell(cx, *self.lens.read(row), self.text(cx, row))
     }
 
-    fn is_sortable(&self) -> bool {
-        self.sortable
-    }
-
     fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
         self.sortable
             .then(|| sort_order(self.lens.path(), descending))
     }
+}
+
+impl<M> crate::column::ColumnInternals<M> for BooleanColumn<M>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+{
+    base_internals!(binding);
 }
 
 /// A `bool` as its icon, with `text` for a screen reader.

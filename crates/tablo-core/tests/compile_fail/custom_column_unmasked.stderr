@@ -1,0 +1,7 @@
+error[E0407]: method `masked` is not a member of trait `tablo_core::extend::Column`
+  --> tests/compile_fail/custom_column_unmasked.rs:27:5
+   |
+27 | /     fn masked(&self, _cx: &topcoat::context::Cx) -> bool {
+28 | |         false
+29 | |     }
+   | |_____^ not a member of trait `tablo_core::extend::Column`

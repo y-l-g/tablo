@@ -111,7 +111,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: DateValue,
 {
-    base_column_methods!(binding);
+    base_column_methods!();
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         self.lens.read(row).stored_text()
@@ -135,12 +135,16 @@ where
         crate::schema::value_cell(cx, &day)
     }
 
-    fn is_sortable(&self) -> bool {
-        self.sortable
-    }
-
     fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
         self.sortable
             .then(|| sort_order(self.lens.path(), descending))
     }
+}
+
+impl<M, T> crate::column::ColumnInternals<M> for DateColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: DateValue,
+{
+    base_internals!(binding);
 }

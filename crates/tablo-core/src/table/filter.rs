@@ -62,19 +62,6 @@ pub trait Filter<M>: Send + Sync {
         Box::pin(async move { self.control(cx, input) })
     }
 
-    /// Whether the request may filter by `value`, asked before the table builds its predicate. A
-    /// filter whose value names another resource's records admits only the ones the user may
-    /// see; a refused value reads as invalid, as one that names no record does. An error is the
-    /// database failing the check.
-    #[doc(hidden)]
-    fn admits<'s>(
-        &'s self,
-        _cx: &'s Cx,
-        _value: &'s FilterValue,
-    ) -> BoxFuture<'s, topcoat::Result<bool>> {
-        Box::pin(async { Ok(true) })
-    }
-
     /// The fields of the record [`to_expr`](Self::to_expr) filters by, or `None` when the filter
     /// does not say.
     ///
@@ -85,30 +72,65 @@ pub trait Filter<M>: Send + Sync {
         None
     }
 
-    /// What is wrong with this filter's declaration.
+    /// The framework's own filter methods. The trait is sealed: a filter outside tablo answers
+    /// their defaults.
     #[doc(hidden)]
-    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        None
+    fn internals(&self) -> &dyn FilterInternals<M> {
+        &sealed::Defaults
+    }
+}
+
+pub(crate) use sealed::FilterInternals;
+
+mod sealed {
+    use topcoat::context::Cx;
+
+    use super::FilterValue;
+    use crate::BoxFuture;
+
+    /// The [`Filter`](super::Filter) methods only the framework answers, through
+    /// [`Filter::internals`](super::Filter::internals). It lives in a private module, so a filter
+    /// outside tablo cannot implement it and answers the [`Defaults`].
+    pub trait FilterInternals<M>: Send + Sync {
+        /// Whether the request may filter by `value`, asked before the table builds its
+        /// predicate. A filter whose value names another resource's records admits only the ones
+        /// the user may see; a refused value reads as invalid, as one that names no record does.
+        /// An error is the database failing the check.
+        fn admits<'s>(
+            &'s self,
+            _cx: &'s Cx,
+            _value: &'s FilterValue,
+        ) -> BoxFuture<'s, topcoat::Result<bool>> {
+            Box::pin(async { Ok(true) })
+        }
+
+        /// What is wrong with this filter's declaration.
+        fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
+            None
+        }
+
+        /// The option source's type when the request's panel cannot load from it, which a mount
+        /// refuses. A filter offering no options answers `None`.
+        fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
+            None
+        }
+
+        /// The model's name when the filter's options show records under a label a panel cannot
+        /// mask, over a model a mounted resource restricts a field of, which a mount refuses. The
+        /// panel answers `is_mounted` for a source's type and `restricted` for a model.
+        fn unmasked_model(
+            &self,
+            _is_mounted: &dyn Fn(std::any::TypeId) -> bool,
+            _restricted: &dyn Fn(crate::toasty_compat::model::ModelId) -> bool,
+        ) -> Option<&'static str> {
+            None
+        }
     }
 
-    /// The option source's type when the request's panel cannot load from it, which a mount
-    /// refuses. A filter offering no options answers `None`.
-    #[doc(hidden)]
-    fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
-        None
-    }
+    /// What a filter outside tablo answers.
+    pub struct Defaults;
 
-    /// The model's name when the filter's options show records under a label a panel cannot mask,
-    /// over a model a mounted resource restricts a field of, which a mount refuses. The panel
-    /// answers `is_mounted` for a source's type and `restricted` for a model.
-    #[doc(hidden)]
-    fn unmasked_model(
-        &self,
-        _is_mounted: &dyn Fn(std::any::TypeId) -> bool,
-        _restricted: &dyn Fn(crate::toasty_compat::model::ModelId) -> bool,
-    ) -> Option<&'static str> {
-        None
-    }
+    impl<M> FilterInternals<M> for Defaults {}
 }
 
 /// What a request carries for one filter: the values its `f.<name>` parameter repeats, in the

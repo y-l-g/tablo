@@ -23,7 +23,7 @@ impl<M> Table<M> {
         let mut refused = Vec::new();
         for f in &self.filters {
             if let Some(value) = state.filters.get(f.name())
-                && !f.admits(cx, value).await?
+                && !f.internals().admits(cx, value).await?
             {
                 refused.push(f.name().to_string());
             }

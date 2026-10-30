@@ -169,7 +169,7 @@ impl<M> Detail<M> {
     pub fn declaration_errors(&self) -> Vec<DeclarationErrorKind> {
         self.columns()
             .into_iter()
-            .filter_map(|column| column.misdeclared())
+            .filter_map(|column| column.internals().misdeclared())
             .collect()
     }
 

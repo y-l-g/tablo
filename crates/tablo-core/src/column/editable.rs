@@ -11,9 +11,7 @@ use crate::{Lens, schema::Options, values::FormScalar};
 mod view;
 
 /// The control an editable column renders, which the resource's form must edit its field with.
-#[doc(hidden)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum Editor {
     /// A checkbox or a switch.
     Toggle,
@@ -92,7 +90,7 @@ impl<M> Column<M> for ToggleColumn<M>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
-    base_column_methods!(binding);
+    base_column_methods!();
 
     fn text(&self, cx: &Cx, row: &M) -> String {
         crate::Text::message(if *self.lens.read(row) {
@@ -107,26 +105,29 @@ where
         boolean_cell(cx, *self.lens.read(row), self.text(cx, row))
     }
 
+    fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
+        self.sortable
+            .then(|| sort_order(self.lens.path(), descending))
+    }
+}
+
+impl<M> crate::column::ColumnInternals<M> for ToggleColumn<M>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+{
+    base_internals!(binding);
+
     fn edits(&self) -> Option<Editor> {
         Some(Editor::Toggle)
     }
 
-    fn editor<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
-        view::toggle(
+    fn editor<'a>(&self, cx: &'a Cx, row: &M) -> Option<BoxView<'a>> {
+        Some(view::toggle(
             cx,
             self.base.name(),
             self.base.label().localize(cx),
             *self.lens.read(row),
-        )
-    }
-
-    fn is_sortable(&self) -> bool {
-        self.sortable
-    }
-
-    fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
-        self.sortable
-            .then(|| sort_order(self.lens.path(), descending))
+        ))
     }
 }
 
@@ -171,11 +172,24 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: Options + FormScalar + Send + Sync + 'static,
 {
-    base_column_methods!(binding);
+    base_column_methods!();
 
     fn text(&self, cx: &Cx, row: &M) -> String {
         T::label_of(&self.lens.read(row).to_form()).localize(cx)
     }
+
+    fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
+        self.sortable
+            .then(|| sort_order(self.lens.path(), descending))
+    }
+}
+
+impl<M, T> crate::column::ColumnInternals<M> for SelectColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: Options + FormScalar + Send + Sync + 'static,
+{
+    base_internals!(binding);
 
     fn edits(&self) -> Option<Editor> {
         Some(Editor::Select)
@@ -185,27 +199,18 @@ where
         T::options()
     }
 
-    fn editor<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+    fn editor<'a>(&self, cx: &'a Cx, row: &M) -> Option<BoxView<'a>> {
         let options = T::options()
             .into_iter()
             .map(|(value, label)| (value, label.localize(cx)))
             .collect();
-        view::select(
+        Some(view::select(
             cx,
             self.base.name(),
             self.base.label().localize(cx),
             self.lens.read(row).to_form(),
             options,
-        )
-    }
-
-    fn is_sortable(&self) -> bool {
-        self.sortable
-    }
-
-    fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
-        self.sortable
-            .then(|| sort_order(self.lens.path(), descending))
+        ))
     }
 }
 
@@ -249,19 +254,32 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: FormScalar + Send + Sync + 'static,
 {
-    base_column_methods!(binding);
+    base_column_methods!();
 
     fn text(&self, cx: &Cx, row: &M) -> String {
         self.lens.read(row).to_label().localize(cx)
     }
 
+    fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
+        self.sortable
+            .then(|| sort_order(self.lens.path(), descending))
+    }
+}
+
+impl<M, T> crate::column::ColumnInternals<M> for TextInputColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: FormScalar + Send + Sync + 'static,
+{
+    base_internals!(binding);
+
     fn edits(&self) -> Option<Editor> {
         Some(Editor::Text)
     }
 
-    fn editor<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
+    fn editor<'a>(&self, cx: &'a Cx, row: &M) -> Option<BoxView<'a>> {
         let value = T::input_value(&self.lens.read(row).to_form(), &crate::time_zone(cx));
-        view::text_input(
+        Some(view::text_input(
             cx,
             view::TextInput {
                 name: self.base.name(),
@@ -270,15 +288,6 @@ where
                 input_type: T::INPUT_TYPE,
                 step: T::STEP,
             },
-        )
-    }
-
-    fn is_sortable(&self) -> bool {
-        self.sortable
-    }
-
-    fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
-        self.sortable
-            .then(|| sort_order(self.lens.path(), descending))
+        ))
     }
 }

@@ -102,7 +102,7 @@ fn a_relation_column_names_its_field_and_declares_its_include() {
         column.includes().into_vec(),
         Includes::new().with(Book::fields().shelf()).into_vec()
     );
-    assert!(column.misdeclared().is_none());
+    assert!(Column::<Book>::internals(&column).misdeclared().is_none());
 
     let count = CountColumn::unscoped(relation!(Shelf.books));
     assert_eq!(Column::<Shelf>::name(&count), "books");

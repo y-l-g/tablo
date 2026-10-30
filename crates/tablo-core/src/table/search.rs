@@ -24,7 +24,7 @@ impl<M> Table<M> {
     where
         M: toasty::schema::Model,
     {
-        self.columns.iter().any(|c| c.is_searchable())
+        self.columns.iter().any(|c| crate::column::searches(&**c))
     }
 
     /// Whether the declaration enables a search toolbar.

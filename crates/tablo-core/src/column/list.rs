@@ -53,7 +53,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: FormScalar + Send + Sync + 'static,
 {
-    base_column_methods!(binding);
+    base_column_methods!();
 
     fn text(&self, cx: &Cx, row: &M) -> String {
         self.lens
@@ -82,4 +82,12 @@ where
             .collect();
         badges_cell(cx, badges)
     }
+}
+
+impl<M, T> crate::column::ColumnInternals<M> for ListColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: FormScalar + Send + Sync + 'static,
+{
+    base_internals!(binding);
 }

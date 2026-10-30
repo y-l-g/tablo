@@ -8,7 +8,9 @@ use crate::lens::shows;
 impl<M> Table<M> {
     /// Whether a column shows a field of a related record its resource hides from `cx`.
     pub(crate) fn has_masked(&self, cx: &Cx) -> bool {
-        self.columns.iter().any(|column| column.masked(cx))
+        self.columns
+            .iter()
+            .any(|column| column.internals().masked(cx))
     }
 
     /// This table as `cx` reads it, without what reads one of the `hidden` fields: its columns,

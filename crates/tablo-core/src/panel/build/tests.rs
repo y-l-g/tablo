@@ -38,13 +38,19 @@ impl crate::table::Column<Dummy> for Unbindable {
         String::new()
     }
 
+    fn internals(&self) -> &dyn crate::column::ColumnInternals<Dummy> {
+        self
+    }
+}
+
+impl crate::column::ColumnInternals<Dummy> for Unbindable {
     fn misdeclared(&self) -> Option<DeclarationErrorKind> {
         Some(DeclarationErrorKind::TraversalLens { steps: 2 })
     }
 }
 
 /// A detail column whose path binds no single field refuses the mount, which only a column
-/// implementing `misdeclared` itself can cause.
+/// answering `misdeclared` itself can cause.
 #[tokio::test]
 async fn a_detail_column_binding_no_field_refuses_the_mount() {
     struct UnbindableView;

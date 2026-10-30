@@ -7,7 +7,6 @@ use std::any::TypeId;
 /// column shows a field a mounted resource restricts. A panel refuses a column that is not
 /// [`None`](Related::None) over a model a mounted resource restricts a field of, unless the
 /// column reads through a resource the panel mounts.
-#[doc(hidden)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Related {
     /// No field of a related record and no label of one: a count, or a column over the row's own

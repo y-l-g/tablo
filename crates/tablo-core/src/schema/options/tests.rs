@@ -2,6 +2,7 @@ use super::Options;
 use crate::{
     FormScalar,
     extend::{Column as _, Filter as _},
+    table::filter::FilterInternals as _,
     test_support::cx,
     values::FormValues,
 };

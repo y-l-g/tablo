@@ -63,34 +63,16 @@ macro_rules! toggle_builders {
 }
 
 /// The [`Column`] methods a column over a [`ColumnBase`] answers from it, inside its `Column`
-/// impl; `binding` adds the binding's `misdeclared`.
+/// impl, and the accessor to its [`ColumnInternals`] impl; `reads` leaves `reads` to the column.
 macro_rules! base_column_methods {
     () => {
-        base_column_methods!(@shared);
-
-        fn related(&self) -> $crate::column::Related {
-            $crate::column::Related::None
-        }
+        base_column_methods!(reads);
 
         fn reads(&self) -> Option<$crate::lens::Reads<M>> {
             Some(self.base.reads())
         }
     };
-    (binding) => {
-        base_column_methods!();
-        base_column_methods!(@misdeclared);
-    };
-    // A column that answers `reads` and `related` itself.
-    (binding, reads) => {
-        base_column_methods!(@shared);
-        base_column_methods!(@misdeclared);
-    };
-    (@misdeclared) => {
-        fn misdeclared(&self) -> Option<$crate::DeclarationErrorKind> {
-            self.base.binding.misdeclared()
-        }
-    };
-    (@shared) => {
+    (reads) => {
         fn name(&self) -> &str {
             self.base.name()
         }
@@ -105,6 +87,30 @@ macro_rules! base_column_methods {
 
         fn toggle(&self) -> $crate::column::ColumnToggle {
             self.base.toggle
+        }
+
+        fn internals(&self) -> &dyn $crate::column::ColumnInternals<M> {
+            self
+        }
+    };
+}
+
+/// The [`ColumnInternals`] methods a column over a [`ColumnBase`] answers from it, inside its
+/// `ColumnInternals` impl: it reads no related record; `binding` adds the binding's
+/// `misdeclared`, and `binding, related` leaves `related` to the column.
+macro_rules! base_internals {
+    () => {
+        fn related(&self) -> $crate::column::Related {
+            $crate::column::Related::None
+        }
+    };
+    (binding) => {
+        base_internals!();
+        base_internals!(binding, related);
+    };
+    (binding, related) => {
+        fn misdeclared(&self) -> Option<$crate::DeclarationErrorKind> {
+            self.base.binding.misdeclared()
         }
     };
 }
@@ -144,7 +150,8 @@ pub use boolean::BooleanColumn;
 pub use color::ColorColumn;
 pub use computed::ComputedColumn;
 pub use date::{DateColumn, DateValue};
-pub use editable::{Editor, SelectColumn, TextInputColumn, ToggleColumn};
+pub(crate) use editable::Editor;
+pub use editable::{SelectColumn, TextInputColumn, ToggleColumn};
 pub use embedded::EmbeddedColumn;
 pub use file::FileColumn;
 pub use icon::IconColumn;
@@ -155,9 +162,82 @@ pub use relation::{CountColumn, RelationColumn, RelationLens, ToOneRelation};
 pub use repeater::RepeaterColumn;
 #[cfg(feature = "rich-text")]
 pub use rich_text::RichTextColumn;
+pub(crate) use sealed::ColumnInternals;
 pub use text::{TextColumn, contains_expr};
 #[cfg(test)]
 use {color::is_css_color, text::escape_like_pattern};
+
+mod sealed {
+    use topcoat::{context::Cx, view::BoxView};
+
+    use super::{Editor, Related};
+
+    /// The [`Column`](super::Column) methods only the framework answers, through
+    /// [`Column::internals`](super::Column::internals). It lives in a private module, so a column
+    /// outside tablo cannot implement it and answers the [`Defaults`].
+    pub trait ColumnInternals<M>: Send + Sync {
+        /// Check which related records the column's includes loaded into `rows` the related
+        /// resource shows the user, before any cell renders: a cell shows only those. Every
+        /// loader that applies the includes runs it through `ex`, the executor that loaded the
+        /// rows.
+        fn restrict<'a>(
+            &'a self,
+            _cx: &'a Cx,
+            _rows: &'a [M],
+            _ex: &'a mut dyn toasty::Executor,
+        ) -> crate::BoxFuture<'a, topcoat::Result<()>> {
+            Box::pin(async { Ok(()) })
+        }
+
+        /// Whether the column shows a field of a related record that the related resource's
+        /// [`field_access`](crate::ResourceDef::field_access) hides from `cx`: a panel drops it
+        /// then, as it drops one reading a hidden field of the row.
+        fn masked(&self, _cx: &Cx) -> bool {
+            false
+        }
+
+        /// What the column reads of the related records it loads: see [`Related`]. A column
+        /// answers [`Related::Row`] unless it says otherwise, since a closure reading its row may
+        /// reach any relation the page loads.
+        fn related(&self) -> Related {
+            Related::Row
+        }
+
+        /// What is wrong with this column's declaration.
+        fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
+            None
+        }
+
+        /// The source the column labels its records by, when the context's panel cannot load
+        /// from it.
+        fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
+            None
+        }
+
+        /// The control the column edits its field with in a table's cell, if it does: the mount
+        /// checks the resource's form edits the field the column names with it.
+        fn edits(&self) -> Option<Editor> {
+            None
+        }
+
+        /// The options a [`Editor::Select`] offers, each a value and its label: the mount checks
+        /// the form's choice offers the same.
+        fn edit_options(&self) -> Vec<(String, crate::Text)> {
+            Vec::new()
+        }
+
+        /// The control editing `row`'s field, posting the field's form key, which a table renders
+        /// in place of the cell where the user may change the field. `None` renders the cell.
+        fn editor<'a>(&self, _cx: &'a Cx, _row: &M) -> Option<BoxView<'a>> {
+            None
+        }
+    }
+
+    /// What a column outside tablo answers.
+    pub struct Defaults;
+
+    impl<M> ColumnInternals<M> for Defaults {}
+}
 
 /// One column of a table or a [`Detail`](crate::Detail) declares its label, its value read off
 /// the record, and its query predicates.
@@ -224,22 +304,14 @@ pub trait Column<M>: Send + Sync {
         Alignment::Start
     }
 
-    /// Whether the column joins the table's search.
-    fn is_searchable(&self) -> bool {
-        false
-    }
-
-    /// The predicate a search for `term` adds.
+    /// The predicate a search for `term` adds, or `None` when the column does not join the table's
+    /// search. A column that joins it answers `Some` for every non-empty, trimmed `term`.
     fn search_expr(&self, _term: &str) -> Option<Expr<bool>> {
         None
     }
 
-    /// Whether the header links to a sort on this column.
-    fn is_sortable(&self) -> bool {
-        false
-    }
-
-    /// The ordering a sort on this column applies.
+    /// The ordering a sort on this column applies, or `None` when the header does not link to a
+    /// sort on it. A sortable column answers `Some` either way.
     fn order_by(&self, _descending: bool) -> Option<OrderByExpr> {
         None
     }
@@ -247,19 +319,6 @@ pub trait Column<M>: Send + Sync {
     /// The relations [`text`](Self::text), [`cell`](Self::cell) and [`entry`](Self::entry) read.
     fn includes(&self) -> Includes<M> {
         Includes::new()
-    }
-
-    /// Check which related records [`includes`](Self::includes) loaded into `rows` the related
-    /// resource shows the user, before any cell renders: a cell shows only those. Every loader
-    /// that applies the includes runs it through `ex`, the executor that loaded the rows.
-    #[doc(hidden)]
-    fn restrict<'a>(
-        &'a self,
-        _cx: &'a Cx,
-        _rows: &'a [M],
-        _ex: &'a mut dyn toasty::Executor,
-    ) -> crate::BoxFuture<'a, topcoat::Result<()>> {
-        Box::pin(async { Ok(()) })
     }
 
     /// The fields of the row [`text`](Self::text), [`cell`](Self::cell),
@@ -274,53 +333,11 @@ pub trait Column<M>: Send + Sync {
         None
     }
 
-    /// Whether the column shows a field of a related record that the related resource's
-    /// [`field_access`](crate::ResourceDef::field_access) hides from `cx`: a panel drops it then,
-    /// as it drops one reading a hidden field of the row.
+    /// The framework's own column methods. The trait is sealed: a column outside tablo answers
+    /// their defaults.
     #[doc(hidden)]
-    fn masked(&self, _cx: &Cx) -> bool {
-        false
-    }
-
-    /// What the column reads of the related records it loads: see [`Related`]. A column answers
-    /// [`Related::Row`] unless it says otherwise, since a closure reading its row may reach any
-    /// relation the page loads.
-    #[doc(hidden)]
-    fn related(&self) -> Related {
-        Related::Row
-    }
-
-    /// What is wrong with this column's declaration.
-    #[doc(hidden)]
-    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        None
-    }
-
-    /// The source the column labels its records by, when the context's panel cannot load from it.
-    #[doc(hidden)]
-    fn unavailable_source(&self, _cx: &Cx) -> Option<&'static str> {
-        None
-    }
-
-    /// The control the column edits its field with in a table's cell, if it does: the mount
-    /// checks the resource's form edits the field [`name`](Self::name) names with it.
-    #[doc(hidden)]
-    fn edits(&self) -> Option<Editor> {
-        None
-    }
-
-    /// The options a [`Editor::Select`] offers, each a value and its label: the mount checks the
-    /// form's choice offers the same.
-    #[doc(hidden)]
-    fn edit_options(&self) -> Vec<(String, crate::Text)> {
-        Vec::new()
-    }
-
-    /// The control editing `row`'s field, posting the field's form key, which a table renders
-    /// in place of [`cell`](Self::cell) where the user may change the field.
-    #[doc(hidden)]
-    fn editor<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
-        self.cell(cx, row)
+    fn internals(&self) -> &dyn ColumnInternals<M> {
+        &sealed::Defaults
     }
 }
 
@@ -369,7 +386,7 @@ pub(crate) fn unavailable_sources<'c, M: 'c>(
     columns
         .into_iter()
         .filter_map(|column| {
-            column.unavailable_source(cx).map(|source| {
+            column.internals().unavailable_source(cx).map(|source| {
                 crate::DeclarationErrorKind::UnregisteredLabelSource {
                     column: column.name().to_string(),
                     source,
@@ -396,7 +413,7 @@ where
     query
 }
 
-/// Run each column's [`restrict`](Column::restrict) over `rows`, which a query through
+/// Run each column's [`restrict`](ColumnInternals::restrict) over `rows`, which a query through
 /// [`include_relations`] loaded.
 pub(crate) async fn restrict_relations<'c, M>(
     cx: &Cx,
@@ -408,7 +425,7 @@ where
     M: 'c,
 {
     for column in columns {
-        column.restrict(cx, rows, &mut *ex).await?;
+        column.internals().restrict(cx, rows, &mut *ex).await?;
     }
     Ok(())
 }
@@ -528,13 +545,23 @@ impl ColumnWidth {
     }
 }
 
+/// Whether `column` joins a table's search: it answers a term, as it answers every one then.
+pub(crate) fn searches<M>(column: &dyn Column<M>) -> bool {
+    column.search_expr("a").is_some()
+}
+
+/// Whether a table's header links to a sort on `column`.
+pub(crate) fn sorts<M>(column: &dyn Column<M>) -> bool {
+    column.order_by(false).is_some()
+}
+
 /// A table's columns, as the table stores them.
 pub(crate) type BoxColumn<M> = Arc<dyn Column<M>>;
 
 /// Whether `column` shows to `cx`, which may not view the row's `hidden` fields: it reads none of
 /// them, and no field of a related record its resource hides from `cx`.
 pub(crate) fn shows<M>(cx: &Cx, column: &dyn Column<M>, hidden: &[String]) -> bool {
-    crate::lens::shows(column.reads(), hidden) && !column.masked(cx)
+    crate::lens::shows(column.reads(), hidden) && !column.internals().masked(cx)
 }
 
 #[cfg(test)]
