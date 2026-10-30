@@ -19,7 +19,7 @@ keep what the include loaded: a policy, a title or a computed column reading the
 sees it whole, and a required relation never reads as unloaded. The include itself stays
 unfiltered: Toasty 0.11 panics (`todo!`) on a filtered include over a `via` relation, and a
 required `belongs_to` has no shape for a filtered-out record. `unscoped` columns, for a model no resource
-administers, show what the include loads. `Resource::query` stays row scoping only; a relation
+administers, show what the include loads. `ResourceDef::query` stays row scoping only; a relation
 belongs there only when every loader reads it, such as one the policy checks.
 
 A related table on a detail page is the related resource's own table, run through its own loader.

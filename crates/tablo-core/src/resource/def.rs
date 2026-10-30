@@ -59,6 +59,7 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) navigation_badge: Option<Expr<bool>>,
     pub(crate) navigation_hidden: bool,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
+    pub(crate) queries: Vec<super::QueryFn<R::Model>>,
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Option<Table<R::Model>>,
     pub(crate) form: Option<Schema<R::Form>>,
@@ -95,6 +96,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             navigation_badge: None,
             navigation_hidden: false,
             policy: Arc::new(Deny),
+            queries: Vec::new(),
             tenancy: Tenancy::undeclared(),
             table: None,
             form: None,
@@ -232,7 +234,7 @@ impl<R: Resource> ResourceDef<R> {
     }
 
     /// Authorizes every handler; defaults to [`Deny`]. Row scoping belongs in
-    /// [`Resource::query`], not the policy.
+    /// [`query`](Self::query), not the policy.
     #[must_use]
     pub fn policy(mut self, policy: impl Policy<R::Model>) -> Self {
         self.policy = Arc::new(policy);
@@ -271,27 +273,6 @@ impl<R: Resource> ResourceDef<R> {
         policy: impl Fn(&Cx, Ability<'_, R::Model>) -> bool + Send + Sync + 'static,
     ) -> Self {
         self.policy(policy)
-    }
-
-    /// Deletes by stamping `lens`'s column with the time instead of removing the row, as in
-    /// `.soft_delete(lens!(Post.deleted_at))`, and keeps the stamped records out of every loader
-    /// unless it asks for them.
-    ///
-    /// The list hides the trashed records behind a trash control, and offers Restore, which
-    /// empties the column, and Force delete, which removes the row, on each one: the policy decides
-    /// who may through [`Ability::Restore`] and [`Ability::ForceDelete`]. The detail page opens a
-    /// trashed record; its edit page and every other action refuse one until it is restored.
-    /// [`scoped_query`](crate::scoped_query) admits the live records only, and
-    /// [`scoped_query_in`](crate::scoped_query_in) the ones a [`Trashed`](crate::Trashed) scope
-    /// names, each under the tenant filter.
-    ///
-    /// The unique pre-check probes the trashed records too, since a unique index covers them.
-    /// Mounting the panel refuses a lens that is not one field of the model, and a record form
-    /// that writes the column.
-    #[must_use]
-    pub fn soft_delete(mut self, lens: Lens<R::Model, Option<jiff::Timestamp>>) -> Self {
-        self.soft_delete = Some(SoftDelete::new(lens));
-        self
     }
 
     /// Restricts who views and who changes the field `path` names, as in
@@ -385,7 +366,7 @@ impl<R: Resource> ResourceDef<R> {
     /// policy allows them on the record, and Edit when the resource has a form and the policy
     /// allows `Update`. The [related tables](Self::relation) follow its columns.
     ///
-    /// The record loads through the resource's tenant-scoped [`query`](Resource::query) with every
+    /// The record loads through the resource's tenant-scoped [`query`](Self::query) with every
     /// relation the columns declare, once each, wherever its block sits; no other relation
     /// loads. An unknown key and a key outside the request's tenant are the same 404, and a
     /// record the policy refuses `View` is a 403. The [`form`](Self::form) does not shape the

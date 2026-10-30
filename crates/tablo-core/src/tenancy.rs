@@ -155,9 +155,8 @@ impl<M: toasty::schema::Model + 'static> Tenancy<M> {
         }
     }
 
-    /// Rows belong to no tenant: the resource is served as
-    /// [`query`](crate::resource::Resource::query) states it, to every
-    /// request.
+    /// Rows belong to no tenant: the resource is served as its
+    /// [`query`](crate::ResourceDef::query) narrows it, to every request.
     ///
     /// A resource that declares no tenancy is served the same way, unless its model has a
     /// [`TenantId`] column or the panel acts for tenants, offering a tenant registration or

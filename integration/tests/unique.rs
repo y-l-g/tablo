@@ -211,6 +211,14 @@ async fn a_value_taken_after_the_probe_renders_inline() {
     const RIVAL: &str = "rival@example.com";
     static WRITING: AtomicBool = AtomicBool::new(false);
 
+    fn hide_rival(_cx: &Cx, query: Query<List<Subscriber>>) -> Query<List<Subscriber>> {
+        if WRITING.load(Ordering::SeqCst) {
+            query
+        } else {
+            query.filter(Subscriber::fields().email().ne(RIVAL))
+        }
+    }
+
     struct RacedResource;
 
     impl Resource for RacedResource {
@@ -218,16 +226,7 @@ async fn a_value_taken_after_the_probe_renders_inline() {
         type Form = SubscriberForm;
 
         fn declare() -> ResourceDef<Self> {
-            subscribers()
-        }
-
-        fn query(_cx: &Cx) -> Query<List<Subscriber>> {
-            let all = Query::<List<Subscriber>>::all();
-            if WRITING.load(Ordering::SeqCst) {
-                all
-            } else {
-                all.filter(Subscriber::fields().email().ne(RIVAL))
-            }
+            subscribers().query(hide_rival)
         }
 
         async fn create_record(
@@ -276,6 +275,14 @@ async fn an_edit_to_a_value_taken_after_the_probe_renders_inline() {
     const RIVAL: &str = "rival@example.com";
     static WRITING: AtomicBool = AtomicBool::new(false);
 
+    fn hide_rival(_cx: &Cx, query: Query<List<Subscriber>>) -> Query<List<Subscriber>> {
+        if WRITING.load(Ordering::SeqCst) {
+            query
+        } else {
+            query.filter(Subscriber::fields().email().ne(RIVAL))
+        }
+    }
+
     struct RacedResource;
 
     impl Resource for RacedResource {
@@ -283,16 +290,9 @@ async fn an_edit_to_a_value_taken_after_the_probe_renders_inline() {
         type Form = SubscriberForm;
 
         fn declare() -> ResourceDef<Self> {
-            subscribers().policy_fn(|_cx, _ability| true)
-        }
-
-        fn query(_cx: &Cx) -> Query<List<Subscriber>> {
-            let all = Query::<List<Subscriber>>::all();
-            if WRITING.load(Ordering::SeqCst) {
-                all
-            } else {
-                all.filter(Subscriber::fields().email().ne(RIVAL))
-            }
+            subscribers()
+                .policy_fn(|_cx, _ability| true)
+                .query(hide_rival)
         }
 
         async fn update_record(
@@ -349,6 +349,14 @@ async fn an_app_error_is_not_read_as_a_taken_value() {
     const RIVAL: &str = "rival@example.com";
     static WRITING: AtomicBool = AtomicBool::new(false);
 
+    fn hide_rival(_cx: &Cx, query: Query<List<Subscriber>>) -> Query<List<Subscriber>> {
+        if WRITING.load(Ordering::SeqCst) {
+            query
+        } else {
+            query.filter(Subscriber::fields().email().ne(RIVAL))
+        }
+    }
+
     struct Refusing;
 
     impl Resource for Refusing {
@@ -356,16 +364,7 @@ async fn an_app_error_is_not_read_as_a_taken_value() {
         type Form = SubscriberForm;
 
         fn declare() -> ResourceDef<Self> {
-            subscribers()
-        }
-
-        fn query(_cx: &Cx) -> Query<List<Subscriber>> {
-            let all = Query::<List<Subscriber>>::all();
-            if WRITING.load(Ordering::SeqCst) {
-                all
-            } else {
-                all.filter(Subscriber::fields().email().ne(RIVAL))
-            }
+            subscribers().query(hide_rival)
         }
 
         async fn create_record(

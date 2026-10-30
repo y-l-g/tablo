@@ -403,11 +403,11 @@ That one declaration does two things:
 
 - **The tenant check.** Every handler of the resource answers 403 when the request has no tenant.
 - **The scope.** Every loader — list, export, detail, edit, delete, bulk delete, relationship
-  options, related tables — adds `tenant_id = <request tenant>` to the resource's `query`. A
+  options, related tables — adds `tenant_id = <request tenant>` to the resource's query. A
   create sets the tenant column itself, so the record form leaves it out.
 
 The column is a `TenantId` field of the model, or `Option<TenantId>` for a nullable one, named by
-its lens. Do not repeat the filter in `query`. A resource over tenant-owned rows that declares no
+its lens. Do not repeat the filter in a `ResourceDef::query` narrowing. A resource over tenant-owned rows that declares no
 tenancy at all fails to mount, since it would serve every tenant's rows; the
 [mount errors](./mount-errors.md) say which declaration it needs. On a panel that acts for tenants,
 one that offers a tenant registration or settings page or mounts a tenant-scoped resource, every
@@ -436,12 +436,12 @@ must be one of the request tenant's posts. Mounting the panel refuses a form tha
 other way, or a lens that does not start at a `belongs_to`.
 
 **A deliberately cross-tenant resource** — a super-admin view, or the panel's own users —
-declares `Tenancy::none()` and filters in `query()`. That gives up both the tenant check and the
-scope.
+declares `Tenancy::none()` and filters in `ResourceDef::query`. That gives up both the tenant
+check and the scope.
 
 **In your own code**, load rows with `scoped_query::<PostResource>(cx)?`. It applies the tenant
-scope and answers 403 when the request has no tenant. `PostResource::query(cx)` does not apply the
-tenant scope.
+scope and answers 403 when the request has no tenant. `Query::all()` applies neither the tenant
+scope nor the panel's narrowings.
 
 **Foreign keys are re-checked inside the write.** A relationship field's key must be one of the
 related resource's records for the request: in its tenant-scoped query and allowed by its `View`.

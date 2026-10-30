@@ -48,6 +48,30 @@ impl Trashed {
     }
 }
 
+impl<R: super::Resource> super::ResourceDef<R> {
+    /// Deletes by stamping `lens`'s column with the time instead of removing the row, as in
+    /// `.soft_delete(lens!(Post.deleted_at))`, and keeps the stamped records out of every loader
+    /// unless it asks for them.
+    ///
+    /// The list hides the trashed records behind a trash control, and offers Restore, which
+    /// empties the column, and Force delete, which removes the row, on each one: the policy decides
+    /// who may through [`Ability::Restore`](crate::Ability::Restore) and
+    /// [`Ability::ForceDelete`](crate::Ability::ForceDelete). The detail page opens a
+    /// trashed record; its edit page and every other action refuse one until it is restored.
+    /// [`scoped_query`](crate::scoped_query) admits the live records only, and
+    /// [`scoped_query_in`](crate::scoped_query_in) the ones a [`Trashed`](crate::Trashed) scope
+    /// names, each under the tenant filter.
+    ///
+    /// The unique pre-check probes the trashed records too, since a unique index covers them.
+    /// Mounting the panel refuses a lens that is not one field of the model, and a record form
+    /// that writes the column.
+    #[must_use]
+    pub fn soft_delete(mut self, lens: Lens<R::Model, Option<jiff::Timestamp>>) -> Self {
+        self.soft_delete = Some(SoftDelete::new(lens));
+        self
+    }
+}
+
 /// The column a resource soft-deletes through, as its def declares it.
 pub(crate) struct SoftDelete<M> {
     path: Path<M, Option<jiff::Timestamp>>,

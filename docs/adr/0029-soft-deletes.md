@@ -6,7 +6,7 @@ declaration gives the delete that stamps it, the live-only default of every load
 trash control, and Restore and Delete permanently on the trashed records.
 
 The mount owns the scope as it owns tenancy (ADR-0002): `scoped_query_in(cx, Trashed)` ANDs the
-tenant filter and the trash predicate after `Resource::query`, and `scoped_query` is its
+tenant filter and the trash predicate after the `ResourceDef::query` narrowings, and `scoped_query` is its
 `Trashed::Without`. A restore and a force delete load through `Trashed::Only` under the same
 tenant filter, so neither is a second, hand-built query that could drop it. The detail page loads
 `Trashed::With`, so the trash list's rows link somewhere; the edit page and every other mutation
@@ -28,7 +28,7 @@ replaces the live-only default the base query holds. It renders in the filter me
 
 ## Rejected
 
-- Soft deletes as a `Resource::query` override with a hand-written restore: the restore needs the
+- Soft deletes as a `ResourceDef::query` narrowing with a hand-written restore: the restore needs the
   tenant filter, which only the mount builds, and the trashed records reach no page.
 - A trashed filter ANDed onto a query that admits every record: every loader but the list then
   needs to re-add the live-only predicate, and forgetting it serves trashed rows.

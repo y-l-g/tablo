@@ -186,14 +186,18 @@ async fn export_and_list_agree_on_rows_and_order() {
         .unwrap()
         .table
         .clone();
-    let listed: Vec<String> =
-        crate::table::TablePage::load(&cx, &table, TaskResource::query(&cx), &state)
-            .await
-            .unwrap()
-            .rows
-            .iter()
-            .map(|t| t.title.clone())
-            .collect();
+    let listed: Vec<String> = crate::table::TablePage::load(
+        &cx,
+        &table,
+        crate::scoped_query::<TaskResource>(&cx).unwrap(),
+        &state,
+    )
+    .await
+    .unwrap()
+    .rows
+    .iter()
+    .map(|t| t.title.clone())
+    .collect();
     assert_eq!(
         listed,
         ["charlie".to_string(), "bravo".to_string()],

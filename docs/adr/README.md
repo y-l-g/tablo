@@ -7,7 +7,7 @@ record disagree, the code wins and the record is fixed. Missing numbers are reti
 | ADR | Decision |
 | --- | --- |
 | [0001](0001-typed-field-lenses.md) | Fields and columns bind through typed lenses, never string paths |
-| [0002](0002-query-seam.md) | `Resource::query` scopes rows; the framework owns tenancy on a typed column |
+| [0002](0002-query-seam.md) | `ResourceDef::query` scopes rows per panel; the framework owns tenancy on a typed column |
 | [0004](0004-action-auth.md) | Mutations are transactional and per-record, with a hook on each side of the commit |
 | [0007](0007-primitives-vs-composites.md) | `primitives/` is synced, `composites/` is owned; styling stays per app |
 | [0008](0008-panel-declarative-resources.md) | The panel declares resources and owns the shell |

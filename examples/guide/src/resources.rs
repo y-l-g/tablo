@@ -2,7 +2,6 @@
 //! required items the guide elides sit outside the anchors.
 
 use tablo::prelude::*;
-use toasty::stmt::{List, Query};
 use topcoat::{Result, context::Cx};
 
 use crate::{
@@ -268,8 +267,10 @@ impl Resource for OrderResource {
 }
 
 // ANCHOR: published-query
-pub fn query(_cx: &Cx) -> Query<List<Post>> {
-    Query::<List<Post>>::all().filter(Post::fields().status().eq(PostStatus::Published))
+pub fn blog() -> Panel {
+    Panel::new("blog").resource_with::<PostResource>(|def| {
+        def.query(|_cx, query| query.filter(Post::fields().status().eq(PostStatus::Published)))
+    })
 }
 // ANCHOR_END: published-query
 

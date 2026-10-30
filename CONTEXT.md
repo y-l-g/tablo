@@ -16,7 +16,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Record table | A few of a resource's records a widget lists under the resource's list columns, linking each record and the full list. | Table widget, Recent records |
 | Resource | A type implementing `Resource` for one Toasty model. Its `Form` is `NoForm` when list-only. | Model, Entity, Collection, CRUD |
 | Resource definition | The `ResourceDef` a resource declares: slug, labels, navigation, policy, tenancy, table, form, detail, record pages, relations, actions, header actions. Each panel mounts its own copy. | Config, Settings, Options |
-| Query | A resource's own row scoping, such as row visibility. | Scope, Builder |
+| Query | A resource's own row scoping within a panel, such as row visibility, declared by `ResourceDef::query`. | Scope, Builder |
 | List query | A resource's records as its list shows them in the request, under its tab, search and filters, which `list_query` reads for a widget. | Table query, Filtered query, Page query |
 | Soft delete | A delete that stamps the column `ResourceDef::soft_delete` names with the time and keeps the row; the stamped record is trashed until a restore empties the column or a force delete removes the row. | Archive, Recycle bin, Paranoid |
 | Trashed record | A record a soft delete stamped: every loader leaves it out unless a `Trashed` scope asks for it. | Deleted record, Archived record |

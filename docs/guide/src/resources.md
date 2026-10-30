@@ -53,7 +53,6 @@ Panel::new("portal").resource_with::<PostResource>(|def| def.policy(ReadOnly))
 
 | Method | Default | Purpose |
 | --- | --- | --- |
-| `query(cx)` | every row | the base query every loader starts from: [Scoping](#scoping-the-query) |
 | `validate_record(cx, form)` | no errors | rules that need the whole parsed form |
 | `create_record`, `update_record` | the derived write | the create and update writes: [Writes](#writes) |
 | `delete_record`, `bulk_delete_records` | delete by primary key | the delete writes |
@@ -70,18 +69,19 @@ rename a record, and `plural_label` only when the rules guess wrong;
 
 ## Scoping the query
 
-`query(cx)` is the base query of every loader: the list, the export, the edit and delete
-handlers, relationship options and the detail page. Use it for the resource's own row scoping,
-such as a resource that serves the published posts only:
+`ResourceDef::query` narrows the rows every loader reads: the list, the export, the edit and
+delete handlers, relationship options and the detail page. Use it for the resource's own row
+scoping. Each panel mounts its own def, so one panel can narrow a resource that another serves
+whole, such as a blog that serves the published posts only:
 
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:published-query}}
 ```
 
-Three things do not belong in `query`:
+Three things do not belong in a `query` narrowing:
 
-- **The tenant filter.** For a tenant-owned resource the framework adds it to `query` at every
-  loader. See [Tenancy](./policy-auth-tenancy.md#tenancy).
+- **The tenant filter.** For a tenant-owned resource the framework adds it after the narrowings
+  at every loader. See [Tenancy](./policy-auth-tenancy.md#tenancy).
 - **Soft deletes.** Declare the column instead; see [Soft deletes](#soft-deletes).
 - **Relations.** The list, the export and the detail page load the relations their columns
   declare: a `RelationColumn` or `CountColumn` declares its own, and a `ComputedColumn` declares
@@ -89,8 +89,9 @@ Three things do not belong in `query`:
   reads it, for example because the policy does.
 
 In your own code, load a resource's rows with
-[`scoped_query::<R>(cx)?`](https://y-l.fr/tablo/nightly/api/tablo/fn.scoped_query.html), not `R::query(cx)`: it adds the tenant
-filter and leaves out the trashed records, and returns an error rather than an unscoped query. A background job builds its context from the mounted panel's `PanelHandle`; see
+[`scoped_query::<R>(cx)?`](https://y-l.fr/tablo/nightly/api/tablo/fn.scoped_query.html), not `Query::all()`: it applies the
+panel's narrowings, adds the tenant filter and leaves out the trashed records, and returns an
+error rather than an unscoped query. A background job builds its context from the mounted panel's `PanelHandle`; see
 [Outside a request](./data-access.md#outside-a-request).
 
 The unique-value check on forms probes through the same scoped query, so a `#[unique]` index

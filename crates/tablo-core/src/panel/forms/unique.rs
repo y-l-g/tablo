@@ -15,8 +15,8 @@ use crate::{
 ///
 /// A composite index is probed on all the fields the form posts, each through the value its own
 /// text field posts. A field the form has no control for, the tenant column among them, is left to
-/// the scoped query, as [`Resource::query`]'s scope fixes it. An index with a field whose control
-/// posts no value, or is not a text field, is left to the database.
+/// the scoped query, as the resource's [`query`](crate::ResourceDef::query) fixes it. An index with
+/// a field whose control posts no value, or is not a text field, is left to the database.
 pub(super) async fn check_unique<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,

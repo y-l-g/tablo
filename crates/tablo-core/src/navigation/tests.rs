@@ -1,6 +1,3 @@
-use toasty::stmt::List;
-use topcoat::context::Cx;
-
 use super::*;
 use crate::{Resource, ResourceDef, lens, test_support::User};
 
@@ -11,14 +8,11 @@ impl Resource for UserResource {
     type Form = crate::NoForm<Self::Model>;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().table(crate::table::Table::new(crate::TextColumn::new(lens!(
-            User.name
-        ))))
-    }
-
-    fn query(_cx: &Cx) -> toasty::stmt::Query<List<User>> {
-        // Custom scoping example: only users named Ada
-        toasty::stmt::Query::<List<User>>::all().filter(User::fields().name().eq("Ada"))
+        ResourceDef::new()
+            .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                User.name
+            ))))
+            .query(|_cx, query| query.filter(User::fields().name().eq("Ada")))
     }
 }
 

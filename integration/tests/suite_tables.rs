@@ -21,6 +21,7 @@ mod key_collisions;
 mod list;
 mod many_to_many;
 mod model_columns;
+mod query;
 mod relations;
 mod relationship_options;
 mod search;

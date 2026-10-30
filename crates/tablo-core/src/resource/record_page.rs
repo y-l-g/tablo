@@ -49,7 +49,7 @@ use crate::{
 /// ```
 ///
 /// A request reaches [`render`](Self::render) only through the checks the detail page makes:
-/// sign-in, the request's tenant, the resource's [`Resource::query`], and
+/// sign-in, the request's tenant, the resource's [`query`](crate::ResourceDef::query), and
 /// [`Ability::View`](crate::Ability::View) of the record; then [`RecordPageDef::access`]. A
 /// trashed record opens too, as it does on its detail page.
 ///
@@ -63,7 +63,7 @@ pub trait RecordPage<R: Resource>: Sized + Send + Sync + 'static {
     }
 
     /// Renders the page's body under the record's header, from the record as the resource's
-    /// [`Resource::query`] loads it, with no relation included.
+    /// [`query`](crate::ResourceDef::query) loads it, with no relation included.
     ///
     /// The record arrives whole: a field a [`ResourceDef::field_access`] rule hides from the
     /// request is still on it, so a page that shows such a field asks

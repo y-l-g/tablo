@@ -3,8 +3,9 @@
 `Resource::declare` returns a `ResourceDef<Self>` holding every setting that takes no request, and
 what a page shows of a record: the table, the detail page, the record title as a lens of one of
 the model's columns, and the public link as a closure over the record. The `Resource` trait keeps
-the associated types and the methods that load and write: `query`, `validate_record`, the record
-fns, `before_commit` and `after_commit`.
+the associated types and the methods that validate and write: `validate_record`, the record fns,
+`before_commit` and `after_commit`. Row scoping is a setting of the def, `ResourceDef::query`, so
+each panel narrows the rows it serves.
 Mounting builds each def once and
 keeps it in the panel's state; every handler and cross-reference reads the request panel's copy,
 so one resource can mount read-only in one panel and writable in another. A background job gets a

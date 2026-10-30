@@ -37,6 +37,8 @@ pub(crate) struct Mounted<R: Resource> {
     /// The rows [`ResourceDef::navigation_badge`] counts.
     navigation_badge: Option<toasty::stmt::Expr<bool>>,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
+    /// The [`ResourceDef::query`] narrowings, in declaration order.
+    pub(crate) queries: Vec<super::QueryFn<R::Model>>,
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Arc<Table<R::Model>>,
     pub(crate) form: Arc<Schema>,
@@ -125,6 +127,7 @@ impl<R: Resource> Mounted<R> {
             navigation_hidden: def.navigation_hidden,
             navigation_badge: def.navigation_badge,
             policy: def.policy,
+            queries: def.queries,
             tenancy: def.tenancy,
             table: Arc::new(table),
             form: Arc::new(form),
