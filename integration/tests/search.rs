@@ -4,7 +4,7 @@
 //! results shard on one or two panels without sign-in.
 
 use tablo::{
-    Ability, Auth, Detail, FieldAccess, GlobalSearch, NoForm, Panel, Resource, ResourceDef,
+    Ability, Auth, FieldAccess, GlobalSearch, NoForm, Panel, Resource, ResourceDef, ResourcePage,
     RouterBuilderPanelExt, lens,
     testing::{SearchGroup, search_box, search_results},
 };
@@ -82,7 +82,7 @@ impl Resource for ShelfResource {
             .slug("shelf")
             .plural_label("Shelf")
             .policy_fn(book_policy)
-            .detail(Detail::empty())
+            .without_page(ResourcePage::View)
             .record_title(lens!(Book.title))
     }
 }

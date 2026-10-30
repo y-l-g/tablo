@@ -48,7 +48,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | a custom page using `InteractsWithRecord` | a type implementing [`RecordPage`](./detail-pages.md#record-pages), added by `ResourceDef::record_page` |
 | dashboard | `Panel::home::<P>()` |
 | `$navigationGroup`, `$navigationSort`, `$navigationIcon` | `navigation_group`, `navigation_order`, `icon` on the def |
-| `$shouldRegisterNavigation`, `shouldRegisterNavigation()` | `navigation_hidden()` on the def, which keeps the URLs and the policy |
+| `$shouldRegisterNavigation`, `shouldRegisterNavigation()` | `without_navigation()` on the def, which keeps the URLs and the policy |
 | `getNavigationBadge()` | `ResourceDef::navigation_badge(filter)`, or `NavigationItem::badge(text)` |
 | `->favicon(..)` | `Brand::favicon(url)` |
 | tenancy | `ResourceDef::tenancy`: `Tenancy::column` or `Tenancy::via` |

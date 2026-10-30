@@ -75,8 +75,8 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) list_widgets: crate::widget::WidgetGrid,
     /// The columns [`Self::create_column`] names, or why a path names no column.
     pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
-    /// Whether [`Self::edit_only`] turned the create page off.
-    pub(crate) edit_only: bool,
+    /// The pages [`Self::without_page`] has not turned off.
+    pub(crate) pages: super::Pages,
     /// Whether [`Self::importable`] turned the CSV import on.
     pub(crate) importable: bool,
     pub(crate) soft_delete: Option<SoftDelete<R::Model>>,
@@ -110,7 +110,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             header_actions: HeaderActions::new(),
             list_widgets: crate::widget::WidgetGrid::default(),
             create_columns: Vec::new(),
-            edit_only: false,
+            pages: super::Pages::default(),
             importable: false,
             soft_delete: None,
             field_rules: Vec::new(),
@@ -228,7 +228,7 @@ impl<R: Resource> ResourceDef<R> {
     /// a [`Panel::home`](crate::Panel::home) ([`NoRoot`](crate::DeclarationErrorKind::NoRoot)).
     /// Its pages stay mounted at their URLs, and its policy still decides who may open them.
     #[must_use]
-    pub fn navigation_hidden(mut self) -> Self {
+    pub fn without_navigation(mut self) -> Self {
         self.navigation_hidden = true;
         self
     }
@@ -358,8 +358,9 @@ impl<R: Resource> ResourceDef<R> {
     }
 
     /// The detail page: columns in layout blocks; defaults to the [`table`](Self::table)'s columns,
-    /// else to the model's ([`ModelColumns::detail`]). [`Detail::empty`] turns the page off: its
-    /// route answers 404 and no row links to it. A non-empty detail adds a View action to each row.
+    /// else to the model's ([`ModelColumns::detail`]). The page adds a View action to each
+    /// row; [`without_page(ResourcePage::View)`](Self::without_page) turns it off, and mounting
+    /// refuses a detail listing no column on a resource that serves it.
     ///
     /// The page, at `{list}/{key}`, carries in its header the record's title, a link back to the
     /// list, the actions placed on [`Places::DETAIL`](crate::Places::DETAIL) and Delete as the
@@ -503,19 +504,6 @@ impl<R: Resource> ResourceDef<R> {
         let path = ModelPath::of(&path.into());
         self.create_columns
             .push(model::field::<R::Model>(&path).map(|field| field.name));
-        self
-    }
-
-    /// Serves the edit page but no create page, for records that arrive another way: an import,
-    /// a seed, an action.
-    ///
-    /// A resource with a record form creates through it unless it opts out here; the policy decides
-    /// who may create, per request, but never whether the page exists. Without the page, mounting
-    /// skips the check that a create fills every non-nullable column, and the list and the
-    /// relations offer no create button.
-    #[must_use]
-    pub fn edit_only(mut self) -> Self {
-        self.edit_only = true;
         self
     }
 

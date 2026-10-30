@@ -3,15 +3,15 @@
 
 use http::StatusCode;
 use tablo::{
-    BooleanColumn, Detail, EmbeddedColumn, FileColumn, ModelColumns, NoForm, Resource, ResourceDef,
-    SelectFilter, Table, TextColumn, lens,
+    BooleanColumn, DeclarationErrorKind, Detail, EmbeddedColumn, FileColumn, ModelColumns, NoForm,
+    Resource, ResourceDef, ResourcePage, SelectFilter, Site, Table, TextColumn, lens,
     testing::{columns, detail_entries, filter_options, rows},
 };
 use toasty::Db;
 use topcoat::router::Router;
 use uuid::Uuid;
 
-use crate::common::{body_string, get, input_value, panel_router, test_db};
+use crate::common::{body_string, get, input_value, mount, panel, panel_router, refusal, test_db};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 enum TicketStatus {
@@ -57,7 +57,9 @@ impl Resource for TicketResource {
     type Form = TicketForm;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().policy(tablo::ReadOnly).edit_only()
+        ResourceDef::new()
+            .policy(tablo::ReadOnly)
+            .without_page(ResourcePage::Create)
     }
 }
 
@@ -71,8 +73,23 @@ impl Resource for UnviewedTicketResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .policy(tablo::ReadOnly)
-            .edit_only()
-            .detail(Detail::empty())
+            .without_page(ResourcePage::Create)
+            .without_page(ResourcePage::View)
+    }
+}
+
+/// The same resource serving its view page with a detail that lists no column.
+struct EmptyDetailTicketResource;
+
+impl Resource for EmptyDetailTicketResource {
+    type Model = Ticket;
+    type Form = TicketForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(tablo::ReadOnly)
+            .without_page(ResourcePage::Create)
+            .detail(Detail::new(()))
     }
 }
 
@@ -487,7 +504,7 @@ impl Resource for TabledTicketResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .policy(tablo::ReadOnly)
-            .edit_only()
+            .without_page(ResourcePage::Create)
             .table(Table::new((
                 TextColumn::new(lens!(Ticket.subject)),
                 BooleanColumn::new(lens!(Ticket.urgent)),
@@ -591,4 +608,16 @@ async fn a_list_of_scalars_shows_each_value() {
         csv.contains("https://a.example,\"rust, web\",\"Waiting on customer, Open\"\n"),
         "the export joins the labels: {csv}"
     );
+}
+
+/// A resource serving its view page refuses to mount with a detail listing no column, rather than
+/// dropping the page: only `without_page` turns it off.
+#[tokio::test]
+async fn a_view_page_with_an_empty_detail_refuses_the_mount() {
+    let (db, _) = ticket_db().await;
+    let refused: Vec<_> = refusal(mount(db, panel().resource::<EmptyDetailTicketResource>()))
+        .into_iter()
+        .map(|error| (error.site, error.kind))
+        .collect();
+    assert_eq!(refused, [(Site::Detail, DeclarationErrorKind::EmptyDetail)]);
 }

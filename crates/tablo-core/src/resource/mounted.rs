@@ -32,7 +32,7 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) label: Text,
     pub(crate) plural_label: Text,
     pub(crate) navigation: NavigationItem,
-    /// Whether the sidebar leaves the resource out: [`ResourceDef::navigation_hidden`].
+    /// Whether the sidebar leaves the resource out: [`ResourceDef::without_navigation`].
     pub(crate) navigation_hidden: bool,
     /// The rows [`ResourceDef::navigation_badge`] counts.
     navigation_badge: Option<toasty::stmt::Expr<bool>>,
@@ -55,9 +55,8 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) list_widgets: crate::widget::WidgetGrid,
     pub(crate) fields: Vec<FormField<<R::Form as RecordForm>::Field>>,
     pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
-    /// Whether the resource serves a create page: it has a record form and is not
-    /// [`edit_only`](ResourceDef::edit_only).
-    pub(crate) creates: bool,
+    /// The record pages the resource serves: see [`ResourcePage`](super::ResourcePage).
+    pub(crate) pages: super::Pages,
     /// Whether the resource is [`importable`](ResourceDef::importable): mounting refuses one
     /// that serves no create page, so a mounted panel serves its import beside that page.
     pub(crate) imports: bool,
@@ -142,7 +141,7 @@ impl<R: Resource> Mounted<R> {
             list_widgets: def.list_widgets,
             fields,
             create_columns: def.create_columns,
-            creates: <R::Form as RecordForm>::HAS_FORM && !def.edit_only,
+            pages: super::Pages::served(def.pages, <R::Form as RecordForm>::HAS_FORM),
             imports: def.importable,
             soft_delete: def.soft_delete,
             field_rules: def.field_rules,
@@ -180,9 +179,9 @@ impl<R: Resource> Mounted<R> {
         }
     }
 
-    /// Whether the resource declares a detail page.
+    /// Whether the resource serves the view page.
     pub(crate) fn viewed(&self) -> bool {
-        !self.detail.is_empty()
+        self.pages.view
     }
 
     /// The title of `record`: its title column, else the resource's label and `key`.
@@ -252,7 +251,7 @@ impl<R: Resource> Mounted<R> {
         self.global_search.is_some()
             && (self.record_title.is_some() || self.table.has_searchable_column())
             && self.table.is_addressable()
-            && (self.viewed() || <R::Form as RecordForm>::HAS_FORM)
+            && (self.pages.view || self.pages.edit)
     }
 
     /// The fields the panel's [`ResourceDef::field_access`] rules let `cx` neither view nor change,

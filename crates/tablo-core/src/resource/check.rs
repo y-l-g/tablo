@@ -69,7 +69,13 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
     super::field_access::check_choices::<R, _>(cx, &declared.form, Site::Form, errors);
     check_actions(cx, &declared, errors);
     super::editable::check(&declared, errors);
-    if declared.imports && !declared.creates {
+    if declared.pages.view && declared.detail.is_empty() {
+        errors.push(DeclarationError::of::<R>(
+            Site::Detail,
+            DeclarationErrorKind::EmptyDetail,
+        ));
+    }
+    if declared.imports && !declared.pages.create {
         errors.push(DeclarationError::of::<R>(
             Site::Registration,
             DeclarationErrorKind::ImportWithoutCreate,
@@ -302,7 +308,7 @@ fn check_form_inner<R: Resource>(
     check_many_to_many(cx, declared, errors);
     // Whether the page exists, not whether the policy allows it: the checks run with no request,
     // so a policy reading the user would deny every create here and skip the check.
-    if declared.creates {
+    if declared.pages.create {
         check_create_columns(declared, errors);
     }
     let columns = model::fields::<R::Model>();

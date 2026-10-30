@@ -9,9 +9,9 @@ mod sources;
 
 use resources::*;
 use tablo::{
-    ComputedColumn, DeclarationErrorKind, Detail, FieldAccessFault, NoForm, Page, PageDef,
-    ReadOnly, RecordTable, RelationColumn, Resource, ResourceDef, Site, Table, Tenancy, TenantId,
-    Widget, lens, relation,
+    ComputedColumn, DeclarationErrorKind, FieldAccessFault, NoForm, Page, PageDef, ReadOnly,
+    RecordTable, RelationColumn, Resource, ResourceDef, ResourcePage, Site, Table, Tenancy,
+    TenantId, Widget, lens, relation,
     testing::{columns, record_tables},
 };
 use toasty::Db;
@@ -339,7 +339,7 @@ async fn an_unmasked_projection_of_a_restricted_record_is_refused() {
                     )
                     .label("By source"),
                 )))
-                .detail(Detail::empty())
+                .without_page(ResourcePage::View)
         }
     }
 

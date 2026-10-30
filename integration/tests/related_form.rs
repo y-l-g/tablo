@@ -4,7 +4,7 @@
 use http::StatusCode;
 use tablo::{
     Ability, Change, DeclarationErrorKind, FieldErrors, NoForm, RelatedFormFault, Relation,
-    Resource, ResourceDef, Site, TextColumn, lens,
+    Resource, ResourceDef, ResourcePage, Site, TextColumn, lens,
     testing::{TestClient, field_error, form_body, input_value, stale_form},
 };
 use toasty::Db;
@@ -402,7 +402,7 @@ async fn a_related_form_must_fit_inside_the_owners() {
 
         // A form without the foreign key cannot create a profile, so it only edits one.
         fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().edit_only()
+            ResourceDef::new().without_page(ResourcePage::Create)
         }
     }
 

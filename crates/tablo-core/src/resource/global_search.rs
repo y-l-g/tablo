@@ -263,9 +263,7 @@ fn opens<R: Resource>(cx: &Cx, mounted: &super::Mounted<R>, record: &R::Model) -
     }
     if mounted.viewed() {
         Some(Opens::Detail)
-    } else if <R::Form as crate::form::RecordForm>::HAS_FORM
-        && mounted.can(cx, Ability::Update(record))
-    {
+    } else if mounted.pages.edit && mounted.can(cx, Ability::Update(record)) {
         Some(Opens::Edit)
     } else {
         None

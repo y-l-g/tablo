@@ -48,7 +48,7 @@ impl Resource for ArchiveResource {
         ResourceDef::new()
             .slug("archive")
             .policy(ReadOnly)
-            .navigation_hidden()
+            .without_navigation()
             .table(Table::new(TextColumn::new(lens!(Book.title))))
     }
 }
@@ -92,7 +92,7 @@ impl Resource for SealedResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("sealed")
-            .navigation_hidden()
+            .without_navigation()
             .table(Table::new(TextColumn::new(lens!(Book.title))))
     }
 }

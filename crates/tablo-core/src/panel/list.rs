@@ -33,7 +33,6 @@ use super::{
     url::{columns_url, create_page_url, export_url, import_url},
 };
 use crate::{
-    form::RecordForm,
     policy::Ability,
     resource::{Mounted, Places, Resource},
     table::{ColumnChoice, Table, TablePage, TableState},
@@ -64,7 +63,7 @@ pub(crate) fn retry_url_for_error(
 pub(crate) fn declared_chrome<R: Resource>(cx: &Cx, resource: &Mounted<R>) -> TableChrome {
     TableChrome {
         delete: resource.can(cx, Ability::DeleteAny),
-        edit: <R::Form as RecordForm>::HAS_FORM,
+        edit: resource.pages.edit,
         view: resource.viewed(),
         actions: true,
     }
@@ -358,7 +357,7 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             table.returning_to(back)
         };
         let skeleton = table.render_skeleton(cx, &state).await?;
-        let creates = resource.creates && resource.can_create(cx);
+        let creates = resource.pages.create && resource.can_create(cx);
         let create_url = creates.then(|| create_page_url(&resource.url));
         let import_url = (creates && resource.imports).then(|| import_url(&resource.url));
         let export_url = state.first_page(&export_url(&resource.url));

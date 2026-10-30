@@ -2,7 +2,9 @@
 //! has no record URL.
 
 use http::{StatusCode, header::CONTENT_TYPE};
-use tablo::{Ability, Detail, Resource, ResourceDef, Schema, Table, TextColumn, lens};
+use tablo::{
+    Ability, Detail, Resource, ResourceDef, ResourcePage, Schema, Table, TextColumn, lens,
+};
 use toasty::Db;
 
 use crate::common::{TestClient, body_string, get, panel_router, test_db};
@@ -30,7 +32,7 @@ impl Resource for TagResource {
         ResourceDef::new()
             .slug("tags")
             .policy_fn(|_cx, ability| !matches!(ability, Ability::Create))
-            .edit_only()
+            .without_page(ResourcePage::Create)
             .table(Table::new(TextColumn::new(lens!(Tag.label))))
             .form(Schema::new(TagForm::controls().label))
             .detail(Detail::new(TextColumn::new(lens!(Tag.label))))
@@ -113,7 +115,7 @@ impl Resource for SeatResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .edit_only()
+            .without_page(ResourcePage::Create)
             .slug("seats")
             .policy(tablo::Allow)
             .table(Table::new(TextColumn::new(lens!(Seat.label))))

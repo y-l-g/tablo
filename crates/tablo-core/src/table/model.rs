@@ -10,8 +10,8 @@ use crate::{Detail, Table};
 ///
 /// Derive it with [`ModelColumns`](derive@crate::ModelColumns), which gives a column to each field
 /// a person reads, whether a form or Toasty writes it. An impl by hand names the model's tenant
-/// columns; one that keeps the defaults here lists no column and turns the detail page off, for a
-/// resource that declares both.
+/// columns; one that keeps the defaults here lists no column, for a resource that declares its own
+/// table and detail page, or turns the view page off.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` declares no default columns",
     label = "a resource's model implements `ModelColumns`",
@@ -31,7 +31,8 @@ pub trait ModelColumns: Model + IntoExpr<Self> + Sized {
         Table::new(())
     }
 
-    /// The default detail page, which is off here.
+    /// The default detail page, which lists no column here: a resource serving the view page then
+    /// declares its own, else mounting refuses it.
     fn detail() -> Detail<Self> {
         Detail::empty()
     }

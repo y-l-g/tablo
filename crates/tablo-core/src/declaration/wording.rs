@@ -15,6 +15,10 @@ impl fmt::Display for DeclarationError {
     }
 }
 
+/// [`DeclarationErrorKind::EmptyDetail`]'s wording.
+const EMPTY_DETAIL: &str = "the view page shows a detail listing no column: declare a `detail` or \
+                            a table, or turn the page off with `without_page(ResourcePage::View)`";
+
 impl fmt::Display for DeclarationErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -305,13 +309,14 @@ impl fmt::Display for DeclarationErrorKind {
                 "nothing writes the non-nullable column `{column}` on create: the record form has \
                  no such field, toasty fills no `#[default(..)]` for it, and no `create_column` \
                  names it, so every create would fail at the driver; a resource that creates \
-                 nothing declares `edit_only`"
+                 nothing declares `without_page(ResourcePage::Create)`"
             ),
             Self::ImportWithoutCreate => write!(
                 f,
                 "`importable` creates each row through the create form, which this resource does \
-                 not serve: it has no record form, or is `edit_only`"
+                 not serve: it has no record form, or declares `without_page(ResourcePage::Create)`"
             ),
+            Self::EmptyDetail => f.write_str(EMPTY_DETAIL),
             Self::RelatedForm(fault) => fault.fmt(f),
             Self::ManyToMany { field, fault } => fmt_many_to_many(f, field, fault),
         }

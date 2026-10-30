@@ -4,8 +4,8 @@
 use std::sync::Mutex;
 
 use tablo::{
-    Ability, Change, DeclarationErrorKind, ManyToManyFault, Relation, Resource, ResourceDef, Table,
-    TextColumn, lens,
+    Ability, Change, DeclarationErrorKind, ManyToManyFault, Relation, Resource, ResourceDef,
+    ResourcePage, Table, TextColumn, lens,
 };
 use toasty::{Db, Deferred};
 use topcoat::{context::Cx, router::Router};
@@ -530,7 +530,7 @@ impl Resource for ClubResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .policy(tablo::ReadOnly)
-            .edit_only()
+            .without_page(ResourcePage::Create)
             .table(Table::new(TextColumn::new(lens!(Club.name))))
             .relation(Relation::belongs_to_many::<BookResource>(
                 Club::fields().members(),

@@ -3,8 +3,8 @@
 //! nothing.
 
 use tablo::{
-    Ability, DeclarationErrorKind, FieldAccess, FieldErrors, NoForm, Resource, ResourceDef, Schema,
-    Site, Tenancy, TenantId,
+    Ability, DeclarationErrorKind, FieldAccess, FieldErrors, NoForm, Resource, ResourceDef,
+    ResourcePage, Schema, Site, Tenancy, TenantId,
     testing::{ImportError, ImportRefusal, import_columns, import_errors, import_refusal},
 };
 use toasty::Db;
@@ -143,7 +143,7 @@ async fn the_mount_refuses_an_import_on_a_resource_that_creates_nothing() {
             ResourceDef::new()
                 .policy_fn(|_cx, _ability: Ability<'_, Employee>| true)
                 .tenancy(Tenancy::column(Employee::fields().tenant_id()))
-                .edit_only()
+                .without_page(ResourcePage::Create)
                 .importable()
         }
     }

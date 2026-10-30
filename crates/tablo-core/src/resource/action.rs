@@ -162,8 +162,8 @@ pub trait Action<R: Resource>: 'static {
     /// It decides where the button shows, not who may run it: the record route serves an action
     /// placed on any of [`Places::RECORD`], and the bulk route one placed on
     /// [`Places::BULK`]; any other POST answers 404. A place no page renders shows the button
-    /// nowhere: [`Places::EDIT`] on a resource without a form, or [`Places::DETAIL`] on one whose
-    /// view is [`Detail::empty`](crate::Detail::empty).
+    /// nowhere: [`Places::EDIT`] on a resource without a form, or [`Places::DETAIL`] on one that
+    /// turns its view page off ([`ResourcePage::View`](crate::ResourcePage::View)).
     const PLACES: Places = Places::ALL;
 
     /// Whether the action asks first through a confirmation dialog sharing the
