@@ -41,7 +41,7 @@ pub enum Ability<'a, M> {
     /// Open the list, export it, and offer the records as relationship options: asked by the list
     /// and its live refresh, the sidebar entry, the export, related tables and relationship
     /// options. It is the only ability the list asks: a policy cannot run in the database, so the
-    /// rows a user must not see belong out of [`Resource::query`](crate::Resource::query).
+    /// rows a user must not see belong out of [`ResourceDef::query`](crate::ResourceDef::query).
     ViewAny,
     /// See one record: asked by the detail page, the edit page and POST, deletes, each exported
     /// row, each relationship option, and each row's actions.

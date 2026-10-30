@@ -202,7 +202,7 @@ impl Stat {
     /// cannot see or links to a list that would answer 403.
     ///
     /// The count reads [`scoped_query`](crate::scoped_query): the caller's tenant, `R`'s
-    /// [`Query`](Resource::query), and no trashed record.
+    /// [`query`](crate::ResourceDef::query), and no trashed record.
     ///
     /// # Errors
     ///
@@ -232,8 +232,8 @@ impl Stat {
 /// [`can_list`](super::can_list) makes, or may see none of its columns' fields.
 ///
 /// The rows are the ones the list would show: [`scoped_query`](crate::scoped_query)'s, the
-/// caller's tenant, `R`'s [`Query`](Resource::query) and no trashed record, which `table`'s
-/// [`filter`](RecordTable::filter) narrows. Its columns hide what
+/// caller's tenant, `R`'s [`query`](crate::ResourceDef::query) and no trashed record, which
+/// `table`'s [`filter`](RecordTable::filter) narrows. Its columns hide what
 /// [`field_access`](crate::ResourceDef::field_access) hides from the request, on `R` and on the
 /// related records they show, as the list does. It never pages, sorts, searches or writes, so it
 /// adds no route: a record's own page and the list do.

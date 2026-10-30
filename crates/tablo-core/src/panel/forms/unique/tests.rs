@@ -277,14 +277,11 @@ async fn an_index_member_the_form_does_not_post_is_left_to_the_scope() {
         type Form = crate::NoForm<Self::Model>;
 
         fn declare() -> ResourceDef<Self> {
-            ResourceDef::new().table(crate::table::Table::new(crate::TextColumn::new(lens!(
-                Post.slug
-            ))))
-        }
-
-        fn query(_cx: &topcoat::context::Cx) -> toasty::stmt::Query<toasty::stmt::List<Post>> {
-            toasty::stmt::Query::<toasty::stmt::List<Post>>::all()
-                .filter(Post::fields().owner().eq("me"))
+            ResourceDef::new()
+                .table(crate::table::Table::new(crate::TextColumn::new(lens!(
+                    Post.slug
+                ))))
+                .query(|_cx, query| query.filter(Post::fields().owner().eq("me")))
         }
     }
 

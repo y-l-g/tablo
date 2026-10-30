@@ -105,7 +105,7 @@ pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm",
 ///
 /// A run from a detail or edit page lands back on that page, its query kept; one from a row or
 /// the bulk bar lands on the list. An action that takes the record out of the resource's
-/// [`query`](super::Resource::query) or its `View`, such as an archive the list hides, lands on
+/// [`query`](super::ResourceDef::query) or its `View`, such as an archive the list hides, lands on
 /// that page's 404: place it on rows and the bulk bar instead.
 ///
 /// The bulk bar of a resource's list whose rows span pages offers Select all matching: the

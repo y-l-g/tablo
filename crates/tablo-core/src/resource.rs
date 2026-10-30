@@ -17,6 +17,7 @@ mod field_access;
 mod global_search;
 mod header_action;
 mod mounted;
+mod query;
 mod record_page;
 mod record_title;
 mod relation;
@@ -42,6 +43,7 @@ pub(crate) use mounted::{
     MountScope, Mounted, Mounts, is_mounted, is_restricted_model, is_tenant_model, model_rules,
     mounted, require_mounted, restricts_any,
 };
+pub(crate) use query::QueryFn;
 pub(crate) use record_page::{
     RESERVED_SEGMENTS as RESERVED_RECORD_SEGMENTS, RecordPageEntry, check as check_record_pages,
 };
@@ -117,43 +119,6 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// the policy or to a trait method, which receives `cx`.
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-    }
-
-    /// Base query — the seam for a resource's **own** row scoping (ADR-0002):
-    /// soft deletes and row-level visibility. Every loader starts from it.
-    ///
-    /// **Relations are not this method's job.** The list, the export and the detail page load
-    /// the relations their columns declare ([`Column::includes`](crate::extend::Column::includes)):
-    /// a [`RelationColumn`](crate::RelationColumn) declares its own. Include a relation here
-    /// only when a closure no column covers reads it on every loader's rows: one the
-    /// [`policy`](ResourceDef::policy) reads, or one a table's `group_by` or row key reads without
-    /// a column including it.
-    ///
-    /// **Tenancy is not this method's job either.** For a resource whose
-    /// [`tenancy`](ResourceDef::tenancy) is scoped the framework ANDs the tenant filter
-    /// onto whatever this returns, at every loader through [`scoped_query`]. Do
-    /// not re-state it here. Code outside the framework's loaders starts from
-    /// [`scoped_query`].
-    ///
-    /// Returns the raw typed statement query, which composes generically —
-    /// `filter`, `order_by` and `Paginate::new` work on the raw form for any
-    /// `M: Model` — so one panel handler drives every resource's list page.
-    ///
-    /// A list and its export replace any ordering this sets with the table's own sort: order a
-    /// list with [`Table::default_sort`](crate::Table::default_sort).
-    ///
-    /// # Keep unique constraints in step with this scope
-    ///
-    /// The app-side unique pre-check probes through the same tenant-scoped
-    /// query, so a `#[unique]` index *broader* than the scope is invisible: the
-    /// probe misses the colliding row and the user gets a 500 instead of the
-    /// inline "has already been taken". Scope the constraint to match —
-    /// `#[unique(tenant_id, email)]` — or, when the index must stay broader, probe it in
-    /// [`create_record`](Self::create_record) and [`update_record`](Self::update_record) and refuse
-    /// with [`WriteError::Refused`]. Not checkable at declaration time, since a query's filters
-    /// are not introspectable; tablo#117 tracks the fix.
-    fn query(_cx: &Cx) -> toasty::stmt::Query<List<Self::Model>> {
-        toasty::stmt::Query::<List<Self::Model>>::all()
     }
 
     /// App-level rules on the parsed form. The errors render inline with a
@@ -399,9 +364,10 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
 /// The tenant-scoped base query.
 ///
-/// [`Resource::query`] with the [`tenancy`](ResourceDef::tenancy) filter ANDed onto it, so a
-/// resource that overrides `query` cannot drop the tenant scope by forgetting to re-state it, and
-/// with the trashed records of a resource that [soft-deletes](ResourceDef::soft_delete) left out.
+/// The resource's rows as the context's panel narrows them with [`ResourceDef::query`], with the
+/// [`tenancy`](ResourceDef::tenancy) filter ANDed onto them, so no narrowing can drop the tenant
+/// scope, and with the trashed records of a resource that [soft-deletes](ResourceDef::soft_delete)
+/// left out.
 /// Every framework loader and app code start here; [`scoped_query_in`] admits the trashed
 /// records too.
 ///
@@ -411,8 +377,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
 /// panel's handlers give. A declaration error when the context's panel does not mount `R`; a
 /// background job builds its context with [`PanelHandle::context`](crate::PanelHandle::context).
 ///
-/// App code that loads rows itself must call this: on a scoped resource
-/// [`Resource::query`] is the *tenant-unscoped* base by design.
+/// App code that loads rows itself must call this: `Query::all()` reads every tenant's rows and
+/// skips the panel's narrowings.
 pub fn scoped_query<R: Resource>(cx: &Cx) -> Result<Query<List<R::Model>>> {
     scoped_query_in::<R>(cx, Trashed::Without)
 }
@@ -442,7 +408,13 @@ impl<R: Resource> Mounted<R> {
         cx: &Cx,
         trashed: Trashed,
     ) -> Result<Query<List<R::Model>>> {
-        let query = self.tenant_scope(cx, R::query(cx))?;
+        let query = self
+            .queries
+            .iter()
+            .fold(Query::<List<R::Model>>::all(), |query, narrow| {
+                narrow(cx, query)
+            });
+        let query = self.tenant_scope(cx, query)?;
         Ok(match &self.soft_delete {
             Some(soft_delete) => match soft_delete.filter(trashed) {
                 Some(filter) => query.filter(filter),

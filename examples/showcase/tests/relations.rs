@@ -732,31 +732,6 @@ async fn comments_create_form_shows_post_select() {
     assert!(html.contains("Hello Toasty"), "missing post option: {html}");
 }
 
-/// A Comment form's Post options load through the resource's
-/// `query`, which carries no relation, so the option load selects the posts'
-/// own columns and not every comment of every post.
-#[tokio::test]
-async fn post_options_do_not_load_every_posts_comments() {
-    use showcase::app::PostResource;
-    use tablo::{Resource, Tenant, db::db as db_handle};
-    use topcoat::context::Cx;
-
-    let (db, t1, _t2) = tenanted_db().await;
-    let cx = Cx::default().with(db.clone()).with(Tenant(t1));
-    let mut handle = db_handle(&cx).unwrap();
-
-    let option_row = <PostResource as Resource>::query(&cx)
-        .first()
-        .exec(&mut handle)
-        .await
-        .unwrap()
-        .expect("the tenant seeds a post");
-    assert!(
-        option_row.comments.is_unloaded() && option_row.author.is_unloaded(),
-        "the option load must not carry the resource's relations"
-    );
-}
-
 #[tokio::test]
 async fn comments_create_valid_redirects_and_creates() {
     let db = full_db().await;

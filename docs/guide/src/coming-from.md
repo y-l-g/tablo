@@ -7,7 +7,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | --- | --- |
 | `PanelProvider` | [`Panel`](./panel-and-routing.md), mounted on your router with `.panel(..)` |
 | `Resource` | a type implementing [`Resource`](./resources.md), declaring a `ResourceDef` |
-| `getEloquentQuery()` | `Resource::query` |
+| `getEloquentQuery()` | `ResourceDef::query` |
 | `table()`: columns | `ResourceDef::table(Table::new(columns))` |
 | `->searchable()`, `->sortable()` | `.searchable()`, `.sortable()` on a column |
 | `->defaultSort('created_at', 'desc')` | `Table::default_sort_desc(lens!(Post.created_at))` |

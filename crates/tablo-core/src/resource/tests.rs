@@ -24,10 +24,7 @@ impl Resource for OwnedResource {
             .table(crate::table::Table::new(crate::TextColumn::new(lens!(
                 Owned.name
             ))))
-    }
-
-    fn query(_cx: &Cx) -> toasty::stmt::Query<List<Owned>> {
-        toasty::stmt::Query::<List<Owned>>::all().filter(Owned::fields().name().ne("Hidden"))
+            .query(|_cx, query| query.filter(Owned::fields().name().ne("Hidden")))
     }
 }
 
