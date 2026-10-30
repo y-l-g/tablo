@@ -368,7 +368,7 @@ fn check_page<R: Resource>(
     }
     for (column, own) in columns.iter().zip(&loads) {
         let name = column.name().to_string();
-        let fault = match column.related() {
+        let fault = match column.internals().related() {
             Related::None => continue,
             Related::Source(source) if is_mounted(cx, source) => continue,
             Related::Row => match reads_row(name) {
@@ -457,7 +457,7 @@ pub(crate) fn check_filters<R: Resource>(
     let restricted = |model: model::ModelId| is_restricted_model(cx, model);
     for filter in declared.table.declared_filters() {
         let name = filter.name().to_string();
-        let fault = if let Some(model) = filter.unmasked_model(&mounted, &restricted) {
+        let fault = if let Some(model) = filter.internals().unmasked_model(&mounted, &restricted) {
             Some(FieldAccessFault::UnmaskedRelation {
                 name,
                 model: model.to_string(),

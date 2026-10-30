@@ -14,7 +14,7 @@
 //! `rust_decimal::Decimal` and `bigdecimal::BigDecimal` with the features of those names.
 
 pub use crate::{
-    column::{Column, Editor, Includes},
+    column::{Column, Includes},
     schema::{
         fields::custom::{Control, ControlInput},
         relationship::OptionSource,

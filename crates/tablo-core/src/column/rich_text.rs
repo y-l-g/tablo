@@ -69,7 +69,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: FormScalar + Send + Sync + 'static,
 {
-    base_column_methods!(binding);
+    base_column_methods!();
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         plain_text(&self.html(row))
@@ -82,6 +82,14 @@ where
     fn entry<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
         entry(cx, &self.label(), self.html(row))
     }
+}
+
+impl<M, T> crate::column::ColumnInternals<M> for RichTextColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: FormScalar + Send + Sync + 'static,
+{
+    base_internals!(binding);
 }
 
 /// A table cell of `text` on one line, cut to `chars` characters with `…` when it runs on.

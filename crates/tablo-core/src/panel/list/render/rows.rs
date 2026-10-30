@@ -379,7 +379,10 @@ impl<M> WiredTable<M> {
         actions: RowActions,
         col: &dyn Column<M>,
     ) -> BoxView<'a> {
-        let edit = col.edits().zip(frame.edit_prefix.filter(|_| actions.edit));
+        let edit = col
+            .internals()
+            .edits()
+            .zip(frame.edit_prefix.filter(|_| actions.edit));
         let edits = self
             .cell_edits()
             .filter(|edits| (edits.changes)(col.name()));
@@ -395,7 +398,10 @@ impl<M> WiredTable<M> {
                 column: col.name().to_string(),
                 version: (edits.version)(row),
                 saves_on_change: editor.saves_on_change(),
-                control: col.editor(cx, row),
+                control: col
+                    .internals()
+                    .editor(cx, row)
+                    .unwrap_or_else(|| col.cell(cx, row)),
             },
         )
     }

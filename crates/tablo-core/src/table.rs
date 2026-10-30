@@ -318,7 +318,7 @@ impl<M> Table<M> {
     ) -> Vec<DeclarationErrorKind> {
         let mut errors = crate::column::unavailable_sources(cx, self.columns.iter().map(|c| &**c));
         errors.extend(self.filters.iter().filter_map(|filter| {
-            filter.unavailable_source(cx).map(|source| {
+            filter.internals().unavailable_source(cx).map(|source| {
                 DeclarationErrorKind::UnregisteredOptionSource {
                     field: filter.name().to_string(),
                     source,
@@ -345,7 +345,7 @@ impl<M> Table<M> {
         }
         let mut seen = std::collections::HashSet::with_capacity(self.columns.len());
         for column in &self.columns {
-            match column.misdeclared() {
+            match column.internals().misdeclared() {
                 Some(error) => errors.push(error),
                 None if !seen.insert(column.name()) => {
                     errors.push(DeclarationErrorKind::DuplicateColumn {
@@ -357,7 +357,7 @@ impl<M> Table<M> {
         }
         let mut seen = std::collections::HashSet::with_capacity(self.filters.len());
         for filter in &self.filters {
-            match filter.misdeclared() {
+            match filter.internals().misdeclared() {
                 Some(error) => errors.push(error),
                 None if filter.name().contains('.') => {
                     errors.push(DeclarationErrorKind::DottedFilterName {

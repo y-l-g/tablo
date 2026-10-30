@@ -72,7 +72,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: FormScalar + Send + Sync + 'static,
 {
-    base_column_methods!(binding);
+    base_column_methods!();
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         self.lens.read(row).to_form()
@@ -109,4 +109,12 @@ where
         }
         .boxed()
     }
+}
+
+impl<M, T> crate::column::ColumnInternals<M> for ImageColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: FormScalar + Send + Sync + 'static,
+{
+    base_internals!(binding);
 }

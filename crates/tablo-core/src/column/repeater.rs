@@ -66,7 +66,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: FormInput,
 {
-    base_column_methods!(binding);
+    base_column_methods!();
 
     fn text(&self, cx: &Cx, row: &M) -> String {
         let schema = T::schema();
@@ -126,4 +126,12 @@ where
             .boxed(),
         )
     }
+}
+
+impl<M, T> crate::column::ColumnInternals<M> for RepeaterColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: FormInput,
+{
+    base_internals!(binding);
 }

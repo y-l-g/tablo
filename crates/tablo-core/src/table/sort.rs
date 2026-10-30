@@ -119,7 +119,7 @@ impl<M> Table<M> {
     pub(super) fn sortable_column(&self, name: &str) -> Option<&BoxColumn<M>> {
         self.columns
             .iter()
-            .find(|c| c.is_sortable() && c.name() == name)
+            .find(|c| c.name() == name && crate::column::sorts(&***c))
     }
 
     /// The sort `state` reads: its own when it names a sortable column, else the
@@ -137,7 +137,7 @@ impl<M> Table<M> {
             })
             .cloned()
             .or_else(|| {
-                let first = self.columns.iter().find(|c| c.is_sortable())?;
+                let first = self.columns.iter().find(|c| crate::column::sorts(&***c))?;
                 Some(Sort::asc(first.name()))
             })
     }

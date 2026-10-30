@@ -41,7 +41,7 @@ impl<M> Column<M> for FileColumn<M>
 where
     M: toasty::schema::Model + Send + Sync + 'static,
 {
-    base_column_methods!(binding);
+    base_column_methods!();
 
     fn text(&self, _cx: &Cx, row: &M) -> String {
         self.lens.read(row).clone()
@@ -54,4 +54,11 @@ where
         }
         crate::schema::stored_upload(cx, path)
     }
+}
+
+impl<M> crate::column::ColumnInternals<M> for FileColumn<M>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+{
+    base_internals!(binding);
 }

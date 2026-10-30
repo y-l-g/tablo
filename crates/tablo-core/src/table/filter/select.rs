@@ -234,6 +234,19 @@ where
         })
     }
 
+    fn reads(&self) -> Option<crate::lens::Reads<M>> {
+        Some(self.binding.reads())
+    }
+
+    fn internals(&self) -> &dyn crate::table::filter::FilterInternals<M> {
+        self
+    }
+}
+
+impl<M> crate::table::filter::FilterInternals<M> for SelectFilter<M>
+where
+    M: toasty::schema::Model + Send + Sync,
+{
     /// A relationship filter admits only the keys of records its source shows the user, as its
     /// control lists them.
     fn admits<'s>(
@@ -264,10 +277,6 @@ where
         self.related
             .as_ref()
             .and_then(|related| related.unavailable_source(cx))
-    }
-
-    fn reads(&self) -> Option<crate::lens::Reads<M>> {
-        Some(self.binding.reads())
     }
 
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {

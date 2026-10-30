@@ -212,10 +212,6 @@ where
         Some(self.binding.reads())
     }
 
-    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
-        self.binding.misdeclared()
-    }
-
     fn name(&self) -> &str {
         self.binding.name()
     }
@@ -317,6 +313,19 @@ where
             bound(value, param, aria, Some(name))
         };
         input.labelled(cx, control)
+    }
+
+    fn internals(&self) -> &dyn crate::table::filter::FilterInternals<M> {
+        self
+    }
+}
+
+impl<M> crate::table::filter::FilterInternals<M> for DateFilter<M>
+where
+    M: toasty::schema::Model + Send + Sync,
+{
+    fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
+        self.binding.misdeclared()
     }
 }
 

@@ -21,7 +21,7 @@ pub(super) fn check<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Declara
         .filter_map(|(_, guarded)| guarded)
         .collect();
     for column in declared.table.declared_columns() {
-        let Some(editor) = column.edits() else {
+        let Some(editor) = column.internals().edits() else {
             continue;
         };
         let name = column.name();
@@ -32,7 +32,10 @@ pub(super) fn check<R: Resource>(declared: &Mounted<R>, errors: &mut Vec<Declara
             Some(field) if !edits_with(field, editor) => {
                 EditableColumnFault::OtherControl(editor.control())
             }
-            Some(field) if editor == Editor::Select && !offers(field, &column.edit_options()) => {
+            Some(field)
+                if editor == Editor::Select
+                    && !offers(field, &column.internals().edit_options()) =>
+            {
                 EditableColumnFault::OtherOptions
             }
             Some(_) if guarded.contains(name) => EditableColumnFault::Conditional,

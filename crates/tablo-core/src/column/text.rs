@@ -371,16 +371,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: Send + Sync + 'static,
 {
-    base_column_methods!(binding, reads);
-
-    /// A closure over the row may reach any relation the page loads, as a computed column's does.
-    fn related(&self) -> crate::column::Related {
-        if self.reads_row {
-            crate::column::Related::Row
-        } else {
-            crate::column::Related::None
-        }
-    }
+    base_column_methods!(reads);
 
     fn reads(&self) -> Option<crate::lens::Reads<M>> {
         let own = self.base.reads();
@@ -428,10 +419,6 @@ where
         self.alignment
     }
 
-    fn is_searchable(&self) -> bool {
-        self.search.is_some()
-    }
-
     /// A portable, escaped substring match.
     fn search_expr(&self, term: &str) -> Option<Expr<bool>> {
         let t = term.trim();
@@ -439,12 +426,25 @@ where
         (!t.is_empty()).then(|| search(escape_like_pattern(t)))
     }
 
-    fn is_sortable(&self) -> bool {
-        self.sortable
-    }
-
     fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
         self.sortable
             .then(|| sort_order(self.lens.path(), descending))
+    }
+}
+
+impl<M, T> crate::column::ColumnInternals<M> for TextColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: Send + Sync + 'static,
+{
+    base_internals!(binding, related);
+
+    /// A closure over the row may reach any relation the page loads, as a computed column's does.
+    fn related(&self) -> crate::column::Related {
+        if self.reads_row {
+            crate::column::Related::Row
+        } else {
+            crate::column::Related::None
+        }
     }
 }

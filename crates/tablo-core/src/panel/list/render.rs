@@ -127,7 +127,7 @@ impl<M> WiredTable<M> {
                 .map(|col| ColumnHead {
                     name: col.name(),
                     label: col.label(),
-                    sortable: col.is_sortable(),
+                    sortable: crate::column::sorts(&**col),
                     width: col.column_width(),
                     alignment: col.alignment(),
                 })

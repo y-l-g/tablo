@@ -73,7 +73,7 @@ where
     M: toasty::schema::Model + Send + Sync + 'static,
     T: FormScalar + Send + Sync + 'static,
 {
-    base_column_methods!(binding);
+    base_column_methods!();
 
     fn text(&self, cx: &Cx, row: &M) -> String {
         self.lens.read(row).to_label().localize(cx)
@@ -88,14 +88,18 @@ where
         }
     }
 
-    fn is_sortable(&self) -> bool {
-        self.sortable
-    }
-
     fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
         self.sortable
             .then(|| sort_order(self.lens.path(), descending))
     }
+}
+
+impl<M, T> crate::column::ColumnInternals<M> for IconColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: FormScalar + Send + Sync + 'static,
+{
+    base_internals!(binding);
 }
 
 /// `icon` titled `label`, which a screen reader reads in its place.

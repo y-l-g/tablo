@@ -85,6 +85,14 @@ where
         let (schema, values) = self.spelled(row);
         schema.embedded_root().display(cx, &schema.fields, &values)
     }
+}
+
+impl<M, T> crate::column::ColumnInternals<M> for EmbeddedColumn<M, T>
+where
+    M: toasty::schema::Model + Send + Sync + 'static,
+    T: EmbeddedForm + Send + Sync + 'static,
+{
+    base_internals!();
 
     fn misdeclared(&self) -> Option<crate::DeclarationErrorKind> {
         if let Some(error) = self.base.binding.misdeclared() {
