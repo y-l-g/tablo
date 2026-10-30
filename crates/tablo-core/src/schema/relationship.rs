@@ -1,12 +1,13 @@
 //! Relationship option loading — bounded, memoized, policy-checked.
 //!
 //! Every relationship choice field over one source shares a single bounded load per `(request,
-//! tenant)` and fails closed instead of leaking labels.
+//! tenant)` and fails closed instead of leaking labels. A choice offers the rows the source's
+//! list shows: its scoped query's, when its policy allows listing them.
 
 use toasty::stmt::{Expr, List, OrderByExpr, Query};
 use topcoat::{Result, context::Cx};
 
-use crate::{BoxFuture, policy::Ability};
+use crate::BoxFuture;
 
 /// Describes the source a relationship option loader reads.
 ///
@@ -14,8 +15,8 @@ use crate::{BoxFuture, policy::Ability};
 /// mounted it.
 ///
 /// Every relationship choice over one source shares a single load per request and tenant,
-/// bounded to [`MAX_RELATIONSHIP_OPTIONS`] rows. A load the policy refuses fails closed: the
-/// choice offers nothing rather than leak a label.
+/// bounded to [`MAX_RELATIONSHIP_OPTIONS`] rows of its [`scoped_query`](Self::scoped_query). A
+/// load the source refuses fails closed: the choice offers nothing rather than leak a label.
 pub trait OptionSource: Sized + Send + Sync + 'static {
     /// The model whose rows become options.
     type Model: toasty::schema::Model + toasty::stmt::IntoExpr<Self::Model> + Send + Sync + 'static;
@@ -24,9 +25,10 @@ pub trait OptionSource: Sized + Send + Sync + 'static {
     /// source as misdeclared.
     fn scoped_query(cx: &Cx) -> Result<Query<List<Self::Model>>>;
 
-    /// Whether the current user may see the rows `ability` names; refusing `ViewAny` fails the
-    /// whole load closed. Defaults to refusing everything.
-    fn allows(_cx: &Cx, _ability: Ability<'_, Self::Model>) -> bool {
+    /// Whether the current user may list the source's rows; refusing fails every load closed.
+    /// Defaults to refusing. The rows the user may not see belong out of
+    /// [`scoped_query`](Self::scoped_query).
+    fn lists(_cx: &Cx) -> bool {
         false
     }
 
@@ -117,18 +119,18 @@ pub(crate) type RelationshipChecker = std::sync::Arc<
             String,
             Option<Expr<bool>>,
             &'a mut dyn toasty::Executor,
-        ) -> BoxFuture<'a, Result<RelatedCheck, OptionLoadError>>
+        ) -> BoxFuture<'a, Result<bool, OptionLoadError>>
         + Send
         + Sync,
 >;
 
-/// Refuses the option load closed when `ViewAny` is refused or a tenant-owned source gets a
-/// tenantless request.
+/// Refuses the option load closed when the source refuses the list or a tenant-owned source gets
+/// a tenantless request.
 pub(crate) fn ensure_option_access<R>(cx: &Cx) -> Result<(), OptionLoadError>
 where
     R: OptionSource,
 {
-    if !R::allows(cx, Ability::ViewAny) {
+    if !R::lists(cx) {
         return Err(OptionLoadError::Denied);
     }
     if R::requires_tenant(cx) && crate::tenancy::tenant_id(cx).is_none() {
@@ -156,8 +158,7 @@ where
 /// Caps the options a relationship choice field loads instead of scanning a large table per select.
 pub const MAX_RELATIONSHIP_OPTIONS: usize = 200;
 
-/// Loads option records for one related resource, memoized per request, and checks the cap on the
-/// raw fetch before filtering rows through `View`.
+/// Loads option records for one related resource, memoized per request, and checks the cap.
 #[topcoat::context::memoize(as_ref)]
 pub(crate) async fn related_records<R>(
     cx: &Cx,
@@ -180,8 +181,7 @@ where
     .await
 }
 
-/// Fetches one row past the cap, refuses a set over the cap with `Overflow`, and drops rows the
-/// caller cannot view.
+/// Fetches one row past the cap and refuses a set over the cap with `Overflow`.
 async fn bounded_options<R>(
     cx: &Cx,
     query: Query<List<R::Model>>,
@@ -192,7 +192,7 @@ where
     R: OptionSource,
 {
     let mut db = crate::db::db(cx).map_err(|_| OptionLoadError::Misdeclared)?;
-    let mut records = query
+    let records = query
         .limit(MAX_RELATIONSHIP_OPTIONS + 1)
         .exec(&mut db)
         .await
@@ -212,7 +212,6 @@ where
         );
         return Err(OptionLoadError::Overflow);
     }
-    records.retain(|record| R::allows(cx, Ability::View(record)));
     Ok(records)
 }
 
@@ -262,29 +261,21 @@ where
     .await
 }
 
-/// Reports the outcome of the targeted existence check for overflowed selects.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum RelatedCheck {
-    FoundViewable,
-    FoundHidden,
-    NotFound,
-}
-
-/// Checks one submitted key through the given executor against the tenant-scoped query, the rows
-/// `scope` selects, and `View`.
+/// Whether one submitted key names a row of the source's scoped query among the rows `scope`
+/// selects, read through the given executor.
 pub(crate) async fn related_record_check<R>(
     cx: &Cx,
     value: String,
     scope: Option<Expr<bool>>,
     ex: &mut dyn toasty::Executor,
-) -> Result<RelatedCheck, OptionLoadError>
+) -> Result<bool, OptionLoadError>
 where
     R: OptionSource,
 {
     ensure_option_access::<R>(cx)?;
     let trimmed = value.trim();
     let Some(expr) = crate::toasty_compat::pk::pk_eq_expr::<R::Model>(trimmed) else {
-        return Ok(RelatedCheck::NotFound);
+        return Ok(false);
     };
     let mut query = option_query::<R>(cx)?.filter(expr);
     if let Some(scope) = scope {
@@ -298,23 +289,14 @@ where
         );
         OptionLoadError::LoadFailed
     })?;
-    match row {
-        None => Ok(RelatedCheck::NotFound),
-        Some(record) => {
-            if R::allows(cx, Ability::View(&record)) {
-                Ok(RelatedCheck::FoundViewable)
-            } else {
-                Ok(RelatedCheck::FoundHidden)
-            }
-        }
-    }
+    Ok(row.is_some())
 }
 
-/// The keys among `keys` naming a row `R`'s tenant-scoped query holds and its policy lets the
-/// user view, read in one query: what a relationship filter admits past the cap. Memoized per
-/// request, so the list and its filter menu ask once.
+/// The keys among `keys` naming a row `R`'s scoped query holds, read in one query: what a
+/// relationship filter admits past the cap. Memoized per request, so the list and its filter menu
+/// ask once.
 #[topcoat::context::memoize(as_ref)]
-pub(crate) async fn viewable_keys<R>(
+pub(crate) async fn held_keys<R>(
     cx: &Cx,
     _tenant: Option<crate::TenantId>,
     keys: &[String],
@@ -342,11 +324,7 @@ where
             );
             OptionLoadError::LoadFailed
         })?;
-    Ok(rows
-        .iter()
-        .filter(|record| R::allows(cx, Ability::View(record)))
-        .map(crate::toasty_compat::pk::pk_text)
-        .collect())
+    Ok(rows.iter().map(crate::toasty_compat::pk::pk_text).collect())
 }
 
 #[cfg(test)]

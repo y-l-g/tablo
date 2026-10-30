@@ -1,7 +1,7 @@
-//! What a relationship choice offers on its form and through its options endpoint: only the rows
-//! the related resource lets the reader view, nothing at all when it refuses the list, the stored
-//! row past the option cap, and a server search for a searchable choice. A relationship filter
-//! over the same source applies only the rows the reader may view.
+//! What a relationship choice offers on its form and through its options endpoint: the rows the
+//! related resource's list shows, nothing at all when it refuses the list, the stored row past the
+//! option cap, and a server search for a searchable choice. A relationship filter over the same
+//! source applies only those rows.
 
 use tablo::{
     Ability, Allow, MAX_RELATIONSHIP_OPTIONS, NoForm, Resource, ResourceDef, Schema, SelectFilter,
@@ -31,10 +31,11 @@ struct Book {
     author_id: Uuid,
 }
 
-fn all_but_hidden(_cx: &Cx, ability: Ability<'_, Author>) -> bool {
+/// Lists every author and opens none named "Private".
+fn closes_private(_cx: &Cx, ability: Ability<'_, Author>) -> bool {
     match ability {
         Ability::ViewAny => true,
-        Ability::View(author) => author.name != "Hidden",
+        Ability::View(author) => author.name != "Private",
         _ => false,
     }
 }
@@ -53,9 +54,10 @@ impl Resource for AuthorResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("authors")
-            .policy(all_but_hidden)
+            .policy(closes_private)
             .table(Table::new(TextColumn::new(lens!(Author.name))))
             .record_title(lens!(Author.name))
+            .query(|_cx, query| query.filter(Author::fields().name().ne("Hidden")))
     }
 }
 
@@ -178,7 +180,7 @@ async fn edit_page(router: &Router, slug: &str, book: &Book) -> String {
 /// The choice offers each row the reader may view, by its key, and never a row `View` refuses,
 /// even the one the record stores.
 #[tokio::test]
-async fn a_choice_offers_only_the_rows_the_reader_may_view() {
+async fn a_choice_offers_only_the_rows_its_source_lists() {
     let (router, book, authors) = library(&["Hidden".to_string(), "Ada".to_string()]).await;
     let html = edit_page(&router, "books", &book).await;
     let (hidden, ada) = (&authors[0], &authors[1]);
@@ -192,7 +194,19 @@ async fn a_choice_offers_only_the_rows_the_reader_may_view() {
     );
     assert!(
         !html.contains("Hidden") && !html.contains(&hidden.id.to_string()),
-        "the stored row `View` refuses does not render: {html}"
+        "the stored row the source's query leaves out does not render: {html}"
+    );
+}
+
+/// A choice offers a row its source's list shows though its policy refuses `View` of it, as the
+/// list does.
+#[tokio::test]
+async fn a_choice_offers_a_row_view_refuses() {
+    let (router, book, authors) = library(&["Ada".to_string(), "Private".to_string()]).await;
+    let html = edit_page(&router, "books", &book).await;
+    assert!(
+        html.contains(&format!("value=\"{}\"", authors[1].id)),
+        "{html}"
     );
 }
 
@@ -301,124 +315,10 @@ async fn an_option_escapes_its_label() {
     );
 }
 
-#[derive(Debug, Clone, toasty::Model)]
-struct Shelf {
-    #[key]
-    #[auto]
-    id: Uuid,
-    name: String,
-}
-
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
-struct Volume {
-    #[key]
-    #[auto]
-    id: Uuid,
-    name: String,
-    #[index]
-    shelf_id: Uuid,
-    #[belongs_to(key = shelf_id, references = id)]
-    shelf: toasty::Deferred<Shelf>,
-}
-
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
-struct Reader {
-    #[key]
-    #[auto]
-    id: Uuid,
-    name: String,
-    volume_id: Uuid,
-}
-
-fn name_on_shelf() -> tablo::ComputedColumn<Volume> {
-    tablo::ComputedColumn::new("Name", |volume: &Volume| volume.name.clone())
-        .include_unscoped(Volume::fields().shelf())
-}
-
-/// A volume is viewable only while its shelf is unloaded.
-fn unloaded_shelf(_cx: &Cx, ability: Ability<'_, Volume>) -> bool {
-    match ability {
-        Ability::ViewAny => true,
-        Ability::View(volume) => volume.shelf.is_unloaded(),
-        _ => false,
-    }
-}
-
-/// Volumes whose list and detail both load the shelf.
-struct VolumeResource;
-
-impl Resource for VolumeResource {
-    type Model = Volume;
-    type Form = NoForm<Volume>;
-
-    fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            .slug("volumes")
-            .policy(unloaded_shelf)
-            .table(Table::new(name_on_shelf()))
-            .detail(tablo::Detail::new(name_on_shelf()))
-            .record_title(lens!(Volume.name))
-    }
-}
-
-#[derive(tablo::RecordForm)]
-#[form(model = Reader)]
-struct ReaderForm {
-    #[form(relationship = VolumeResource)]
-    volume_id: Uuid,
-}
-
-struct ReaderResource;
-
-impl Resource for ReaderResource {
-    type Model = Reader;
-    type Form = ReaderForm;
-
-    fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            .edit_only()
-            .slug("readers")
-            .table(Table::new(TextColumn::new(lens!(Reader.name))))
-            .form(Schema::new(ReaderForm::controls().volume_id.searchable()))
-    }
-}
-
-/// An option projects a key and a label off the related row's own columns, so it loads none of
-/// the relations the source's list or detail include: `View` keeps a volume only while its shelf
-/// is unloaded, so the option shows only if the load skipped them.
+/// The author filter applies an author the source lists, and ignores one its query leaves out as
+/// it ignores a key no author holds, under the option cap and past it.
 #[tokio::test]
-async fn an_option_load_loads_no_relation() {
-    let mut db = test_db(toasty::models!(Shelf, Volume, Reader)).await;
-    let shelf = toasty::create!(Shelf {
-        name: "Sci-fi".to_string(),
-    })
-    .exec(&mut db)
-    .await
-    .unwrap();
-    toasty::create!(Volume {
-        name: "Only Volume".to_string(),
-        shelf_id: shelf.id,
-    })
-    .exec(&mut db)
-    .await
-    .unwrap();
-    let router = mount(
-        db,
-        panel()
-            .resource::<ReaderResource>()
-            .resource::<VolumeResource>(),
-    )
-    .expect("panel builds");
-    let response = get(&router, "/admin/readers/-/options?field=volume_id").await;
-    assert_eq!(response.status(), http::StatusCode::OK);
-    let html = body_string(response).await;
-    assert!(html.contains("Only Volume"), "{html}");
-}
-
-/// The author filter applies an author the reader may view, and ignores one `View` refuses as it
-/// ignores a key no author holds, under the option cap and past it.
-#[tokio::test]
-async fn a_relationship_filter_ignores_an_author_the_reader_may_not_view() {
+async fn a_relationship_filter_ignores_an_author_its_source_leaves_out() {
     for extra in [0, MAX_RELATIONSHIP_OPTIONS] {
         let names: Vec<String> = ["Ada", "Hidden"]
             .into_iter()

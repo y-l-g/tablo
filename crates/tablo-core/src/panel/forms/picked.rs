@@ -32,8 +32,7 @@ pub(crate) fn resource_picked<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> 
     })
 }
 
-/// The record's title when the user may choose it: a row of the resource's tenant-scoped query
-/// they may view.
+/// The record's title when the user may choose it: a row of the resource's scoped query.
 async fn chosen<R: Resource>(cx: &Cx, key: &str) -> topcoat::Result<Option<String>> {
     let Some(expr) = crate::toasty_compat::pk::pk_eq_expr::<R::Model>(key.trim()) else {
         return Ok(None);
@@ -44,9 +43,7 @@ async fn chosen<R: Resource>(cx: &Cx, key: &str) -> topcoat::Result<Option<Strin
         .exec(&mut crate::db::db(cx)?)
         .await
         .map_err(crate::error::unavailable)?;
-    Ok(record
-        .filter(|record| <R as OptionSource>::allows(cx, Ability::View(record)))
-        .map(|record| <R as OptionSource>::label(cx, &record)))
+    Ok(record.map(|record| <R as OptionSource>::label(cx, &record)))
 }
 
 /// The `?key=` the create's landing carries.

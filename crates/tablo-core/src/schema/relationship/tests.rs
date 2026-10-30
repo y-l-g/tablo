@@ -2,7 +2,7 @@ use toasty::stmt::{List, Query};
 use topcoat::context::Cx;
 
 use super::*;
-use crate::{Ability, schema::Field, test_support::memory_db, values::FormValues};
+use crate::{schema::Field, test_support::memory_db, values::FormValues};
 
 /// Reports what a submit's option check says for one choice.
 async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
@@ -47,14 +47,10 @@ struct HideOneAuthor;
 impl OptionSource for HideOneAuthor {
     type Model = PolicyAuthor;
     fn scoped_query(_cx: &Cx) -> Result<Query<List<PolicyAuthor>>> {
-        Ok(Query::all())
+        Ok(Query::all().filter(PolicyAuthor::fields().name().ne("Hidden")))
     }
-    fn allows(_cx: &Cx, ability: Ability<'_, PolicyAuthor>) -> bool {
-        match ability {
-            Ability::ViewAny => true,
-            Ability::View(record) => record.name != "Hidden",
-            _ => false,
-        }
+    fn lists(_cx: &Cx) -> bool {
+        true
     }
     fn label(_cx: &Cx, author: &PolicyAuthor) -> String {
         author.name.clone()
@@ -74,8 +70,8 @@ impl OptionSource for TenantScopedAuthors {
         Ok(Query::all().filter(PolicyAuthor::fields().tenant_id().eq(tenant)))
     }
 
-    fn allows(_cx: &Cx, ability: Ability<'_, PolicyAuthor>) -> bool {
-        ability.is_read()
+    fn lists(_cx: &Cx) -> bool {
+        true
     }
     fn requires_tenant(_cx: &Cx) -> bool {
         true
@@ -100,8 +96,8 @@ async fn relationship_loader_fails_past_option_cap() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<RefAuthor>>> {
             Ok(Query::all())
         }
-        fn allows(_cx: &Cx, ability: Ability<'_, RefAuthor>) -> bool {
-            ability.is_read()
+        fn lists(_cx: &Cx) -> bool {
+            true
         }
     }
     #[derive(Debug, toasty::Model)]
@@ -150,8 +146,8 @@ async fn relationship_option_values_are_primary_keys_not_table_ids() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<RefAuthor>>> {
             Ok(Query::all())
         }
-        fn allows(_cx: &Cx, ability: Ability<'_, RefAuthor>) -> bool {
-            ability.is_read()
+        fn lists(_cx: &Cx) -> bool {
+            true
         }
     }
 
@@ -282,36 +278,6 @@ async fn relationship_load_filters_rows_by_view() {
 }
 
 #[tokio::test]
-async fn relationship_cap_counts_raw_rows_not_viewable_ones() {
-    // The cap is checked on the raw bounded fetch before `View` filtering.
-
-    let mut db = memory_db(toasty::models!(PolicyAuthor)).await;
-    let mut hidden_pk = String::new();
-    // One past the cap, with one hidden row.
-    for i in 0..=MAX_RELATIONSHIP_OPTIONS {
-        let name = if i == 0 {
-            "Hidden".to_string()
-        } else {
-            format!("author-{i}")
-        };
-        let row = toasty::create!(PolicyAuthor { name })
-            .exec(&mut db)
-            .await
-            .unwrap();
-        if i == 0 {
-            hidden_pk = row.id.to_string();
-        }
-    }
-    let cx = Cx::default().with(db);
-    let select = Field::choice(PolicyAuthor::fields().id()).relationship::<HideOneAuthor>();
-    // The raw fetch overflows.
-    assert_eq!(
-        check(&select, &cx, &hidden_pk).await,
-        vec!["Id could not load options, retry".to_string()]
-    );
-}
-
-#[tokio::test]
 async fn relationship_can_view_filtering_out_every_row_yields_invalid() {
     // A row `View` refuses is absent from validation; the integration suite's
     // `relationship_options` shows it absent from the form.
@@ -356,8 +322,8 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
             OPTION_LOADS.fetch_add(1, Ordering::SeqCst);
             Ok(Query::all())
         }
-        fn allows(_cx: &Cx, ability: Ability<'_, Ref>) -> bool {
-            ability.is_read()
+        fn lists(_cx: &Cx) -> bool {
+            true
         }
     }
 
@@ -415,8 +381,8 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<BigRef>>> {
             Ok(Query::all())
         }
-        fn allows(_cx: &Cx, ability: Ability<'_, BigRef>) -> bool {
-            ability.is_read()
+        fn lists(_cx: &Cx) -> bool {
+            true
         }
     }
 
@@ -460,8 +426,8 @@ async fn relationship_search_narrows_past_the_cap() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<SearchRef>>> {
             Ok(Query::all())
         }
-        fn allows(_cx: &Cx, ability: Ability<'_, SearchRef>) -> bool {
-            ability.is_read()
+        fn lists(_cx: &Cx) -> bool {
+            true
         }
         fn search_expr(_cx: &Cx, term: &str) -> Option<Expr<bool>> {
             name_search_expr(SearchRef::fields().name(), term)
@@ -539,8 +505,8 @@ async fn relationship_search_without_searchable_falls_back_to_cap() {
         fn scoped_query(_cx: &Cx) -> Result<Query<List<PlainRef>>> {
             Ok(Query::all())
         }
-        fn allows(_cx: &Cx, ability: Ability<'_, PlainRef>) -> bool {
-            ability.is_read()
+        fn lists(_cx: &Cx) -> bool {
+            true
         }
     }
 
@@ -578,14 +544,10 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
             record.name.clone()
         }
         fn scoped_query(_cx: &Cx) -> Result<Query<List<CheckRef>>> {
-            Ok(Query::all())
+            Ok(Query::all().filter(CheckRef::fields().name().ne("Hidden")))
         }
-        fn allows(_cx: &Cx, ability: Ability<'_, CheckRef>) -> bool {
-            match ability {
-                Ability::ViewAny => true,
-                Ability::View(record) => record.name != "Hidden",
-                _ => false,
-            }
+        fn lists(_cx: &Cx) -> bool {
+            true
         }
         fn search_expr(_cx: &Cx, term: &str) -> Option<Expr<bool>> {
             name_search_expr(CheckRef::fields().name(), term)
@@ -594,7 +556,8 @@ async fn relationship_overflowed_searchable_validates_via_targeted_check() {
 
     let mut db = memory_db(toasty::models!(CheckRef)).await;
     let mut visible_pk = String::new();
-    for i in 0..=MAX_RELATIONSHIP_OPTIONS {
+    // One past the cap besides the row the query leaves out.
+    for i in 0..=MAX_RELATIONSHIP_OPTIONS + 1 {
         let name = if i == 0 {
             "Hidden".to_string()
         } else {

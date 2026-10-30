@@ -1,6 +1,5 @@
-//! CSV export over the tenant-scoped `query`: a bounded visibility scan
-//! answers the cap before any byte is sent, then a cursor-chunked walk streams
-//! the file.
+//! CSV export over the rows the list shows: a count answers the cap before any byte is sent, then
+//! a cursor-chunked walk streams the file.
 
 use topcoat::{
     Result,
@@ -13,15 +12,15 @@ use crate::{
     db::db,
     policy::Ability,
     resource::{Mounted, Resource},
-    table::{Past, Table, TableState, row_exists_past},
+    table::{Table, TableState},
 };
 
 /// Fetches this many models per cursor chunk on the export walk.
 const EXPORT_CHUNK_ROWS: usize = 500;
 
-/// Rejects an export whose visible row count ran past the cap.
-fn enforce_export_cap_count(count: usize, cap: usize) -> Result<(), topcoat::Error> {
-    if count > cap {
+/// Rejects an export whose row count runs past the cap.
+fn enforce_export_cap_count(count: u64, cap: usize) -> Result<(), topcoat::Error> {
+    if count > cap as u64 {
         Err(topcoat::router::error::content_too_large().into())
     } else {
         Ok(())
@@ -82,26 +81,22 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
             ))
             .into());
         }
-        // Bounds the receivable rows an export delivers; a full raw window with rows left beyond
-        // it is a 413, so the export never returns a partial file.
+        // Bounds the rows an export delivers; more is a 413, so the export never returns a
+        // partial file.
         let cap = crate::limits::of(cx).export_rows;
-        let mut chunker = ExportChunker::new(
-            export_base_query(cx, &resource, &table, &state, &refused)?,
-            cap,
-        );
-        let mut db_handle = db(cx)?;
-        let (mut visible, mut scanned) = (0usize, false);
-        while let Some(rows) = chunker.next_chunk(&mut db_handle).await? {
-            scanned |= !rows.is_empty();
-            visible += rows
-                .iter()
-                .filter(|r| resource.can(cx, Ability::View(r)))
-                .count();
-        }
-        if chunker.beyond_window() {
-            return Err(topcoat::router::error::content_too_large().into());
-        }
-        enforce_export_cap_count(visible, cap)?;
+        let count = crate::db::count(
+            cx,
+            table.narrow(
+                cx,
+                &db(cx)?,
+                resource.list_query(cx, &state)?,
+                &state,
+                &refused,
+            ),
+        )
+        .await?;
+        enforce_export_cap_count(count, cap)?;
+        let scanned = count > 0;
         let want_bom = export_wants_bom(cx);
         let (tx, body) = http_body_util::Channel::<bytes::Bytes, std::io::Error>::new(8);
         let cx2 = cx.clone();
@@ -132,7 +127,7 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
             if tx.send_data(bytes::Bytes::from(head)).await.is_err() {
                 return;
             }
-            let mut visible = 0usize;
+            let mut streamed = 0usize;
             loop {
                 let rows = match chunker.next_chunk(&mut db_handle).await {
                     Ok(Some(rows)) => rows,
@@ -150,31 +145,22 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                 }
                 let mut fragment = String::new();
                 for row in &rows {
-                    if resource.can(&cx2, Ability::View(row)) {
-                        visible += 1;
-                        if visible > cap {
-                            // Aborts when rows changed between the passes.
-                            tracing::error!(
-                                resource = resource.slug,
-                                "export overflowed its cap mid-stream"
-                            );
-                            tx.abort(std::io::Error::other("export overflowed its cap"));
-                            return;
-                        }
-                        fragment.push_str(&table.csv_row(&cx2, row));
+                    streamed += 1;
+                    if streamed > cap {
+                        // Aborts when rows were added since the count.
+                        tracing::error!(
+                            resource = resource.slug,
+                            "export overflowed its cap mid-stream"
+                        );
+                        tx.abort(std::io::Error::other("export overflowed its cap"));
+                        return;
                     }
+                    fragment.push_str(&table.csv_row(&cx2, row));
                 }
                 if !fragment.is_empty() && tx.send_data(bytes::Bytes::from(fragment)).await.is_err()
                 {
                     return;
                 }
-            }
-            if chunker.beyond_window() {
-                tracing::error!(
-                    resource = resource.slug,
-                    "export window overflowed mid-stream"
-                );
-                tx.abort(std::io::Error::other("export overflowed its window"));
             }
         });
         tokio::spawn(stream);
@@ -213,9 +199,8 @@ struct ExportChunker<M> {
     after: Option<toasty::stmt::Value>,
     /// The most rows the export delivers.
     cap: usize,
-    raw_scanned: usize,
+    scanned: usize,
     exhausted: bool,
-    beyond_window: bool,
 }
 
 impl<M> ExportChunker<M>
@@ -227,15 +212,9 @@ where
             query,
             after: None,
             cap,
-            raw_scanned: 0,
+            scanned: 0,
             exhausted: false,
-            beyond_window: false,
         }
-    }
-
-    /// Reports whether rows remain past the window.
-    fn beyond_window(&self) -> bool {
-        self.beyond_window
     }
 
     async fn next_chunk(&mut self, db: &mut toasty::Db) -> Result<Option<Vec<M>>, topcoat::Error> {
@@ -243,14 +222,9 @@ where
             return Ok(None);
         }
         loop {
-            let remaining = (self.cap + 1).saturating_sub(self.raw_scanned);
+            // One row past the cap is enough for the stream to see it overflow.
+            let remaining = (self.cap + 1).saturating_sub(self.scanned);
             if remaining == 0 {
-                if let Some(cursor) = self.after.clone() {
-                    self.beyond_window =
-                        row_exists_past(db, self.query.clone(), Past::After(cursor))
-                            .await
-                            .map_err(crate::error::unavailable)?;
-                }
                 self.exhausted = true;
                 return Ok(None);
             }
@@ -268,7 +242,7 @@ where
                 }
                 continue;
             }
-            self.raw_scanned += loaded.items.len();
+            self.scanned += loaded.items.len();
             self.after = loaded.next_cursor;
             let items = loaded.items;
             if self.after.is_none() {

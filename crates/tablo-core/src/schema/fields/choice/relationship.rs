@@ -5,14 +5,14 @@ use toasty::stmt::Expr;
 use topcoat::{Result, context::Cx};
 
 use super::super::super::relationship::{
-    OptionLoadError, OptionSource, RelatedCheck, RelationshipChecker, RelationshipLoader,
-    RelationshipSearchLoader, related_record_check, related_records, related_records_search,
-    viewable_keys,
+    OptionLoadError, OptionSource, RelationshipChecker, RelationshipLoader,
+    RelationshipSearchLoader, held_keys, related_record_check, related_records,
+    related_records_search,
 };
 use crate::BoxFuture;
 
-/// Reads which of a filter's keys name a row the user may view, past the cap.
-type ViewableKeys =
+/// Reads which of a filter's keys name a row the source offers, past the cap.
+type HeldKeys =
     for<'a> fn(
         &'a Cx,
         &'a [String],
@@ -26,7 +26,7 @@ pub(crate) struct Relationship {
     pub(super) search: RelationshipSearchLoader,
     pub(super) check: RelationshipChecker,
     /// Which of a relationship filter's keys the user may name, past the cap.
-    pub(super) viewable: ViewableKeys,
+    pub(super) held: HeldKeys,
     /// The source's type, named in declaration errors.
     pub(super) source: &'static str,
     /// The source's type, which a panel's field access masks the options of when it is a mounted
@@ -89,9 +89,9 @@ impl Relationship {
             load,
             search,
             check,
-            viewable: |cx, keys| {
+            held: |cx, keys| {
                 Box::pin(async move {
-                    viewable_keys::<R>(cx, crate::tenancy::tenant_id(cx), keys)
+                    held_keys::<R>(cx, crate::tenancy::tenant_id(cx), keys)
                         .await
                         .cloned()
                         .map_err(Clone::clone)
@@ -119,8 +119,8 @@ impl Relationship {
     }
 
     /// Whether the user may name every one of `keys`: each is among the rows the bounded option
-    /// load lists, or, past its cap, a row the source's tenant-scoped query holds and lets them
-    /// view, which one query reads. A key matches as the option value spells it. A source the
+    /// load lists, or, past its cap, a row the source's scoped query holds, which one query
+    /// reads. A key matches as the option value spells it. A source the
     /// request may not load from admits none.
     ///
     /// # Errors
@@ -129,7 +129,7 @@ impl Relationship {
     pub(crate) async fn admits(&self, cx: &Cx, keys: &[String]) -> Result<bool> {
         let shown: std::collections::HashSet<String> = match (self.load)(cx).await {
             Ok(options) => options.into_iter().map(|(value, _)| value).collect(),
-            Err(OptionLoadError::Overflow) => match (self.viewable)(cx, keys).await {
+            Err(OptionLoadError::Overflow) => match (self.held)(cx, keys).await {
                 Ok(keys) => keys,
                 Err(error) => return refusal(error),
             },
@@ -182,7 +182,7 @@ fn check_record<'a, R>(
     value: String,
     scope: Option<Expr<bool>>,
     ex: &'a mut dyn toasty::Executor,
-) -> BoxFuture<'a, Result<RelatedCheck, OptionLoadError>>
+) -> BoxFuture<'a, Result<bool, OptionLoadError>>
 where
     R: OptionSource,
 {

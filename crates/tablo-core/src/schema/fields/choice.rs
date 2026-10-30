@@ -6,10 +6,7 @@ use tablo_ui::{input as ui_input, select as ui_select};
 use toasty::stmt::Expr;
 use topcoat::{Result, context::Cx, view::*};
 
-use super::{
-    super::relationship::{OptionLoadError, RelatedCheck},
-    Field, Placement, Posting, render_field,
-};
+use super::{super::relationship::OptionLoadError, Field, Placement, Posting, render_field};
 use crate::values::FormValue;
 
 mod check;
@@ -298,10 +295,10 @@ impl ChoiceControl {
             .collect();
         let before = keys.len();
         for key in dropped {
-            // A failed check keeps the link: only a record the user may view is unlinked.
+            // A failed check keeps the link: only a record the choice could offer is unlinked.
             let seen = matches!(
                 (relationship.check)(cx, key.clone(), None, &mut *ex).await,
-                Ok(RelatedCheck::FoundViewable)
+                Ok(true)
             );
             if !seen {
                 keys.push(key);

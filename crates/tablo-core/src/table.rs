@@ -40,7 +40,6 @@ pub use self::{
 };
 pub(crate) use self::{
     group::GroupDef,
-    page::{Past, row_exists_past},
     state::{bulk_key, bulk_token, group_header_dom_id, query_of, request_query, row_dom_id},
 };
 pub(crate) use crate::{
@@ -107,8 +106,8 @@ pub enum ActionLayout {
 /// # Export
 ///
 /// `GET {list}/-/export` returns the list as a CSV file named `{slug}.csv`, with the current
-/// search, filters and sort applied and the relations the columns include loaded. It leaves out
-/// the rows the policy refuses `View`, delivers at most
+/// search, filters and sort applied and the relations the columns include loaded: the rows the
+/// list shows, each of them, whatever the policy answers `View` of it. It delivers at most
 /// [`Limits::export_rows`](crate::Limits::export_rows), 10,000 by default, and answers 413 rather
 /// than a truncated file when more match. It writes each column's formatted value, a date column's
 /// stored value, and escapes a cell a spreadsheet would read as a formula; `?bom=1` prefixes the

@@ -99,11 +99,11 @@ where
     /// a form's relationship choice offers them.
     ///
     /// The control lists at most
-    /// [`MAX_RELATIONSHIP_OPTIONS`](crate::schema::MAX_RELATIONSHIP_OPTIONS) rows, those the
-    /// user may view in the request's tenant; past the cap, or when the source refuses the
-    /// load, it lists the chosen keys alone. The filter applies only the keys of rows the user may
-    /// view, checked past the cap in one query through the source's tenant-scoped query and its
-    /// `View` policy; the table ignores another key as it ignores one no row holds.
+    /// [`MAX_RELATIONSHIP_OPTIONS`](crate::schema::MAX_RELATIONSHIP_OPTIONS) rows of the
+    /// source's [`scoped_query`](OptionSource::scoped_query); past the cap, or when the source
+    /// refuses the load, it lists the chosen keys alone. The filter applies only the keys of those
+    /// rows, checked past the cap in one query; the table ignores another key as it ignores one no
+    /// row holds.
     ///
     /// ```rust
     /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -127,15 +127,15 @@ where
     /// SelectFilter::relationship::<AuthorResource>(lens!(Post.author_id)).label("Author");
     /// ```
     /// A form's relationship choice loads the same rows the same way, so its loader is reused:
-    /// the source's tenant-scoped rows the user may view, at most
+    /// the rows of the source's scoped query, at most
     /// [`MAX_RELATIONSHIP_OPTIONS`](crate::MAX_RELATIONSHIP_OPTIONS) of them. Past that cap, or
     /// when the source refuses the load, the control lists only the chosen keys.
     ///
-    /// It applies only the keys of rows the user may view: within the cap, the keys its options
-    /// list; past it, the keys one query through the source's scope and `View` policy returns.
+    /// It applies only the keys of those rows: within the cap, the keys its options list; past
+    /// it, the keys one query through the source's scoped query returns.
     /// Another key is ignored as one no row holds: the list warns and the export answers 400.
     /// [`new`](Self::new) or [`of`](Self::of) over a foreign key checks no source, so it does not
-    /// hide that a key links to a row the user cannot view.
+    /// hide that a key links to a row outside the source's scoped query.
     pub fn relationship<R>(lens: crate::Lens<M, impl Sized, impl FilterKey>) -> Self
     where
         R: OptionSource,

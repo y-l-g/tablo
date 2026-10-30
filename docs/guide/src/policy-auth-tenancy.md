@@ -39,9 +39,12 @@ no record, is asked `RunHeader`, which `ability.is_header_action::<A>()` matches
 Three rules shape every policy; [`Policy`](https://y-l.fr/tablo/nightly/api/tablo/trait.Policy.html) lists the rest:
 
 - **Handlers ask what buttons ask.** A hidden button is also a refused request, answered 403.
-- **The list asks `ViewAny` only.** A policy is Rust code that cannot run in the database, and
-  filtering rows after pagination would leave pages short. Rows a user must not see on the list
-  belong out of `query()`; see [Resources](./resources.md#scoping-the-query).
+- **Reading rows asks `ViewAny` only.** The list, the export, related tables and relationship
+  choices show every row of the resource's query. A policy is Rust code that cannot run in the
+  database, and filtering rows after the query would leave pages short and counts wrong. Rows a
+  user must not see belong out of `ResourceDef::query`; see
+  [Resources](./resources.md#scoping-the-query). `View` decides who opens a record: a list row
+  it refuses shows without its actions.
 - **Writes are checked against the stored row**, loaded inside the write's transaction, never
   against the submitted key.
 
@@ -444,7 +447,8 @@ scope and answers 403 when the request has no tenant. `Query::all()` applies nei
 scope nor the panel's narrowings.
 
 **Foreign keys are re-checked inside the write.** A relationship field's key must be one of the
-related resource's records for the request: in its tenant-scoped query and allowed by its `View`.
+related resource's records for the request: in its scoped query, which its list and its choices
+read.
 The create and edit handlers check it when they validate the form, and again inside the write's
 transaction, so a related record deleted, moved to another tenant or hidden in between refuses the
 write with the same field error. A `create_record` or `update_record` the panel's create and edit

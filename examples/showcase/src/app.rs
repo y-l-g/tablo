@@ -3,14 +3,14 @@
 use std::path::PathBuf;
 
 use tablo::{
-    Ability, ActionLayout, Auth, AuthMail, BooleanColumn, Brand, Change, Color, ComputedColumn,
-    CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification, EmbeddedColumn,
-    FieldErrors, GlobalSearch, Grid, Group, HeaderAction, ListTab, ModelColumns, NavigationItem,
-    Notification, Notifications, Pagination, Panel, PanelHandle, PanelUser, PasswordReset,
-    PublicLink, QueryFilter, Reads, Relation, RelationColumn, RepeaterColumn, Resource,
-    ResourceDef, RichTextColumn, RouterBuilderPanelExt, Schema, Section, SelectFilter, Tab, Table,
-    Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn, ToggleColumn, TwoFactor, lens,
-    relation, tenant_id, when,
+    Ability, ActionLayout, Allow, Auth, AuthMail, BooleanColumn, Brand, Change, Color,
+    ComputedColumn, CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification,
+    EmbeddedColumn, FieldErrors, GlobalSearch, Grid, Group, HeaderAction, ListTab, ModelColumns,
+    NavigationItem, Notification, Notifications, Pagination, Panel, PanelHandle, PanelUser,
+    PasswordReset, PublicLink, QueryFilter, Reads, Relation, RelationColumn, RepeaterColumn,
+    Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt, Schema, Section, SelectFilter,
+    Tab, Table, Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn, ToggleColumn,
+    TwoFactor, lens, relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -386,12 +386,9 @@ impl Resource for CommentResource {
             .plural_label("Comments")
             .icon(tablo::ui::icons::MESSAGE_SQUARE)
             .navigation_group("Blog")
-            // Hides removed comments, and allows nothing on one.
-            .policy_fn(|_cx, ability: Ability<'_, Comment>| {
-                ability
-                    .record()
-                    .is_none_or(|comment| comment.body != REMOVED_COMMENT_BODY)
-            })
+            .policy(Allow)
+            // A removed comment reaches no loader: no list, count, export or choice.
+            .query(|_cx, query| query.filter(Comment::fields().body().ne(REMOVED_COMMENT_BODY)))
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
             // A cursor-paged table: Previous and Next by row, without a count.
             .table(

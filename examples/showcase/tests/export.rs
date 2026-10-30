@@ -116,8 +116,8 @@ async fn posts_export_streams_csv_with_content_disposition() {
     );
 }
 
-/// "Hello Toasty" has four comments and `CommentResource`'s policy hides the removed one, so its
-/// export row counts three, as the list does.
+/// "Hello Toasty" has four comments and `CommentResource`'s query leaves the removed one out, so
+/// its export row counts three, as the list does.
 #[tokio::test]
 async fn an_exported_count_leaves_out_the_records_its_resource_hides() {
     let db = full_db().await;

@@ -2,8 +2,6 @@
 //! ([`Limits::export_rows`](tablo::Limits::export_rows)) it refuses past rather than deliver part
 //! of the list.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 use tablo::{
     Ability, ComputedColumn, Limits, NoForm, ReadOnly, Resource, ResourceDef, Table, TextColumn,
     lens,
@@ -54,7 +52,7 @@ fn not_denied(_cx: &Cx, ability: Ability<'_, Item>) -> bool {
     }
 }
 
-/// The items not named `denied…`.
+/// Every item, opening none named `denied…`.
 struct VisibleItemResource;
 
 impl Resource for VisibleItemResource {
@@ -81,15 +79,6 @@ async fn items(rows: usize, name: impl Fn(usize) -> String) -> Db {
     db
 }
 
-/// Every second item is `denied…`.
-fn interleaved(i: usize) -> String {
-    if i.is_multiple_of(2) {
-        format!("allowed-{i:05}")
-    } else {
-        format!("denied-{i:05}")
-    }
-}
-
 async fn export(router: &Router, uri: &str) -> String {
     let response = get(router, uri).await;
     assert!(
@@ -100,15 +89,16 @@ async fn export(router: &Router, uri: &str) -> String {
     body_string(response).await
 }
 
+/// The export holds every row the list shows, the ones the policy refuses `View` included.
 #[tokio::test]
-async fn an_export_holds_only_the_rows_the_reader_may_view() {
+async fn an_export_holds_the_rows_view_refuses() {
     let db = items(2, |i| ["allowed", "denied"][i].to_string()).await;
     let csv = export(
         &panel_router::<VisibleItemResource>(db),
         "/admin/items/-/export",
     )
     .await;
-    assert!(csv.contains("allowed") && !csv.contains("denied"), "{csv}");
+    assert!(csv.contains("allowed") && csv.contains("denied"), "{csv}");
 }
 
 /// The export streams without a length, and its chunks, 500 rows each, neither drop nor repeat a
@@ -164,35 +154,6 @@ async fn an_export_past_the_cap_is_refused_whole() {
     assert!(!body_string(response).await.contains("item-"));
 }
 
-/// The cap counts the rows the reader may view, within a window of the cap's size: refused rows
-/// interleaved in it leave the export whole, and rows beyond it refuse the export, though fewer
-/// than the cap are viewable.
-#[tokio::test]
-async fn the_cap_counts_viewable_rows_within_its_window() {
-    let db = items(MAX_EXPORT_ROWS + 1, interleaved).await;
-    let csv = export(
-        &capped_router::<VisibleItemResource>(db),
-        "/admin/items/-/export",
-    )
-    .await;
-    let rows: Vec<&str> = csv.lines().skip(1).collect();
-    assert_eq!(rows.len(), (MAX_EXPORT_ROWS + 1).div_ceil(2));
-    assert!(rows.iter().all(|row| row.starts_with("allowed-")), "{csv}");
-
-    let db = items(MAX_EXPORT_ROWS + 1 + 20, interleaved).await;
-    let response = get(
-        &capped_router::<VisibleItemResource>(db),
-        "/admin/items/-/export",
-    )
-    .await;
-    assert_eq!(response.status(), http::StatusCode::PAYLOAD_TOO_LARGE);
-    let body = body_string(response).await;
-    assert!(
-        !body.contains("allowed-") && !body.contains("denied-"),
-        "{body:?}"
-    );
-}
-
 #[derive(Debug, Clone, toasty::Model)]
 struct Shelf {
     #[key]
@@ -243,43 +204,6 @@ impl<const INCLUDES: bool> Resource for VolumeResource<INCLUDES> {
     }
 }
 
-static COUNTED_UNLOADED: AtomicUsize = AtomicUsize::new(0);
-static STREAMED_LOADED: AtomicUsize = AtomicUsize::new(0);
-
-/// Records whether each row `View` sees came with its shelf.
-fn tally_shelves(_cx: &Cx, ability: Ability<'_, Volume>) -> bool {
-    match ability {
-        Ability::ViewAny => true,
-        Ability::View(volume) => {
-            let tally = if volume.shelf.is_unloaded() {
-                &COUNTED_UNLOADED
-            } else {
-                &STREAMED_LOADED
-            };
-            tally.fetch_add(1, Ordering::SeqCst);
-            true
-        }
-        _ => false,
-    }
-}
-
-/// The included export, its `View` tallying the shelves.
-struct TalliedVolumeResource;
-
-impl Resource for TalliedVolumeResource {
-    type Model = Volume;
-    type Form = NoForm<Volume>;
-
-    fn declare() -> ResourceDef<Self> {
-        ResourceDef::new()
-            .slug("tallied")
-            .policy(tally_shelves)
-            .table(Table::new(
-                ComputedColumn::new("Shelf", shelf_name).include_unscoped(Volume::fields().shelf()),
-            ))
-    }
-}
-
 async fn one_volume() -> Db {
     let mut db = test_db(toasty::models!(Shelf, Volume)).await;
     let shelf = toasty::create!(Shelf {
@@ -315,15 +239,4 @@ async fn an_export_loads_the_relations_its_columns_include() {
     );
     let bare = export(&router, "/admin/bare/-/export").await;
     assert!(bare.contains("(unloaded)"), "{bare}");
-}
-
-/// The pass counting the viewable rows loads no relation; the pass streaming them loads the
-/// columns' includes.
-#[tokio::test]
-async fn only_the_streamed_rows_load_their_includes() {
-    let router = panel_router::<TalliedVolumeResource>(one_volume().await);
-    let csv = export(&router, "/admin/tallied/-/export").await;
-    assert!(csv.contains("Sci-fi"), "{csv}");
-    assert!(COUNTED_UNLOADED.load(Ordering::SeqCst) > 0);
-    assert!(STREAMED_LOADED.load(Ordering::SeqCst) > 0);
 }

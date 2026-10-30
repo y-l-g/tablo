@@ -29,7 +29,7 @@ impl tablo::extend::OptionSource for SalaryLabel {
         member.salary.clone()
     }
 
-    fn allows(_cx: &Cx, _ability: tablo::Ability<'_, Member>) -> bool {
+    fn lists(_cx: &Cx) -> bool {
         true
     }
 }

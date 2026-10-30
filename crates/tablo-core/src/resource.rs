@@ -490,8 +490,8 @@ impl<R: Resource> crate::schema::OptionSource for R {
         scoped_query::<R>(cx)
     }
 
-    fn allows(cx: &Cx, ability: crate::Ability<'_, R::Model>) -> bool {
-        can::<R>(cx, ability)
+    fn lists(cx: &Cx) -> bool {
+        can::<R>(cx, crate::Ability::ViewAny)
     }
 
     fn requires_tenant(cx: &Cx) -> bool {
