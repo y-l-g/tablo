@@ -105,8 +105,10 @@ impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
 /// [`label`](Self::label) replaces both. The column neither searches nor sorts.
 ///
 /// A column over a source `S` shows only the related records `S` shows the user: the ones its
-/// [`scoped_query`](OptionSource::scoped_query) returns and its policy lets the user view, as a
-/// relationship choice over `S` offers them. A related record it hides, soft-deleted or another
+/// [`scoped_query`](OptionSource::scoped_query) returns when it [`lists`](OptionSource::lists)
+/// for the user, as a relationship choice over `S` offers them. A resource's `View` policy plays
+/// no part: a related record to hide belongs out of the scoped query, in its
+/// [`query`](crate::ResourceDef::query). A related record it hides, soft-deleted or another
 /// tenant's, renders empty, and so does every record of a row loaded around the table's or the
 /// [`Detail`](crate::Detail)'s loader, which checks them. The row keeps what the include loaded,
 /// so a policy reading the relation sees it whole. [`unscoped`](Self::unscoped) shows whatever

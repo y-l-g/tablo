@@ -12,8 +12,9 @@ relation and links no column to a resource, so it is not the `Relation` trait re
 A relation column names the resource `R` whose rules govern the related records:
 `RelationColumn::of::<R>`, `new::<R>`, `list::<R>` and `CountColumn::of::<R>`. The include still
 loads the relation, and the loader that applied it then runs `Column::restrict`: one query through
-`R`'s tenant-scoped query, keyed by the loaded records, and `R`'s `View` policy on each, which
-records for the request whether `R` shows each record. A cell renders only the records recorded as
+`R`'s scoped query (its tenancy, its trash and `ResourceDef::query`), keyed by the loaded records,
+which records for the request whether `R` shows each record. `R`'s `View` policy plays no part:
+it answers whether the user may open a record's pages, never whether a row shows. A cell renders only the records recorded as
 shown, so a hidden to-one record renders empty, and so does a record no loader checked. The rows
 keep what the include loaded: a policy, a title or a computed column reading the same relation
 sees it whole, and a required relation never reads as unloaded. The include itself stays

@@ -4,8 +4,8 @@
 //! The dialog's script reads the record's key and title off it and makes the record the choice.
 //! The page offers the record only as a relationship choice would: it refuses a user the
 //! resource's policy denies `ViewAny`, as the list and the option search do, and loads the record
-//! through the resource's tenant-scoped query under its `View`, so a key typed into the URL tells
-//! nothing a choice would not.
+//! through the resource's scoped query, so a key typed into the URL tells nothing a choice would
+//! not.
 
 use topcoat::{
     context::Cx,

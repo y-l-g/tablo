@@ -55,7 +55,7 @@ where
 {
     /// Filter the field `lens` binds to one of `options`, each value in the field type's form
     /// spelling. Over a foreign key with no options, it applies any key the field parses, which
-    /// shows whether a row the user cannot view holds that key:
+    /// shows whether a row outside the source's scoped query holds that key:
     /// [`relationship`](Self::relationship) checks the key against its source.
     pub fn new<T>(lens: impl Into<Path<M, T>>, options: impl IntoOptions) -> Self
     where

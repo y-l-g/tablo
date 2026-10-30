@@ -4,7 +4,7 @@ A relationship choice declared `.creatable()` renders a link to the related reso
 page beside its select, and a dialog holding an empty frame. A script loads the create page into
 the frame with `?pick=1`, which renders it without the panel's shell and makes a save land on
 `{list}/-/picked?key=` instead of the list. That page reads the record back through the resource's
-tenant-scoped query under its `ViewAny` and `View`, and carries its key and title. The script reads
+scoped query under its `ViewAny`, as its options are, and carries its key and title. The script reads
 them off the frame, makes the record the select's option and value, and closes the dialog.
 
 The record is written by the create route the create page already posts to: its CSRF check,
@@ -16,7 +16,7 @@ the framed form's unsaved-changes mark: the dialog's close is the user's own. Th
 which the panel's default `frame-ancestors 'self'` already admits.
 
 The choice offers only what the related resource would show it: a record the user may create but
-not view is created and not chosen, and the submission of the outer form checks the key as for
+its scoped query leaves out is created and not chosen, and the submission of the outer form checks the key as for
 any relationship choice. A creatable choice is a single, independent select over a resource's
 records; the mount refuses the rest, since radios, checkboxes, a dependent choice's parent scope
 and a repeater's template rows would each need their own way to take the new record, and a
