@@ -130,10 +130,8 @@ impl Resource for PostResource {
             // ANCHOR_END: post-record-title
             // ANCHOR: post-public-link
             .public_link(|_cx: &Cx, post: &Post| {
-                (post.status == PostStatus::Published).then(|| PublicLink {
-                    url: format!("/blog/{}", post.id),
-                    label: "View on the blog",
-                })
+                (post.status == PostStatus::Published)
+                    .then(|| PublicLink::new(format!("/blog/{}", post.id), "View on the blog"))
             })
             // ANCHOR_END: post-public-link
             // ANCHOR: post-relations

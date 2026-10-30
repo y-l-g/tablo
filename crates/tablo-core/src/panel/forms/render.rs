@@ -315,7 +315,7 @@ pub(crate) async fn render_form_page<'a>(
                                 ))
                             >
                                 icon(data: tablo_ui::icons::EXTERNAL_LINK)
-                                (link.label)
+                                (link.label.localize(cx))
                             </a>
                         }
                         (actions)
