@@ -136,6 +136,9 @@ jobs:
           --health-timeout 5s --health-retries 30
     env:
       TABLO_TEST_DATABASE_URL: mysql://root:mysql@localhost:3306/tablo
+      # Linking the integration suites with full debug info beside the MySQL server runs the
+      # runner out of memory, which ends the job with exit code 143. Line tables keep backtraces.
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
     steps:
       - uses: actions/checkout@v7
       - run: rustup toolchain install
