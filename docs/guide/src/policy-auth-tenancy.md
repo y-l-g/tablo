@@ -402,12 +402,16 @@ impl Resource for PostResource {
 }
 ```
 
-That one declaration does two things:
+That one declaration does three things:
 
 - **The tenant check.** Every handler of the resource answers 403 when the request has no tenant.
 - **The scope.** Every loader — list, export, detail, edit, delete, bulk delete, relationship
   options, related tables — adds `tenant_id = <request tenant>` to the resource's query. A
   create sets the tenant column itself, so the record form leaves it out.
+- **The write check.** Before a create, edit, import or related form commits, the handler reads
+  the written row back through the tenant scope. An overriding `create_record` that does not
+  delegate to `write_create`, or an `update_record` that moves the row to another tenant, writes
+  a row outside it: the transaction rolls back and the request answers 500.
 
 The column is a `TenantId` field of the model, or `Option<TenantId>` for a nullable one, named by
 its lens. Do not repeat the filter in a `ResourceDef::query` narrowing. A resource over tenant-owned rows that declares no

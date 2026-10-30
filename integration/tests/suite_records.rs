@@ -17,6 +17,7 @@ mod embedded_lens;
 mod embedded_value;
 mod record_form;
 mod related_form;
+mod tenant_write;
 mod unique;
 mod write;
 mod write_error;
