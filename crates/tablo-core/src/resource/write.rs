@@ -3,7 +3,7 @@
 use toasty::{Executor, stmt::IntoInsert};
 use topcoat::{Result, context::Cx};
 
-use super::{Mounted, Resource, Trashed, require_mounted};
+use super::{Mounted, Resource, Trashed, WriteError, require_mounted};
 use crate::{
     form::{FormValues, Posted, RecordForm},
     tenancy::require_tenant,
@@ -115,6 +115,68 @@ pub async fn write_update<R: Resource>(
         }
     }
     Ok(record)
+}
+
+impl<R: Resource> Mounted<R> {
+    /// [`Resource::create_record`], then [`ensure_in_tenant`] on the row it returns.
+    pub(crate) async fn create(
+        &self,
+        cx: &Cx,
+        form: R::Form,
+        ex: &mut dyn Executor,
+    ) -> Result<R::Model, WriteError<<R::Form as RecordForm>::Field>> {
+        let written = R::create_record(cx, form, &mut *ex).await?;
+        ensure_in_tenant(cx, self, &written, "create_record", ex).await?;
+        Ok(written)
+    }
+
+    /// [`Resource::update_record`], then [`ensure_in_tenant`] on the row it returns.
+    pub(crate) async fn update(
+        &self,
+        cx: &Cx,
+        record: R::Model,
+        posted: Posted<R::Form>,
+        ex: &mut dyn Executor,
+    ) -> Result<R::Model, WriteError<<R::Form as RecordForm>::Field>> {
+        let written = R::update_record(cx, record, posted, &mut *ex).await?;
+        ensure_in_tenant(cx, self, &written, "update_record", ex).await?;
+        Ok(written)
+    }
+}
+
+/// Refuses a write whose row the request's tenant scope does not hold, read through `ex` so the
+/// check sees the row before the transaction commits.
+///
+/// The derived create stamps the tenant, but an overriding record fn that does not delegate to
+/// [`write_create`] stamps nothing, and an update may move the row to another tenant. Either
+/// fails closed here, and the transaction rolls back. The check reads the tenant scope alone:
+/// a [`query`](super::ResourceDef::query) narrowing or the trash may leave out a row a write
+/// rightly produces, such as an edit that archives it.
+async fn ensure_in_tenant<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    written: &R::Model,
+    record_fn: &str,
+    ex: &mut dyn Executor,
+) -> Result<()> {
+    if !resource.tenancy.is_scoped() {
+        return Ok(());
+    }
+    let query = resource
+        .tenant_scope(cx, toasty::stmt::Query::all())?
+        .filter(pk_filter(written));
+    let held = crate::toasty_compat::count(query, ex)
+        .await
+        .map_err(|error| -> topcoat::Error { error.into() })?;
+    if held == 0 {
+        return Err(crate::error::declaration(format!(
+            "resource '{}': `{record_fn}` wrote a row outside the request's tenant, so the \
+             write rolled back. An overriding `create_record` stamps the tenant by delegating \
+             to `write_create`.",
+            resource.slug
+        )));
+    }
+    Ok(())
 }
 
 /// The default [`Resource::delete_record`]: stamps the soft-delete column of a resource that

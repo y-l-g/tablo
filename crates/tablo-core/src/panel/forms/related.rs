@@ -473,7 +473,7 @@ async fn write<C: Resource>(
         return Ok(refused(values, errors));
     };
     let change = match opened.record {
-        None => match C::create_record(cx, form, &mut *ex).await {
+        None => match child.create(cx, form, &mut *ex).await {
             Ok(record) => Change::Create(record),
             Err(WriteError::Refused(errors)) => {
                 return Ok(refused(values, refusal(&child, "create_record", errors)?));
@@ -486,7 +486,7 @@ async fn write<C: Resource>(
                 .expect("`open::<C>` holds a `C::Model`");
             let before = record.clone();
             let posted = Posted::new(form, named_fields(&child, &named));
-            match C::update_record(cx, record, posted, &mut *ex).await {
+            match child.update(cx, record, posted, &mut *ex).await {
                 Ok(after) => Change::Update { before, after },
                 Err(WriteError::Refused(errors)) => {
                     return Ok(refused(values, refusal(&child, "update_record", errors)?));

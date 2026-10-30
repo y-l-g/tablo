@@ -473,7 +473,7 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             // A savepoint per row, so a row its record fn refuses leaves nothing for the later
             // rows' checks to read.
             let mut savepoint = tx.transaction().await.map_err(crate::error::unavailable)?;
-            let record = match R::create_record(cx, form, &mut savepoint).await {
+            let record = match resource.create(cx, form, &mut savepoint).await {
                 Ok(record) => {
                     savepoint
                         .commit()

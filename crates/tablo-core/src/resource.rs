@@ -141,8 +141,9 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// Defaults to the derived write, [`write_create`]; override to check
     /// something inside the transaction, then delegate. An override on a
     /// [`Tenancy::column`](crate::Tenancy::column) resource stamps the tenant
-    /// only by delegating to [`write_create`]. `ex` is the open
-    /// transaction: run every statement through it. Return the created row; the
+    /// only by delegating to [`write_create`]: the handler re-reads the returned row through the
+    /// request's tenant scope before it commits, and a row outside it fails the write closed.
+    /// `ex` is the open transaction: run every statement through it. Return the created row; the
     /// hooks receive it as [`Change::Create`].
     ///
     /// A rule that reads the database refuses the submission with [`WriteError::Refused`]: the
@@ -161,7 +162,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
     ///
     /// Defaults to the derived write, [`write_update`]. `record` is the
     /// snapshot the handler loaded and policy-checked inside the transaction:
-    /// use it, never re-query. Return the row as it now stands.
+    /// use it, never re-query. Return the row as it now stands: a row the request's tenant scope
+    /// no longer holds fails the write closed, as in [`create_record`](Self::create_record).
     ///
     /// Refuses the submission with [`WriteError::Refused`], as
     /// [`create_record`](Self::create_record) does.

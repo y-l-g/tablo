@@ -251,7 +251,7 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             )
             .await;
         };
-        let written = match R::create_record(cx, form, &mut *tx).await {
+        let written = match resource.create(cx, form, &mut *tx).await {
             Ok(written) => written,
             Err(WriteError::Refused(errors)) => {
                 drop(tx);
@@ -407,7 +407,7 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         // The version the write starts from: a model without one has no condition to fail on.
         let version = record.version();
         let before = record.clone();
-        let written = match R::update_record(cx, record, posted, &mut *tx).await {
+        let written = match resource.update(cx, record, posted, &mut *tx).await {
             Ok(written) => written,
             Err(WriteError::Refused(errors)) => {
                 drop(tx);
