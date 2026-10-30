@@ -167,9 +167,9 @@ impl Resource for PostResource {
                 })
             })
             // Lists the post's comments.
-            .relation(Relation::has_many::<CommentResource>(
-                Comment::fields().post_id(),
-            ))
+            .relation(Relation::has_many::<CommentResource>(lens!(
+                Comment.post_id
+            )))
             // Shows the post as its readers will, at `/admin/posts/{id}/preview`.
             .record_page::<PostPreviewPage>()
             // Publishes drafts from a row, the detail and edit pages, or for the selection.
