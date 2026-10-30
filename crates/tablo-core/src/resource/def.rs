@@ -129,7 +129,9 @@ impl<R: Resource> ResourceDef<R> {
     /// The URL slug for the resource's pages: `"users"` mounts the list at `{panel prefix}/users`.
     ///
     /// Defaults to the resource type's name without a trailing `Resource`, pluralized and
-    /// kebab-cased: `UserResource` → `users`, `BlogPostResource` → `blog-posts`.
+    /// kebab-cased: `UserResource` → `users`, `BlogPostResource` → `blog-posts`. Renaming the type
+    /// then moves the resource's URLs and drops the column choices its users saved, which are
+    /// stored under the slug; set it to keep both.
     #[must_use]
     pub fn slug(mut self, slug: impl Into<String>) -> Self {
         self.slug = Some(slug.into());

@@ -7,7 +7,8 @@ resource's `ResourceDef::policy` — decides what that user may do with each res
 ## Policy
 
 A policy answers one `Ability` at a time. The default policy is `Deny`, so a new resource exposes
-nothing until you allow it:
+nothing until you allow it. `Abilities` declares who may do what, one ability per method, and
+refuses every ability it does not declare:
 
 ```rust
 use tablo::prelude::*;
@@ -25,9 +26,10 @@ impl Resource for UserResource {
 Each [`Ability`](https://y-l.fr/tablo/nightly/api/tablo/enum.Ability.html) variant names one thing a user may do: list, view,
 create, update, delete, restore, run an action. Its page says which pages and POSTs ask it.
 
-`action` is the action's `NAME`, so one policy tells a resource's actions apart.
-`ability.is_action::<Publish, _>()` asks whether the ability is `RunAny` or `Run` for the action
-type `Publish`, so renaming the action's `NAME` cannot leave a policy matching the old string:
+A closure policy matches the variants itself. `RunAny` and `Run` carry `action`, the action's
+`NAME`, so one policy tells a resource's actions apart. `ability.is_action::<Publish, _>()` asks
+whether the ability is `RunAny` or `Run` for the action type `Publish`, so renaming the action's
+`NAME` cannot leave a policy matching the old string:
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-action}}
@@ -90,9 +92,9 @@ impl Resource for AuthorResource {
 ```
 
 A closure ending in `_ => true` allows every ability it does not name: the restore a soft delete
-adds, an action declared later, any ability a later Tablo release adds. Name every variant, as
-the user policy above does, so that a new one fails to compile, or build the policy with
-`Abilities`, which refuses every ability it does not declare:
+adds, an action declared later, any ability a later Tablo release adds. Prefer `Abilities`, which
+refuses those, or name every variant so that a new one fails to compile. `Abilities` declares an
+action's check with `run::<A, _>`:
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-abilities}}
@@ -111,8 +113,8 @@ answer `None`; a policy that must refuse them matches them by name:
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-written-record}}
 ```
 
-`policy_fn` takes a closure `|cx, ability| -> bool`, as in the first example, and `policy` takes
-any type that implements `Policy<M>`. Within `declare`, the def learns its resource from the return
+`policy` takes any type that implements `Policy<M>`, `Abilities` among them, and `policy_fn` takes
+a closure `|cx, ability| -> bool`. Within `declare`, the def learns its resource from the return
 type only after the closure is checked, so a closure that reads the record names the ability's
 type, `ability: Ability<'_, User>`, or the chain starts from `ResourceDef::<Self>::new()`.
 
