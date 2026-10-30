@@ -161,6 +161,8 @@ jobs:
       TABLO_TEST_DATABASE_URL: mysql://root:mysql@localhost:3306/tablo
       # Without debug info the test binaries link with less memory.
       CARGO_PROFILE_TEST_DEBUG: "0"
+      # Fewer parallel rustc and linker processes lower the build's peak memory.
+      CARGO_BUILD_JOBS: "2"
     steps:
       - uses: actions/checkout@v7
       - run: rustup toolchain install
