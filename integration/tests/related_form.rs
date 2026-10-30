@@ -543,7 +543,7 @@ async fn a_child_created_since_the_read_refuses_as_stale() {
             })
             .exec(&mut *ex)
             .await?;
-            Ok(tablo::write_update::<Self>(cx, record, posted, ex).await?)
+            tablo::write_update::<Self>(cx, record, posted, ex).await
         }
     }
 

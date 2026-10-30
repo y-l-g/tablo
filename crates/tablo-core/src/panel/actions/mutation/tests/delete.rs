@@ -179,14 +179,14 @@ async fn delete_resolves_the_primary_key_only() {
             _cx: &Cx,
             _record: &Dummy,
             _ex: &mut dyn toasty::Executor,
-        ) -> Result<()> {
+        ) -> Result<(), crate::WriteError> {
             Ok(())
         }
         async fn bulk_delete_records(
             _cx: &Cx,
             _records: &[Dummy],
             _ex: &mut dyn toasty::Executor,
-        ) -> Result<()> {
+        ) -> Result<(), crate::WriteError> {
             Ok(())
         }
     }

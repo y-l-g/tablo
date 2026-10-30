@@ -15,9 +15,9 @@ use topcoat::context::Cx;
 use crate::{
     TestClient,
     protocol::{
-        EmptyTable, ErrorKind, Group, Row, body_string, dirty_form, empty_table, field_error,
-        field_error_message, form_body, groups, input_value, notification_in, response_cookies,
-        row_keys, rows, stale_form,
+        EmptyTable, ErrorKind, Group, Row, body_string, declined_message, dirty_form, empty_table,
+        field_error, field_error_message, form_body, groups, input_value, notification_in,
+        response_cookies, row_keys, rows, stale_form,
     },
 };
 
@@ -450,6 +450,12 @@ impl<'c, 'a, K: PartialEq> Reply<'c, 'a, K> {
     /// Whether the edit form refused the save as stale; see [`stale_form`](crate::stale_form).
     pub fn stale(&self) -> bool {
         stale_form(&self.html)
+    }
+
+    /// The message a record fn declined the save with; see
+    /// [`declined_message`](crate::declined_message).
+    pub fn declined(&self) -> Option<String> {
+        declined_message(&self.html)
     }
 
     /// Whether the form renders dirty, guarding what it holds against leaving the page; see

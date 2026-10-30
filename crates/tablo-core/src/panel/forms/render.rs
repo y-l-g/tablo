@@ -58,6 +58,8 @@ pub(crate) struct FormChrome<'a> {
     related: Vec<BoxView<'a>>,
     /// Whether the page refuses a save because another changed the record since the form opened.
     stale: bool,
+    /// The message a record fn declined the write with, shown above the fields.
+    declined: Option<String>,
     /// The keys the request's field access hides or locks.
     mask: FormMask,
     /// Whether a creatable choice's dialog frames the create page: Cancel closes the dialog, the
@@ -88,6 +90,7 @@ impl<'a> FormChrome<'a> {
             navigation: Vec::new(),
             related: Vec::new(),
             stale: false,
+            declined: None,
             mask: resource.form_mask(cx),
             picking,
         }
@@ -125,6 +128,7 @@ impl<'a> FormChrome<'a> {
             navigation: record_navigation(cx, resource, record),
             related: Vec::new(),
             stale: false,
+            declined: None,
             mask: resource.form_mask(cx),
             picking: false,
         }
@@ -134,6 +138,12 @@ impl<'a> FormChrome<'a> {
     /// carries the version it was rendered from, so saving again overwrites.
     pub(super) fn stale(mut self) -> Self {
         self.stale = true;
+        self
+    }
+
+    /// Shows `message`, the reason a record fn declined the write, above the fields.
+    pub(super) fn declined(mut self, message: String) -> Self {
+        self.declined = Some(message);
         self
     }
 
@@ -168,6 +178,7 @@ impl<'a> FormChrome<'a> {
             navigation: Vec::new(),
             related: Vec::new(),
             stale: false,
+            declined: None,
             mask: FormMask::default(),
             picking: false,
         }
@@ -206,6 +217,7 @@ impl<'a> FormChrome<'a> {
             navigation: Vec::new(),
             related: Vec::new(),
             stale: false,
+            declined: None,
             mask: FormMask::default(),
             picking: false,
         }
@@ -240,6 +252,7 @@ pub(crate) async fn render_form_page<'a>(
         relations,
         related,
         stale,
+        declined,
         mask,
         picking,
         navigation,
@@ -258,7 +271,7 @@ pub(crate) async fn render_form_page<'a>(
     let action = form_action(cx, &seed, picking);
     let cancel = return_target(cx).unwrap_or(cancel);
     // A refused save keeps what the user typed, which leaving the page would lose.
-    let dirty = !errors.is_empty() || stale;
+    let dirty = !errors.is_empty() || stale || declined.is_some();
     let has_actions = public_link.is_some() || !actions.is_empty();
     let actions = actions.render(cx);
     let enctype: Option<String> = schema
@@ -328,6 +341,13 @@ pub(crate) async fn render_form_page<'a>(
                             tablo_ui::alert_description(
                                 (t!(cx, "tablo-form-stale-description"))
                             )
+                        )
+                    }
+                    if let Some(message) = declined {
+                        tablo_ui::alert(
+                            variant: tablo_ui::AlertVariant::Destructive,
+                            attrs: attributes! { role="alert" data-declined="" },
+                            tablo_ui::alert_description((message))
                         )
                     }
                     if unseen {

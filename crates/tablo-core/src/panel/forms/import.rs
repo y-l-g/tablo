@@ -498,6 +498,20 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                     ));
                     continue;
                 }
+                Err(WriteError::Declined(message)) => {
+                    savepoint
+                        .rollback()
+                        .await
+                        .map_err(crate::error::unavailable)?;
+                    refused = true;
+                    failures.push(RowError {
+                        row,
+                        key: None,
+                        column: String::new(),
+                        message,
+                    });
+                    continue;
+                }
                 Err(WriteError::Failed(error)) => {
                     drop(savepoint);
                     drop(tx);

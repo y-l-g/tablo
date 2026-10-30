@@ -95,7 +95,7 @@ impl Resource for BookingResource {
             return Err(toasty::Error::condition_failed("no such room").into());
         }
         hold(&form.room, form.nights, &mut *ex).await?;
-        Ok(tablo::write_create::<Self>(cx, form, ex).await?)
+        tablo::write_create::<Self>(cx, form, ex).await
     }
 
     async fn update_record(
@@ -108,7 +108,7 @@ impl Resource for BookingResource {
             return Err(FieldErrors::new().into());
         }
         hold(&posted.room, posted.nights, &mut *ex).await?;
-        Ok(tablo::write_update::<Self>(cx, record, posted, ex).await?)
+        tablo::write_update::<Self>(cx, record, posted, ex).await
     }
 }
 

@@ -266,6 +266,20 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
                 )
                 .await;
             }
+            Err(WriteError::Declined(message)) => {
+                drop(tx);
+                return render_form_page(
+                    cx,
+                    &resource.form,
+                    FormChrome::create(cx, &resource)
+                        .with_related(render_related(cx, &related))
+                        .declined(message.localize(cx)),
+                    &values,
+                    &errors,
+                    &carried,
+                )
+                .await;
+            }
             Err(WriteError::Failed(error)) => {
                 drop(tx);
                 let taken =
@@ -287,18 +301,16 @@ pub(crate) fn resource_create_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
         // Each related form writes after the record it belongs to, whose key it holds.
         let after = match write_related(cx, &resource, &mut related, &written, &mut *tx).await {
             Ok(RelatedWrite::Done(after)) => after,
-            Ok(written @ (RelatedWrite::Refused | RelatedWrite::Stale)) => {
+            Ok(
+                written @ (RelatedWrite::Refused | RelatedWrite::Stale | RelatedWrite::Declined(_)),
+            ) => {
                 drop(tx);
                 let chrome =
                     FormChrome::create(cx, &resource).with_related(render_related(cx, &related));
                 return render_form_page(
                     cx,
                     &resource.form,
-                    if matches!(written, RelatedWrite::Stale) {
-                        chrome.stale()
-                    } else {
-                        chrome
-                    },
+                    marked(cx, chrome, written),
                     &values,
                     &errors,
                     &carried,
@@ -424,6 +436,20 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
                 )
                 .await;
             }
+            Err(WriteError::Declined(message)) => {
+                drop(tx);
+                return render_form_page(
+                    cx,
+                    &resource.form,
+                    FormChrome::edit(cx, &resource, &before)
+                        .with_related(render_related(cx, &related))
+                        .declined(message.localize(cx)),
+                    &values,
+                    &errors,
+                    &carried,
+                )
+                .await;
+            }
             Err(WriteError::Failed(error)) => {
                 drop(tx);
                 // A version condition means another save overtook this one; any other database
@@ -458,18 +484,16 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         };
         let after = match write_related(cx, &resource, &mut related, &written, &mut *tx).await {
             Ok(RelatedWrite::Done(after)) => after,
-            Ok(written @ (RelatedWrite::Refused | RelatedWrite::Stale)) => {
+            Ok(
+                written @ (RelatedWrite::Refused | RelatedWrite::Stale | RelatedWrite::Declined(_)),
+            ) => {
                 drop(tx);
                 let chrome = FormChrome::edit(cx, &resource, &before)
                     .with_related(render_related(cx, &related));
                 return render_form_page(
                     cx,
                     &resource.form,
-                    if matches!(written, RelatedWrite::Stale) {
-                        chrome.stale()
-                    } else {
-                        chrome
-                    },
+                    marked(cx, chrome, written),
                     &values,
                     &errors,
                     &carried,
@@ -493,6 +517,16 @@ pub(crate) fn resource_edit_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<'_
         )
         .await
     })
+}
+
+/// `chrome` as the page of a related write that ended as `written` shows it: the stale alert, or
+/// the message a related record fn declined with.
+fn marked<'a>(cx: &Cx, chrome: FormChrome<'a>, written: RelatedWrite) -> FormChrome<'a> {
+    match written {
+        RelatedWrite::Stale => chrome.stale(),
+        RelatedWrite::Declined(message) => chrome.declined(message.localize(cx)),
+        RelatedWrite::Done(_) | RelatedWrite::Refused => chrome,
+    }
 }
 
 /// Whether a write failed on a Toasty condition, on a versioned model its `#[version]` one:

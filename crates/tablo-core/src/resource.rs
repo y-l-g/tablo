@@ -150,14 +150,16 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// hooks receive it as [`Change::Create`].
     ///
     /// A rule that reads the database refuses the submission with [`WriteError::Refused`]: the
-    /// transaction rolls back and the form renders again with the errors under their fields.
+    /// transaction rolls back and the form renders again with the errors under their fields. A
+    /// reason that names no field declines it with [`WriteError::declined`], which the form
+    /// renders above its fields.
     fn create_record(
         cx: &Cx,
         form: Self::Form,
         ex: &mut dyn Executor,
     ) -> impl Future<Output = Result<Self::Model, WriteError<<Self::Form as RecordForm>::Field>>> + Send
     {
-        async move { Ok(write_create::<Self>(cx, form, ex).await?) }
+        write_create::<Self>(cx, form, ex)
     }
 
     /// Update the already-authorized `record` from the posted form, inside the
@@ -168,8 +170,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// use it, never re-query. Return the row as it now stands: a row the request's tenant scope
     /// no longer holds fails the write closed, as in [`create_record`](Self::create_record).
     ///
-    /// Refuses the submission with [`WriteError::Refused`], as
-    /// [`create_record`](Self::create_record) does.
+    /// Refuses or declines the submission as [`create_record`](Self::create_record) does.
     fn update_record(
         cx: &Cx,
         record: Self::Model,
@@ -177,7 +178,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
         ex: &mut dyn Executor,
     ) -> impl Future<Output = Result<Self::Model, WriteError<<Self::Form as RecordForm>::Field>>> + Send
     {
-        async move { Ok(write_update::<Self>(cx, record, posted, ex).await?) }
+        write_update::<Self>(cx, record, posted, ex)
     }
 
     /// Delete the already-authorized `record`.
@@ -190,16 +191,18 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// The default deletes the row through [`scoped_query`], filtered to the
     /// record's primary key, or stamps its
     /// [`soft_delete`](ResourceDef::soft_delete) column with the time when the resource declares
-    /// one. Override to delete another way.
+    /// one. Override to delete another way, or to refuse with [`WriteError::declined`]: the
+    /// transaction rolls back and the message flashes, as it does for the restore, the force
+    /// delete and the bulk delete.
     fn delete_record(
         cx: &Cx,
         record: &Self::Model,
         ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<()>> + Send
+    ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send
     where
         Self: Sized,
     {
-        write::delete::<Self>(cx, record, ex)
+        async move { Ok(write::delete::<Self>(cx, record, ex).await?) }
     }
 
     /// Restore the already-authorized trashed `record` of a resource that
@@ -212,11 +215,11 @@ pub trait Resource: Sized + Send + Sync + 'static {
         cx: &Cx,
         record: &Self::Model,
         ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<()>> + Send
+    ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send
     where
         Self: Sized,
     {
-        write::restore::<Self>(cx, record, ex)
+        async move { Ok(write::restore::<Self>(cx, record, ex).await?) }
     }
 
     /// Delete the already-authorized trashed `record` for good, inside the handler's
@@ -228,11 +231,11 @@ pub trait Resource: Sized + Send + Sync + 'static {
         cx: &Cx,
         record: &Self::Model,
         ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<()>> + Send
+    ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send
     where
         Self: Sized,
     {
-        write::force_delete::<Self>(cx, record, ex)
+        async move { Ok(write::force_delete::<Self>(cx, record, ex).await?) }
     }
 
     /// Bulk-delete the already-authorized `records`: the handler
@@ -248,7 +251,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
         cx: &Cx,
         records: &[Self::Model],
         ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<()>> + Send
+    ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send
     where
         Self: Sized,
     {

@@ -110,6 +110,8 @@ pub(crate) enum Written {
     Done(AfterCommit),
     /// A rule, `validate_record` or the record fn refused it: the transaction must roll back.
     Refused(Prepared),
+    /// The record fn declined it with this message: the transaction must roll back.
+    Declined(Prepared, crate::Text),
     /// The child changed since the submission was read: another save wrote it, created it, or
     /// took it out of the request's reach. It holds the child as it now stands.
     Stale(Prepared, Option<Opened>),
@@ -121,6 +123,9 @@ pub(crate) enum RelatedWrite {
     Done(Vec<AfterCommit>),
     /// One refused: the transaction must roll back.
     Refused,
+    /// One's record fn declined it with this message: the transaction must roll back, and the
+    /// page shows the message.
+    Declined(crate::Text),
     /// One's child changed since the form opened: the transaction must roll back, and the page
     /// says so.
     Stale,
@@ -294,6 +299,10 @@ pub(crate) async fn write_related<R: Resource>(
             Written::Refused(prepared) => {
                 related.posted = Some(prepared);
                 return Ok(RelatedWrite::Refused);
+            }
+            Written::Declined(prepared, message) => {
+                related.posted = Some(prepared);
+                return Ok(RelatedWrite::Declined(message));
             }
             // The section renders on the child as it now stands, so saving again overwrites.
             Written::Stale(prepared, opened) => {
@@ -469,6 +478,18 @@ async fn write<C: Resource>(
             version: None,
         })
     };
+    let declined = |values, message| {
+        Written::Declined(
+            Prepared {
+                values,
+                errors: FieldErrors::new(),
+                named: HashSet::new(),
+                against: None,
+                version: None,
+            },
+            message,
+        )
+    };
     let Some(form) = form.filter(|_| errors.is_empty()) else {
         return Ok(refused(values, errors));
     };
@@ -477,6 +498,9 @@ async fn write<C: Resource>(
             Ok(record) => Change::Create(record),
             Err(WriteError::Refused(errors)) => {
                 return Ok(refused(values, refusal(&child, "create_record", errors)?));
+            }
+            Err(WriteError::Declined(message)) => {
+                return Ok(declined(values, message));
             }
             Err(WriteError::Failed(error)) => return Err(error),
         },
@@ -490,6 +514,9 @@ async fn write<C: Resource>(
                 Ok(after) => Change::Update { before, after },
                 Err(WriteError::Refused(errors)) => {
                     return Ok(refused(values, refusal(&child, "update_record", errors)?));
+                }
+                Err(WriteError::Declined(message)) => {
+                    return Ok(declined(values, message));
                 }
                 Err(WriteError::Failed(error)) => return Err(error),
             }

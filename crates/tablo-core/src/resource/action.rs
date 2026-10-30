@@ -258,7 +258,8 @@ pub trait Action<R: Resource>: 'static {
     /// A rule that reads the database refuses the input with [`WriteError::Refused`], keyed by
     /// its form keys: the transaction rolls back and the input page renders with the errors. An
     /// action that asks for nothing has no control to render them under, so its refusal is a
-    /// declaration error.
+    /// declaration error: it declines with [`WriteError::declined`] instead, which rolls back and
+    /// flashes the message.
     fn run(
         cx: &Cx,
         records: &[R::Model],

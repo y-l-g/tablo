@@ -381,6 +381,14 @@ async fn mutate<'a, R: Resource>(
             );
             return page.render(cx, &action.input, chrome).await;
         }
+        Err(WriteError::Declined(message)) => {
+            drop(tx);
+            return Err(crate::panel::write::declined_write(
+                cx,
+                &message,
+                &resource.url,
+            ));
+        }
         Err(WriteError::Failed(error)) => Err(error),
     };
     // A delete's hook names what was removed: the pre-delete snapshot.

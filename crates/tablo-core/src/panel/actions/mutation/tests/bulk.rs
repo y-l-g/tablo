@@ -45,7 +45,7 @@ async fn bulk_delete_caps_ids_and_checks_the_token() {
             _cx: &Cx,
             _records: &[Dummy],
             _ex: &mut dyn toasty::Executor,
-        ) -> Result<()> {
+        ) -> Result<(), crate::WriteError> {
             Ok(())
         }
     }
@@ -156,7 +156,7 @@ async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
             _cx: &Cx,
             records: &[Dummy],
             ex: &mut dyn toasty::Executor,
-        ) -> Result<()> {
+        ) -> Result<(), crate::WriteError> {
             // Delete the first row, then blow up: without the
             // framework tx the first delete would stick.
             let first = &records[0];

@@ -141,7 +141,8 @@ field it refuses by the enum the derive declares beside the input, `StatusChange
 renamed field fails to compile rather than render no message. A rule that reads the database
 refuses from `run` with `Err(WriteError::field("featured", ".."))`, under the field's form key,
 and the transaction rolls back what `run` wrote. Either way the input renders as a page with the
-error under its control.
+error under its control. A reason that names no field declines instead, with
+`Err(WriteError::declined(".."))`: the transaction rolls back and the message flashes.
 
 ## Names
 
