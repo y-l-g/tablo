@@ -139,7 +139,7 @@ how several tables share one page.
 
 A record with several related tables makes a long page, and its detail page loads every one.
 `.tab()` moves a relation's table to a page of its own, at `{list}/{key}/{related slug}`:
-`Relation::has_many::<CommentResource>(Comment::fields().post_id()).tab()` serves the post's
+`Relation::has_many::<CommentResource>(lens!(Comment.post_id)).tab()` serves the post's
 comments at `/admin/posts/{id}/comments`, and no longer under its detail and edit pages.
 
 A resource with a tab or a record page gives its records a navigation: a tab bar under the header
@@ -176,7 +176,7 @@ hooks and the mount checks.
 ### One child per record
 
 A record's one child, such as a user's profile, takes no table.
-`Relation::has_one::<ProfileResource>(Profile::fields().user_id())` renders `ProfileResource`'s own
+`Relation::has_one::<ProfileResource>(lens!(Profile.user_id))` renders `ProfileResource`'s own
 form inside the user's create and edit form instead, and the save writes both in one
 transaction. The profile goes through its own resource: its policy, field access, rules and
 hooks apply as on its own pages, and the user's key fills its foreign key.

@@ -138,9 +138,9 @@ impl Resource for PostResource {
             // ANCHOR_END: post-public-link
             // ANCHOR: post-relations
             // The related model's foreign key, which holds the post's primary key.
-            .relation(Relation::has_many::<CommentResource>(
-                Comment::fields().post_id(),
-            ))
+            .relation(Relation::has_many::<CommentResource>(lens!(
+                Comment.post_id
+            )))
             // ANCHOR_END: post-relations
             // ANCHOR: post-record-page
             .record_page::<SearchPreviewPage>()

@@ -50,9 +50,7 @@ impl Resource for OwnerResource {
             // The second owner's name is empty, so its title falls back to the resource's label
             // and its key.
             .record_title(lens!(Owner.name))
-            .relation(Relation::has_many::<ChildResource>(
-                Child::fields().owner_id(),
-            ))
+            .relation(Relation::has_many::<ChildResource>(lens!(Child.owner_id)))
     }
 }
 

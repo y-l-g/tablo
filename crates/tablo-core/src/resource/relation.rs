@@ -10,7 +10,7 @@ use super::{
 };
 use crate::{
     BoxFuture,
-    form::{FieldError, FormScalar, FormValues},
+    form::{FieldError, FormValues},
     policy::Ability,
     schema::{Field, Schema},
     toasty_compat::{
@@ -26,7 +26,7 @@ use crate::{
 /// must be registered on the same panel, which keys the relation by its slug:
 ///
 /// ```rust
-/// # use tablo_core::{NoForm, Relation, Resource, ResourceDef};
+/// # use tablo_core::{NoForm, Relation, Resource, ResourceDef, lens};
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
@@ -46,7 +46,7 @@ use crate::{
 /// # struct CommentResource;
 /// # impl Resource for CommentResource { type Model = Comment; type Form = NoForm<Comment>; }
 /// let def: ResourceDef<PostResource> =
-///     ResourceDef::new().relation(Relation::has_many::<CommentResource>(Comment::fields().post_id()));
+///     ResourceDef::new().relation(Relation::has_many::<CommentResource>(lens!(Comment.post_id)));
 /// ```
 ///
 /// The table is the related resource's own list table, its columns, search, sort, filters and
@@ -129,26 +129,46 @@ type LinkFn<P, K> = Arc<
 /// The input key the attach dialog's choice posts.
 const ATTACH_KEY: &str = "record";
 
-/// A foreign-key column type referencing a primary key of type `K`: `K` itself, or `Option<K>`
-/// for an optional reference. Sealed: these are the only two.
-pub trait ForeignKey<K>:
-    sealed::Sealed<K> + IntoExpr<Self> + FormScalar + Send + Sync + 'static
-{
-}
+/// A field of the child model `M` holding the owner's primary key, of type `K`: a
+/// [`lens!`](crate::lens!) or a field path over a `K` column, or an `Option<K>` one for an
+/// optional reference. Sealed.
+pub trait ForeignKey<M, K>: sealed::Field<M, K> {}
 
-impl<K> ForeignKey<K> for K where K: IntoExpr<K> + FormScalar + Send + Sync + 'static {}
-
-impl<K> ForeignKey<K> for Option<K> where
-    Option<K>: IntoExpr<Self> + FormScalar + Send + Sync + 'static
-{
-}
+impl<M, K, F: sealed::Field<M, K>> ForeignKey<M, K> for F {}
 
 mod sealed {
-    pub trait Sealed<K> {}
+    use toasty::stmt::{IntoExpr, Path};
 
-    impl<K> Sealed<K> for K {}
+    use crate::{Lens, form::FormScalar};
 
-    impl<K> Sealed<K> for Option<K> {}
+    pub trait Field<M, K> {
+        type Column: Column<K>;
+
+        fn into_path(self) -> Path<M, Self::Column>;
+    }
+
+    impl<M, K, T: Column<K>> Field<M, K> for Path<M, T> {
+        type Column = T;
+
+        fn into_path(self) -> Path<M, T> {
+            self
+        }
+    }
+
+    impl<M, K, V, T: Column<K>> Field<M, K> for Lens<M, V, T> {
+        type Column = T;
+
+        fn into_path(self) -> Path<M, T> {
+            self.into()
+        }
+    }
+
+    /// A column type holding a key of type `K`: `K` itself, or `Option<K>`.
+    pub trait Column<K>: IntoExpr<Self> + FormScalar + Send + Sync + 'static {}
+
+    impl<K> Column<K> for K where K: IntoExpr<K> + FormScalar + Send + Sync + 'static {}
+
+    impl<K> Column<K> for Option<K> where Option<K>: IntoExpr<Self> + FormScalar + Send + Sync + 'static {}
 }
 
 impl<P> Relation<P>
@@ -159,7 +179,7 @@ where
     /// single column.
     ///
     /// ```rust
-    /// # use tablo_core::{NoForm, Relation, Resource, ResourceDef};
+    /// # use tablo_core::{NoForm, Relation, Resource, ResourceDef, lens};
     /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
     /// # struct Post {
     /// #     #[key] #[auto] id: uuid::Uuid,
@@ -178,9 +198,9 @@ where
     /// # impl Resource for PostResource { type Model = Post; type Form = NoForm<Post>; }
     /// # struct CommentResource;
     /// # impl Resource for CommentResource { type Model = Comment; type Form = NoForm<Comment>; }
-    /// let comments: Relation<Post> = Relation::has_many::<CommentResource>(Comment::fields().post_id());
+    /// let comments: Relation<Post> = Relation::has_many::<CommentResource>(lens!(Comment.post_id));
     /// ```
-    pub fn has_many<C>(foreign_key: Path<C::Model, impl ForeignKey<P::PrimaryKey>>) -> Self
+    pub fn has_many<C>(foreign_key: impl ForeignKey<C::Model, P::PrimaryKey>) -> Self
     where
         C: Resource,
     {
@@ -192,7 +212,7 @@ where
     /// owner's create and edit forms rather than by a table.
     ///
     /// ```rust
-    /// # use tablo_core::{Relation, Resource, ResourceDef};
+    /// # use tablo_core::{Relation, Resource, ResourceDef, lens};
     /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns, tablo_core::ModelForm)]
     /// # struct User {
     /// #     #[key] #[auto] id: uuid::Uuid,
@@ -214,7 +234,7 @@ where
     /// # impl Resource for UserResource { type Model = User; type Form = UserForm; }
     /// # struct ProfileResource;
     /// # impl Resource for ProfileResource { type Model = Profile; type Form = ProfileForm; }
-    /// let profile: Relation<User> = Relation::has_one::<ProfileResource>(Profile::fields().user_id());
+    /// let profile: Relation<User> = Relation::has_one::<ProfileResource>(lens!(Profile.user_id));
     /// ```
     ///
     /// The related resource's form renders as a section of the owner's form, titled with its
@@ -238,7 +258,7 @@ where
     /// the foreign key, a soft-deleting one, one whose form holds a control that needs its own
     /// keys or routes (a file field, a repeater, an embedded value, a searchable or dependent
     /// choice), an owner with no form, and an owner form key the prefix would shadow.
-    pub fn has_one<C>(foreign_key: Path<C::Model, impl ForeignKey<P::PrimaryKey>>) -> Self
+    pub fn has_one<C>(foreign_key: impl ForeignKey<C::Model, P::PrimaryKey>) -> Self
     where
         C: Resource,
     {
@@ -249,11 +269,12 @@ where
         relation
     }
 
-    fn bound_by<C, T>(foreign_key: Path<C::Model, T>) -> Self
+    fn bound_by<C, F>(foreign_key: F) -> Self
     where
         C: Resource,
-        T: ForeignKey<P::PrimaryKey>,
+        F: ForeignKey<C::Model, P::PrimaryKey>,
     {
+        let foreign_key = foreign_key.into_path();
         // A foreign key is one column of the child: it binds against the child's model alone.
         let (column, misdeclared) = match model::field::<C::Model>(&ModelPath::of(&foreign_key)) {
             Ok(field) => (field.name, None),
@@ -269,7 +290,7 @@ where
             },
             misdeclared,
             bind: Arc::new(move |owner| {
-                let scope = foreign_key.clone().eq(pk::pk_expr::<P, T>(owner));
+                let scope = foreign_key.clone().eq(pk::pk_expr::<P, F::Column>(owner));
                 (scope, pk::pk_text(owner))
             }),
         }
