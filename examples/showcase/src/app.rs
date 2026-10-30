@@ -161,10 +161,8 @@ impl Resource for PostResource {
             .global_search(GlobalSearch::new().detail("Status", lens!(Post.status)))
             // Links a published post's public page.
             .public_link(|_cx: &Cx, post: &Post| {
-                (post.status == PostStatus::Published).then(|| PublicLink {
-                    url: format!("/blog/{}", post.id),
-                    label: "View public post",
-                })
+                (post.status == PostStatus::Published)
+                    .then(|| PublicLink::new(format!("/blog/{}", post.id), "View public post"))
             })
             // Lists the post's comments.
             .relation(Relation::has_many::<CommentResource>(lens!(

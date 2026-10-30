@@ -546,10 +546,18 @@ impl<R: Resource> ResourceDef<R> {
 /// A record's public page, linked from its detail and edit pages.
 #[derive(Debug, Clone)]
 pub struct PublicLink {
-    /// The public page's URL.
-    pub url: String,
-    /// The link's text.
-    pub label: &'static str,
+    pub(crate) url: String,
+    pub(crate) label: crate::Text,
+}
+
+impl PublicLink {
+    /// A link to `url` that reads `label`.
+    pub fn new(url: impl Into<String>, label: impl Into<crate::Text>) -> Self {
+        Self {
+            url: url.into(),
+            label: label.into(),
+        }
+    }
 }
 
 /// A record's public page, as [`ResourceDef::public_link`] declares it.

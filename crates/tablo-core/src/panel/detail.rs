@@ -111,7 +111,7 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
                     if let Some(link) = public_link {
                         <a href=(link.url) class=(outline.clone())>
                             icon(data: tablo_ui::icons::EXTERNAL_LINK)
-                            (link.label)
+                            (link.label.localize(cx))
                         </a>
                     }
                     (actions)
