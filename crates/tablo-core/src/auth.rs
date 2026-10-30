@@ -251,11 +251,9 @@ pub(crate) fn session_catalog(cx: &Cx) -> Option<&crate::i18n::Catalog> {
 /// panel's [`Authenticator`] loads another type than `U` — a helper shared by
 /// two panels with different user types answers `None` on the other one.
 ///
-/// # Panics
-///
-/// In a debug build, when no mounted panel's authenticator loads `U`: that `U` can only answer
-/// `None`, so every check through it would deny. The message names `U` and the types the panels
-/// load.
+/// When no mounted panel's authenticator loads `U`, that `U` can only answer `None`, so every
+/// check through it denies: the first such call logs an error naming `U` and the types the panels
+/// load. Debug and release builds behave alike.
 ///
 /// ```rust
 /// # struct Staff { admin: bool }
@@ -271,15 +269,34 @@ pub(crate) fn session_catalog(cx: &Cx) -> Option<&crate::i18n::Catalog> {
 /// }
 /// ```
 pub fn user<U: PanelUser>(cx: &Cx) -> Option<&U> {
-    if cfg!(debug_assertions) {
-        assert_some_panel_loads::<U>(cx);
+    let found = signed(cx).and_then(|signed| {
+        let user: &dyn Any = &*signed.user;
+        user.downcast_ref()
+    });
+    if found.is_none() {
+        report_unloaded::<U>(cx);
     }
-    let user: &dyn Any = &*signed(cx)?.user;
-    user.downcast_ref()
+    found
 }
 
-/// Panics when panels sign users in and none of them loads a `U`.
-fn assert_some_panel_loads<U: PanelUser>(cx: &Cx) {
+/// Logs, once per type, that no mounted panel loads `U`.
+fn report_unloaded<U: PanelUser>(cx: &Cx) {
+    static REPORTED: std::sync::Mutex<Vec<TypeId>> = std::sync::Mutex::new(Vec::new());
+    let Some(message) = unloaded_type::<U>(cx) else {
+        return;
+    };
+    let mut reported = REPORTED
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if !reported.contains(&TypeId::of::<U>()) {
+        reported.push(TypeId::of::<U>());
+        tracing::error!("{message}");
+    }
+}
+
+/// Why `auth::user::<U>` can never find a user, when panels sign users in and none of them
+/// loads a `U`.
+fn unloaded_type<U: PanelUser>(cx: &Cx) -> Option<String> {
     let mut mounted = realms(cx);
     if mounted.is_empty() {
         mounted.extend(current_realm(cx).cloned());
@@ -293,15 +310,15 @@ fn assert_some_panel_loads<U: PanelUser>(cx: &Cx) {
             .iter()
             .any(|auth| auth.user_type() == TypeId::of::<U>())
     {
-        return;
+        return None;
     }
     let names: std::collections::BTreeSet<_> =
         loaded.iter().map(|auth| auth.user_type_name()).collect();
-    panic!(
+    Some(format!(
         "auth::user::<{}> can never find a user: the mounted panels sign in {}",
         std::any::type_name::<U>(),
         names.into_iter().collect::<Vec<_>>().join(", "),
-    );
+    ))
 }
 
 /// Require the signed-in user, as the app's own user type.
@@ -311,11 +328,8 @@ fn assert_some_panel_loads<U: PanelUser>(cx: &Cx) {
 /// Answers per request kind (ADR-0013): pages redirect to the login route with
 /// a same-origin-relative `next`; runtime endpoints, non-GET requests, and
 /// page re-runs (marked POSTs the runtime layer rewrites into GETs) answer
-/// 401. A signed-in user of another type than `U` answers 403.
-///
-/// # Panics
-///
-/// As [`user`] does, in a debug build, when no mounted panel loads `U`.
+/// 401. A signed-in user of another type than `U` answers 403, and [`user`] logs a type no
+/// mounted panel loads.
 pub fn require_user<U: PanelUser>(cx: &Cx) -> topcoat::Result<&U> {
     match signed(cx) {
         Some(_) => user(cx).ok_or_else(|| forbidden().into()),
