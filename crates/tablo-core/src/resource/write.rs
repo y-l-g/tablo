@@ -19,14 +19,15 @@ use crate::{
 ///
 /// # Errors
 ///
-/// A tenantless request on a tenant-scoped resource (the handler answers 403 first),
+/// [`WriteError::Failed`] on a tenantless request to a tenant-scoped resource (the handler
+/// answers 403 first),
 /// a `column` tenancy whose lens names no field of the model (the mount refuses it first), a
 /// resource the context's panel does not mount, or the driver's error.
 pub async fn write_create<R: Resource>(
     cx: &Cx,
     form: R::Form,
     ex: &mut dyn Executor,
-) -> Result<R::Model> {
+) -> Result<R::Model, WriteError<<R::Form as RecordForm>::Field>> {
     let resource = require_mounted::<R>(cx)?;
     let links = form.links();
     let mut insert = form.into_create().into_insert();
@@ -40,7 +41,8 @@ pub async fn write_create<R: Resource>(
         Some(Err(error)) => {
             return Err(crate::error::declaration(
                 crate::DeclarationError::of::<R>(crate::Site::Tenancy, error).to_string(),
-            ));
+            )
+            .into());
         }
         None => {}
     }
@@ -65,13 +67,13 @@ pub async fn write_create<R: Resource>(
 ///
 /// # Errors
 ///
-/// The driver's error.
+/// [`WriteError::Failed`] with the driver's error.
 pub async fn write_update<R: Resource>(
     cx: &Cx,
     mut record: R::Model,
     posted: Posted<R::Form>,
     ex: &mut dyn Executor,
-) -> Result<R::Model> {
+) -> Result<R::Model, WriteError<<R::Form as RecordForm>::Field>> {
     let links: Vec<_> = posted
         .links()
         .into_iter()

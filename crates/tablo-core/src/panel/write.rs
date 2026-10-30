@@ -159,6 +159,14 @@ pub(crate) async fn commit_then<'a, T, F: Future<Output = ()>>(
     }
 }
 
+/// Flashes the `message` a delete, a restore or an action declined its write with, and lands
+/// back where the request started: on `home` or the page its `?return=` names. The handler has
+/// dropped the transaction, so nothing it wrote stays.
+pub(crate) fn declined_write(cx: &Cx, message: &crate::Text, home: &str) -> topcoat::Error {
+    set_notification(cx, Notification::error(message.localize(cx)));
+    see_other(landing_url(cx, home)).into()
+}
+
 /// Flashes `failure` and maps a record fn's `error` to the response.
 ///
 /// The error is not echoed raw: the driver's text goes to the log through the opaque mapping,

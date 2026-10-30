@@ -137,7 +137,7 @@ async fn a_write_the_version_condition_refuses_re_renders_the_form() {
                 .title("theirs")
                 .exec(&mut *ex)
                 .await?;
-            Ok(tablo::write_update::<Self>(cx, record, posted, ex).await?)
+            tablo::write_update::<Self>(cx, record, posted, ex).await
         }
     }
 

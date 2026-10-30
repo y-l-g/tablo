@@ -190,7 +190,7 @@ impl Resource for CommentResource {
         ex: &mut dyn toasty::Executor,
     ) -> Result<Comment, WriteError<CommentFormField>> {
         if !posted.named(CommentFormField::PostId) || posted.post_id == record.post_id {
-            return Ok(tablo::write_update::<Self>(cx, record, posted, ex).await?);
+            return tablo::write_update::<Self>(cx, record, posted, ex).await;
         }
         let post = Post::filter_by_id(posted.post_id)
             .first()
@@ -202,7 +202,7 @@ impl Resource for CommentResource {
                 "Comments go on published posts",
             ));
         }
-        Ok(tablo::write_update::<Self>(cx, record, posted, ex).await?)
+        tablo::write_update::<Self>(cx, record, posted, ex).await
     }
     // ANCHOR_END: comment-update-record
 }

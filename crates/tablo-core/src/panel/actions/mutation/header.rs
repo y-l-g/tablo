@@ -100,6 +100,10 @@ async fn header_run<'a>(
             let (page, chrome) = render(InputPage { values, errors });
             return page.render(cx, &action.input, chrome).await;
         }
+        (Err(WriteError::Declined(message)), _) => {
+            drop(tx);
+            return Err(crate::panel::write::declined_write(cx, &message, home));
+        }
         (Err(WriteError::Failed(error)), _) => Err(error),
         (Ok(outcome), Some(hooks)) => (hooks.before)(cx, action.name, &mut *tx)
             .await

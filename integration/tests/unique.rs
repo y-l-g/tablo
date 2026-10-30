@@ -235,7 +235,7 @@ async fn a_value_taken_after_the_probe_renders_inline() {
             ex: &mut dyn toasty::Executor,
         ) -> Result<Subscriber, tablo::WriteError<SubscriberFormField>> {
             WRITING.store(true, Ordering::SeqCst);
-            Ok(tablo::write_create::<Self>(cx, form, ex).await?)
+            tablo::write_create::<Self>(cx, form, ex).await
         }
     }
 
@@ -302,7 +302,7 @@ async fn an_edit_to_a_value_taken_after_the_probe_renders_inline() {
             ex: &mut dyn toasty::Executor,
         ) -> Result<Subscriber, tablo::WriteError<SubscriberFormField>> {
             WRITING.store(true, Ordering::SeqCst);
-            Ok(tablo::write_update::<Self>(cx, record, posted, ex).await?)
+            tablo::write_update::<Self>(cx, record, posted, ex).await
         }
     }
 

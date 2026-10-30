@@ -2,7 +2,7 @@
 
 use crate::form::FieldErrors;
 
-/// Why a record fn or an action's run wrote nothing: a refusal the form renders, or a failure.
+/// Why a record fn or an action's run wrote nothing: a refusal the page shows, or a failure.
 ///
 /// Either way the handler rolls the transaction back, so whatever the fn wrote before it returned
 /// is undone.
@@ -11,6 +11,9 @@ use crate::form::FieldErrors;
 ///   control of the field it names, as a [`validate_record`](crate::Resource::validate_record)
 ///   error does. A record fn keys its errors by the record form's field enum, an action's run by
 ///   its input's form keys.
+/// - [`Declined`](Self::Declined) refuses with a message that belongs to no field: a paid invoice
+///   that cannot be deleted. A record form renders again with the message above its fields; a
+///   delete, a restore or an action flashes it and lands back where it started.
 /// - [`Failed`](Self::Failed) answers as a failed write does: a record fn's collision on a unique
 ///   index renders under the field's control, a save another save overtook renders the stale form,
 ///   and any other error flashes the failure toast and answers with the error.
@@ -53,7 +56,7 @@ use crate::form::FieldErrors;
 ///             errors.add(OrderFormField::Quantity, "Not enough in stock");
 ///             return Err(errors.into());
 ///         }
-///         Ok(write_create::<Self>(cx, form, ex).await?)
+///         write_create::<Self>(cx, form, ex).await
 ///     }
 /// }
 /// ```
@@ -62,6 +65,8 @@ use crate::form::FieldErrors;
 pub enum WriteError<K = String> {
     /// The submission cannot stand: render the form again with these errors.
     Refused(FieldErrors<K>),
+    /// The write cannot stand, for a reason that names no field: show this message.
+    Declined(crate::Text),
     /// The write failed: answer with this error and the failure toast.
     Failed(topcoat::Error),
 }
@@ -72,6 +77,11 @@ impl<K> WriteError<K> {
         let mut errors = FieldErrors::new();
         errors.add(key, message);
         Self::Refused(errors)
+    }
+
+    /// Decline the write with `message`, which names no field.
+    pub fn declined(message: impl Into<crate::Text>) -> Self {
+        Self::Declined(message.into())
     }
 }
 

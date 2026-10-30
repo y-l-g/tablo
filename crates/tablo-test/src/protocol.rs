@@ -302,6 +302,17 @@ pub fn stale_form(html: &str) -> bool {
     .is_empty()
 }
 
+/// The message a record fn declined the save with, which the form renders above its fields in
+/// an element carrying `data-declined`.
+pub fn declined_message(html: &str) -> Option<String> {
+    let (_, _, inner) = dom::tags_where(html, |_, attrs| {
+        attrs.iter().any(|(attr, _)| attr == "data-declined")
+    })
+    .into_iter()
+    .next()?;
+    Some(dom::strip_text(&inner))
+}
+
 /// Whether a form renders dirty, so leaving the page asks first: a refused save keeps what the
 /// user typed, and the server marks its form with `data-form-dirty`.
 pub fn dirty_form(html: &str) -> bool {

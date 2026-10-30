@@ -167,18 +167,22 @@ impl Resource for CommentResource {
 Run every statement through `ex`, and use the `record` you are given rather than loading it
 again: it is the row the policy check passed. Both functions return the written row, or a
 [`WriteError`](https://y-l.fr/tablo/nightly/api/tablo/enum.WriteError.html), which rolls the transaction back: `Refused` renders the
-form again with each error under its field, and `Failed` answers as a failed write does.
+form again with each error under its field, `Declined` renders it again with a message that names
+no field above the fields, and `Failed` answers as a failed write does. Return the derived write as
+it is: `write_create` and `write_update` answer a `WriteError` too.
 
 A rule that reads the database refuses here rather than in `validate_record`, which runs before
 the transaction opens and gets no executor: a stock level, a quota, or a uniqueness no index
 models. A rule the write itself enforces, such as an update filtered on the stock it needs that
 matches no row, holds against a concurrent write. The [CSV import](./tables.md#import) lists a
-row its record fn refuses with the other refused rows, and rolls that row back to a savepoint, so
+row its record fn refuses or declines with the other refused rows, and rolls that row back to a savepoint, so
 the rows after it are checked without its writes.
 
 `delete_record` deletes the row by its primary key, or stamps it on a resource that soft-deletes,
 and `bulk_delete_records` calls it once per record, so overriding `delete_record` covers both. A
-bulk delete skips the records the policy refuses, as a bulk action does.
+bulk delete skips the records the policy refuses, as a bulk action does. A delete, a restore or a
+force delete that must not happen, such as a paid invoice's, returns
+`Err(WriteError::declined(".."))`: the transaction rolls back and the message flashes.
 
 ### Hooks
 

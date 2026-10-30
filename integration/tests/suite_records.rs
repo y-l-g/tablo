@@ -13,6 +13,7 @@ mod common;
 
 mod action_input;
 mod commit;
+mod declined;
 mod embedded_lens;
 mod embedded_value;
 mod record_form;
