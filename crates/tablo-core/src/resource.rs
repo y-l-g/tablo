@@ -198,10 +198,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
         cx: &Cx,
         record: &Self::Model,
         ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send
-    where
-        Self: Sized,
-    {
+    ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send {
         async move { Ok(write::delete::<Self>(cx, record, ex).await?) }
     }
 
@@ -215,10 +212,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
         cx: &Cx,
         record: &Self::Model,
         ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send
-    where
-        Self: Sized,
-    {
+    ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send {
         async move { Ok(write::restore::<Self>(cx, record, ex).await?) }
     }
 
@@ -231,10 +225,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
         cx: &Cx,
         record: &Self::Model,
         ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send
-    where
-        Self: Sized,
-    {
+    ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send {
         async move { Ok(write::force_delete::<Self>(cx, record, ex).await?) }
     }
 
@@ -251,10 +242,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
         cx: &Cx,
         records: &[Self::Model],
         ex: &mut dyn toasty::Executor,
-    ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send
-    where
-        Self: Sized,
-    {
+    ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send {
         async move {
             for record in records {
                 Self::delete_record(cx, record, &mut *ex).await?;
@@ -323,10 +311,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
         _cx: &Cx,
         _change: &Change<Self::Model>,
         _ex: &mut dyn Executor,
-    ) -> impl Future<Output = Result<()>> + Send
-    where
-        Self: Sized,
-    {
+    ) -> impl Future<Output = Result<()>> + Send {
         async move { Ok(()) }
     }
 
@@ -362,10 +347,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     fn after_commit(
         _cx: &Cx,
         _change: Change<Self::Model>,
-    ) -> impl Future<Output = Result<()>> + Send
-    where
-        Self: Sized,
-    {
+    ) -> impl Future<Output = Result<()>> + Send {
         async move { Ok(()) }
     }
 }

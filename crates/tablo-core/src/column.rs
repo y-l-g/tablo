@@ -367,14 +367,6 @@ impl<M> Includes<M> {
     pub(crate) fn into_vec(self) -> Vec<crate::toasty_compat::UntypedInclude> {
         self.0
     }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
 }
 
 /// One [`UnregisteredLabelSource`](DeclarationErrorKind::UnregisteredLabelSource) per column
