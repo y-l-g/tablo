@@ -347,7 +347,8 @@ tenant predicate. See [Data access](./data-access.md).
 
 - `brand` names the panel in the sidebar header, in the topbar on narrow screens, and above the
   sign-in and sign-up cards, where the logo shows 40px tall. A brand without a logo shows its
-  first letter. `favicon` links the icon of every page the panel renders, sign-in included;
+  first letter. `dark_logo` replaces the logo while the page renders dark, so a wordmark stays
+  legible on either background. `favicon` links the icon of every page the panel renders, sign-in included;
   without it the browser asks for `/favicon.ico`.
 - `dark_by_default()` makes the panel start dark for a visitor who has not chosen a theme. The user
   menu offers light, dark and the system's theme; the choice is kept in the `tablo_theme` cookie

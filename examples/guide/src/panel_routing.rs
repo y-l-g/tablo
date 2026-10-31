@@ -273,7 +273,12 @@ pub async fn blog() -> Result<impl View> {
 // ANCHOR: panel-brand-body
 pub fn branded_panel() -> Panel {
     Panel::new("admin")
-        .brand(Brand::new("Acme").logo("/logo.svg").favicon("/favicon.svg"))
+        .brand(
+            Brand::new("Acme")
+                .logo("/logo.svg")
+                .dark_logo("/logo-dark.svg")
+                .favicon("/favicon.svg"),
+        )
         .dark_by_default()
         .login_hint("Demo: admin@example.com / password")
 }
