@@ -117,9 +117,34 @@ jobs:
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
       - run: cargo test -p showcase --features postgresql --test it --locked
-      - run: cargo test -p tablo-integration --features postgresql --tests --locked
       # The bench's Postgres leg, off in the workspace build.
       - run: cargo check -p tablo-bench --features postgresql --locked
+
+  # The integration build is the step that exhausts the runner's memory. Its own job keeps that
+  # failure apart from the showcase result.
+  postgresql-integration:
+    name: test (postgresql integration)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tablo
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      TABLO_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tablo
+      # Without debug info the test binaries link with less memory.
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      # Fewer parallel rustc and linker processes lower the build's peak memory.
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test -p tablo-integration --features postgresql --tests --locked
 
   mysql:
     name: test (mysql)
@@ -296,7 +321,7 @@ jobs:
   release-plz-release:
     name: release
     runs-on: ubuntu-latest
-    needs: [release-pr-merge, unpatched, semver, test, postgresql, mysql, mysql-integration, turso, assets, clippy, docs, external, fmt, udeps]
+    needs: [release-pr-merge, unpatched, semver, test, postgresql, postgresql-integration, mysql, mysql-integration, turso, assets, clippy, docs, external, fmt, udeps]
     if: >-
       github.repository == 'y-l-g/tablo'
       && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -330,7 +355,7 @@ jobs:
   release-plz-pr:
     name: release PR
     runs-on: ubuntu-latest
-    needs: [test, postgresql, mysql, mysql-integration, turso, assets, clippy, docs, external, fmt]
+    needs: [test, postgresql, postgresql-integration, mysql, mysql-integration, turso, assets, clippy, docs, external, fmt]
     if: >-
       github.repository == 'y-l-g/tablo'
       && github.event_name == 'push'
