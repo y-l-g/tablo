@@ -23,6 +23,7 @@ pub const ASSET_FILES: &[(&str, &str)] = &[
     ("tabs.js", "TABS_JS"),
     ("forms.js", "FORMS_JS"),
     ("rich_text.js", "RICH_TEXT_JS"),
+    ("search_shortcut.js", "SEARCH_SHORTCUT_JS"),
 ];
 
 /// One hook-contract entry: `js` appears in the asset's source and `rust` appears in the Rust
@@ -62,6 +63,11 @@ pub const ASSET_HOOKS: &[AssetHook] = &[
         asset: "password.js",
         js: "data-password-toggle",
         rust: "data-password-toggle",
+    },
+    AssetHook {
+        asset: "search_shortcut.js",
+        js: "data-global-search",
+        rust: "data-global-search",
     },
     AssetHook {
         asset: "sidebar.js",

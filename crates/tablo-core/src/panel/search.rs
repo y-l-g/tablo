@@ -210,6 +210,7 @@ fn topbar_search(cx: &Cx) -> BoxView<'_> {
                             :value=$(term.get())
                             placeholder=(t!(cx, "tablo-search-placeholder"))
                             aria-label=(t!(cx, "tablo-search"))
+                            aria-keyshortcuts="Meta+K Control+K"
                             autocomplete="off"
                             class="pl-8"
                             @input=$(|_e: Event| raw!(

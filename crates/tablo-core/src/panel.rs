@@ -544,7 +544,8 @@ impl Panel {
     /// [`ResourceDef::without_global_search`](crate::ResourceDef::without_global_search). As the
     /// user types, it lists up to 5 results of each resource, headed by the resource's plural
     /// label in the sidebar's order, and links the page at `{prefix}/-/search?q=`, which lists up
-    /// to 25 of each and which Enter opens, with or without JavaScript. The term matches a record
+    /// to 25 of each and which Enter opens, with or without JavaScript. Cmd+K, or Ctrl+K, focuses
+    /// the box from anywhere on the page. The term matches a record
     /// when each of its first 8 distinct words does;
     /// [`ResourceDef::global_search`](crate::ResourceDef::global_search) says what a word matches,
     /// which records show and what each opens.
