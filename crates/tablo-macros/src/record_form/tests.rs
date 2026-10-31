@@ -44,6 +44,12 @@ fn blank_on_an_option_or_an_embed_is_refused() {
 }
 
 #[test]
+fn required_on_anything_but_an_option_is_refused() {
+    let message = refusal("#[form(model = M)] struct F { #[form(required)] a: String }");
+    assert!(message.contains("`Option`"), "{message}");
+}
+
+#[test]
 fn a_blank_answer_on_a_many_to_many_field_is_refused() {
     let message = refusal(
         "#[form(model = M)] struct F { #[form(relationship = Tags, blank = Vec::new())] tags: Vec<Uuid> }",

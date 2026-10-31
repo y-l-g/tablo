@@ -1,4 +1,5 @@
-//! Help text, disabled and hidden controls, and create defaults over HTTP.
+//! Help text, disabled and hidden controls, create defaults and required `Option` fields over
+//! HTTP.
 //!
 //! A disabled control, and a field hidden on its form, post nothing, and the panel drops a key
 //! posted for one anyway: an edit keeps the stored value and a create takes the field's default.
@@ -11,7 +12,7 @@ use toasty::Db;
 use topcoat::router::Router;
 use uuid::Uuid;
 
-use crate::common::{TestClient, body_string, control, mount, refusal, test_db};
+use crate::common::{TestClient, body_string, control, field_error, mount, refusal, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Account {
@@ -476,4 +477,74 @@ async fn a_required_field_hidden_on_create_without_a_default_refuses_the_panel()
         )),
         "{errors:?}"
     );
+}
+
+/// The accounts again, a coupon required although its column stores none.
+struct CouponAccountResource;
+
+impl Resource for CouponAccountResource {
+    type Model = Account;
+    type Form = CouponForm;
+
+    fn declare() -> ResourceDef<Self> {
+        let c = CouponForm::controls();
+        ResourceDef::new()
+            .slug("coupon-accounts")
+            .policy(Allow)
+            .table(Table::new(TextColumn::new(lens!(Account.email))))
+            .form(Schema::new((c.email, c.plan, c.credits, c.coupon)))
+    }
+}
+
+#[derive(tablo::RecordForm)]
+#[form(model = Account)]
+struct CouponForm {
+    email: String,
+    plan: String,
+    credits: i64,
+    #[form(required)]
+    coupon: Option<String>,
+}
+
+/// A `required` `Option` field refuses an empty submission instead of storing `None`, and stores
+/// what a filled one posts.
+#[tokio::test]
+async fn a_required_option_refuses_a_blank_answer() {
+    let db = test_db(toasty::models!(Account)).await;
+    let router = mount(
+        db.clone(),
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .resource::<CouponAccountResource>(),
+    )
+    .expect("panel builds");
+    let client = TestClient::new(&router);
+    let html = body_string(client.get("/admin/coupon-accounts/-/create").await).await;
+    assert!(
+        control(&html, "coupon").contains("required=\"\""),
+        "the browser refuses a blank coupon too"
+    );
+
+    let refused = client
+        .submit(
+            "/admin/coupon-accounts/-/create",
+            "email=ada%40example.com&plan=free&credits=1&coupon=",
+        )
+        .await;
+    let html = body_string(refused).await;
+    assert!(field_error(&html, "coupon").is_some(), "{html}");
+    let mut handle = db.clone();
+    assert!(
+        Account::all().exec(&mut handle).await.unwrap().is_empty(),
+        "nothing is stored"
+    );
+
+    let response = client
+        .submit(
+            "/admin/coupon-accounts/-/create",
+            "email=ada%40example.com&plan=free&credits=1&coupon=WELCOME",
+        )
+        .await;
+    assert!(response.status().is_redirection(), "the create succeeds");
+    assert_eq!(only_account(&db).await.coupon.as_deref(), Some("WELCOME"));
 }
