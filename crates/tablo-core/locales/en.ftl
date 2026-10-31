@@ -90,6 +90,7 @@ tablo-list-group-by = Group by
 tablo-list-group-none = No grouping
 tablo-list-group-empty = No value
 tablo-list-reset-filters = Reset
+tablo-list-apply-filters = Apply
 tablo-list-first-page = Back to first page
 tablo-pager-showing = Showing { $first }–{ $last } of { $total }
 tablo-pager-page = Page { $page }

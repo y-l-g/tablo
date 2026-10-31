@@ -201,7 +201,9 @@ one more query, so a table too large to count, or one rows are written to while 
 another [`Pagination`](https://y-l.fr/tablo/nightly/api/tablo/enum.Pagination.html): `Simple` drops the count, and `Cursor` pages by
 row, so no row is skipped or repeated when rows change between two pages.
 
-`.hide_search()` removes the search box, and `.hide_filter_menu()` the filter menu.
+`.hide_search()` removes the search box, and `.hide_filter_menu()` the filter menu. The list reruns
+as each filter changes; `.deferred_filters()` waits for the menu's Apply button instead, so a
+reader sets several filters before one rerun.
 
 ### Live updates
 

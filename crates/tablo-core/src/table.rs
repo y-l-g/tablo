@@ -138,6 +138,8 @@ pub struct Table<M> {
     default_field: Option<FieldOrder>,
     hide_search: bool,
     hide_filter_menu: bool,
+    /// Whether the filter menu applies its controls only on its Apply button.
+    deferred_filters: bool,
 }
 
 impl<M> std::fmt::Debug for Table<M> {
@@ -165,6 +167,7 @@ impl<M> std::fmt::Debug for Table<M> {
             .field("default_sort", &self.default_sort)
             .field("hide_search", &self.hide_search)
             .field("hide_filter_menu", &self.hide_filter_menu)
+            .field("deferred_filters", &self.deferred_filters)
             .finish()
     }
 }
@@ -194,6 +197,7 @@ impl<M> Table<M> {
             default_field: None,
             hide_search: false,
             hide_filter_menu: false,
+            deferred_filters: false,
         }
     }
 
@@ -431,6 +435,20 @@ impl<M> Table<M> {
     pub fn hide_filter_menu(mut self) -> Self {
         self.hide_filter_menu = true;
         self
+    }
+
+    /// Apply the filter menu's controls only when its Apply button is pressed, rather than as each
+    /// one changes, so a reader sets several filters before the list reruns once. A search, a
+    /// sort or a tab applies the controls as they stand too, since the toolbar's form carries
+    /// them.
+    pub fn deferred_filters(mut self) -> Self {
+        self.deferred_filters = true;
+        self
+    }
+
+    /// Whether the filter menu applies its controls only on its Apply button.
+    pub(crate) fn filters_deferred(&self) -> bool {
+        self.deferred_filters
     }
 
     /// Apply this table's declaration to `query`: [`Self::narrow`], then the ordering.

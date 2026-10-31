@@ -47,6 +47,8 @@ pub(super) struct Frame<'t> {
     picker: Option<ColumnPicker<'t>>,
     search: bool,
     filter_menu: bool,
+    /// Whether the filter menu applies its controls only on its Apply button.
+    deferred_filters: bool,
     /// The page sizes the reader may pick; empty offers no choice.
     page_sizes: Vec<usize>,
     /// The groupings the reader may pick, by `?group_by=` value and label; empty offers none.
@@ -147,6 +149,7 @@ impl<M> WiredTable<M> {
             }),
             search: self.search_enabled(),
             filter_menu: self.filter_menu_enabled(),
+            deferred_filters: self.filters_deferred(),
             page_sizes: self.page_sizes(),
             groupings: self
                 .declared_groupings()
