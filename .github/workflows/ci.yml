@@ -199,6 +199,7 @@ jobs:
           crates/tablo-ui/assets/password.test.js
           crates/tablo-ui/assets/repeaters.test.js
           crates/tablo-ui/assets/rich_text.test.js
+          crates/tablo-ui/assets/search_shortcut.test.js
           crates/tablo-ui/assets/selects.test.js
           crates/tablo-ui/assets/tabs.test.js
           crates/tablo-ui/assets/theme.test.js

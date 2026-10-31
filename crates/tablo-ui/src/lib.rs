@@ -87,6 +87,8 @@ pub const PASSWORD_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets
 pub const TABS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/tabs.js");
 pub const FORMS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/forms.js");
 pub const RICH_TEXT_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/rich_text.js");
+pub const SEARCH_SHORTCUT_JS: topcoat::asset::Asset =
+    topcoat::asset::asset!("../assets/search_shortcut.js");
 pub const CHOICE_CREATE_JS: topcoat::asset::Asset =
     topcoat::asset::asset!("../assets/choice_create.js");
 /// The TipTap bundle `rich_text.js` imports where a page holds a rich text control (ADR-0032):
@@ -94,7 +96,7 @@ pub const CHOICE_CREATE_JS: topcoat::asset::Asset =
 pub const TIPTAP_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/tiptap/tiptap.js");
 
 /// The scripts every panel page loads, in order.
-pub const SHELL_SCRIPTS: [topcoat::asset::Asset; 10] = [
+pub const SHELL_SCRIPTS: [topcoat::asset::Asset; 11] = [
     SIDEBAR_JS,
     THEME_JS,
     SELECTS_JS,
@@ -105,4 +107,5 @@ pub const SHELL_SCRIPTS: [topcoat::asset::Asset; 10] = [
     TABS_JS,
     FORMS_JS,
     RICH_TEXT_JS,
+    SEARCH_SHORTCUT_JS,
 ];
