@@ -1,11 +1,12 @@
 //! A resource's list page over test-local resources: the row chrome each policy and form allows,
-//! the signals that carry each list's query, and the list query its widgets read.
+//! the row links it may carry, the signals that carry each list's query, and the list query its
+//! widgets read.
 
 use std::collections::HashSet;
 
 use tablo::{
-    Ability, NoForm, Page, PageDef, Panel, Resource, ResourceDef, Stat, Table, TextColumn, Widget,
-    lens, testing::stats,
+    Ability, NoForm, Page, PageDef, Panel, Resource, ResourceDef, RowLink, Stat, Table, TextColumn,
+    Widget, lens, testing::stats,
 };
 use toasty::Db;
 use topcoat::{
@@ -120,6 +121,20 @@ impl Resource for CountedResource {
             .policy(list_only)
             .table(items_table())
             .list_widget::<Listed<CountedResource>>()
+    }
+}
+
+/// The items, each linking the URL its name spells.
+struct LinkedResource;
+
+impl Resource for LinkedResource {
+    type Model = Item;
+    type Form = NoForm<Item>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().slug("items").policy(list_only).table(
+            items_table().row_link(RowLink::new("Open", |item: &Item| Some(item.name.clone()))),
+        )
     }
 }
 
@@ -384,4 +399,24 @@ async fn a_list_query_reads_the_whole_list_elsewhere_and_refuses_who_may_not_lis
     )
     .expect("panel builds");
     assert_eq!(get(&router, "/admin/counts").await.status(), 403);
+}
+
+/// A row link shows on a list allowing no other action, and only to a relative URL or one over a
+/// scheme a cell may link: a `javascript:` URL, however spelled, shows no link.
+#[tokio::test]
+async fn a_row_links_only_a_url_a_cell_may_link() {
+    let names = [
+        "/docs/a",
+        "https://example.com/a",
+        "javascript:alert(1)",
+        " JavaScript:alert(2)",
+    ];
+    let router = mount(items(&names).await, panel().resource::<LinkedResource>()).expect("builds");
+    let html = body_string(get(&router, "/admin/items").await).await;
+    let mut links: Vec<String> = rows(&html)
+        .into_iter()
+        .flat_map(|row| row.actions.links)
+        .collect();
+    links.sort();
+    assert_eq!(links, ["/docs/a", "https://example.com/a"], "{html}");
 }

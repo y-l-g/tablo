@@ -37,6 +37,7 @@ mod relations;
 mod repeater;
 mod rich_text;
 mod row_color;
+mod row_link;
 mod search;
 mod shell;
 mod tab;

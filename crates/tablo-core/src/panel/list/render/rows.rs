@@ -320,6 +320,8 @@ pub(super) struct RowView<'a> {
     edit_url: Option<String>,
     /// The row's delete POST target, which the confirmation dialog posts.
     delete_action: Option<String>,
+    /// The row's [links](crate::Table::row_link), each to a URL it may link.
+    links: Vec<RowLinkView>,
     /// The custom row actions this record allows.
     custom: Vec<RowButton>,
     /// Whether the row renders a bulk checkbox.
@@ -340,6 +342,14 @@ struct RowGroup {
     token: String,
     /// What its header shows.
     label: String,
+}
+
+/// One of a row's [links](crate::Table::row_link).
+struct RowLinkView {
+    label: String,
+    url: String,
+    icon: Option<IconData>,
+    new_tab: bool,
 }
 
 /// One custom action's button in a row.
@@ -474,6 +484,18 @@ impl<M> WiredTable<M> {
                             .collect()
                     })
                     .unwrap_or_default();
+                let links = self
+                    .row_links()
+                    .iter()
+                    .filter_map(|link| {
+                        Some(RowLinkView {
+                            label: link.label.localize(cx),
+                            url: link.url_of(row)?,
+                            icon: link.icon.clone(),
+                            new_tab: link.new_tab,
+                        })
+                    })
+                    .collect();
                 let selectable = frame.bulk_enabled() && self.selectable(frame, row, actions);
                 RowView {
                     key,
@@ -481,6 +503,7 @@ impl<M> WiredTable<M> {
                     view_url,
                     edit_url,
                     delete_action,
+                    links,
                     custom,
                     selectable,
                     color: self.color_of(row),

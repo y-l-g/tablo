@@ -8,9 +8,9 @@ use tablo::{
     EmbeddedColumn, FieldErrors, FontWeight, GlobalSearch, Grid, Group, HeaderAction, ListTab,
     ModelColumns, NavigationItem, Notification, Notifications, Pagination, Panel, PanelHandle,
     PanelUser, PasswordReset, PublicLink, QueryFilter, Reads, Relation, RelationColumn,
-    RepeaterColumn, Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt, Schema, Section,
-    SelectFilter, Tab, Table, Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn,
-    ToggleColumn, TwoFactor, lens, relation, tenant_id, when,
+    RepeaterColumn, Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt, RowLink, Schema,
+    Section, SelectFilter, Tab, Table, Tabs, Tenancy, TenantRegistration, TernaryFilter,
+    TextColumn, ToggleColumn, TwoFactor, lens, relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -283,6 +283,14 @@ fn post_table() -> Table<Post> {
     // A featured post stands out from the list.
     .row_color(|post: &Post| post.featured.then_some(Color::Primary))
     .row_color_reading(Reads::of(lens!(Post.featured)))
+    // A published post's public page opens from its row, beside its actions.
+    .row_link(
+        RowLink::new("View public post", |post: &Post| {
+            (post.status == PostStatus::Published).then(|| format!("/blog/{}", post.id))
+        })
+        .new_tab()
+        .reading(Reads::of(lens!(Post.status)).and(lens!(Post.id))),
+    )
     // Every post, then the drafts and the published posts, each counted.
     .tab(ListTab::new("all", "All"))
     .tab(post_status_tab("drafts", "Drafts", PostStatus::Draft))

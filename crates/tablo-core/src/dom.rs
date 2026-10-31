@@ -75,4 +75,6 @@ pub mod row {
     pub const EDIT: &str = "edit";
     /// The button deleting the record.
     pub const DELETE: &str = "delete";
+    /// A [`row_link`](crate::Table::row_link).
+    pub const LINK: &str = "link";
 }

@@ -14,10 +14,10 @@ impl<M> Table<M> {
     }
 
     /// This table as `cx` reads it, without what reads one of the `hidden` fields: its columns,
-    /// filters, tabs, groupings and row color, and a default sort on a column or field it drops. A
-    /// search, a sort or a filter naming one then matches nothing the table declares, as one naming
-    /// an unknown column does. It drops a column showing a field of a related record its resource
-    /// hides from `cx` too.
+    /// filters, tabs, groupings, row color and row links, and a default sort on a column or field
+    /// it drops. A search, a sort or a filter naming one then matches nothing the table
+    /// declares, as one naming an unknown column does. It drops a column showing a field of a
+    /// related record its resource hides from `cx` too.
     pub(crate) fn without(&self, cx: &Cx, hidden: &[String]) -> Self {
         let mut table = self.clone();
         table
@@ -38,6 +38,9 @@ impl<M> Table<M> {
         if !shows(table.row_color.reads.clone(), hidden) {
             table.row_color = Default::default();
         }
+        table
+            .row_links
+            .retain(|link| shows(link.reads.clone(), hidden));
         if table
             .default_sort
             .as_ref()

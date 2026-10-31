@@ -25,6 +25,7 @@ mod mask;
 pub(crate) mod model;
 mod page;
 mod row_color;
+mod row_link;
 mod search;
 mod sort;
 mod state;
@@ -35,6 +36,7 @@ pub use self::{
     filter::{DateFilter, FilterValue, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
     model::ModelColumns,
     page::{DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, PagePosition, Pagination, TablePage},
+    row_link::RowLink,
     state::{Cursor, Sort, TableState},
     tab::ListTab,
 };
@@ -120,6 +122,7 @@ pub struct Table<M> {
     filters: Vec<BoxFilter<M>>,
     groupings: Vec<GroupDef<M>>,
     row_color: row_color::RowColor<M>,
+    row_links: Vec<RowLink<M>>,
     tabs: Vec<ListTab<M>>,
     /// A row's key: its record's primary key, as its action URLs carry it.
     key: fn(&M) -> String,
@@ -186,6 +189,7 @@ impl<M> Table<M> {
             filters: Vec::new(),
             groupings: Vec::new(),
             row_color: row_color::RowColor::default(),
+            row_links: Vec::new(),
             tabs: Vec::new(),
             key: crate::toasty_compat::pk::pk_text::<M>,
             addressable: !crate::toasty_compat::pk::pk_is_composite::<M>(),

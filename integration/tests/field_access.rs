@@ -2,13 +2,17 @@
 //! page, the export, the search, the sort, the filters, the tabs and the form; one the user may
 //! view but not change renders disabled; a submission posting either is refused; an edit keeps what
 //! the user could not change; and the mount refuses a declaration that would show the field anyway.
-//! A widget's record table hides it as the list does.
+//! A widget's record table hides it as the list does, and a row link reading it shows to no one
+//! who may not view it.
 
 use tablo::{
     Ability, Color, ComputedColumn, DeclarationErrorKind, Detail, FieldAccess, FieldAccessFault,
     FieldErrors, ListTab, Page, PageDef, QueryFilter, Reads, RecordTable, Resource, ResourceDef,
-    Schema, Site, Tab, Table, Tabs, Tenancy, TenantId, TextColumn, Widget, lens,
-    testing::{columns, groups, ignored_filters, record_tables, row_keys, rows, tab_links, tabs},
+    RowLink, Schema, Site, Tab, Table, Tabs, Tenancy, TenantId, TextColumn, Widget, lens,
+    testing::{
+        columns, groups, ignored_filters, record_tables, row_actions, row_keys, rows, tab_links,
+        tabs,
+    },
 };
 use toasty::Db;
 use topcoat::{
@@ -630,6 +634,9 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
                             .description(|e: &Employee| e.salary.clone()),
                     ))
                     .row_color(|e: &Employee| (e.salary == "S-900").then_some(Color::Danger))
+                    .row_link(RowLink::new("Pay", |e: &Employee| {
+                        Some(format!("/pay/{}", e.salary))
+                    }))
                     .tab(
                         ListTab::new("high", "High").query(Employee::fields().salary().eq("S-900")),
                     ),
@@ -693,6 +700,16 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
         faults.contains(&(
             &Site::Table,
             &FieldAccessFault::UndeclaredReads {
+                what: "row link",
+                name: "row_link".to_string()
+            }
+        )),
+        "a row link may read any field: {errors:?}"
+    );
+    assert!(
+        faults.contains(&(
+            &Site::Table,
+            &FieldAccessFault::UndeclaredReads {
                 what: "tab",
                 name: "high".to_string()
             }
@@ -743,6 +760,52 @@ async fn a_row_color_reading_a_hidden_field_leaves_the_rows_plain() {
     );
     let sales = TestClient::new(&router).tenant(SALES);
     assert_eq!(tints(&page(&sales, "/admin/tinted").await), [None]);
+}
+
+/// A row link reading the salary shows to the user who may view it, and to no one who may not,
+/// whose link would carry the salary.
+#[tokio::test]
+async fn a_row_link_reading_a_hidden_field_shows_to_no_one_who_may_not_view_it() {
+    struct Linked;
+
+    impl Resource for Linked {
+        type Model = Employee;
+        type Form = EmployeeForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("linked")
+                .policy_fn(|_cx, _ability: Ability<'_, Employee>| true)
+                .tenancy(Tenancy::column(Employee::fields().tenant_id()))
+                .field_access(lens!(Employee.salary), FieldAccess::new().view(hr))
+                .table(
+                    Table::new(TextColumn::new(lens!(Employee.name))).row_link(
+                        RowLink::new("Pay", |e: &Employee| Some(format!("/pay/{}", e.salary)))
+                            .reading(Reads::of(lens!(Employee.salary))),
+                    ),
+                )
+        }
+    }
+
+    let db = db().await;
+    let router = mount(db.clone(), panel().resource::<Linked>()).expect("the panel mounts");
+    let ada = employee(&db, HR, "Ada", "S-900").await;
+    let bob = employee(&db, SALES, "Bob", "S-900").await;
+
+    let links = |html: &str, id: Uuid| {
+        row_actions(html, &id.to_string())
+            .expect("the row is listed")
+            .links
+    };
+    let hr = TestClient::new(&router).tenant(HR);
+    assert_eq!(
+        links(&page(&hr, "/admin/linked").await, ada.id),
+        ["/pay/S-900"]
+    );
+    let sales = TestClient::new(&router).tenant(SALES);
+    let html = page(&sales, "/admin/linked").await;
+    assert!(links(&html, bob.id).is_empty());
+    assert!(!html.contains("S-900"), "{html}");
 }
 
 /// A rule over edits alone leaves the field shown to every user, so a title over it mounts, and a
