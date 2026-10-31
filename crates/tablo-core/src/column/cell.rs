@@ -10,7 +10,10 @@ use topcoat::{
     view::*,
 };
 
-use crate::{Text, display::Color};
+use crate::{
+    Text,
+    display::{Color, FontWeight},
+};
 
 /// The schemes a cell's link may carry; a relative URL carries none.
 const LINK_SCHEMES: &[&str] = &["http", "https", "mailto", "tel"];
@@ -42,6 +45,7 @@ pub(crate) struct TextCell {
     pub(crate) badge: bool,
     /// Whether the digits take equal widths, so a column of amounts lines up.
     pub(crate) tabular: bool,
+    pub(crate) weight: FontWeight,
     /// The icon before the value, in its own color.
     pub(crate) icon: Option<(IconData, Option<Color>)>,
     pub(crate) description: Option<String>,
@@ -123,6 +127,7 @@ fn value_view<'a>(cx: &'a Cx, cell: &TextCell) -> BoxView<'a> {
             Some("inline-flex items-center gap-1.5"),
             cell.color.map(Color::text_class),
             cell.tabular.then_some("tabular-nums"),
+            Some(cell.weight.class()).filter(|class| !class.is_empty()),
         ]
         .into_iter()
         .flatten()

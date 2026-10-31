@@ -5,12 +5,12 @@ use std::path::PathBuf;
 use tablo::{
     Ability, ActionLayout, Allow, Auth, AuthMail, BooleanColumn, Brand, Change, Color,
     ComputedColumn, CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification,
-    EmbeddedColumn, FieldErrors, GlobalSearch, Grid, Group, HeaderAction, ListTab, ModelColumns,
-    NavigationItem, Notification, Notifications, Pagination, Panel, PanelHandle, PanelUser,
-    PasswordReset, PublicLink, QueryFilter, Reads, Relation, RelationColumn, RepeaterColumn,
-    Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt, Schema, Section, SelectFilter,
-    Tab, Table, Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn, ToggleColumn,
-    TwoFactor, lens, relation, tenant_id, when,
+    EmbeddedColumn, FieldErrors, FontWeight, GlobalSearch, Grid, Group, HeaderAction, ListTab,
+    ModelColumns, NavigationItem, Notification, Notifications, Pagination, Panel, PanelHandle,
+    PanelUser, PasswordReset, PublicLink, QueryFilter, Reads, Relation, RelationColumn,
+    RepeaterColumn, Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt, Schema, Section,
+    SelectFilter, Tab, Table, Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn,
+    ToggleColumn, TwoFactor, lens, relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -114,7 +114,7 @@ impl Resource for AuthorResource {
                 Section::new("Profile").schema((c.name, c.email.email())),
             ))
             .table(Table::new((
-                TextColumn::new(lens!(Author.name)),
+                TextColumn::new(lens!(Author.name)).weight(FontWeight::Medium),
                 // A mail link, and a button copying the address.
                 TextColumn::new(lens!(Author.email))
                     .url(|author: &Author| Some(format!("mailto:{}", author.email)))

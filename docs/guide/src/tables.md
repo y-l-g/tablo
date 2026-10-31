@@ -90,8 +90,8 @@ your own page fails with the same errors.
 A `TextColumn` presents its value beyond plain text:
 
 `.badge()` renders the value as a badge, `.color(..)` colors it, `.description(..)` adds a muted
-second line, `.numeric(decimals)` and `.money(currency)` format a number, and `.align(..)` moves
-it to the end; [`TextColumn`](https://y-l.fr/tablo/nightly/api/tablo/struct.TextColumn.html) has each method's rules.
+second line, `.numeric(decimals)` and `.money(currency)` format a number, `.weight(..)` sets how heavy its text
+renders, and `.align(..)` moves it to the end; [`TextColumn`](https://y-l.fr/tablo/nightly/api/tablo/struct.TextColumn.html) has each method's rules.
 
 An `Options` enum gives each variant its badge color with `#[option(color = "…")]`, one of
 `gray`, `primary`, `success`, `warning`, `danger` and `info`. Each paints with a

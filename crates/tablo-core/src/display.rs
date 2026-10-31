@@ -100,6 +100,35 @@ impl Color {
     }
 }
 
+/// How heavy a column's text renders.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum FontWeight {
+    /// Lighter than the body text.
+    Light,
+    /// The body text's weight, the default.
+    #[default]
+    Normal,
+    /// Between normal and semibold.
+    Medium,
+    /// Between medium and bold.
+    Semibold,
+    /// The heaviest.
+    Bold,
+}
+
+impl FontWeight {
+    /// The font-weight class of this weight, empty at the body text's.
+    pub(crate) const fn class(self) -> &'static str {
+        match self {
+            Self::Light => "font-light",
+            Self::Normal => "",
+            Self::Medium => "font-medium",
+            Self::Semibold => "font-semibold",
+            Self::Bold => "font-bold",
+        }
+    }
+}
+
 /// Where a column's header and cells align their content.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Alignment {
