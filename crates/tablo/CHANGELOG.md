@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0](https://github.com/y-l-g/tablo/compare/v0.8.0...v0.9.0) - 2026-10-31
+
+### Added
+
+- *(resource)* serve a resource's record pages under the record's URL ([#872](https://github.com/y-l-g/tablo/pull/872))
+- *(panel)* read a list's state from its widgets with list_query ([#860](https://github.com/y-l-g/tablo/pull/860))
+- *(table)* [**breaking**] offer a list's views as tabs with count badges ([#859](https://github.com/y-l-g/tablo/pull/859))
+- *(table)* [**breaking**] edit a field in its cell with toggle, select and text columns ([#857](https://github.com/y-l-g/tablo/pull/857))
+- *(table)* [**breaking**] link, copy, tooltip, limit, icon and tint a column's cells ([#856](https://github.com/y-l-g/tablo/pull/856))
+- *(resource)* write an action's records in one statement with filter_keys ([#849](https://github.com/y-l-g/tablo/pull/849))
+- *(values)* [**breaking**] bind rust_decimal and bigdecimal decimals ([#838](https://github.com/y-l-g/tablo/pull/838))
+- [**breaking**] seal error and option enums as non-exhaustive ([#837](https://github.com/y-l-g/tablo/pull/837))
+- *(widget)* list a resource's records in a widget's table ([#831](https://github.com/y-l-g/tablo/pull/831))
+- *(chart)* draw line and bar charts on a widget ([#830](https://github.com/y-l-g/tablo/pull/830))
+- *(panel)* add page widgets and stat tiles ([#820](https://github.com/y-l-g/tablo/pull/820))
+- *(resource)* [**breaking**] label a public link with a Text ([#898](https://github.com/y-l-g/tablo/pull/898))
+- *(relation)* [**breaking**] name a relation's foreign key with a lens ([#896](https://github.com/y-l-g/tablo/pull/896))
+- *(write)* [**breaking**] decline a write with a message that names no field ([#893](https://github.com/y-l-g/tablo/pull/893))
+- *(panel)* mark panel pages noindex through topcoat metadata ([#875](https://github.com/y-l-g/tablo/pull/875))
+- *(resource)* split a record's pages into tabs ([#873](https://github.com/y-l-g/tablo/pull/873))
+- *(schema)* [**breaking**] take typed values in a tags field ([#870](https://github.com/y-l-g/tablo/pull/870))
+- *(column)* show a list column's values with ListColumn ([#869](https://github.com/y-l-g/tablo/pull/869))
+- *(schema)* store a multiple choice in a list column ([#868](https://github.com/y-l-g/tablo/pull/868))
+- *(schema)* [**breaking**] create a related record from a creatable choice ([#867](https://github.com/y-l-g/tablo/pull/867))
+- *(resource)* [**breaking**] render a has_one relation as the related resource's form ([#864](https://github.com/y-l-g/tablo/pull/864))
+- *(schema)* add disabled_when, hidden_on_create and hidden_on_edit ([#863](https://github.com/y-l-g/tablo/pull/863))
+- *(table)* group a list across pages by one of several fields ([#861](https://github.com/y-l-g/tablo/pull/861))
+- *(schema)* reorder a file list's rows ([#847](https://github.com/y-l-g/tablo/pull/847))
+- *(schema)* [**breaking**] hold several files in one field with a file list ([#846](https://github.com/y-l-g/tablo/pull/846))
+- *(resource)* [**breaking**] show an action disabled with the reason its state refuses ([#852](https://github.com/y-l-g/tablo/pull/852))
+- *(resource)* customize an action's button: icon, tint, confirmation ([#851](https://github.com/y-l-g/tablo/pull/851))
+- *(panel)* [**breaking**] run a bulk action on every record the list matches ([#850](https://github.com/y-l-g/tablo/pull/850))
+- *(panel)* [**breaking**] give form pages section chrome, create another and a save shortcut ([#841](https://github.com/y-l-g/tablo/pull/841))
+- *(macros)* [**breaking**] shape a derived column with #[columns(..)] keys ([#839](https://github.com/y-l-g/tablo/pull/839))
+- *(resource)* hide a resource from the sidebar ([#840](https://github.com/y-l-g/tablo/pull/840))
+- *(resource)* [**breaking**] type the seams of actions and record tables ([#836](https://github.com/y-l-g/tablo/pull/836))
+- *(page)* render a page's declared header and widgets by default ([#835](https://github.com/y-l-g/tablo/pull/835))
+- *(panel)* [**breaking**] let a panel set its export, import, bulk and body limits ([#834](https://github.com/y-l-g/tablo/pull/834))
+- *(resource)* place widgets above a resource's list ([#833](https://github.com/y-l-g/tablo/pull/833))
+- *(panel)* let a visitor pick which of a panel's locales they read it in ([#829](https://github.com/y-l-g/tablo/pull/829))
+- *(tenancy)* [**breaking**] require every resource of a tenant panel to declare its tenancy ([#826](https://github.com/y-l-g/tablo/pull/826))
+- *(auth)* [**breaking**] pass the panel's prefix to can_access_panel ([#823](https://github.com/y-l-g/tablo/pull/823))
+
+### Changed
+
+- *(resource)* [**breaking**] switch record pages and panel features off one way ([#889](https://github.com/y-l-g/tablo/pull/889))
+- *(deps)* [**breaking**] track Topcoat main and adopt its unified context ([#822](https://github.com/y-l-g/tablo/pull/822))
+- [**breaking**] drop Includes::len and redundant Sized bounds ([#900](https://github.com/y-l-g/tablo/pull/900))
+- *(table)* [**breaking**] set a table's page size with page_size ([#897](https://github.com/y-l-g/tablo/pull/897))
+- *(action)* [**breaking**] key an action's refusal by its input's field enum ([#894](https://github.com/y-l-g/tablo/pull/894))
+- *(extend)* [**breaking**] seal the framework's own Column and Filter methods ([#888](https://github.com/y-l-g/tablo/pull/888))
+- *(policy)* [**breaking**] ask View to open a record, never to read rows ([#885](https://github.com/y-l-g/tablo/pull/885))
+- *(resource)* [**breaking**] scope a resource's rows per panel with ResourceDef::query ([#884](https://github.com/y-l-g/tablo/pull/884))
+- *(tenancy)* [**breaking**] carry the request tenant as a TenantId ([#817](https://github.com/y-l-g/tablo/pull/817))
+
+### Fixed
+
+- *(auth)* read a type no panel loads as nobody in every build ([#892](https://github.com/y-l-g/tablo/pull/892))
+- *(write)* fail closed when a record fn writes outside the tenant ([#887](https://github.com/y-l-g/tablo/pull/887))
+- *(table)* seed list signals from a navigation's URL ([#882](https://github.com/y-l-g/tablo/pull/882)) ([#883](https://github.com/y-l-g/tablo/pull/883))
+- *(core)* link stat tiles through the runtime ([#881](https://github.com/y-l-g/tablo/pull/881))
+- *(ui)* stop tab strips from scrolling vertically ([#880](https://github.com/y-l-g/tablo/pull/880))
+- *(list)* keep a cell switch's thumb visible ([#879](https://github.com/y-l-g/tablo/pull/879))
+- *(chart)* keep the data table from widening the page ([#878](https://github.com/y-l-g/tablo/pull/878))
+- *(table)* keep sr-only labels from widening the page at 375px ([#865](https://github.com/y-l-g/tablo/pull/865))
+- *(values)* [**breaking**] keep decimal columns unsortable and cap decimal input length ([#844](https://github.com/y-l-g/tablo/pull/844))
+- [**breaking**] address the post-merge review of #835, #836, #839 and #840 ([#843](https://github.com/y-l-g/tablo/pull/843))
+- *(panel)* keep the relation seed on a create-another landing ([#842](https://github.com/y-l-g/tablo/pull/842))
+- *(tenancy)* act for tenants only on a panel that serves them ([#825](https://github.com/y-l-g/tablo/pull/825))
+- *(repo)* exempt the list header Create link's DOM id from the catalog guard ([#818](https://github.com/y-l-g/tablo/pull/818))
+- *(panel)* keep the list header Create link across page changes ([#816](https://github.com/y-l-g/tablo/pull/816))
+- *(deps)* update tiptap to v3.32.1 with its rebuilt bundle ([#866](https://github.com/y-l-g/tablo/pull/866))
+
+### Other
+
+- Follow-ups from a review of #885–#896 ([#902](https://github.com/y-l-g/tablo/pull/902))
+
 ## [0.8.0](https://github.com/y-l-g/tablo/compare/v0.7.0...v0.8.0) - 2026-10-25
 
 ### Added
