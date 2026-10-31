@@ -290,6 +290,9 @@ pub(crate) fn check<R: Resource>(
     if declared.table.row_color_reads_undeclared() {
         faults.push((Site::Table, undeclared("row color", "row_color")));
     }
+    if declared.table.row_link_reads_undeclared() {
+        faults.push((Site::Table, undeclared("row link", "row_link")));
+    }
     for filter in declared.table.declared_filters() {
         if filter.reads().is_none() {
             faults.push((Site::Table, undeclared("filter", filter.name())));
@@ -321,21 +324,27 @@ pub(crate) fn check_columns<R: Resource>(
         return;
     }
     let table: Vec<_> = declared.table.declared_columns().iter().collect();
-    let row_color = declared.table.tints_rows().then_some("row color");
-    check_page::<R>(cx, Site::Table, &table, row_color, errors);
-    check_page::<R>(cx, Site::Detail, &declared.detail.columns(), None, errors);
+    let mut row_readers = Vec::new();
+    if declared.table.tints_rows() {
+        row_readers.push("row color");
+    }
+    if !declared.table.row_links().is_empty() {
+        row_readers.push("row link");
+    }
+    check_page::<R>(cx, Site::Table, &table, &row_readers, errors);
+    check_page::<R>(cx, Site::Detail, &declared.detail.columns(), &[], errors);
 }
 
 /// What `columns`, the columns of one page, show under no field access a panel can mask. A column
 /// reading related records no mounted resource masks is refused over a restricted model its own
-/// includes load; a column reading its row, and `row_reader`, the page's other closure over its
+/// includes load; a column reading its row, and `row_readers`, the page's other closures over its
 /// rows, are refused on a page whose columns load one, since a closure may read the related record
 /// through any of them.
 fn check_page<R: Resource>(
     cx: &Cx,
     site: Site,
     columns: &[&BoxColumn<R::Model>],
-    row_reader: Option<&str>,
+    row_readers: &[&str],
     errors: &mut Vec<DeclarationError>,
 ) {
     let loads: Vec<Option<Vec<(model::ModelId, String)>>> = columns
@@ -363,7 +372,10 @@ fn check_page<R: Resource>(
             DeclarationErrorKind::FieldAccess { fault },
         ));
     };
-    if let Some(fault) = row_reader.and_then(|name| reads_row(name.to_string())) {
+    for fault in row_readers
+        .iter()
+        .filter_map(|name| reads_row(name.to_string()))
+    {
         push(errors, fault);
     }
     for (column, own) in columns.iter().zip(&loads) {

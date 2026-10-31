@@ -147,6 +147,7 @@ mod rich_text;
 mod text;
 
 pub use boolean::BooleanColumn;
+pub(crate) use cell::link_href;
 pub use color::ColorColumn;
 pub use computed::ComputedColumn;
 pub use date::{DateColumn, DateValue};

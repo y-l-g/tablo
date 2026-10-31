@@ -80,7 +80,9 @@ loaded list, so it loads every related record of the page's rows.
 - **Rows.** A row opens its record's view page, or its edit page when it has no view page,
   wherever it is clicked; the checkbox and the action buttons keep their own click.
 - **Row actions.** A row's actions sit side by side at its end;
-  `.action_layout(ActionLayout::Menu)` puts them behind one button instead.
+  `.action_layout(ActionLayout::Menu)` puts them behind one button instead. `.row_link(..)` adds a
+  [`RowLink`](https://y-l.fr/tablo/nightly/api/tablo/struct.RowLink.html) among them, a plain link
+  such as a product's storefront page, which posts nothing and checks no policy.
 
 A misdeclared table, such as two columns with the same name, fails the mount, and rendering it on
 your own page fails with the same errors.
@@ -115,7 +117,8 @@ placeholder for an empty value, and a table can tint a row by its record:
 A link takes a relative URL or an `http`, `https`, `mailto` or `tel` one, so a value a user wrote
 cannot turn into a script. A closure over the row may read any field: on a resource that
 [restricts a field](./resources.md#field-access), it declares what it reads with `.reading(..)`, or
-`.row_color_reading(..)` for the row color, as a `.description(..)` does.
+`.row_color_reading(..)` for the row color and `RowLink::reading(..)` for a row link, as a
+`.description(..)` does.
 
 The export writes the formatted value: `$1,234.50`, not `123450`. Money uses `,` and `.` as
 separators; a locale's own spelling is a `.format(..)`. Over a [decimal column](./forms.md#typed-values),

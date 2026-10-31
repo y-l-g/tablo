@@ -63,6 +63,8 @@ pub(super) struct Frame<'t> {
     inputs: Vec<InputAction<'t>>,
     /// The labels of the custom actions each row may show.
     row_actions: Vec<&'t str>,
+    /// Whether the table declares a [`row_link`](crate::Table::row_link).
+    row_links: bool,
     /// Whether a row's actions sit in a menu rather than side by side.
     action_menu: bool,
     return_to: Option<&'t str>,
@@ -189,6 +191,7 @@ impl<M> WiredTable<M> {
                 .row_custom_actions()
                 .map(|action| action.label.as_str())
                 .collect(),
+            row_links: !self.row_links().is_empty(),
             action_menu: self.row_action_layout() == ActionLayout::Menu,
             return_to: self.return_to(),
             select_matching: self.select_matching(),
@@ -203,6 +206,7 @@ impl Frame<'_> {
             || self.edit_prefix.is_some()
             || self.view_prefix.is_some()
             || !self.row_actions.is_empty()
+            || self.row_links
     }
 
     /// The column that takes the table's spare width: the first that

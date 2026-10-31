@@ -1,4 +1,4 @@
-//! A row's actions: its custom actions, View, Edit and Delete, inline or behind one menu.
+//! A row's actions: its links, custom actions, View, Edit and Delete, inline or behind one menu.
 
 use tablo_ui::{
     ButtonSize, ButtonVariant, FloatingAlign, button, button_variants, dropdown_menu,
@@ -12,7 +12,7 @@ use super::{
         CHROME_CELL_CLASS, ROW_DELETE_CLASS, ROW_ICON_CLASS,
         dialog::{delete_confirmation, input_trigger, run_confirmation, write_trigger},
     },
-    RowButton, RowChrome, RowView,
+    RowButton, RowChrome, RowLinkView, RowView,
 };
 use crate::{
     dom,
@@ -20,8 +20,8 @@ use crate::{
     t,
 };
 
-/// The row's actions cell: its custom actions, then View, Edit and Delete, each only when the
-/// row's policy allows it.
+/// The row's actions cell: its links and custom actions, then View, Edit and Delete, each only
+/// when the row's policy allows it.
 pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
     if chrome.action_menu {
         return render_action_menu(cx, row, chrome);
@@ -29,6 +29,15 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
     let view_url = row.view_url.clone();
     let edit_url = row.edit_url.clone();
     let described = chrome.row_id(&row.key);
+    let links: Vec<BoxView<'a>> = row
+        .links
+        .iter()
+        .map(|link| {
+            let class = button_variants(ButtonVariant::Ghost, ButtonSize::Sm);
+            let attrs = attributes! { cx => class=(class) };
+            row_link(cx, link, attrs, described.clone())
+        })
+        .collect();
     let custom: Vec<BoxView<'a>> = row
         .custom
         .iter()
@@ -70,6 +79,9 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
         table_cell(
             attrs: attributes! { class=(CHROME_CELL_CLASS) },
             <div class="relative z-10 flex items-center justify-end gap-1">
+                for link in links {
+                    (link)
+                }
                 for control in custom {
                     (control)
                 }
@@ -106,6 +118,39 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
     .boxed()
 }
 
+/// One of a row's links, styled by `class`. It navigates the whole page: it may lead outside the
+/// panel, where runtime navigation has no page to swap in.
+fn row_link<'a>(
+    cx: &'a Cx,
+    link: &RowLinkView,
+    attrs: Attributes,
+    described: String,
+) -> BoxView<'a> {
+    let (target, rel) = if link.new_tab {
+        (Some("_blank"), Some("noopener noreferrer"))
+    } else {
+        (None, None)
+    };
+    let (url, label, face) = (link.url.clone(), link.label.clone(), link.icon.clone());
+    view! {
+        cx =>
+        <a
+            (attrs)
+            href=(url)
+            target=(target)
+            rel=(rel)
+            aria-describedby=(described)
+            data-row-action=(dom::row::LINK)
+        >
+            if let Some(data) = face {
+                icon(data: data)
+            }
+            (label)
+        </a>
+    }
+    .boxed()
+}
+
 /// The attributes of a custom action's button in a row: disabled with its reason, opening its
 /// input dialog, or writing.
 fn trigger(cx: &Cx, chrome: &RowChrome, action: &RowButton) -> Attributes {
@@ -135,8 +180,9 @@ fn trigger(cx: &Cx, chrome: &RowChrome, action: &RowButton) -> Attributes {
     }
 }
 
-/// The row's actions behind one button: its custom actions, View and Edit, then Delete after a
-/// separator, each only when the row's policy allows it. A row allowing none keeps an empty cell.
+/// The row's actions behind one button: its links, custom actions, View and Edit, then Delete
+/// after a separator, each only when the row's policy allows it. A row allowing none keeps an empty
+/// cell.
 fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> BoxView<'a> {
     let described = chrome.row_id(&row.key);
     let menu = format!("{described}-actions");
@@ -150,30 +196,34 @@ fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> 
         });
     };
     let mut items: Vec<BoxView<'a>> = row
-        .custom
+        .links
         .iter()
-        .map(|action| {
-            let mut attrs = trigger(cx, chrome, action);
-            if action.disabled.is_none() {
-                closes(&mut attrs);
-            }
-            if action.destructive {
-                attrs.extend(attributes! { cx => class="text-destructive" });
-            }
-            let (label, face) = (action.label.clone(), action.icon.clone());
-            view! {
-                cx =>
-                dropdown_menu_item(
-                    attrs: attrs,
-                    if let Some(data) = face {
-                        icon(data: data)
-                    }
-                    (label)
-                )
-            }
-            .boxed()
+        .map(|link| {
+            let attrs = attributes! { cx => class=(crate::navigation::MENU_LINK_CLASS) };
+            row_link(cx, link, attrs, described.clone())
         })
         .collect();
+    items.extend(row.custom.iter().map(|action| {
+        let mut attrs = trigger(cx, chrome, action);
+        if action.disabled.is_none() {
+            closes(&mut attrs);
+        }
+        if action.destructive {
+            attrs.extend(attributes! { cx => class="text-destructive" });
+        }
+        let (label, face) = (action.label.clone(), action.icon.clone());
+        view! {
+            cx =>
+            dropdown_menu_item(
+                attrs: attrs,
+                if let Some(data) = face {
+                    icon(data: data)
+                }
+                (label)
+            )
+        }
+        .boxed()
+    }));
     for (url, label, data, hook) in [
         (
             row.view_url.clone(),

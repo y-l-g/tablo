@@ -49,6 +49,8 @@ pub struct RowActions {
     /// The `Delete` POST target, carried as its button's `formaction`; `None` when policy hides
     /// it.
     pub delete_action: Option<String>,
+    /// The targets of the row's [`row_link`](tablo_core::Table::row_link)s, in document order.
+    pub links: Vec<String>,
     /// The custom actions the row shows disabled, in document order.
     pub disabled: Vec<DisabledAction>,
 }
@@ -144,6 +146,7 @@ fn row(row_attrs: &Attrs, row_html: &str) -> Row {
     let mut view_href = None;
     let mut edit_href = None;
     let mut delete_action = None;
+    let mut row_links = Vec::new();
     let mut links = Vec::new();
     let mut copies = Vec::new();
     for (_, attrs, _) in open_tags(row_html) {
@@ -157,6 +160,7 @@ fn row(row_attrs: &Attrs, row_html: &str) -> Row {
             Some(row::VIEW) => view_href = attr_value(&attrs, "href"),
             Some(row::EDIT) => edit_href = attr_value(&attrs, "href"),
             Some(row::DELETE) => delete_action = attr_value(&attrs, "formaction"),
+            Some(row::LINK) => row_links.extend(attr_value(&attrs, "href")),
             _ => {}
         }
     }
@@ -167,6 +171,7 @@ fn row(row_attrs: &Attrs, row_html: &str) -> Row {
             view: view_href,
             edit: edit_href,
             delete_action,
+            links: row_links,
             disabled: disabled_actions(row_html),
         },
         links,
