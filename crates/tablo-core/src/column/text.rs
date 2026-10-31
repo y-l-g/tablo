@@ -14,7 +14,7 @@ use super::{
 };
 use crate::{
     Lens, Text,
-    display::{Alignment, Color, Currency, Numeric},
+    display::{Alignment, Color, Currency, FontWeight, Numeric},
     values::FormScalar,
 };
 
@@ -108,6 +108,7 @@ pub struct TextColumn<M, T> {
     badge: bool,
     /// Whether the digits take equal widths, so a column of amounts lines up.
     tabular: bool,
+    weight: FontWeight,
     alignment: Alignment,
     #[derive_where(skip(Debug))]
     description: Option<RowFn<M, String>>,
@@ -191,6 +192,7 @@ where
             tinted: false,
             badge: false,
             tabular: false,
+            weight: FontWeight::Normal,
             alignment: Alignment::Start,
             description: None,
             icon: Arc::new(T::icon),
@@ -300,6 +302,13 @@ where
         self
     }
 
+    /// Render the value in `weight`, such as a product's name in [`FontWeight::Medium`]. A
+    /// [`badge`](Self::badge) keeps its own weight.
+    pub fn weight(mut self, weight: FontWeight) -> Self {
+        self.weight = weight;
+        self
+    }
+
     /// Align the header and the cells.
     pub fn align(mut self, alignment: Alignment) -> Self {
         self.alignment = alignment;
@@ -403,6 +412,7 @@ where
                 color,
                 badge: self.badge,
                 tabular: self.tabular,
+                weight: self.weight,
                 icon,
                 description: self.description.as_ref().map(|describe| describe(row)),
                 url: self.url.as_ref().and_then(|url| url(row)),

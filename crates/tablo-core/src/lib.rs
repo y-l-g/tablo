@@ -164,7 +164,7 @@ pub use declaration::{
 };
 pub use derive::{EmbeddedForm, FormInput, ModelColumns, ModelForm, Options, RecordForm};
 pub use detail::{Detail, IntoDetail};
-pub use display::{Alignment, Color, Currency, Number, Numeric};
+pub use display::{Alignment, Color, Currency, FontWeight, Number, Numeric};
 pub use form::{NoForm, Posted, RecordForm};
 pub use i18n::Text;
 pub use lens::{Lens, Reads};
