@@ -39,8 +39,8 @@
 /// and written through `FormScalar` (`String`, a `TypedValue` type, an
 /// `Options` enum, or an `Option` of one). A scalar of another type fails to compile at the
 /// field, naming the trait. An empty scalar is its blank answer — its declared
-/// `#[form(blank = ..)]`, `None` for an `Option`, `false` for a `bool`, `""`
-/// for an `#[form(optional)]` `String` — and a scalar with none is required:
+/// `#[form(blank = ..)]`, `None` for an `Option` not marked `#[form(required)]`, `false` for a
+/// `bool`, `""` for an `#[form(optional)]` `String` — and a scalar with none is required:
 /// its control renders required and the parse refuses its key.
 ///
 /// # Which variant an enum reads
@@ -74,10 +74,11 @@
 /// - `#[form(multiline = 3)]` — a `<textarea>` of 3 rows.
 /// - `#[form(blank = ..)]` — what an empty submission reads as.
 /// - `#[form(optional)]` on a `String` — an empty submission reads as `""`.
+/// - `#[form(required)]` on an `Option` — an empty submission is refused, not read as `None`.
 ///
 /// Anything else in `#[form(..)]` is a compile error, as are `label`, `multiline`, `blank` and
-/// `optional` on an embedded value, `blank` or `optional` on an `Option`, and `optional` on a
-/// type other than `String`.
+/// `optional` on an embedded value, `blank` or `optional` on an `Option`, `optional` on a type
+/// other than `String`, and `required` on a type other than `Option`.
 pub use tablo_macros::EmbeddedForm;
 /// Derives [`FormInput`](trait@crate::FormInput) for a typed value a form posts under its own
 /// keys: what an [`Action`](crate::Action) asks for before it runs, what a sign-up reads, or
@@ -165,8 +166,9 @@ pub use tablo_macros::EmbeddedForm;
 /// [`MAX_REPEATER_ROWS`](crate::MAX_REPEATER_ROWS) rows.
 ///
 /// A field's **blank answer** is its `#[form(blank = ..)]`, `""` for an `#[form(optional)]`
-/// `String`, `None` for an `Option`, or `false` for a `bool`. A field with none is required:
-/// its control renders required and the parse refuses an empty submission.
+/// `String`, `None` for an `Option` not marked `#[form(required)]`, or `false` for a `bool`. A
+/// field with none is required: its control renders required and the parse refuses an empty
+/// submission.
 ///
 /// # Per-field attributes
 ///
@@ -182,7 +184,8 @@ pub use tablo_macros::EmbeddedForm;
 /// - `#[form(password)]` — a masked text input on a `String`, read untrimmed, that a refused
 ///   form renders empty. A repeater refuses one in its item at mount: an edit could not render
 ///   the stored secret back, so each save would overwrite it.
-/// - `#[form(blank = ..)]`, `#[form(optional)]` — the blank answer.
+/// - `#[form(blank = ..)]`, `#[form(optional)]` — the blank answer; `#[form(required)]` on an
+///   `Option` — none.
 /// - `#[form(options)]`, `#[form(options = T)]` — a choice. An `Option<T>` field names its
 ///   options type: `#[form(options = T)]`.
 ///
@@ -431,6 +434,9 @@ pub use tablo_macros::Options;
 /// - `#[form(model = User)]` on the struct: the model the form writes.
 /// - `#[form(blank = <expr>)]` on a scalar: the value an empty submission reads as.
 /// - `#[form(optional)]` on a `String`: an empty submission reads as `""`.
+/// - `#[form(required)]` on an `Option`: an empty submission is refused, not read as `None`,
+///   so a nullable column, such as a product's slug, is filled on every write through the
+///   form.
 /// - `#[form(options)]` on an `Options` enum or an `Option` of one: a choice over its options.
 ///   Without it, the field is a text field.
 /// - `#[form(options = Status)]`: a choice over `Status::options()`.
@@ -458,13 +464,15 @@ pub use tablo_macros::Options;
 ///   its blank answer.
 ///
 /// A scalar's **blank answer** is its `blank`, `""` for an `optional` `String`, `None` for an
-/// `Option`, or `false` for a `bool`. A field with none is required: the panel renders its
-/// control required and the parse refuses an empty submission. No control declares presence.
+/// `Option` not marked `required`, or `false` for a `bool`. A field with none is required: the
+/// panel renders its control required and the parse refuses an empty submission. No control
+/// declares presence.
 ///
 /// A generic struct, a tuple struct, an empty struct, a `Deferred<_>` field,
 /// `blank` or `optional` on an `Option`, an embedded value, a multiple choice or a
 /// many-to-many field, `optional`
-/// on a type other than `String`, and an unknown key are compile errors. So are a field the
+/// on a type other than `String`, `required` on a type other than `Option`, and an unknown key
+/// are compile errors. So are a field the
 /// model lacks, a type the model's field does not have, a scalar that is not a `FormScalar`,
 /// and a many-to-many field whose keys are not its source's primary key.
 ///

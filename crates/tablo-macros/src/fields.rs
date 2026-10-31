@@ -15,13 +15,14 @@ use syn::{Data, DeriveInput, Fields, Type, spanned::Spanned};
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Derive {
     /// `#[derive(EmbeddedForm)]`: `embed`, `label = ".."`, `multiline = N`,
-    /// `blank = <expr>`, `optional`.
+    /// `blank = <expr>`, `optional`, `required`.
     Embedded,
-    /// `#[derive(RecordForm)]`: `embed`, `blank = <expr>`, `optional`, and the
+    /// `#[derive(RecordForm)]`: `embed`, `blank = <expr>`, `optional`, `required`, and the
     /// control keys `options`, `options = <Type>`, `relationship = <Source>`, `file`.
     Record,
     /// `#[derive(FormInput)]`: `label = ".."`, `multiline = N`, `placeholder = ".."`, `email`,
-    /// `url`, `tel`, `password`, `blank = <expr>`, `optional`, `options`, `options = <Type>`.
+    /// `url`, `tel`, `password`, `blank = <expr>`, `optional`, `required`, `options`,
+    /// `options = <Type>`.
     Input,
 }
 
@@ -75,6 +76,8 @@ pub(crate) struct FormAttrs {
     pub(crate) blank: Option<syn::Expr>,
     /// `#[form(optional)]` on a `String`: an empty submission reads as `""`.
     pub(crate) optional: bool,
+    /// `#[form(required)]` on an `Option`: an empty submission is refused, not read as `None`.
+    pub(crate) required: bool,
     /// `#[form(options = <Type>)]`: a choice over an `Options` type's list, `Some(None)` for a
     /// bare `#[form(options)]` over the field's own type.
     pub(crate) options: Option<Option<Type>>,
@@ -128,6 +131,8 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
                 out.blank = Some(meta.value()?.parse()?);
             } else if meta.path.is_ident("optional") {
                 out.optional = true;
+            } else if meta.path.is_ident("required") {
+                out.required = true;
             } else if meta.path.is_ident("options") && derive != Derive::Embedded {
                 out.options = Some(if meta.input.peek(syn::Token![=]) {
                     Some(meta.value()?.parse()?)
@@ -148,17 +153,18 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             } else {
                 let expected = match derive {
                     Derive::Embedded => {
-                        "`embed`, `label = \"…\"`, `multiline = N`, `blank = <expr>`, or \
-                         `optional`"
+                        "`embed`, `label = \"…\"`, `multiline = N`, `blank = <expr>`, \
+                         `optional`, or `required`"
                     }
                     Derive::Record => {
-                        "`embed`, `repeat`, `blank = <expr>`, `optional`, `options`, \
-                         `options = <Type>`, `relationship = <Source>`, `file`, or `tags`"
+                        "`embed`, `repeat`, `blank = <expr>`, `optional`, `required`, \
+                         `options`, `options = <Type>`, `relationship = <Source>`, `file`, or \
+                         `tags`"
                     }
                     Derive::Input => {
                         "`label = \"…\"`, `multiline = N`, `placeholder = \"…\"`, `email`, \
-                         `url`, `tel`, `password`, `blank = <expr>`, `optional`, `options`, or \
-                         `options = <Type>`"
+                         `url`, `tel`, `password`, `blank = <expr>`, `optional`, `required`, \
+                         `options`, or `options = <Type>`"
                     }
                 };
                 return Err(meta.error(format!("unknown `#[form(..)]` key: expected {expected}")));
@@ -213,6 +219,7 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
         let misplaced = [
             (out.blank.is_some(), "`blank`"),
             (out.optional, "`optional`"),
+            (out.required, "`required`"),
             (out.options.is_some(), "`options`"),
             (out.relationship.is_some(), "`relationship`"),
             (out.file, "`file`"),
@@ -235,6 +242,7 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             (out.multiline.is_some(), "`multiline`"),
             (out.blank.is_some(), "`blank`"),
             (out.optional, "`optional`"),
+            (out.required, "`required`"),
             (out.options.is_some(), "`options`"),
             (out.relationship.is_some(), "`relationship`"),
             (out.file, "`file`"),
@@ -260,6 +268,13 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
             "an `Option` field is optional already: its blank answer is `None`",
         ));
     }
+    if out.required && ty.as_deref() != Some("Option") {
+        return Err(syn::Error::new_spanned(
+            &field.ty,
+            "a field that is not an `Option` is required already unless it declares a blank \
+             answer: `required` makes an `Option` refuse an empty submission",
+        ));
+    }
     if out.optional && out.blank.is_some() {
         return Err(syn::Error::new_spanned(
             field,
@@ -278,8 +293,11 @@ pub(crate) fn form_attrs(field: &syn::Field, derive: Derive) -> syn::Result<Form
 
 /// The value a scalar reads an empty submission as, or `None` when the field is required: its
 /// declared `blank`, else `Default::default()` for an `Option` (`None`), a `bool` (`false`, what
-/// an unchecked toggle means) and an `optional` `String` (`""`).
+/// an unchecked toggle means) and an `optional` `String` (`""`); a `required` `Option` has none.
 pub(crate) fn blank_answer(ty: &Type, attrs: &FormAttrs) -> Option<TokenStream2> {
+    if attrs.required {
+        return None;
+    }
     if let Some(expr) = &attrs.blank {
         return Some(quote_spanned! {ty.span()=>
             ::std::convert::Into::<#ty>::into(#expr)

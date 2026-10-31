@@ -1,4 +1,4 @@
-error: unknown `#[form(..)]` key: expected `label = "…"`, `multiline = N`, `placeholder = "…"`, `email`, `url`, `tel`, `password`, `blank = <expr>`, `optional`, `options`, or `options = <Type>`
+error: unknown `#[form(..)]` key: expected `label = "…"`, `multiline = N`, `placeholder = "…"`, `email`, `url`, `tel`, `password`, `blank = <expr>`, `optional`, `required`, `options`, or `options = <Type>`
  --> tests/compile_fail/form_input_unknown_key.rs:3:36
   |
 3 |     #[form(placeholder = "reason", colour = "red")]

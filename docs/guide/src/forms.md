@@ -24,7 +24,8 @@ the framework sets on create, and columns with a Toasty `#[default(..)]` or `#[a
 **Required and blank values.** The record form alone decides which fields are required. A field's
 **blank answer** is what it stores when its control is submitted empty, such as `None` for an
 `Option`. A field with no blank answer is required: the panel renders its control required, and an
-empty submission is refused inline. [`RecordForm`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.RecordForm.html) lists each
+empty submission is refused inline. `#[form(required)]` takes the blank answer from an `Option`, so
+a nullable column such as a product's SKU is still filled through the form. [`RecordForm`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.RecordForm.html) lists each
 type's blank answer and every `#[form(..)]` key.
 
 The resource names the struct as its `Form` and, to arrange the controls, places them from the

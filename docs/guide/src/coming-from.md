@@ -18,7 +18,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | `make:filament-resource --generate` | `#[derive(ModelForm)]` on the model, which writes the [record form](./forms.md#a-form-from-the-model) |
 | form state | the `#[derive(RecordForm)]` struct a submission parses into |
 | `Section`, `Grid`, `Group` | the `Section`, `Grid` and `Group` layout blocks |
-| `->required()`, `->nullable()` | the record-form field's type: an `Option` or a blank answer makes it optional |
+| `->required()`, `->nullable()` | the record-form field's type: an `Option` or a blank answer makes it optional, and `#[form(required)]` makes an `Option` required |
 | `->disabled()` | `.disabled()`, `.disabled_on_edit()` |
 | `->visible(fn (Get $get) ..)` | `.visible_when(..)`, a [condition](./forms.md#conditional-fields) |
 | a dependent `Select` | `.depends_on(..)`, a [dependent choice](./forms.md#dependent-choices) |
