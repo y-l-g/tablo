@@ -232,7 +232,7 @@ on Toasty's feature of the same name, which stores them:
 
 ```toml
 [dependencies]
-tablo = { version = "0.8.0", features = ["sqlite", "rust_decimal"] }
+tablo = { version = "0.9.0", features = ["sqlite", "rust_decimal"] }
 rust_decimal = "1"
 ```
 
