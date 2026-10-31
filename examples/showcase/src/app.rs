@@ -291,6 +291,8 @@ fn post_table() -> Table<Post> {
         "Published",
         PostStatus::Published,
     ))
+    // Five filters: the reader sets several, then applies them at once.
+    .deferred_filters()
     .filters((
         SelectFilter::of(lens!(Post.status)).multiple(),
         TernaryFilter::new(lens!(Post.featured)).labels("Featured", "Not featured"),

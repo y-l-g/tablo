@@ -1,10 +1,10 @@
 //! The filter menu and the unknown-filter warning.
 
 use tablo_ui::{
-    ButtonSize, ButtonVariant, FloatingAlign, FloatingAnchor, FloatingSide, button_variants,
-    dropdown_menu_trigger, floating_variants,
+    ButtonSize, ButtonVariant, FloatingAlign, FloatingAnchor, FloatingSide, button,
+    button_variants, dropdown_menu_trigger, floating_variants,
 };
-use topcoat::{context::Cx, icon::icon, view::*};
+use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
 
 use super::{
     super::{TableSignals, WiredTable},
@@ -137,7 +137,8 @@ impl Frame<'_> {
     /// Render the filter menu: a trigger counting the `active` filters, and the popover holding
     /// the `controls`, one `f.<name>` control per filter. The popover renders inside the toolbar
     /// form, which reads the controls, so a change in it reruns the table; a popover keeps its
-    /// open state across the rerun.
+    /// open state across the rerun. Under [`deferred_filters`](crate::Table::deferred_filters) a
+    /// change stops at the popover, and its Apply button submits the form instead.
     pub(super) fn render_filter_menu<'a>(
         &self,
         cx: &'a Cx,
@@ -153,6 +154,13 @@ impl Frame<'_> {
         let target = menu.clone();
         let label = t!(cx, "tablo-list-filters");
         let trigger_label = label.clone();
+        let deferred = self.deferred_filters;
+        // The toolbar form's `change` handler would rerun the list on each deferred control.
+        let holds = if deferred {
+            attributes! { cx => @change=$(|e: Event| e.stop_propagation()) }
+        } else {
+            attributes! { cx => }
+        };
         let trigger = view! {
             cx =>
             dropdown_menu_trigger(
@@ -193,11 +201,21 @@ impl Frame<'_> {
                         </a>
                     }
                 </div>
-                <div class="grid grid-cols-1 gap-4 p-4">
+                <div (holds) class="grid grid-cols-1 gap-4 p-4">
                     for control in controls {
                         (control)
                     }
                 </div>
+                if deferred {
+                    <div class="flex justify-end border-t border-border p-2">
+                        button(
+                            variant: ButtonVariant::Primary,
+                            size: ButtonSize::Sm,
+                            attrs: attributes! { type="submit" data-apply-filters="" },
+                            (t!(cx, "tablo-list-apply-filters"))
+                        )
+                    </div>
+                }
             </div>
         }
         .boxed();
