@@ -10,7 +10,7 @@ use topcoat::{
     view::{BoxView, View, ViewExt},
 };
 
-pub use self::filters::{PageFilter, PageFilters, page_filters};
+pub use self::filters::{PageFilter, PageFilters};
 use crate::{
     HeaderAction, HeaderActions, Widget,
     naming::{kebab_case, sentence_case, type_stem},
@@ -263,10 +263,11 @@ impl PageDef {
     }
 
     /// Offers `filter` above the widgets, after the filters already declared: a value the page
-    /// keeps in its query string, which its widgets read through [`page_filters`]. The default
-    /// [`render`](Page::render) shows the filters' bar under the header; a page that renders
-    /// itself places [`page_filter_bar`](crate::page_filter_bar). Mounting refuses two filters
-    /// sharing a key, and a key that is not ASCII letters, digits, `-` and `_`.
+    /// keeps in its query string, which its widgets read through
+    /// [`page_filters`](crate::page_filters). The default [`render`](Page::render) shows the
+    /// filters' bar under the header; a page that renders itself places
+    /// [`page_filter_bar`](crate::page_filter_bar). Mounting refuses two filters sharing a key,
+    /// and a key that is not ASCII letters, digits, `-` and `_`.
     #[must_use]
     pub fn filter(mut self, filter: PageFilter) -> Self {
         self.filters.push(filter);

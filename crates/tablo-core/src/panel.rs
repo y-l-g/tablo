@@ -11,6 +11,7 @@ mod headers;
 mod host;
 mod input;
 mod list;
+mod page_filters;
 pub(crate) mod pages;
 mod record_nav;
 mod record_page;
@@ -39,6 +40,7 @@ pub use self::{
     build::{PanelHandle, RouterBuilderPanelExt},
     gate::{can_list, can_open, can_view_field},
     list::{WiredTable, list_query, wired_table},
+    page_filters::page_filters,
     pages::page_filter_bar,
     shell::Brand,
     widgets::{record_table, stats, widgets},

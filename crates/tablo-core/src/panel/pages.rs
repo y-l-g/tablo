@@ -69,7 +69,7 @@ pub(super) fn declared_body(cx: &Cx, page: TypeId) -> BoxView<'_> {
 fn filter_bar<'a>(cx: &'a Cx, page: TypeId, mounted: &MountedPage) -> Option<BoxView<'a>> {
     let url = super::state::current(cx)?.urls.get(&page)?;
     let held = crate::page::filters::read(&mounted.filters, &crate::table::request_query(cx));
-    crate::page::filters::bar(cx, &mounted.filters, &held, url)
+    super::page_filters::bar(cx, &mounted.filters, &held, url)
 }
 
 /// The filter bar of the page `P`, for a page that renders itself: a form holding each
