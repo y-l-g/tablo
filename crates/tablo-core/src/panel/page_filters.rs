@@ -9,7 +9,8 @@ use topcoat::{
 use crate::page::filters::{self, PageFilter, PageFilters};
 
 /// The bar of `filters` holding `held`: a form submitting to `url`, the page, with a reset link
-/// once it holds a value. `None` without a filter.
+/// once it holds a value. Both carry the request's other parameters, so a table on the page keeps
+/// its search, sort and filters. `None` without a filter.
 pub(crate) fn bar<'a>(
     cx: &'a Cx,
     filters: &[PageFilter],
@@ -23,7 +24,21 @@ pub(crate) fn bar<'a>(
         .iter()
         .map(|filter| control(cx, filter, held))
         .collect();
-    let reset = (!held.is_empty()).then(|| url.to_string());
+    let kept: Vec<(String, String)> =
+        form_urlencoded::parse(crate::table::request_query(cx).as_bytes())
+            .into_owned()
+            .filter(|(name, _)| !name.starts_with(filters::PREFIX))
+            .collect();
+    let reset = (!held.is_empty()).then(|| {
+        if kept.is_empty() {
+            url.to_string()
+        } else {
+            let query = form_urlencoded::Serializer::new(String::new())
+                .extend_pairs(&kept)
+                .finish();
+            format!("{url}?{query}")
+        }
+    });
     let url = url.to_string();
     Some(
         view! {
@@ -34,6 +49,9 @@ pub(crate) fn bar<'a>(
                 class="flex flex-wrap items-end gap-3"
                 data-page-filters=""
             >
+                for (name, value) in kept {
+                    <input type="hidden" name=(name) value=(value) />
+                }
                 for control in controls {
                     (control)
                 }
@@ -69,6 +87,7 @@ fn control<'a>(cx: &'a Cx, filter: &PageFilter, held: &PageFilters) -> BoxView<'
     let caption = "font-medium text-foreground";
     match &filter.kind {
         filters::Kind::Select(options) => {
+            let name = filter.param(None);
             let chosen = held.choice(filter.key()).map(str::to_string);
             let options: Vec<(String, String, bool)> = options
                 .iter()
@@ -82,7 +101,7 @@ fn control<'a>(cx: &'a Cx, filter: &PageFilter, held: &PageFilters) -> BoxView<'
                 <label class=(field) data-page-filter=(key.clone())>
                     <span class=(caption)>(label)</span>
                     tablo_ui::select(
-                        attrs: topcoat::view::attributes! { name=(format!("f.{key}")) },
+                        attrs: topcoat::view::attributes! { name=(name) },
                         <option value="" selected=(chosen.is_none())>
                             (crate::t!(cx, "tablo-filter-all"))
                         </option>
@@ -95,6 +114,7 @@ fn control<'a>(cx: &'a Cx, filter: &PageFilter, held: &PageFilters) -> BoxView<'
             .boxed()
         }
         filters::Kind::DateRange => {
+            let (from_name, to_name) = (filter.param(Some("from")), filter.param(Some("to")));
             let (from, to) = held.date_range(filter.key());
             let day = |date: Option<Date>| date.map(|date| date.to_string()).unwrap_or_default();
             let (from, to) = (day(from), day(to));
@@ -108,7 +128,7 @@ fn control<'a>(cx: &'a Cx, filter: &PageFilter, held: &PageFilters) -> BoxView<'
                         tablo_ui::input(
                             attrs: topcoat::view::attributes! {
                                 type="date"
-                                name=(format!("f.{key}.from"))
+                                name=(from_name)
                                 value=(from)
                                 aria-label=(from_label)
                             }
@@ -117,7 +137,7 @@ fn control<'a>(cx: &'a Cx, filter: &PageFilter, held: &PageFilters) -> BoxView<'
                         tablo_ui::input(
                             attrs: topcoat::view::attributes! {
                                 type="date"
-                                name=(format!("f.{key}.to"))
+                                name=(to_name)
                                 value=(to)
                                 aria-label=(to_label)
                             }

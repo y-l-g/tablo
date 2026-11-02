@@ -5,13 +5,18 @@ use jiff::civil::Date;
 
 use crate::{IntoOptions, Text};
 
+/// What starts every page filter's query parameter.
+pub(crate) const PREFIX: &str = "pf.";
+
 /// A value a page offers above its widgets and keeps in its query string, which its widgets read
 /// through [`page_filters`](crate::page_filters): the period a dashboard's figures cover, or the
 /// store they count.
 ///
-/// A select holds `?f.<key>=<value>`, one of its options; a date range holds `?f.<key>.from=` and
-/// `?f.<key>.to=`, each a `YYYY-MM-DD` day. The bar is a form the page submits to itself, so a
-/// filtered dashboard is a link, and it works without JavaScript.
+/// A select holds `?pf.<key>=<value>`, one of its options; a date range holds `?pf.<key>.from=`
+/// and `?pf.<key>.to=`, each a `YYYY-MM-DD` day. The `pf.` prefix keeps them apart from a table's
+/// `f.` filters on the same page. The bar is a form the page submits to itself, carrying the
+/// request's other parameters, so a filtered dashboard is a link, a table on it keeps its search
+/// and sort, and it works without JavaScript.
 ///
 /// A page filter narrows nothing by itself: each widget decides what a value means, and still
 /// reads its records through [`scoped_query`](crate::scoped_query) or
@@ -51,7 +56,7 @@ pub(crate) enum Kind {
 }
 
 impl PageFilter {
-    /// A select over `options`, held in `?f.<key>=`: values that are their own label, `(value,
+    /// A select over `options`, held in `?pf.<key>=`: values that are their own label, `(value,
     /// label)` pairs, or a [`#[derive(Options)]`](crate::Options) enum's options. A value naming
     /// no option reads as none.
     pub fn select(
@@ -66,7 +71,7 @@ impl PageFilter {
         }
     }
 
-    /// A range of days, held in `?f.<key>.from=` and `?f.<key>.to=`. A day that does not parse
+    /// A range of days, held in `?pf.<key>.from=` and `?pf.<key>.to=`. A day that does not parse
     /// reads as an open end.
     pub fn date_range(key: impl Into<String>, label: impl Into<Text>) -> Self {
         Self {
@@ -79,6 +84,14 @@ impl PageFilter {
     /// The key its query parameters carry.
     pub(crate) fn key(&self) -> &str {
         &self.key
+    }
+
+    /// The query parameter holding the filter's value, or the `end` of its range.
+    pub(crate) fn param(&self, end: Option<&str>) -> String {
+        match end {
+            Some(end) => format!("{PREFIX}{}.{end}", self.key),
+            None => format!("{PREFIX}{}", self.key),
+        }
     }
 
     /// Whether the key is a word a query parameter carries as it is: ASCII letters, digits, `-`
@@ -102,18 +115,14 @@ impl PageFilter {
         };
         match &self.kind {
             Kind::Select(options) => {
-                let value = param(&format!("f.{}", self.key))?;
+                let value = param(&self.param(None))?;
                 options
                     .iter()
                     .any(|(option, _)| option == value)
                     .then(|| Held::Choice(value.to_string()))
             }
             Kind::DateRange => {
-                let day = |end: &str| {
-                    param(&format!("f.{}.{end}", self.key))?
-                        .parse::<Date>()
-                        .ok()
-                };
+                let day = |end: &str| param(&self.param(Some(end)))?.parse::<Date>().ok();
                 let (from, to) = (day("from"), day("to"));
                 (from.is_some() || to.is_some()).then_some(Held::Range { from, to })
             }

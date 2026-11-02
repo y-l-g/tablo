@@ -14,27 +14,27 @@ fn filters() -> Vec<PageFilter> {
 #[test]
 fn a_select_holds_only_one_of_its_options() {
     assert_eq!(
-        read(&filters(), "f.channel=web").choice("channel"),
+        read(&filters(), "pf.channel=web").choice("channel"),
         Some("web")
     );
-    assert_eq!(read(&filters(), "f.channel=phone").choice("channel"), None);
-    assert_eq!(read(&filters(), "f.channel=").choice("channel"), None);
-    assert!(read(&filters(), "f.other=web").is_empty());
+    assert_eq!(read(&filters(), "pf.channel=phone").choice("channel"), None);
+    assert_eq!(read(&filters(), "pf.channel=").choice("channel"), None);
+    assert!(read(&filters(), "pf.other=web").is_empty());
 }
 
 #[test]
 fn a_date_range_holds_each_day_that_parses() {
     let held = read(
         &filters(),
-        "f.period.from=2026-01-01&f.period.to=2026-01-31",
+        "pf.period.from=2026-01-01&pf.period.to=2026-01-31",
     );
     assert_eq!(
         held.date_range("period"),
         (Some(date(2026, 1, 1)), Some(date(2026, 1, 31)))
     );
-    let open = read(&filters(), "f.period.from=2026-01-01&f.period.to=soon");
+    let open = read(&filters(), "pf.period.from=2026-01-01&pf.period.to=soon");
     assert_eq!(open.date_range("period"), (Some(date(2026, 1, 1)), None));
-    assert!(read(&filters(), "f.period.to=soon").is_empty());
+    assert!(read(&filters(), "pf.period.to=soon").is_empty());
     assert_eq!(read(&filters(), "").date_range("period"), (None, None));
 }
 
