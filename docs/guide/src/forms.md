@@ -354,6 +354,21 @@ When the parent changes, the browser fetches the new options, and a submission m
 of the parent value it posts. [`ChoiceField::depends_on`](https://y-l.fr/tablo/nightly/api/tablo/struct.ChoiceField.html#method.depends_on)
 has the rules and what the mount refuses.
 
+### Filtered choices
+
+`.options_where(|cx| predicate)` narrows a relationship choice to the related records a predicate
+selects, whatever the form posts: only the categories without a parent may be one.
+
+```rust,ignore
+c.parent_id
+    .options_where(|_cx| Category::fields().parent_id().is_none())
+```
+
+The predicate is built for each request, so it may read the user or the tenant, and it narrows a
+dependent choice's records too. The server checks a submitted key against it on submit and again
+in the write's transaction. [`ChoiceField::options_where`](https://y-l.fr/tablo/nightly/api/tablo/struct.ChoiceField.html#method.options_where)
+has the rules and what the mount refuses.
+
 ### Creating a related record
 
 `.creatable()` lets the user create the related record without leaving the form: a link beside

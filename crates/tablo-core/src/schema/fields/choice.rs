@@ -28,6 +28,9 @@ pub(crate) struct ChoiceControl {
     pub(super) relationship: Option<Relationship>,
     /// The field whose value narrows the relationship's rows, set by `depends_on`.
     pub(super) parent: Option<Parent>,
+    /// The predicate narrowing the relationship's rows whatever the form posts, set by
+    /// `options_where`.
+    pub(super) filter: Option<OptionFilter>,
     /// Whether the choice takes several options, set by `multiple`: its key then holds a list.
     pub(super) multiple: bool,
     /// How many options a multiple choice takes, set by `min_items` and `max_items`.
@@ -58,9 +61,12 @@ pub(crate) struct Parent {
 /// A dependent choice's predicate for one parent value.
 pub(crate) type ParentScope = std::sync::Arc<dyn Fn(&str) -> Option<Expr<bool>> + Send + Sync>;
 
-/// The rows a dependent choice offers for one parent value.
+/// The predicate an `options_where` choice narrows its rows by, built for each request.
+pub(crate) type OptionFilter = std::sync::Arc<dyn Fn(&Cx) -> Expr<bool> + Send + Sync>;
+
+/// The rows a choice offers for one parent value.
 enum Scope {
-    /// Not a dependent choice: every row.
+    /// Neither a dependent nor a filtered choice: every row.
     All,
     /// The rows the predicate selects.
     Within(Expr<bool>),
@@ -116,6 +122,7 @@ impl ChoiceControl {
             && (self.multiple
                 || self.layout != Layout::Select
                 || self.parent.is_some()
+                || self.filter.is_some()
                 || !self
                     .relationship
                     .as_ref()
@@ -201,18 +208,26 @@ impl ChoiceControl {
         })
     }
 
-    /// The rows the choice offers while its parent posts `parent`.
-    fn scope(&self, parent: Option<&str>) -> Scope {
+    /// Whether `options_where` narrows a choice that has no relationship to narrow.
+    pub(crate) fn misdeclared_filter(&self) -> bool {
+        self.filter.is_some() && self.relationship.is_none()
+    }
+
+    /// The rows the choice offers while its parent posts `parent`: those its filter selects, among
+    /// those of the parent value.
+    fn scope(&self, cx: &Cx, parent: Option<&str>) -> Scope {
+        let filter = self.filter.as_ref().map(|filter| filter(cx));
         let Some(declared) = &self.parent else {
-            return Scope::All;
+            return filter.map_or(Scope::All, Scope::Within);
         };
         let value = parent.unwrap_or("").trim();
         if value.is_empty() {
             return Scope::Nothing;
         }
-        match (declared.scope)(value) {
-            Some(expr) => Scope::Within(expr),
-            None => Scope::Nothing,
+        match ((declared.scope)(value), filter) {
+            (Some(expr), Some(filter)) => Scope::Within(expr.and(filter)),
+            (Some(expr), None) => Scope::Within(expr),
+            (None, _) => Scope::Nothing,
         }
     }
 
@@ -251,7 +266,7 @@ impl ChoiceControl {
         let Some(relationship) = &self.relationship else {
             return Ok(self.spelled(cx));
         };
-        match self.scope(parent) {
+        match self.scope(cx, parent) {
             Scope::All => (relationship.search)(cx, q.to_string(), None).await,
             Scope::Within(scope) => (relationship.search)(cx, q.to_string(), Some(scope)).await,
             Scope::Nothing => Ok(Vec::new()),
@@ -265,7 +280,7 @@ impl ChoiceControl {
         cx: &Cx,
         parent: Option<&str>,
     ) -> Result<Vec<(String, String)>, OptionLoadError> {
-        match (&self.relationship, self.scope(parent)) {
+        match (&self.relationship, self.scope(cx, parent)) {
             (Some(relationship), Scope::All) => (relationship.load)(cx).await,
             (Some(relationship), Scope::Within(scope)) => {
                 (relationship.search)(cx, String::new(), Some(scope)).await
@@ -276,8 +291,8 @@ impl ChoiceControl {
     }
 
     /// `value`, a multiple choice's list, with each key of the stored list `stored` it drops that
-    /// the user cannot view in the request's tenant put back: a submission unlinks only the
-    /// records its form could offer.
+    /// the user cannot view in the request's tenant, or that the choice's filter drops, put back: a
+    /// submission unlinks only the records its form could offer.
     pub(super) async fn keep_unseen(
         &self,
         cx: &Cx,
@@ -296,8 +311,9 @@ impl ChoiceControl {
         let before = keys.len();
         for key in dropped {
             // A failed check keeps the link: only a record the choice could offer is unlinked.
+            let filter = self.filter.as_ref().map(|filter| filter(cx));
             let seen = matches!(
-                (relationship.check)(cx, key.clone(), None, &mut *ex).await,
+                (relationship.check)(cx, key.clone(), filter, &mut *ex).await,
                 Ok(true)
             );
             if !seen {

@@ -167,8 +167,9 @@ impl<F> ChoiceField<F> {
     ///   once the form renders again.
     /// - Mounting refuses a creatable choice that is not a single select over a resource's records:
     ///   a multiple choice, [radios](Self::radio) or [buttons](Self::buttons), a
-    ///   [dependent](Self::depends_on) choice, a source that is not a resource, a choice a
-    ///   [condition disables](Self::disabled_when), and a choice in a repeater's rows.
+    ///   [dependent](Self::depends_on) or [filtered](Self::options_where) choice, a source that is
+    ///   not a resource, a choice a [condition disables](Self::disabled_when), and a choice in a
+    ///   repeater's rows.
     pub fn creatable(mut self) -> Self {
         self.choice_mut().creatable = true;
         self
@@ -223,6 +224,47 @@ impl<F> ChoiceField<F> {
                     .map(|value| column.clone().eq(value))
             }),
         });
+        self
+    }
+
+    /// Offers only the related rows `filter` selects, among those the source's scoped query and a
+    /// [`depends_on`](Self::depends_on) parent offer: the categories without a parent, or the
+    /// users of one role. `filter` builds the predicate for each request, so it may read the
+    /// request's user or tenant.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # pub struct Category {
+    /// #     #[key] #[auto] pub id: uuid::Uuid,
+    /// #     pub name: String,
+    /// #     #[index] pub parent_id: Option<uuid::Uuid>,
+    /// # }
+    /// # pub struct CategoryResource;
+    /// # impl tablo_core::Resource for CategoryResource {
+    /// #     type Model = Category;
+    /// #     type Form = tablo_core::NoForm<Category>;
+    /// # }
+    /// # use tablo_core::{Field, lens};
+    /// Field::choice(lens!(Category.parent_id))
+    ///     .relationship::<CategoryResource>()
+    ///     .options_where(|_cx| Category::fields().parent_id().is_none());
+    /// ```
+    ///
+    /// - The form, the search past the option cap and a dependent choice's fetch offer only the
+    ///   rows it selects, and a submission must name one: the server checks the key on submit and
+    ///   again inside the write's transaction, so a hand-crafted POST cannot name another row.
+    /// - A [`multiple`](Self::multiple) choice keeps the links it holds to rows the filter drops,
+    ///   since its form never offered them.
+    /// - The predicate must read the relationship's source model; one over another model fails the
+    ///   load, and the field says its options failed to load. Field access does not see the fields
+    ///   it reads: a predicate over a restricted field tells the user which rows pass it.
+    /// - Mounting refuses a filter on a choice without a relationship, and on a
+    ///   [creatable](Self::creatable) choice, whose dialog may save a record the filter drops.
+    pub fn options_where(
+        mut self,
+        filter: impl Fn(&topcoat::context::Cx) -> toasty::stmt::Expr<bool> + Send + Sync + 'static,
+    ) -> Self {
+        self.choice_mut().filter = Some(Arc::new(filter));
         self
     }
 

@@ -181,6 +181,19 @@ fn a_dependent_choice_names_a_column_of_its_source_and_a_placed_parent() {
     );
 
     assert_eq!(
+        Schema::new(
+            Field::choice(Address::fields().city_id())
+                .options(["a"])
+                .options_where(|_cx| City::fields().name().eq("Paris"))
+        )
+        .declaration_errors(),
+        [DeclarationErrorKind::UnfilterableChoice {
+            field: "city_id".to_string(),
+        }],
+        "a filter with no relationship to narrow"
+    );
+
+    assert_eq!(
         Schema::new(city(&country())).declaration_errors(),
         [DeclarationErrorKind::UnplacedParentField {
             field: "city_id".to_string(),

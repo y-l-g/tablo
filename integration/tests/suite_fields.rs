@@ -20,6 +20,7 @@ mod field_access_related;
 mod field_basics;
 mod field_comparisons;
 mod field_rules;
+mod filtered_choice;
 mod options_enum;
 mod typed_leaves;
 mod variants;
