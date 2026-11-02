@@ -435,10 +435,8 @@ pub enum DeclarationErrorKind {
         /// The dependent choice.
         field: String,
     },
-    /// A choice whose [`options_where`](crate::ChoiceField::options_where) has no relationship
-    /// to narrow.
-    ///
-    /// Declare `relationship::<R>()`, or drop `options_where`.
+    /// A choice whose [`options_where`](crate::ChoiceField::options_where) narrows no
+    /// relationship: declare `relationship::<R>()`, or drop `options_where`.
     UnfilterableChoice {
         /// The filtered choice.
         field: String,
