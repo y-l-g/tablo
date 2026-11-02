@@ -45,36 +45,13 @@ impl fmt::Display for DeclarationErrorKind {
                 "file field `{field}` needs an uploader to store its bytes: install one with \
                  `Panel::uploads`"
             ),
-            Self::InvalidSegment {
-                item,
-                segment,
-                fault,
-            } => write!(f, "{item} '{segment}' {fault}"),
-            Self::PrefixOverlapsRuntime { prefix } => write!(
-                f,
-                "prefix '{prefix}' overlaps Topcoat's runtime endpoints at '{}'",
-                crate::topcoat_compat::RUNTIME_PREFIX
-            ),
-            Self::PrefixOverlapsPanel { other } => write!(
-                f,
-                "the prefix overlaps the panel mounted at '{other}': each panel needs a prefix of \
-                 its own"
-            ),
-            Self::EndpointOutsideRuntime { path } => write!(
-                f,
-                "endpoint '{path}' is not a shard or procedure under '{}': the panel's prefix or \
-                 the app's own layers guard a route elsewhere",
-                crate::topcoat_compat::RUNTIME_PREFIX
-            ),
-            Self::ServeDirWithoutCatchAll { path } => write!(
-                f,
-                "serve_dir path '{path}' must end in a catch-all like '/uploads/{{*file}}'"
-            ),
-            Self::ServeDirTwice { path } => write!(f, "serve_dir path '{path}' is declared twice"),
-            Self::ServeDirTaken { path, panel } => write!(
-                f,
-                "serve_dir path '{path}' is already served by the panel mounted at '{panel}'"
-            ),
+            Self::InvalidSegment { .. }
+            | Self::PrefixOverlapsRuntime { .. }
+            | Self::PrefixOverlapsPanel { .. }
+            | Self::EndpointOutsideRuntime { .. }
+            | Self::ServeDirWithoutCatchAll { .. }
+            | Self::ServeDirTwice { .. }
+            | Self::ServeDirTaken { .. } => fmt_route(f, self),
             Self::InvalidContentSecurityPolicy { policy } => write!(
                 f,
                 "content_security_policy {policy:?} is not a valid header value"
@@ -372,5 +349,44 @@ fn fmt_condition(f: &mut fmt::Formatter<'_>, kind: &DeclarationErrorKind) -> fmt
              name one of its option values, or `true` or `false` for a toggle"
         ),
         _ => unreachable!("not a condition's error"),
+    }
+}
+
+/// The wording of a route's or a prefix's [`DeclarationErrorKind`].
+fn fmt_route(f: &mut fmt::Formatter<'_>, kind: &DeclarationErrorKind) -> fmt::Result {
+    match kind {
+        DeclarationErrorKind::InvalidSegment {
+            item,
+            segment,
+            fault,
+        } => write!(f, "{item} '{segment}' {fault}"),
+        DeclarationErrorKind::PrefixOverlapsRuntime { prefix } => write!(
+            f,
+            "prefix '{prefix}' overlaps Topcoat's runtime endpoints at '{}'",
+            crate::topcoat_compat::RUNTIME_PREFIX
+        ),
+        DeclarationErrorKind::PrefixOverlapsPanel { other } => write!(
+            f,
+            "the prefix overlaps the panel mounted at '{other}': each panel needs a prefix of \
+             its own"
+        ),
+        DeclarationErrorKind::EndpointOutsideRuntime { path } => write!(
+            f,
+            "endpoint '{path}' is not a shard or procedure under '{}': the panel's prefix or \
+             the app's own layers guard a route elsewhere",
+            crate::topcoat_compat::RUNTIME_PREFIX
+        ),
+        DeclarationErrorKind::ServeDirWithoutCatchAll { path } => write!(
+            f,
+            "serve_dir path '{path}' must end in a catch-all like '/uploads/{{*file}}'"
+        ),
+        DeclarationErrorKind::ServeDirTwice { path } => {
+            write!(f, "serve_dir path '{path}' is declared twice")
+        }
+        DeclarationErrorKind::ServeDirTaken { path, panel } => write!(
+            f,
+            "serve_dir path '{path}' is already served by the panel mounted at '{panel}'"
+        ),
+        _ => unreachable!("not a route's error"),
     }
 }
