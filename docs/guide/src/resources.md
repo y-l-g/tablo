@@ -141,7 +141,9 @@ ComputedColumn::new("Pay", |e: &Employee| e.salary.to_string())
 A related record shows through the resource it names, which applies the restriction:
 `RelationColumn::new::<R>` names the fields its closure reads, and `RelationColumn::of::<R>`
 shows the record's title. A declaration that would show a restricted record the panel cannot mask,
-such as `RelationColumn::unscoped`, fails to mount;
+such as `RelationColumn::unscoped`, fails to mount. So does a closure over the row beside a
+column loading such a record, unless it declares it reads only the row's own fields: it then reads
+a copy of the row without its relations, which the derived `ModelColumns` builds;
 [`FieldAccessFault`](https://y-l.fr/tablo/nightly/api/tablo/enum.FieldAccessFault.html) lists each case.
 
 ## Writes

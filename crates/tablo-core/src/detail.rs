@@ -102,6 +102,35 @@ impl<M> Detail<M> {
         self.nodes.extend(other.nodes);
     }
 
+    /// Have each column reading its row that declares it reads none of the row's relations read
+    /// `bare(row)`, a copy of the row without them, when a column loads one.
+    pub(crate) fn read_bare(&mut self, bare: fn(&M) -> M)
+    where
+        M: toasty::schema::Model + 'static,
+    {
+        fn walk<M: toasty::schema::Model + 'static>(nodes: &mut [Node<M>], bare: fn(&M) -> M) {
+            for node in nodes {
+                match node {
+                    Node::Column(column) => {
+                        *column = crate::column::bare_column(column.clone(), bare);
+                    }
+                    Node::Section(section) => walk(&mut section.children.nodes, bare),
+                    Node::Group(group) => walk(&mut group.children.nodes, bare),
+                    Node::Grid(grid) => walk(&mut grid.children.nodes, bare),
+                    Node::Tabs(tabs) => walk(&mut tabs.children.nodes, bare),
+                    Node::Tab(tab) => walk(&mut tab.children.nodes, bare),
+                }
+            }
+        }
+        let loads = self
+            .columns()
+            .iter()
+            .any(|column| !column.includes().into_vec().is_empty());
+        if loads {
+            walk(&mut self.nodes, bare);
+        }
+    }
+
     /// Every column, in the order the page renders them.
     pub(crate) fn columns(&self) -> Vec<&BoxColumn<M>> {
         fn walk<'d, M>(nodes: &'d [Node<M>], out: &mut Vec<&'d BoxColumn<M>>) {

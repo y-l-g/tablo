@@ -1,8 +1,8 @@
 //! A restricted field of a record stays hidden wherever the panel shows the record: on every
 //! resource over its model, through another resource's relation column, in a record title, in a
 //! key, in a count, in a computed column, in a widget's record table and in a relation an embedded
-//! value holds. The mount
-//! refuses a declaration that would show it anyway.
+//! value holds. The mount refuses a declaration that would show it anyway, and hands a closure over
+//! the row that declares it reads only the row's own fields a copy without the related records.
 
 mod resources;
 mod sources;
@@ -12,7 +12,7 @@ use tablo::{
     ComputedColumn, DeclarationErrorKind, FieldAccessFault, NoForm, Page, PageDef, ReadOnly,
     RecordTable, RelationColumn, Resource, ResourceDef, ResourcePage, Site, Table, Tenancy,
     TenantId, Widget, lens, relation,
-    testing::{columns, record_tables},
+    testing::{columns, detail_entries, record_tables, rows},
 };
 use toasty::Db;
 use topcoat::{
@@ -45,6 +45,18 @@ pub(super) struct Card {
     member_id: Uuid,
     #[belongs_to(key = member_id, references = id)]
     member: toasty::Deferred<Member>,
+}
+
+/// A card whose member loads eagerly, on every query.
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct EagerCard {
+    #[key]
+    #[auto]
+    id: Uuid,
+    #[index]
+    member_id: Uuid,
+    #[belongs_to(key = member_id, references = id)]
+    member: Member,
 }
 
 /// A relation to a member kept in an embedded value.
@@ -484,6 +496,47 @@ async fn an_undeclared_summary_beside_a_restricting_resource_is_refused() {
         "{errors:?}"
     );
 }
+
+/// A row color, a row link and a computed column declaring they read only the card's own fields
+/// read a copy of it without the member a sibling column loads, on the list and the detail page,
+/// so they mount beside the load and cannot reach the salary.
+#[tokio::test]
+async fn a_row_closure_reading_own_fields_mounts_beside_a_restricted_load() {
+    let db = db().await;
+    let card = card(&db, SALES).await;
+    let router = mount(
+        db.clone(),
+        panel()
+            .resource::<MemberResource>()
+            .resource::<OwnFieldsCard>(),
+    )
+    .expect("closures reading own fields mount beside the restricted load");
+    let sales = TestClient::new(&router).tenant(SALES);
+    let html = page(&sales, "/admin/own-cards").await;
+    let rows = rows(&html);
+    assert_eq!(rows.len(), 1, "{html}");
+    assert_eq!(rows[0].color.as_deref(), Some("info"), "{html}");
+    assert!(rows[0].cells.iter().any(|cell| cell == "false"), "{rows:?}");
+    assert_eq!(rows[0].actions.links, ["/cards/C-1"]);
+    assert!(
+        rows[0].cells.iter().any(|cell| cell == "Ada"),
+        "the relation column still reads the loaded member: {rows:?}"
+    );
+
+    let detail = page(&sales, &format!("/admin/own-cards/{}", card.id)).await;
+    let loaded = detail_entries(&detail)
+        .into_iter()
+        .find(|entry| entry.column == "loaded")
+        .expect("the detail page shows the computed column");
+    assert!(loaded.text.ends_with("false"), "{loaded:?}");
+}
+
+// A copy of a card without its deferred member leaves the member out; an eager member loads with
+// every card, so no copy leaves it out, and a closure over such a row is refused as before.
+const _: () = {
+    assert!(<Card as tablo::ModelColumns>::UNLOADS_RELATIONS);
+    assert!(!<EagerCard as tablo::ModelColumns>::UNLOADS_RELATIONS);
+};
 
 /// A count shows no field of the records it counts, so it mounts over a source that is not a
 /// resource and over a resource alike.

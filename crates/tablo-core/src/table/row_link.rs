@@ -33,6 +33,8 @@ pub struct RowLink<M> {
     pub(crate) new_tab: bool,
     /// The fields `url` reads, when declared.
     pub(super) reads: Option<Reads<M>>,
+    /// Whether `url` reads a copy of the row without its relations.
+    bare: bool,
 }
 
 impl<M> RowLink<M> {
@@ -49,6 +51,7 @@ impl<M> RowLink<M> {
             icon: None,
             new_tab: false,
             reads: None,
+            bare: false,
         }
     }
 
@@ -89,6 +92,25 @@ impl<M> Table<M> {
     /// The links each row shows.
     pub(crate) fn row_links(&self) -> &[RowLink<M>] {
         &self.row_links
+    }
+
+    /// Whether a row link reads the row's relations as loaded.
+    pub(crate) fn row_link_reads_row(&self) -> bool {
+        self.row_links.iter().any(|link| !link.bare)
+    }
+
+    /// Have each row link declaring it reads none of the row's relations read `bare(row)`.
+    pub(super) fn bare_row_links(&mut self, bare: fn(&M) -> M)
+    where
+        M: toasty::schema::Model + 'static,
+    {
+        for link in &mut self.row_links {
+            if crate::column::reads_own_fields(link.reads.as_ref()) {
+                let url = link.url.clone();
+                link.url = Arc::new(move |row: &M| url(&bare(row)));
+                link.bare = true;
+            }
+        }
     }
 
     /// Whether a row link does not declare what its URL reads.

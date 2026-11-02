@@ -46,7 +46,7 @@ pub enum FieldAccessFault {
     /// Declare `.reading(Reads::of(..))` on a `ComputedColumn`, a `QueryFilter`, a `Summary` or a
     /// described `TextColumn`, or implement `reads` on a custom column or filter.
     UndeclaredReads {
-        /// `"column"`, `"filter"`, `"tab"` or `"summary"`.
+        /// `"column"`, `"filter"`, `"tab"`, `"summary"`, `"row color"` or `"row link"`.
         what: &'static str,
         /// The column's or the filter's name.
         name: String,
@@ -56,7 +56,8 @@ pub enum FieldAccessFault {
     ///
     /// Show the records through a mounted resource: `RelationColumn::new::<R>` naming the fields it
     /// reads, `RelationColumn::of::<R>` for their title, or a relationship filter over the foreign
-    /// key.
+    /// key. A closure over the row that declares it reads only the row's own fields reads a copy
+    /// without its relations, which a page loading them does not refuse.
     UnmaskedRelation {
         /// The column's or the filter's name.
         name: String,
@@ -122,8 +123,9 @@ impl fmt::Display for FieldAccessFault {
                 "`{name}` reads `{model}` records under no mounted resource's field access, and a \
                  mounted resource restricts a field of `{model}`: read them through a resource, \
                  with `RelationColumn::new::<R>` naming the fields it reads or `RelationColumn::of::<R>` \
-                 for their title, and keep a computed or custom column, a text column's closure or a row \
-                 color off a page that loads them"
+                 for their title, and have a computed or custom column, a text column's closure, a row \
+                 color or a row link declare it reads only the row's own fields, or keep it off a \
+                 page that loads them"
             ),
             Self::NarrowedBy { field } => write!(
                 f,

@@ -13,6 +13,8 @@ pub(crate) struct RowColor<M> {
     color: Option<crate::column::ReadFn<M, Option<Color>>>,
     /// The fields `color` reads, when declared.
     pub(super) reads: Option<Reads<M>>,
+    /// Whether `color` reads a copy of the row without its relations.
+    bare: bool,
 }
 
 impl<M> Table<M> {
@@ -41,7 +43,10 @@ impl<M> Table<M> {
         self
     }
 
-    /// Declare the fields the [`row_color`](Self::row_color) reads.
+    /// Declare the fields the [`row_color`](Self::row_color) reads. A color declaring it reads
+    /// none of the row's relations, beside a column loading one, reads a copy of the row without
+    /// them, which [`ModelColumns`](crate::ModelColumns) builds: it then mounts beside a column
+    /// loading a record of a model a resource restricts a field of.
     pub fn row_color_reading(mut self, reads: Reads<M>) -> Self {
         self.row_color.reads = Some(reads);
         self
@@ -52,9 +57,23 @@ impl<M> Table<M> {
         self.row_color.color.as_ref().and_then(|color| color(row))
     }
 
-    /// Whether the table tints its rows.
-    pub(crate) fn tints_rows(&self) -> bool {
-        self.row_color.color.is_some()
+    /// Whether the table tints its rows by a color that reads the row's relations as loaded.
+    pub(crate) fn row_color_reads_row(&self) -> bool {
+        self.row_color.color.is_some() && !self.row_color.bare
+    }
+
+    /// Have the row color read `bare(row)` when it declares it reads none of the row's relations.
+    pub(super) fn bare_row_color(&mut self, bare: fn(&M) -> M)
+    where
+        M: toasty::schema::Model + 'static,
+    {
+        if !crate::column::reads_own_fields(self.row_color.reads.as_ref()) {
+            return;
+        }
+        if let Some(color) = self.row_color.color.take() {
+            self.row_color.color = Some(Arc::new(move |row: &M| color(&bare(row))));
+            self.row_color.bare = true;
+        }
     }
 
     /// Whether the table tints its rows by a color that does not declare what it reads.
