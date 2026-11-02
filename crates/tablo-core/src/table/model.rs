@@ -45,6 +45,25 @@ pub trait ModelColumns: Model + IntoExpr<Self> + Sized {
     fn version(&self) -> Option<u64> {
         None
     }
+
+    /// Whether [`unload_relations`](Self::unload_relations) unloads every relation the model
+    /// holds. The derive answers `true`; an impl by hand keeps this default unless it unloads them.
+    ///
+    /// A panel then hands a closure over the row that declares it reads none, such as a
+    /// [`row_color`](crate::Table::row_color), a copy of the row without them, so the closure
+    /// mounts beside a column loading a record of a model a resource restricts a field of.
+    const UNLOADS_RELATIONS: bool = false;
+
+    /// Unload each relation the record holds, leaving its own fields: the derive unloads each
+    /// `#[belongs_to]`, `#[has_many]` and `#[has_one]` field.
+    fn unload_relations(&mut self) {}
+}
+
+/// A copy of `row` without its relations: see [`ModelColumns::UNLOADS_RELATIONS`].
+pub(crate) fn bare<M: ModelColumns + Clone>(row: &M) -> M {
+    let mut row = row.clone();
+    row.unload_relations();
+    row
 }
 
 #[doc(hidden)]

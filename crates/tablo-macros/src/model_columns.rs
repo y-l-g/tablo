@@ -68,6 +68,16 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
             }
         }
     });
+    let relations: Vec<_> = named_fields(
+        &input,
+        "#[derive(ModelColumns)] derives on a `toasty::Model` struct",
+        None,
+    )?
+    .named
+    .iter()
+    .filter(|field| has(field, "belongs_to") || has(field, "has_many") || has(field, "has_one"))
+    .map(|field| field.ident.clone().expect("named field"))
+    .collect();
     let picks = quote! {
         #[allow(unused_imports)]
         use #pick::{
@@ -96,6 +106,12 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
             }
 
             #version
+
+            const UNLOADS_RELATIONS: bool = true;
+
+            fn unload_relations(&mut self) {
+                #(self.#relations.unload();)*
+            }
         }
     })
 }

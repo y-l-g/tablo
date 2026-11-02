@@ -325,10 +325,10 @@ pub(crate) fn check_columns<R: Resource>(
     }
     let table: Vec<_> = declared.table.declared_columns().iter().collect();
     let mut row_readers = Vec::new();
-    if declared.table.tints_rows() {
+    if declared.table.row_color_reads_row() {
         row_readers.push("row color");
     }
-    if !declared.table.row_links().is_empty() {
+    if declared.table.row_link_reads_row() {
         row_readers.push("row link");
     }
     check_page::<R>(cx, Site::Table, &table, &row_readers, errors);

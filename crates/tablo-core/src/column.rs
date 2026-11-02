@@ -128,6 +128,7 @@ fn sort_order<M, T>(path: &Path<M, T>, descending: bool) -> OrderByExpr {
 
 mod related;
 pub use related::Related;
+mod bare;
 mod boolean;
 mod cell;
 mod color;
@@ -146,6 +147,7 @@ mod repeater;
 mod rich_text;
 mod text;
 
+pub(crate) use bare::{bare_column, reads_own_fields};
 pub use boolean::BooleanColumn;
 pub(crate) use cell::link_href;
 pub use color::ColorColumn;

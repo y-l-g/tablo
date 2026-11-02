@@ -282,6 +282,24 @@ impl<M> Table<M> {
             .any(|column| !column.includes().into_vec().is_empty())
     }
 
+    /// Have each closure over the row that declares it reads none of the row's relations, its row
+    /// color, its row links and its columns, read `bare(row)`, a copy of the row without them, when
+    /// a column loads one: the page's loads then cannot reach the closure.
+    pub(crate) fn read_bare(&mut self, bare: fn(&M) -> M)
+    where
+        M: toasty::schema::Model + 'static,
+    {
+        if !self.includes_relations() {
+            return;
+        }
+        self.bare_row_color(bare);
+        self.bare_row_links(bare);
+        self.columns = std::mem::take(&mut self.columns)
+            .into_iter()
+            .map(|column| crate::column::bare_column(column, bare))
+            .collect();
+    }
+
     /// Check which related records `rows`, loaded through [`Self::include_relations`], hold that
     /// the columns' sources show the user.
     pub(crate) async fn restrict_relations(

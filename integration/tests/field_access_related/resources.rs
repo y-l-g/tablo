@@ -3,7 +3,8 @@
 
 use tablo::{
     Color, ComputedColumn, CountColumn, Detail, FieldAccess, NoForm, ReadOnly, Reads,
-    RelationColumn, Resource, ResourceDef, Summary, Table, Tenancy, TextColumn, lens, relation,
+    RelationColumn, Resource, ResourceDef, RowLink, Summary, Table, Tenancy, TextColumn, lens,
+    relation,
 };
 use topcoat::context::Cx;
 
@@ -369,5 +370,38 @@ impl Resource for TicketResource {
                 })
                 .include_unscoped(Ticket::fields().holder().assigned().member()),
             )))
+    }
+}
+
+/// A row color, a row link and a computed column declaring they read only the card's code, beside
+/// a column loading the member: each reads a copy of the card without the member, and says whether
+/// it holds one.
+pub(super) struct OwnFieldsCard;
+
+impl Resource for OwnFieldsCard {
+    type Model = Card;
+    type Form = NoForm<Card>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("own-cards")
+            .policy(ReadOnly)
+            .tenancy(Tenancy::column(Card::fields().tenant_id()))
+            .table(
+                Table::new((
+                    TextColumn::new(lens!(Card.code)),
+                    RelationColumn::of::<MemberResource>(relation!(Card.member)),
+                    ComputedColumn::new("Loaded", |c: &Card| (!c.member.is_unloaded()).to_string())
+                        .reading(Reads::of(lens!(Card.code))),
+                ))
+                .row_color(|c: &Card| c.member.is_unloaded().then_some(Color::Info))
+                .row_color_reading(Reads::of(lens!(Card.code)))
+                .row_link(
+                    RowLink::new("Open", |c: &Card| {
+                        c.member.is_unloaded().then(|| format!("/cards/{}", c.code))
+                    })
+                    .reading(Reads::of(lens!(Card.code))),
+                ),
+            )
     }
 }
