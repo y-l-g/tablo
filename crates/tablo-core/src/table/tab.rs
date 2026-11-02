@@ -63,9 +63,9 @@ impl<M> ListTab<M> {
         self
     }
 
-    /// Declare the fields the [`query`](Self::query) reads, which a resource restricting a field
-    /// with [`field_access`](crate::ResourceDef::field_access) needs: the tab shows only to a
-    /// user who may view every one.
+    /// Declare the fields the [`query`](Self::query) reads, which a panel needs once any of its
+    /// resources restricts a field with [`field_access`](crate::ResourceDef::field_access): the
+    /// tab shows only to a user who may view every one.
     pub fn reading(mut self, reads: Reads<M>) -> Self {
         self.reads = Some(reads);
         self

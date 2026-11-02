@@ -69,9 +69,9 @@ where
         self
     }
 
-    /// Declare the fields the predicates read, which a resource restricting a field with
-    /// [`field_access`](crate::ResourceDef::field_access) needs: the filter shows only to a user
-    /// who may view every one.
+    /// Declare the fields the predicates read, which a panel needs once any of its resources
+    /// restricts a field with [`field_access`](crate::ResourceDef::field_access): the filter shows
+    /// only to a user who may view every one.
     pub fn reading(mut self, reads: crate::lens::Reads<M>) -> Self {
         self.reads = Some(reads);
         self

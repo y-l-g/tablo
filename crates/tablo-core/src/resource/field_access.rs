@@ -183,7 +183,8 @@ impl FieldMask {
 
 /// What is wrong with `declared`'s field access: a lens naming no field, two declarations over one
 /// field, a rule over a primary key, a record title or a form watch reading a field a mounted
-/// resource over the model restricts, and a column or filter that does not say what it reads.
+/// resource over the model restricts, and a column, a row color or a row link that does not say
+/// what it reads.
 pub(crate) fn check<R: Resource>(
     cx: &Cx,
     declared: &Mounted<R>,
@@ -292,16 +293,6 @@ pub(crate) fn check<R: Resource>(
     }
     if declared.table.row_link_reads_undeclared() {
         faults.push((Site::Table, undeclared("row link", "row_link")));
-    }
-    for filter in declared.table.declared_filters() {
-        if filter.reads().is_none() {
-            faults.push((Site::Table, undeclared("filter", filter.name())));
-        }
-    }
-    for tab in declared.table.declared_tabs() {
-        if tab.reads().is_none() {
-            faults.push((Site::Table, undeclared("tab", tab.key())));
-        }
     }
     for column in declared.detail.undeclared_reads() {
         faults.push((Site::Detail, undeclared("column", column)));
@@ -455,8 +446,8 @@ pub(crate) fn check_choices<T: 'static, F>(
 }
 
 /// What `declared`'s filters, tabs and summaries show or read that no mount may: records under a
-/// label a panel cannot mask, and records a relation their reads reach holds, of a model a mounted
-/// resource restricts a field of.
+/// label a panel cannot mask, records a relation their reads reach holds, of a model a mounted
+/// resource restricts a field of, and a predicate that does not say what it reads.
 pub(crate) fn check_filters<R: Resource>(
     cx: &Cx,
     declared: &Mounted<R>,
@@ -467,6 +458,9 @@ pub(crate) fn check_filters<R: Resource>(
     }
     let mounted = |source| is_mounted(cx, source);
     let restricted = |model: model::ModelId| is_restricted_model(cx, model);
+    // A filter, a tab and a summary narrow or count the records, so a predicate that does not say
+    // what it reads could tell a field of any model a mounted resource restricts, not only this
+    // resource's own.
     for filter in declared.table.declared_filters() {
         let name = filter.name().to_string();
         let fault = if let Some(model) = filter.internals().unmasked_model(&mounted, &restricted) {
@@ -475,20 +469,28 @@ pub(crate) fn check_filters<R: Resource>(
                 model: model.to_string(),
             })
         } else {
-            relation_fault(cx, name, filter.reads())
+            match filter.reads() {
+                None => Some(FieldAccessFault::UndeclaredReads {
+                    what: "filter",
+                    name,
+                }),
+                reads => relation_fault(cx, name, reads),
+            }
         };
         errors.extend(fault.map(|fault| {
             DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
         }));
     }
     for tab in declared.table.declared_tabs() {
-        let fault = relation_fault(cx, tab.key().to_string(), tab.reads());
+        let name = tab.key().to_string();
+        let fault = match tab.reads() {
+            None => Some(FieldAccessFault::UndeclaredReads { what: "tab", name }),
+            reads => relation_fault(cx, name, reads),
+        };
         errors.extend(fault.map(|fault| {
             DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
         }));
     }
-    // A summary counts, so a predicate that does not say what it reads could count by a field of
-    // any model a mounted resource restricts, not only this resource's own.
     for summary in declared.table.declared_summaries() {
         let fault = match summary.reads() {
             None => Some(FieldAccessFault::UndeclaredReads {
