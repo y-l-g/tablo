@@ -173,11 +173,11 @@ pub use models::register_models;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::stored::Notifications;
 pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};
-pub use page::{Page, PageDef};
+pub use page::{Page, PageDef, PageFilter, PageFilters};
 pub use panel::{
     Brand, Panel, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open,
-    can_view_field, list_query, navigation_item, pages::header_action_buttons, record_table, stats,
-    url, widgets, wired_table,
+    can_view_field, list_query, navigation_item, page_filter_bar, page_filters,
+    pages::header_action_buttons, record_table, stats, url, widgets, wired_table,
 };
 pub use policy::{Abilities, Ability, Allow, And, Deny, Or, Policy, ReadOnly, When, when};
 pub use resource::{

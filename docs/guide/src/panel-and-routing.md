@@ -298,6 +298,13 @@ adds it to the page's grid, which the default `render` shows under the header:
   policy guard it, and it reruns with the list. `list_query::<R>(cx)` reads `R`'s records as the
   list shows them, under its tab, search and filters, so its figures follow what the reader
   narrows the list to; `db::count(cx, query)` counts them.
+- **Filters.** `PageDef::filter(PageFilter::select(..))` and `PageFilter::date_range(..)` add a
+  bar under the header, a form the page submits to itself that keeps each value in the query
+  string, so a filtered dashboard is a link. `page_filters(cx)` reads the values in a widget:
+  `.choice("channel")` is the option a select holds, and `.date_range("period")` the first and
+  last day a range holds, either one open. A filter narrows nothing itself: the widget decides
+  what a value means, and still reads its records through `scoped_query` or `list_query`. A page
+  that renders itself places `page_filter_bar::<Self>(cx)`.
 
 ### Rendering a page
 

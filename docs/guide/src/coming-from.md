@@ -49,6 +49,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | custom pages | a type implementing `Page`, registered by `Panel::page` |
 | a custom page using `InteractsWithRecord` | a type implementing [`RecordPage`](./detail-pages.md#record-pages), added by `ResourceDef::record_page` |
 | dashboard | `Panel::home::<P>()` |
+| dashboard filters (`HasFiltersForm`) | `PageDef::filter(PageFilter::..)`, read in a widget with `page_filters(cx)` |
 | `$navigationGroup`, `$navigationSort`, `$navigationIcon` | `navigation_group`, `navigation_order`, `icon` on the def |
 | `$shouldRegisterNavigation`, `shouldRegisterNavigation()` | `without_navigation()` on the def, which keeps the URLs and the policy |
 | `getNavigationBadge()` | `ResourceDef::navigation_badge(filter)`, or `NavigationItem::badge(text)` |

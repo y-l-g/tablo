@@ -180,6 +180,14 @@ pub enum DeclarationErrorKind {
         /// The shared name.
         name: String,
     },
+    /// A page's [filter](crate::PageFilter) shares its key with another, or its key is not a word
+    /// a query parameter carries: ASCII letters, digits, `-` and `_`.
+    ///
+    /// Give each filter a distinct key of those characters.
+    MisdeclaredPageFilter {
+        /// The key.
+        key: String,
+    },
     /// A column cannot edit its field in a table's cell.
     EditableColumn {
         /// The column's name, which is its field's.

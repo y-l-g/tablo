@@ -135,6 +135,13 @@ tablo-filter-ignored-invalid = valeur invalide
 tablo-filter-all = Tous
 tablo-filter-true = Vrai
 tablo-filter-false = Faux
+
+# A page's filter bar above its widgets.
+tablo-page-filters-apply = Appliquer
+tablo-page-filters-reset = Réinitialiser
+tablo-page-filter-from = { $label } à partir du
+tablo-page-filter-to = { $label } jusqu’au
+
 tablo-trash = Corbeille
 tablo-trash-without = Sans la corbeille
 tablo-trash-with = Avec la corbeille

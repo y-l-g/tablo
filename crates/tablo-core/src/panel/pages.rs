@@ -44,6 +44,7 @@ pub(super) fn declared_body(cx: &Cx, page: TypeId) -> BoxView<'_> {
         .as_ref()
         .map(|description| description.localize(cx));
     let buttons = header_buttons(cx, page, mounted);
+    let filters = filter_bar(cx, page, mounted);
     let grid = super::widgets::page_grid(cx, mounted);
     view! {
         cx =>
@@ -55,10 +56,47 @@ pub(super) fn declared_body(cx: &Cx, page: TypeId) -> BoxView<'_> {
                 }
                 tablo_ui::page_actions((buttons))
             )
+            if let Some(filters) = filters {
+                (filters)
+            }
             tablo_ui::page_content((grid))
         )
     }
     .boxed()
+}
+
+/// The filter bar of `mounted`, the page of type `page`; `None` when it declares no filter.
+fn filter_bar<'a>(cx: &'a Cx, page: TypeId, mounted: &MountedPage) -> Option<BoxView<'a>> {
+    let url = super::state::current(cx)?.urls.get(&page)?;
+    let held = crate::page::filters::read(&mounted.filters, &crate::table::request_query(cx));
+    super::page_filters::bar(cx, &mounted.filters, &held, url)
+}
+
+/// The filter bar of the page `P`, for a page that renders itself: a form holding each
+/// [`PageDef::filter`](crate::PageDef::filter)'s value, which submits to the page, so its widgets
+/// read the new values through [`page_filters`](crate::page_filters). The default
+/// [`Page::render`](crate::Page::render) places it under the header.
+///
+/// It renders nothing outside a request to `P`'s panel, for a request the panel's sign-in or
+/// [`PageDef::access`](crate::PageDef::access) refuses, and for a page declaring no filter.
+pub fn page_filter_bar<P: Page>(cx: &Cx) -> BoxView<'_> {
+    let page = TypeId::of::<P>();
+    mounted_admitted(cx, page)
+        .and_then(|mounted| filter_bar(cx, page, mounted))
+        .unwrap_or_else(|| ().boxed())
+}
+
+/// The registered page the request's path names, once the panel's sign-in and the page's access
+/// admit the request.
+pub(crate) fn current_page(cx: &Cx) -> Option<&Arc<MountedPage>> {
+    let panel = super::state::current(cx)?;
+    let path = topcoat::router::request::uri(cx)
+        .path()
+        .trim_end_matches('/');
+    let (page, _) = panel.urls.iter().find(|(page, url)| {
+        url.trim_end_matches('/') == path && panel.mounted_pages.contains_key(*page)
+    })?;
+    mounted_admitted(cx, *page)
 }
 
 /// The header buttons of `mounted`, the page of type `page`, that the request may run.

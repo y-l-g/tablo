@@ -17,6 +17,13 @@ a row of stats is a widget that renders `stats(cx, …)` over `Stat`s.
   render hook per spot of each page, taking a view function, was rejected: it renders
   synchronously, so it cannot read the database, and it repeats the access a widget already
   declares.
+- A page's filters are values in its query string, not state a widget holds. `PageDef::filter`
+  declares each one, the default render shows them as a form the page submits to itself, and a
+  widget reads them through `page_filters`, as a list widget reads `list_query`. A filtered page
+  is a link that works without JavaScript, and a filter adds no route. A value only says what to
+  show: it narrows nothing by itself, and a widget still reads its records through
+  `scoped_query`, so no value widens what the request may see. A select holds only one of its
+  options and a range only days that parse, so a hand-written query string reads as no value.
 - A widget reads its own data, as a page does. What counts a resource's records goes through
   `scoped_query` and asks `can_list` before it shows or links anything, which
   `Stat::records::<R>` does for the common tile.
@@ -33,5 +40,8 @@ a row of stats is a widget that renders `stats(cx, …)` over `Stat`s.
   per widget, and a runtime timer Topcoat does not have.
 - A chart library in the browser: a script Tablo ships, a second renderer of the data, and a page
   that draws nothing without JavaScript.
+- Dashboard filters as a form's state each widget holds and rerenders on, as Filament's
+  `HasFiltersForm` does: state per widget, a rerun Topcoat's runtime would have to route, and a
+  filtered view no link can carry.
 - A panel-wide widget registry, as Filament's dashboard reads: a page would show widgets it does
   not name. A resource's list names its own.

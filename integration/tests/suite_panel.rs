@@ -19,6 +19,7 @@ mod header_action;
 mod layouts;
 mod navigation;
 mod outcome;
+mod page_filters;
 mod pages;
 mod panel;
 mod record_pages;
