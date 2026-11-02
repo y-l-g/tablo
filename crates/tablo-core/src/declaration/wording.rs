@@ -113,6 +113,11 @@ impl fmt::Display for DeclarationErrorKind {
                 f,
                 "two widgets are named '{name}': each needs a distinct `WidgetDef::name`"
             ),
+            Self::MisdeclaredPageFilter { key } => write!(
+                f,
+                "page filter '{key}' shares its key with another, or its key is not ASCII \
+                 letters, digits, `-` and `_`: give each filter a distinct key of those"
+            ),
             Self::EditableColumn { column, fault } => fault.fmt(f, column),
             Self::ActionInput { action, fault } => fmt_action_input(f, action, fault),
             Self::SignUp(fault) => fault.fmt(f),

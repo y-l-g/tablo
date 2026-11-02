@@ -10,6 +10,7 @@ use topcoat::{
     view::{BoxView, View, ViewExt},
 };
 
+pub use self::filters::{PageFilter, PageFilters, page_filters};
 use crate::{
     HeaderAction, HeaderActions, Widget,
     naming::{kebab_case, sentence_case, type_stem},
@@ -122,6 +123,7 @@ pub struct PageDef {
     access: Arc<AccessFn>,
     header_actions: HeaderActions,
     widgets: WidgetGrid,
+    filters: Vec<PageFilter>,
 }
 
 impl PageDef {
@@ -260,6 +262,17 @@ impl PageDef {
         self
     }
 
+    /// Offers `filter` above the widgets, after the filters already declared: a value the page
+    /// keeps in its query string, which its widgets read through [`page_filters`]. The default
+    /// [`render`](Page::render) shows the filters' bar under the header; a page that renders
+    /// itself places [`page_filter_bar`](crate::page_filter_bar). Mounting refuses two filters
+    /// sharing a key, and a key that is not ASCII letters, digits, `-` and `_`.
+    #[must_use]
+    pub fn filter(mut self, filter: PageFilter) -> Self {
+        self.filters.push(filter);
+        self
+    }
+
     /// How many columns the widget grid has on a wide screen, from 1 to 4; defaults to 2. A
     /// medium screen shows at most two, a narrow one one.
     #[must_use]
@@ -283,6 +296,7 @@ impl Default for PageDef {
             access: Arc::new(|_| true),
             header_actions: HeaderActions::new(),
             widgets: WidgetGrid::default(),
+            filters: Vec::new(),
         }
     }
 }
@@ -314,6 +328,8 @@ pub(crate) struct MountedPage {
     access: Arc<AccessFn>,
     pub(crate) header_actions: HeaderActions,
     pub(crate) widgets: WidgetGrid,
+    /// The [`PageDef::filter`]s, in declaration order.
+    pub(crate) filters: Vec<PageFilter>,
 }
 
 impl MountedPage {
@@ -352,6 +368,7 @@ impl MountedPage {
             access: def.access,
             header_actions: def.header_actions,
             widgets: def.widgets,
+            filters: def.filters,
         }
     }
 
@@ -371,10 +388,21 @@ impl MountedPage {
 pub(crate) type PageCheck = Box<dyn Fn(&Cx, &mut Vec<crate::DeclarationError>) + Send>;
 
 /// Checks the header actions of `page`, the page `P` as the panel mounted it, as a resource's are,
-/// and that no two of its widgets share a name.
+/// that no two of its widgets share a name, and that its filters' keys are distinct query words.
 pub(crate) fn check_page<P: Page>(page: Arc<MountedPage>) -> PageCheck {
     Box::new(move |cx, errors| {
         page.widgets.check::<P>(errors);
+        let mut keys = std::collections::HashSet::new();
+        for filter in &page.filters {
+            if !filter.has_valid_key() || !keys.insert(filter.key()) {
+                errors.push(crate::DeclarationError::of::<P>(
+                    crate::declaration::Site::Registration,
+                    crate::DeclarationErrorKind::MisdeclaredPageFilter {
+                        key: filter.key().to_string(),
+                    },
+                ));
+            }
+        }
         crate::resource::check_inputs::<P>(
             cx,
             page.header_actions
@@ -386,5 +414,6 @@ pub(crate) fn check_page<P: Page>(page: Arc<MountedPage>) -> PageCheck {
     })
 }
 
+pub(crate) mod filters;
 #[cfg(test)]
 mod tests;

@@ -29,7 +29,7 @@ use std::path::PathBuf;
 
 use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 
-pub(crate) use self::bar::header_bar;
+pub(crate) use self::{bar::header_bar, pages::current_page};
 use self::{
     build::is_directory_pattern,
     register::{PageRegistration, Registration, ResourceRegistration},
@@ -39,6 +39,7 @@ pub use self::{
     build::{PanelHandle, RouterBuilderPanelExt},
     gate::{can_list, can_open, can_view_field},
     list::{WiredTable, list_query, wired_table},
+    pages::page_filter_bar,
     shell::Brand,
     widgets::{record_table, stats, widgets},
 };

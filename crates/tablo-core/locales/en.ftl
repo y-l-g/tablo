@@ -138,6 +138,13 @@ tablo-filter-ignored-invalid = invalid value
 tablo-filter-all = All
 tablo-filter-true = True
 tablo-filter-false = False
+
+# A page's filter bar above its widgets.
+tablo-page-filters-apply = Apply
+tablo-page-filters-reset = Reset
+tablo-page-filter-from = { $label } from
+tablo-page-filter-to = { $label } to
+
 tablo-trash = Trashed
 tablo-trash-without = Without trashed
 tablo-trash-with = With trashed
