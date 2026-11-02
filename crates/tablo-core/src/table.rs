@@ -29,6 +29,7 @@ mod row_link;
 mod search;
 mod sort;
 mod state;
+mod summary;
 mod tab;
 
 use self::sort::FieldOrder;
@@ -38,6 +39,7 @@ pub use self::{
     page::{DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, PagePosition, Pagination, TablePage},
     row_link::RowLink,
     state::{Cursor, Sort, TableState},
+    summary::Summary,
     tab::ListTab,
 };
 pub(crate) use self::{
@@ -124,6 +126,7 @@ pub struct Table<M> {
     row_color: row_color::RowColor<M>,
     row_links: Vec<RowLink<M>>,
     tabs: Vec<ListTab<M>>,
+    summaries: Vec<Summary<M>>,
     /// A row's key: its record's primary key, as its action URLs carry it.
     key: fn(&M) -> String,
     /// Whether a row's key resolves as a URL id; a composite key does not, so its rows carry no
@@ -191,6 +194,7 @@ impl<M> Table<M> {
             row_color: row_color::RowColor::default(),
             row_links: Vec::new(),
             tabs: Vec::new(),
+            summaries: Vec::new(),
             key: crate::toasty_compat::pk::pk_text::<M>,
             addressable: !crate::toasty_compat::pk::pk_is_composite::<M>(),
             page_size: DEFAULT_PAGE_SIZE,

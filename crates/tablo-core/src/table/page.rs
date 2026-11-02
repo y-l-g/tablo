@@ -60,6 +60,8 @@ pub struct TablePage<M> {
     /// How many rows each [badged](super::ListTab::badge) tab holds, by key; a tab missing here
     /// shows no count.
     pub tab_counts: Vec<(String, u64)>,
+    /// Each [summary](super::Summary)'s label and count, in declaration order; empty shows none.
+    pub summaries: Vec<(crate::Text, u64)>,
 }
 
 /// Where a page numbered by `?page=` sits in its result set.
@@ -93,6 +95,7 @@ impl<M> From<Vec<M>> for TablePage<M> {
             prev_cursor: None,
             position: None,
             tab_counts: Vec::new(),
+            summaries: Vec::new(),
         }
     }
 }
@@ -118,6 +121,7 @@ impl<M: toasty::schema::Model> TablePage<M> {
                 .transpose()?,
             position: None,
             tab_counts: Vec::new(),
+            summaries: Vec::new(),
         })
     }
 }
@@ -150,6 +154,7 @@ where
     ) -> Result<Self> {
         let refused = table.refused_filters(cx, state).await?;
         let tab_counts = table.tab_counts(cx, &query, state, &refused).await?;
+        let summaries = table.summary_counts(cx, &query, state, &refused).await?;
         let mut page = match table.pagination_mode() {
             Pagination::Pages => Self::load_numbered(cx, table, query, state, &refused, true).await,
             Pagination::Simple => {
@@ -161,6 +166,7 @@ where
             .restrict_relations(cx, &page.rows, &mut crate::db::db(cx)?)
             .await?;
         page.tab_counts = tab_counts;
+        page.summaries = summaries;
         Ok(page)
     }
 
@@ -244,6 +250,7 @@ where
                 has_next,
             }),
             tab_counts: Vec::new(),
+            summaries: Vec::new(),
         })
     }
 
@@ -269,6 +276,7 @@ where
                 prev_cursor: None,
                 position: None,
                 tab_counts: Vec::new(),
+                summaries: Vec::new(),
             });
         }
         let query = table.include_relations(base_query.clone());

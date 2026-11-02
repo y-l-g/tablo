@@ -271,6 +271,21 @@ tab. A tab whose predicate reads a field declares it with `.reading(..)`, as a `
 does, so that [field access](./resources.md#field-access) hides the tab from a user who may not view
 the field. [`ListTab`](https://y-l.fr/tablo/nightly/api/tablo/struct.ListTab.html) has the rules.
 
+## Summaries
+
+A summary counts records under the rows: every record the list selects, or those a predicate
+selects among them.
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-summaries}}
+```
+
+It counts in the database under the current tab, search and filters, across every page, one
+query per summary each time the list renders. A summary whose predicate reads a field declares it
+with `.reading(..)`, as a tab does. [`Summary`](https://y-l.fr/tablo/nightly/api/tablo/struct.Summary.html)
+has the rules. Toasty offers no other aggregate yet, so a summary only counts: a sum or an average
+over the whole query waits for it.
+
 ## Grouping
 
 ```rust

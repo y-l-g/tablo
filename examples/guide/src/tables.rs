@@ -39,6 +39,14 @@ pub fn post_table() -> Table<Post> {
             .badge(),
     )
     // ANCHOR_END: table-tabs
+    // ANCHOR: table-summaries
+    .summary(Summary::count("Posts"))
+    .summary(
+        Summary::count("Featured")
+            .query(Post::fields().featured().eq(true))
+            .reading(lens!(Post.featured).into()),
+    )
+    // ANCHOR_END: table-summaries
     // ANCHOR: table-group-by
     .group_by(lens!(Post.status))
     .group_by(lens!(Post.featured))

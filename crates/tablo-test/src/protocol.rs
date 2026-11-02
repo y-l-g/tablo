@@ -15,6 +15,7 @@ mod rich_text;
 mod search;
 mod sections;
 mod sidebar;
+mod summaries;
 mod tabs;
 mod widgets;
 
@@ -35,6 +36,7 @@ pub use rich_text::rich_text_values;
 pub use search::{SearchGroup, SearchResult, search_box, search_results};
 pub use sections::{Section, sections};
 pub use sidebar::{nav_badge, nav_links};
+pub use summaries::{SummaryFigure, summaries};
 use tablo_core::Notification;
 pub use tabs::{Tab, tabs};
 use topcoat::router::Body;

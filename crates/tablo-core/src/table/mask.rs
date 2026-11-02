@@ -14,7 +14,8 @@ impl<M> Table<M> {
     }
 
     /// This table as `cx` reads it, without what reads one of the `hidden` fields: its columns,
-    /// filters, tabs, groupings, row color and row links, and a default sort on a column or field
+    /// filters, tabs, summaries, groupings, row color and
+    /// row links, and a default sort on a column or field
     /// it drops. A search, a sort or a filter naming one then matches nothing the table
     /// declares, as one naming an unknown column does. It drops a column showing a field of a
     /// related record its resource hides from `cx` too.
@@ -25,6 +26,9 @@ impl<M> Table<M> {
             .retain(|column| crate::column::shows(cx, &**column, hidden));
         table.filters.retain(|filter| shows(filter.reads(), hidden));
         table.tabs.retain(|tab| shows(tab.reads(), hidden));
+        table
+            .summaries
+            .retain(|summary| shows(summary.reads(), hidden));
         table
             .groupings
             .retain(|group| shows(Some(group.reads()), hidden));

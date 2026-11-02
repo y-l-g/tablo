@@ -303,6 +303,11 @@ pub(crate) fn check<R: Resource>(
             faults.push((Site::Table, undeclared("tab", tab.key())));
         }
     }
+    for summary in declared.table.declared_summaries() {
+        if summary.reads().is_none() {
+            faults.push((Site::Table, undeclared("summary", &summary.name())));
+        }
+    }
     for column in declared.detail.undeclared_reads() {
         faults.push((Site::Detail, undeclared("column", column)));
     }
@@ -454,9 +459,9 @@ pub(crate) fn check_choices<T: 'static, F>(
     }
 }
 
-/// What `declared`'s filters and tabs show or read that no mount may: records under a label a
-/// panel cannot mask, and records a relation the filter's or the tab's reads reach holds, of a
-/// model a mounted resource restricts a field of.
+/// What `declared`'s filters, tabs and summaries show or read that no mount may: records under a
+/// label a panel cannot mask, and records a relation their reads reach holds, of a model a mounted
+/// resource restricts a field of.
 pub(crate) fn check_filters<R: Resource>(
     cx: &Cx,
     declared: &Mounted<R>,
@@ -487,10 +492,16 @@ pub(crate) fn check_filters<R: Resource>(
             DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
         }));
     }
+    for summary in declared.table.declared_summaries() {
+        let fault = relation_fault(cx, summary.name(), summary.reads());
+        errors.extend(fault.map(|fault| {
+            DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
+        }));
+    }
 }
 
-/// The relation a filter's or a tab's `reads`, named `name`, reach that no mount may read: one
-/// whose model a mounted resource restricts a field of, or one the mount cannot resolve.
+/// The relation a filter's, a tab's or a summary's `reads`, named `name`, reach that no mount may
+/// read: one whose model a mounted resource restricts a field of, or one the mount cannot resolve.
 fn relation_fault<M: toasty::schema::Model>(
     cx: &Cx,
     name: String,
