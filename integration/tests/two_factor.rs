@@ -225,9 +225,12 @@ async fn an_authenticator_code_signs_in_once() {
         422,
         "the set-up's code is spent"
     );
-    assert_eq!(answer(&challenged, &code(&secret, 1)).await.status(), 303);
+    // One code for both answers: computed twice, a step boundary between them would yield an
+    // unspent one.
+    let next = code(&secret, 1);
+    assert_eq!(answer(&challenged, &next).await.status(), 303);
     let again = password(&router).await;
-    assert_eq!(answer(&again, &code(&secret, 1)).await.status(), 422);
+    assert_eq!(answer(&again, &next).await.status(), 422);
 }
 
 /// A code typed as an app shows it, in two groups of three, signs in.
