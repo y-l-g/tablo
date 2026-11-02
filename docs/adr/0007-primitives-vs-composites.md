@@ -14,6 +14,10 @@ Styling stays per app: the app owns `styles.css` and its `tablo_build::tailwind(
 default tokens ship in `tablo-build`, which imports them after Tailwind and before the app's file,
 so `styles.css` holds only the tokens the app redeclares. There is no `Panel::theme`.
 
+An app on the default theme that writes no Tailwind classes of its own may skip that build:
+`tablo-ui` ships the same build over Tablo's sources alone, prebuilt, as `DEFAULT_STYLESHEET`. A
+showcase test fails when the committed copy drifts from what Tablo's sources build.
+
 ## Rejected
 
 - Two crates, one per half: crate proliferation.

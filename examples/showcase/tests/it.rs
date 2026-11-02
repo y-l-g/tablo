@@ -19,6 +19,7 @@ mod cell;
 mod choice_create;
 mod create;
 mod csrf;
+mod default_stylesheet;
 mod delete;
 mod detail;
 mod edit;

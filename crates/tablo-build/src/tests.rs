@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use super::{THEME, imports_tailwind, input_css, source_dirs};
+use super::{THEME, default_input_css, imports_tailwind, input_css, source_dirs};
 
 #[test]
 fn source_dirs_reads_the_facade_pair_and_each_crate() {
@@ -41,6 +41,19 @@ fn input_imports_tailwind_the_theme_and_the_app_stylesheet_then_sources_each_dir
         css,
         "@import \"tailwindcss\";\n@import \"/out/tablo-theme.css\";\n@import \
          \"/app/styles.css\";\n@source \"/cargo/tablo-core/src/**/*.rs\";\n"
+    );
+}
+
+#[test]
+fn the_default_input_scans_tablos_sources_alone() {
+    let css = default_input_css(
+        Path::new("/out/tablo-theme.css"),
+        &[PathBuf::from("/cargo/tablo-ui/src")],
+    );
+    assert_eq!(
+        css,
+        "@import \"tailwindcss\" source(none);\n@import \"/out/tablo-theme.css\";\n@source \
+         \"/cargo/tablo-ui/src/**/*.rs\";\n"
     );
 }
 

@@ -5,7 +5,6 @@ use topcoat::{
     asset::{AssetBundle, RouterBuilderAssetExt},
     font::{Font, fontsource::fontsource_font},
     router::{Router, RouterBuilder, RouterBuilderDiscoverExt},
-    tailwind,
 };
 
 const GEIST: Font = fontsource_font!(GEIST, host: Asset);
@@ -55,7 +54,7 @@ async fn main() -> Result<()> {
     let router = match AssetBundle::load() {
         Ok(bundle) => router(db)
             .assets(bundle)
-            .panel(panel().shell_assets(tailwind::stylesheet!(), GEIST))?,
+            .panel(panel().shell_assets(tablo::ui::DEFAULT_STYLESHEET, GEIST))?,
         Err(error) => {
             eprintln!("no asset bundle ({error}): serving the unstyled shell");
             router(db).panel(panel())?
@@ -70,26 +69,6 @@ mod tests {
     use tablo::{RouterBuilderPanelExt, testing::TestClient};
 
     use super::{connect, panel, router};
-
-    const STYLESHEET: &str = include_str!(concat!(env!("OUT_DIR"), "/tailwind.css"));
-
-    #[test]
-    fn the_stylesheet_holds_classes_only_tablo_writes() {
-        // Tablo writes `tabular-nums` from its column and pager sources, so Tailwind's scan of
-        // those sources must have emitted its rule.
-        assert!(
-            STYLESHEET.contains(".tabular-nums{"),
-            "tabular-nums is missing"
-        );
-    }
-
-    #[test]
-    fn the_stylesheet_carries_tablos_default_theme() {
-        for token in ["--primary:", "--sidebar-accent:"] {
-            assert!(STYLESHEET.contains(token), "{token} is missing");
-        }
-        assert!(STYLESHEET.contains(".dark{"), "the dark tokens are missing");
-    }
 
     #[tokio::test]
     async fn the_panel_serves_its_login_page_and_gates_the_list() {

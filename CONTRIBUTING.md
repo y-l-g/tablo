@@ -14,7 +14,7 @@ be accepted before the implementation PR.
 | `crates/tablo-macros` | the `ModelColumns`, `RecordForm`, `ModelForm`, `EmbeddedForm`, `FormInput` and `Options` derives |
 | `crates/tablo-ui` | `primitives/` synced from `topcoat-ui-registry`, `composites/` owned here |
 | `crates/tablo-test` | the in-memory HTTP client, re-exported as `tablo::testing` |
-| `crates/tablo-build` | `tailwind()`, the app's Tailwind build over Tablo's sources |
+| `crates/tablo-build` | `tailwind()`, the app's Tailwind build over Tablo's sources; the hidden `default_stylesheet()` regenerates `tablo-ui`'s prebuilt `assets/tablo.css` (`TABLO_BLESS=1 cargo test -p showcase --test it default_stylesheet`) |
 | `examples/showcase` | the runnable admin and the suite over its resources |
 | `examples/guide` | the guide's compiled snippets, included by `docs/guide/` |
 | `integration` | the integration suite over test-local models, unpublished |

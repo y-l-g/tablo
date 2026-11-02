@@ -6,16 +6,17 @@ publish = false
 description = "The smallest complete Tablo app, built as a dependent outside the workspace would build it."
 
 # Detached from the Tablo workspace on purpose: the app depends on Tablo the way
-# an app in its own repository does, through the `tablo` facade and
-# `tablo-build`. `cargo xtask external-check` copies it out of the repository,
-# rewrites its `path` dependencies to absolute ones, and runs its tests there,
-# so a path that only resolves inside this repository fails the check.
+# an app in its own repository does, through the `tablo` facade, and links the
+# stylesheet `tablo-ui` ships, so it has no build script. `cargo xtask
+# external-check` copies it out of the repository, rewrites its `path`
+# dependencies to absolute ones, and runs its tests there, so a path that only
+# resolves inside this repository fails the check.
 [workspace]
 
 [dependencies]
 tablo = { path = "../../crates/tablo", features = ["sqlite"] }
 # ANCHOR: upstream
-topcoat = { version = "0.11", default-features = false, features = ["view", "router", "discover", "serve", "tailwind", "font", "font-fontsource", "asset"] }
+topcoat = { version = "0.11", default-features = false, features = ["view", "router", "discover", "serve", "font", "font-fontsource", "asset"] }
 toasty = { version = "0.11", default-features = false, features = ["jiff"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = "1.23"
@@ -23,9 +24,6 @@ uuid = "1.23"
 
 [dev-dependencies]
 tablo = { path = "../../crates/tablo", features = ["sqlite", "testing"] }
-
-[build-dependencies]
-tablo-build = { path = "../../crates/tablo-build" }
 
 [lints.rust]
 unsafe_code = "deny"
