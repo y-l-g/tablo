@@ -154,7 +154,7 @@ where
     ) -> Result<Self> {
         let refused = table.refused_filters(cx, state).await?;
         let tab_counts = table.tab_counts(cx, &query, state, &refused).await?;
-        let summaries = table.summary_counts(cx, &query, state, &refused).await?;
+        let scope = query.clone();
         let mut page = match table.pagination_mode() {
             Pagination::Pages => Self::load_numbered(cx, table, query, state, &refused, true).await,
             Pagination::Simple => {
@@ -166,7 +166,13 @@ where
             .restrict_relations(cx, &page.rows, &mut crate::db::db(cx)?)
             .await?;
         page.tab_counts = tab_counts;
-        page.summaries = summaries;
+        // An empty page shows no summary, so it counts none.
+        if !page.rows.is_empty() {
+            let total = page.position.and_then(|position| position.total);
+            page.summaries = table
+                .summary_counts(cx, &scope, state, &refused, total)
+                .await?;
+        }
         Ok(page)
     }
 

@@ -3,7 +3,7 @@
 
 use tablo::{
     Color, ComputedColumn, CountColumn, Detail, FieldAccess, NoForm, ReadOnly, Reads,
-    RelationColumn, Resource, ResourceDef, Table, Tenancy, TextColumn, lens, relation,
+    RelationColumn, Resource, ResourceDef, Summary, Table, Tenancy, TextColumn, lens, relation,
 };
 use topcoat::context::Cx;
 
@@ -218,6 +218,24 @@ impl Resource for TooltipCard {
                     .reading(Reads::of(Card::fields().member())),
                 RelationColumn::of::<MemberResource>(relation!(Card.member)),
             )))
+    }
+}
+
+/// A count of the cards whose member holds a salary, with no word on what its predicate reads.
+pub(super) struct CountedCard;
+
+impl Resource for CountedCard {
+    type Model = Card;
+    type Form = NoForm<Card>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("counted-cards")
+            .policy(ReadOnly)
+            .tenancy(Tenancy::column(Card::fields().tenant_id()))
+            .table(Table::new(TextColumn::new(lens!(Card.code))).summary(
+                Summary::count("High").query(Card::fields().member().salary().eq("S-900")),
+            ))
     }
 }
 

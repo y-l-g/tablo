@@ -303,11 +303,6 @@ pub(crate) fn check<R: Resource>(
             faults.push((Site::Table, undeclared("tab", tab.key())));
         }
     }
-    for summary in declared.table.declared_summaries() {
-        if summary.reads().is_none() {
-            faults.push((Site::Table, undeclared("summary", &summary.name())));
-        }
-    }
     for column in declared.detail.undeclared_reads() {
         faults.push((Site::Detail, undeclared("column", column)));
     }
@@ -492,8 +487,16 @@ pub(crate) fn check_filters<R: Resource>(
             DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
         }));
     }
+    // A summary counts, so a predicate that does not say what it reads could count by a field of
+    // any model a mounted resource restricts, not only this resource's own.
     for summary in declared.table.declared_summaries() {
-        let fault = relation_fault(cx, summary.name(), summary.reads());
+        let fault = match summary.reads() {
+            None => Some(FieldAccessFault::UndeclaredReads {
+                what: "summary",
+                name: summary.name(),
+            }),
+            reads => relation_fault(cx, summary.name(), reads),
+        };
         errors.extend(fault.map(|fault| {
             DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
         }));

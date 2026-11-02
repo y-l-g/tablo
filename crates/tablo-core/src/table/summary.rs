@@ -11,7 +11,10 @@ use crate::{Text, lens::Reads};
 /// search and filters, across every page, or how many of those a predicate selects.
 ///
 /// A summary counts in the database, one count query per summary each time the list renders,
-/// so it reads the whole result set, not the page it shows. Like a [`ListTab`](super::ListTab),
+/// so it reads the whole result set, not the page it shows: mind the cost on a
+/// [`Pagination::Cursor`](super::Pagination::Cursor) list too large to count. A summary with no
+/// predicate reuses the count a [`Pagination::Pages`](super::Pagination::Pages) list takes for
+/// its pager, and a list showing no rows counts nothing. Like a [`ListTab`](super::ListTab),
 /// it is not access control: a summary whose predicate reads a field
 /// [`field_access`](crate::ResourceDef::field_access) hides from the user does not show to them.
 ///
@@ -53,9 +56,9 @@ impl<M> Summary<M> {
         self
     }
 
-    /// Declare the fields the [`query`](Self::query) reads, which a resource restricting a field
-    /// with [`field_access`](crate::ResourceDef::field_access) needs: the summary shows only to a
-    /// user who may view every one.
+    /// Declare the fields the [`query`](Self::query) reads, which a panel needs once any of its
+    /// resources restricts a field with [`field_access`](crate::ResourceDef::field_access): the
+    /// summary shows only to a user who may view every one.
     pub fn reading(mut self, reads: Reads<M>) -> Self {
         self.reads = Some(reads);
         self
@@ -89,7 +92,8 @@ impl<M> Table<M> {
     }
 
     /// Each summary's label and how many rows of `query` it counts under `state`'s tab, search
-    /// and filters, but the `refused` filters: one count query per summary, in declaration order.
+    /// and filters, but the `refused` filters: one count query per summary, in declaration order,
+    /// but a summary with no predicate, which takes `total` when the pager counted the same rows.
     ///
     /// # Errors
     ///
@@ -100,6 +104,7 @@ impl<M> Table<M> {
         query: &Query<List<M>>,
         state: &TableState,
         refused: &[String],
+        total: Option<u64>,
     ) -> Result<Vec<(Text, u64)>>
     where
         M: toasty::schema::Model,
@@ -111,9 +116,13 @@ impl<M> Table<M> {
         let mut db = crate::db::db(cx)?;
         let narrowed = self.narrow(cx, &db, query.clone(), state, refused);
         for summary in &self.summaries {
-            let rows = match &summary.query {
-                Some(predicate) => narrowed.clone().filter(predicate.clone()),
-                None => narrowed.clone(),
+            let rows = match (&summary.query, total) {
+                (None, Some(total)) => {
+                    counts.push((summary.label.clone(), total));
+                    continue;
+                }
+                (Some(predicate), _) => narrowed.clone().filter(predicate.clone()),
+                (None, None) => narrowed.clone(),
             };
             let count = crate::toasty_compat::count(rows, &mut db)
                 .await
