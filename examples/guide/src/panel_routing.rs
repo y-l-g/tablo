@@ -8,7 +8,6 @@ use topcoat::{
     context::Cx,
     font::{Font, fontsource::fontsource_font},
     router::{Router, RouterBuilderDiscoverExt, Slot, layout, page},
-    tailwind,
     view::*,
 };
 
@@ -298,6 +297,6 @@ pub const GEIST: Font = fontsource_font!(GEIST, host: Asset);
 // ANCHOR: panel-assets-body
 pub fn asset_panel(db: Db, bundle: AssetBundle) -> Panel {
     let _router = Router::builder().discover().with(db).assets(bundle);
-    Panel::new("admin").shell_assets(tailwind::stylesheet!(), GEIST)
+    Panel::new("admin").shell_assets(tablo::ui::DEFAULT_STYLESHEET, GEIST)
 }
 // ANCHOR_END: panel-assets-body

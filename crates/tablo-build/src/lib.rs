@@ -9,6 +9,9 @@
 //!
 //! The package must depend on `tablo` (or on `tablo-core` and `tablo-ui`) as a
 //! normal dependency, and name this crate under `[build-dependencies]`.
+//!
+//! An app on the default theme that writes no Tailwind classes of its own needs no build:
+//! `tablo-ui`'s `DEFAULT_STYLESHEET` is Tablo's sources built on the default theme.
 
 use std::{
     env,
@@ -139,6 +142,35 @@ pub fn tailwind() -> Result<PathBuf, Error> {
         .render()?)
 }
 
+/// The file [`default_stylesheet`] writes in `OUT_DIR`.
+#[doc(hidden)]
+pub const DEFAULT_STYLESHEET: &str = "tablo-default.css";
+
+/// Builds Tablo's prebuilt stylesheet, `tablo-ui`'s `DEFAULT_STYLESHEET`: Tailwind over Tablo's
+/// sources alone, on the default theme, written to `$OUT_DIR/`[`DEFAULT_STYLESHEET`]. Tablo's
+/// repository regenerates its committed copy with it; an app runs [`tailwind`].
+///
+/// # Errors
+///
+/// As [`tailwind`], less the stylesheet's.
+#[doc(hidden)]
+pub fn default_stylesheet() -> Result<PathBuf, Error> {
+    let out_dir = PathBuf::from(var("OUT_DIR")?);
+    let sources = source_dirs(|name| env::var_os(name));
+    if sources.is_empty() {
+        return Err(Error::NoSources);
+    }
+    let theme = out_dir.join("tablo-theme.css");
+    write_if_changed(&theme, THEME)?;
+    let input = out_dir.join("tablo-default-input.css");
+    write_if_changed(&input, &default_input_css(&theme, &sources))?;
+    Ok(topcoat::tailwind::BuildConfig::new()
+        .input(input)
+        .output(out_dir.join(DEFAULT_STYLESHEET))
+        .cwd(out_dir)
+        .render()?)
+}
+
 fn var(name: &'static str) -> Result<OsString, Error> {
     env::var_os(name).ok_or(Error::NotABuildScript(name))
 }
@@ -176,6 +208,19 @@ fn input_css(theme: &Path, stylesheet: &Path, sources: &[PathBuf]) -> String {
         "@import \"tailwindcss\";\n@import {};\n@import {};\n",
         css_string(theme),
         css_string(stylesheet)
+    );
+    for dir in sources {
+        css.push_str(&format!("@source {};\n", css_string(&dir.join("**/*.rs"))));
+    }
+    css
+}
+
+/// Tailwind with its own source detection off, then the theme, then Tablo's sources alone: the
+/// output holds no class of the package that builds it.
+fn default_input_css(theme: &Path, sources: &[PathBuf]) -> String {
+    let mut css = format!(
+        "@import \"tailwindcss\" source(none);\n@import {};\n",
+        css_string(theme)
     );
     for dir in sources {
         css.push_str(&format!("@source {};\n", css_string(&dir.join("**/*.rs"))));

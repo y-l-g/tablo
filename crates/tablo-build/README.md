@@ -3,6 +3,9 @@
 Build-script helper that runs the app's Tailwind build over Tablo's own sources, so the stylesheet
 carries the classes only Tablo writes.
 
+An app that keeps Tablo's default theme and writes no Tailwind classes of its own needs none of
+this: `tablo::ui::DEFAULT_STYLESHEET` is the same build, prebuilt.
+
 ```sh
 cargo add --build tablo-build
 ```

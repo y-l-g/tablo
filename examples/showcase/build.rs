@@ -3,7 +3,9 @@ fn main() {
     // which adds Tablo's own sources and watches them. See ADR-0007.
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src");
-    // Try to build Tailwind; on failure (e.g. offline) create empty fallback so `cargo test` stays
+    let out_dir = std::env::var("OUT_DIR").expect("cargo sets OUT_DIR");
+    let out_dir = std::path::Path::new(&out_dir);
+    // Try to build Tailwind; on failure (e.g. offline) create empty fallbacks so `cargo test` stays
     // green.
     match tablo_build::tailwind() {
         Ok(_) => {}
@@ -13,10 +15,18 @@ fn main() {
                 "cargo::warning=tablo_build::tailwind failed: {e} - creating empty stylesheet for \
                  offline build"
             );
-            let out_dir = std::env::var("OUT_DIR").expect("cargo sets OUT_DIR");
-            let out = std::path::Path::new(&out_dir).join("tailwind.css");
-            std::fs::write(out, "/* tailwind build failed - offline */\n")
-                .expect("the fallback stylesheet is written");
+            std::fs::write(
+                out_dir.join("tailwind.css"),
+                "/* tailwind build failed - offline */\n",
+            )
+            .expect("the fallback stylesheet is written");
         }
+    }
+    // Tablo's prebuilt stylesheet, which `tests/default_stylesheet.rs` compares with the copy
+    // `tablo-ui` ships. Empty when the build fails, which the test reads as offline.
+    if let Err(e) = tablo_build::default_stylesheet() {
+        println!("cargo::warning=tablo_build::default_stylesheet failed: {e}");
+        std::fs::write(out_dir.join(tablo_build::DEFAULT_STYLESHEET), "")
+            .expect("the empty default stylesheet is written");
     }
 }

@@ -78,6 +78,10 @@ pub use components::{
     },
 };
 
+/// Tablo's prebuilt stylesheet: Tailwind over Tablo's own sources on the default theme, for
+/// `Panel::shell_assets`. It styles every panel page and none of the app's own classes; an app
+/// that changes a token or writes Tailwind classes builds its own with `tablo_build::tailwind()`.
+pub const DEFAULT_STYLESHEET: topcoat::asset::Asset = topcoat::asset::asset!("../assets/tablo.css");
 pub const SIDEBAR_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/sidebar.js");
 pub const THEME_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/theme.js");
 pub const SELECTS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/selects.js");

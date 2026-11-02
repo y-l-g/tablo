@@ -15,7 +15,7 @@ lists each one. This chapter covers what goes wrong once the panel mounts.
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | pages render unstyled, and delete confirmations do not open | the router has no asset bundle, or the panel no `shell_assets` | install both: [Assets](./panel-and-routing.md#assets) |
-| a Tailwind class in your own page has no style | the stylesheet scans only the sources `styles.css` names | add an `@source` line for them |
+| a Tailwind class in your own page has no style | Tablo's prebuilt stylesheet holds only Tablo's classes, and an app's own scans only the sources `styles.css` names | build the app's own stylesheet ([The stylesheet](./first-panel.md#the-stylesheet)), and add an `@source` line for them |
 | a page renders a document inside a document | the app declares its own `#[layout]` at the panel prefix | drop it, and frame pages with `Panel::layout` |
 | a resource is missing from the sidebar | its policy does not allow `ViewAny` for this user | allow `ViewAny`; see [Policy](./policy-auth-tenancy.md#policy) |
 | no Create button, or the create page answers 403 | the policy does not allow `Create`, or the resource's `Form` is `NoForm` | allow `Create` and name a record form |

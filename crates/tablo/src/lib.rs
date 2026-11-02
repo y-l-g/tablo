@@ -7,9 +7,6 @@
     "```toml\n",
     "[dependencies]\n",
     "tablo = { version = \"", env!("CARGO_PKG_VERSION"), "\", features = [\"sqlite\"] }\n",
-    "\n",
-    "[build-dependencies]\n",
-    "tablo-build = \"", env!("CARGO_PKG_VERSION"), "\"\n",
     "```\n",
 )]
 //!

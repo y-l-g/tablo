@@ -24,14 +24,16 @@ topcoat dev -p showcase
 when a source file changes. `cargo run -p showcase` alone stops with an error: it finds no asset
 bundle.
 
-Depend on the `tablo` facade, pick a database driver, and build the stylesheet with `tablo-build`
-(the [first-panel chapter](https://y-l.fr/tablo/nightly/guide/first-panel.html) has the full manifest, including the
+Depend on the `tablo` facade and pick a database driver (the
+[first-panel chapter](https://y-l.fr/tablo/nightly/guide/first-panel.html) has the full manifest, including the
 `topcoat` and `toasty` pins):
 
 ```sh
 cargo add tablo --features sqlite
-cargo add --build tablo-build
 ```
+
+The panel styles itself with Tablo's prebuilt stylesheet. To change the theme or style your own
+pages with Tailwind, build the stylesheet with `tablo-build` instead (`cargo add --build tablo-build`).
 
 `sqlite`, `postgresql`, `mysql` and `turso` each turn on Toasty's driver of the same name; the
 toolkit enables none of them itself, and the `testing` feature adds the in-memory client

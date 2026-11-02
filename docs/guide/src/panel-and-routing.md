@@ -318,7 +318,7 @@ The `tablo::ui` composites give a page the same frame as the panel's own pages: 
 width and padding; `page_header` holds a `page_title`, an optional `page_description` and optional
 `page_actions`; `page_content` holds the body. Inside it, use `card` for a panel of content, `stat`
 for a dashboard figure, and `empty_state` for a region with nothing to show. They are styled by the
-design tokens (`--card`, `--border`, `--primary`, …) that your `styles.css` overrides, so one theme
+design tokens (`--card`, `--border`, `--primary`, …) that a `styles.css` overrides, so one theme
 restyles the panel's pages and yours.
 
 ## Public pages
@@ -360,8 +360,8 @@ tenant predicate. See [Data access](./data-access.md).
 ### Theme tokens
 
 The shell's colors, shadows and corner radius are CSS custom properties, declared under `:root` for the light
-theme and again under `.dark`. Your `styles.css` redeclares the ones it changes
-([The stylesheet](./first-panel.md#the-stylesheet)); Tailwind reads each as a color of the same
+theme and again under `.dark`. An app that builds its own stylesheet redeclares the ones it changes
+in its `styles.css` ([The stylesheet](./first-panel.md#the-stylesheet)); Tailwind reads each as a color of the same
 name, such as `bg-primary` or `text-muted-foreground`, in the panel's markup and yours.
 
 | Token | Paints |
@@ -399,8 +399,8 @@ panel the Tailwind stylesheet and the font the shell links:
 
 `shell_assets` also makes the shell load Topcoat's runtime, which drives the live tables, the
 confirmation dialogs and the variant choice, and `tablo-ui`'s scripts: searchable selects, repeater rows, and the
-sidebar toggle and the theme choice. The stylesheet comes from `tablo_build::tailwind()` in the app's `build.rs`
-([Your first panel](./first-panel.md#the-stylesheet)).
+sidebar toggle and the theme choice. The stylesheet is Tablo's prebuilt one, or the app's own from
+`tablo_build::tailwind()` in its `build.rs` ([Your first panel](./first-panel.md#the-stylesheet)).
 
 `AssetBundle::load()` reads the bundle from the `assets` directory beside the executable, which
 `cargo build` does not write. `topcoat dev` builds the app, writes the bundle there and serves the

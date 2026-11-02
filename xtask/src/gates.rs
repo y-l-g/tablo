@@ -267,10 +267,6 @@ pub fn stage_quickstart(root: &Path) -> anyhow::Result<PathBuf> {
             .map_err(|error| anyhow::anyhow!("cannot clear {}: {error}", stage.display()))?;
     }
     copy_dir(&source.join("src"), &stage.join("src"))?;
-    for file in ["build.rs", "styles.css"] {
-        std::fs::copy(source.join(file), stage.join(file))
-            .map_err(|error| anyhow::anyhow!("cannot copy {QUICKSTART}/{file}: {error}"))?;
-    }
     let manifest = std::fs::read_to_string(source.join("Cargo.toml"))
         .map_err(|error| anyhow::anyhow!("cannot read {QUICKSTART}/Cargo.toml: {error}"))?;
     std::fs::write(
@@ -284,8 +280,7 @@ pub fn stage_quickstart(root: &Path) -> anyhow::Result<PathBuf> {
 }
 
 /// Tests the staged quickstart: it builds against Tablo only through absolute
-/// paths, generates its stylesheet, and asserts that stylesheet holds classes
-/// only Tablo's own sources write.
+/// paths, and links the stylesheet `tablo-ui` ships from wherever Cargo finds it.
 pub fn external_check(run: &dyn Runner, root: &Path, manifest: &Path) -> anyhow::Result<()> {
     let target = root.join("target/external-check");
     let manifest = manifest.to_string_lossy();

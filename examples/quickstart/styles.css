@@ -1,5 +1,0 @@
-/* Per-app contract: one styles.css + `tablo_build::tailwind()` in build.rs (see ADR-0007).
-   The build imports Tailwind and Tablo's default theme first; this file names the app's own
-   sources and redeclares only the tokens it changes, e.g. `:root { --primary: oklch(…); }`. */
-
-@source "./src/**/*.rs";

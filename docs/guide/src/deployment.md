@@ -18,8 +18,9 @@ directory beside the executable; `AssetBundle::load_dir(path)` reads one elsewhe
 with several binaries, such as the migration binary below, names the server's with
 `--bin my-app`.
 
-The stylesheet is compiled earlier, by `tablo_build::tailwind()` in `build.rs`, which downloads
-the Tailwind CLI into Topcoat's cache on its first run: a build machine needs network access once.
+Tablo's prebuilt stylesheet needs no build step. An app that builds its own compiles it earlier,
+by `tablo_build::tailwind()` in `build.rs`, which downloads the Tailwind CLI into Topcoat's cache on
+its first run: a build machine needs network access once.
 
 ## Migrate the database
 

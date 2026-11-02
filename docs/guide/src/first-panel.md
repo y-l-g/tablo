@@ -6,24 +6,20 @@ stylesheet wired in.
 
 ## Dependencies
 
-An app depends on the `tablo` facade, picks its database driver with a `tablo` feature, and builds
-its stylesheet with `tablo-build`. It names `topcoat` and `toasty` directly for their macros, at the
-versions Tablo uses:
+An app depends on the `tablo` facade and picks its database driver with a `tablo` feature. It
+names `topcoat` and `toasty` directly for their macros, at the versions Tablo uses:
 
 ```toml
 [dependencies]
 tablo = { version = "0.8.0", features = ["sqlite"] }
 {{#include ../../../examples/quickstart/Cargo.toml:upstream}}
-
-[build-dependencies]
-tablo-build = "0.8.0"
 ```
 
 The toolkit enables no driver itself: `sqlite`, `postgresql`, `mysql` and `turso` each turn on
 Toasty's driver of the same name. The `[workspace.dependencies]` of Tablo's `Cargo.toml` hold the
-pinned versions. Besides `tablo-build`, which only `build.rs` names, `tablo` is the only Tablo
-dependency the app names: every path in this guide starts with `tablo::`, and the derives work
-through it.
+pinned versions. `tablo` is the only Tablo dependency the app names, unless it builds its own
+stylesheet ([The stylesheet](#the-stylesheet)): every path in this guide starts with `tablo::`, and
+the derives work through it.
 
 ## The app
 
@@ -78,7 +74,23 @@ cargo run
 
 ## The stylesheet
 
-The panel's markup carries Tailwind classes, so the app generates a stylesheet that covers them.
+The panel's markup carries Tailwind classes. `tablo::ui::DEFAULT_STYLESHEET` is Tablo's prebuilt
+stylesheet: every class Tablo writes, on the default theme. Hand it to `Panel::shell_assets` and the
+app needs no build script and no Tailwind:
+
+```rust
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-assets-body}}
+```
+
+It covers none of the app's own classes. An app that writes Tailwind classes in its own pages, or
+changes a theme token, builds its own stylesheet instead, with `tablo-build` under
+`[build-dependencies]`:
+
+```toml
+[build-dependencies]
+tablo-build = "0.8.0"
+```
+
 The app owns `styles.css` at its package root. The build imports Tailwind and Tablo's default
 theme ahead of it, so the file names the app's own sources and redeclares only the tokens it
 changes:
@@ -103,5 +115,6 @@ fn main() {
 ```
 
 `tablo_build::tailwind()` adds Tablo's own sources to the build, wherever Cargo unpacked them, and
-writes `$OUT_DIR/tailwind.css`, which `tailwind::stylesheet!()` hands to `Panel::shell_assets`. The
-stylesheet names no path into Tablo. The build downloads the Tailwind CLI on first run.
+writes `$OUT_DIR/tailwind.css`, which `tailwind::stylesheet!()` (under `topcoat`'s `tailwind`
+feature) hands to `Panel::shell_assets` in place of the prebuilt one. The stylesheet names no path
+into Tablo. The build downloads the Tailwind CLI on first run.
