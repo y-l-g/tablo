@@ -47,6 +47,18 @@ pub(super) struct Card {
     member: toasty::Deferred<Member>,
 }
 
+/// A card whose member loads eagerly, on every query.
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct EagerCard {
+    #[key]
+    #[auto]
+    id: Uuid,
+    #[index]
+    member_id: Uuid,
+    #[belongs_to(key = member_id, references = id)]
+    member: Member,
+}
+
 /// A relation to a member kept in an embedded value.
 #[derive(Debug, Clone, toasty::Embed)]
 struct Assignment {
@@ -518,6 +530,13 @@ async fn a_row_closure_reading_own_fields_mounts_beside_a_restricted_load() {
         .expect("the detail page shows the computed column");
     assert!(loaded.text.ends_with("false"), "{loaded:?}");
 }
+
+// A copy of a card without its deferred member leaves the member out; an eager member loads with
+// every card, so no copy leaves it out, and a closure over such a row is refused as before.
+const _: () = {
+    assert!(<Card as tablo::ModelColumns>::UNLOADS_RELATIONS);
+    assert!(!<EagerCard as tablo::ModelColumns>::UNLOADS_RELATIONS);
+};
 
 /// A count shows no field of the records it counts, so it mounts over a source that is not a
 /// resource and over a resource alike.

@@ -46,24 +46,34 @@ pub trait ModelColumns: Model + IntoExpr<Self> + Sized {
         None
     }
 
-    /// Whether [`unload_relations`](Self::unload_relations) unloads every relation the model
-    /// holds. The derive answers `true`; an impl by hand keeps this default unless it unloads them.
+    /// Whether [`bare`](Self::bare) leaves out every relation the model holds. The derive
+    /// answers `true` when each relation is a `Deferred` one; an impl by hand keeps this default
+    /// unless its `bare` leaves them out.
     ///
     /// A panel then hands a closure over the row that declares it reads none, such as a
     /// [`row_color`](crate::Table::row_color), a copy of the row without them, so the closure
-    /// mounts beside a column loading a record of a model a resource restricts a field of.
+    /// mounts beside a column loading a record of a model a resource restricts a field of. Such a
+    /// closure reaching a relation anyway panics at render, where it read the relation another
+    /// column loaded before: declare the relations it reads.
+    ///
+    /// An eager relation, typed without `Deferred`, holds its records on every query, so a model
+    /// with one answers `false` and keeps the refusal.
     const UNLOADS_RELATIONS: bool = false;
 
-    /// Unload each relation the record holds, leaving its own fields: the derive unloads each
-    /// `#[belongs_to]`, `#[has_many]` and `#[has_one]` field.
-    fn unload_relations(&mut self) {}
+    /// A copy of the record without its relations, holding its own fields: the derive builds it
+    /// field by field, leaving each `Deferred` relation unloaded rather than copying its records.
+    #[must_use]
+    fn bare(&self) -> Self
+    where
+        Self: Clone,
+    {
+        self.clone()
+    }
 }
 
 /// A copy of `row` without its relations: see [`ModelColumns::UNLOADS_RELATIONS`].
 pub(crate) fn bare<M: ModelColumns + Clone>(row: &M) -> M {
-    let mut row = row.clone();
-    row.unload_relations();
-    row
+    row.bare()
 }
 
 #[doc(hidden)]

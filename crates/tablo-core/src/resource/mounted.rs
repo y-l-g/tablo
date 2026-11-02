@@ -88,12 +88,11 @@ impl<R: Resource> Mounted<R> {
         }
         let navigation = navigation.resolved(&url);
         // A declared table is the detail page's default, which shows its columns.
-        let detail = match (def.detail, &def.table) {
+        let mut detail = match (def.detail, &def.table) {
             (Some(detail), _) => detail,
             (None, Some(table)) => Detail::of_columns(table.declared_columns()),
             (None, None) => <R::Model as ModelColumns>::detail(),
         };
-        let mut detail = detail;
         let mut table = def.table.unwrap_or_else(<R::Model as ModelColumns>::table);
         // A closure over the row that declares it reads none of its relations reads a copy without
         // them, so a relation a column loads cannot reach it.

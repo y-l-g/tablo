@@ -68,16 +68,29 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
             }
         }
     });
-    let relations: Vec<_> = named_fields(
+    let fields = &named_fields(
         &input,
         "#[derive(ModelColumns)] derives on a `toasty::Model` struct",
         None,
     )?
-    .named
-    .iter()
-    .filter(|field| has(field, "belongs_to") || has(field, "has_many") || has(field, "has_one"))
-    .map(|field| field.ident.clone().expect("named field"))
-    .collect();
+    .named;
+    let is_relation = |field: &syn::Field| {
+        has(field, "belongs_to") || has(field, "has_many") || has(field, "has_one")
+    };
+    let is_deferred =
+        |field: &syn::Field| last_segment(&field.ty).is_some_and(|name| name == "Deferred");
+    // An eager relation holds its records on every query, so no copy is without them.
+    let unloads = !fields
+        .iter()
+        .any(|field| is_relation(field) && !is_deferred(field));
+    let copies = fields.iter().map(|field| {
+        let name = field.ident.as_ref().expect("named field");
+        if is_relation(field) && is_deferred(field) {
+            quote! { #name: ::core::default::Default::default() }
+        } else {
+            quote! { #name: ::core::clone::Clone::clone(&self.#name) }
+        }
+    });
     let picks = quote! {
         #[allow(unused_imports)]
         use #pick::{
@@ -107,10 +120,10 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
 
             #version
 
-            const UNLOADS_RELATIONS: bool = true;
+            const UNLOADS_RELATIONS: bool = #unloads;
 
-            fn unload_relations(&mut self) {
-                #(self.#relations.unload();)*
+            fn bare(&self) -> Self {
+                Self { #(#copies),* }
             }
         }
     })
