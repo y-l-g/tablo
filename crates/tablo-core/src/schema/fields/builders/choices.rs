@@ -242,7 +242,7 @@ impl<F> ChoiceField<F> {
     /// # pub struct CategoryResource;
     /// # impl tablo_core::Resource for CategoryResource {
     /// #     type Model = Category;
-    /// #     type Form = tablo_core::NoForm;
+    /// #     type Form = tablo_core::NoForm<Category>;
     /// # }
     /// # use tablo_core::{Field, lens};
     /// Field::choice(lens!(Category.parent_id))

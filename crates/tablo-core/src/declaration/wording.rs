@@ -222,39 +222,12 @@ impl fmt::Display for DeclarationErrorKind {
             | Self::HiddenWatchedField { .. }
             | Self::DisabledWatchedField { .. }
             | Self::UnpostedConditionValue { .. } => fmt_condition(f, self),
-            Self::MisdeclaredDependentChoice { field } => write!(
-                f,
-                "choice '{field}' depends on a column its options do not have: call \
-                 `relationship::<R>()` and name a column of `R`'s model in `depends_on`"
-            ),
-            Self::UnfilterableChoice { field } => write!(
-                f,
-                "choice '{field}' filters its options but loads none from a relationship: call \
-                 `relationship::<R>()` or drop `options_where`"
-            ),
-            Self::MultipleDependentChoice { field } => write!(
-                f,
-                "choice '{field}' depends on another field through a multiple choice, which \
-                 neither narrows another choice nor is narrowed: drop `depends_on` or `multiple`"
-            ),
-            Self::ListedDependentChoice { field } => write!(
-                f,
-                "choice '{field}' depends on another field but renders its options as radios or \
-                 buttons, which the browser cannot narrow: drop `depends_on`, or `radio` or \
-                 `buttons`"
-            ),
-            Self::UncreatableChoice { field } => write!(
-                f,
-                "choice '{field}' is creatable but is not a single select over a resource's \
-                 records: drop `creatable`, or declare a single select with \
-                 `relationship::<R>()` over a resource `R`, outside a repeater and without \
-                 `disabled_when`"
-            ),
-            Self::UnplacedParentField { field, parent } => write!(
-                f,
-                "choice '{field}' depends on field '{parent}', which the schema does not place: \
-                 place it in the same schema"
-            ),
+            Self::MisdeclaredDependentChoice { .. }
+            | Self::UnfilterableChoice { .. }
+            | Self::MultipleDependentChoice { .. }
+            | Self::ListedDependentChoice { .. }
+            | Self::UncreatableChoice { .. }
+            | Self::UnplacedParentField { .. } => fmt_choice(f, self),
             Self::RequiredConditionalField { field } => write!(
                 f,
                 "field '{field}' is conditional but has no blank answer: a submission that hides \
@@ -325,6 +298,46 @@ impl fmt::Display for DeclarationErrorKind {
             Self::RelatedForm(fault) => fault.fmt(f),
             Self::ManyToMany { field, fault } => fmt_many_to_many(f, field, fault),
         }
+    }
+}
+
+/// The wording of a choice field's [`DeclarationErrorKind`].
+fn fmt_choice(f: &mut fmt::Formatter<'_>, kind: &DeclarationErrorKind) -> fmt::Result {
+    match kind {
+        DeclarationErrorKind::MisdeclaredDependentChoice { field } => write!(
+            f,
+            "choice '{field}' depends on a column its options do not have: call \
+             `relationship::<R>()` and name a column of `R`'s model in `depends_on`"
+        ),
+        DeclarationErrorKind::UnfilterableChoice { field } => write!(
+            f,
+            "choice '{field}' filters its options but loads none from a relationship: call \
+             `relationship::<R>()` or drop `options_where`"
+        ),
+        DeclarationErrorKind::MultipleDependentChoice { field } => write!(
+            f,
+            "choice '{field}' depends on another field through a multiple choice, which \
+             neither narrows another choice nor is narrowed: drop `depends_on` or `multiple`"
+        ),
+        DeclarationErrorKind::ListedDependentChoice { field } => write!(
+            f,
+            "choice '{field}' depends on another field but renders its options as radios or \
+             buttons, which the browser cannot narrow: drop `depends_on`, or `radio` or \
+             `buttons`"
+        ),
+        DeclarationErrorKind::UncreatableChoice { field } => write!(
+            f,
+            "choice '{field}' is creatable but is not a single select over a resource's \
+             records: drop `creatable`, or declare a single select with \
+             `relationship::<R>()` over a resource `R`, outside a repeater and without \
+             `disabled_when`"
+        ),
+        DeclarationErrorKind::UnplacedParentField { field, parent } => write!(
+            f,
+            "choice '{field}' depends on field '{parent}', which the schema does not place: \
+             place it in the same schema"
+        ),
+        _ => unreachable!("not a choice's error"),
     }
 }
 
