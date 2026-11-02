@@ -2,9 +2,9 @@
 //! cards that show its records, and the declarations the mount refuses.
 
 use tablo::{
-    Color, ComputedColumn, CountColumn, Detail, FieldAccess, NoForm, ReadOnly, Reads,
-    RelationColumn, Resource, ResourceDef, RowLink, Summary, Table, Tenancy, TextColumn, lens,
-    relation,
+    Color, ComputedColumn, CountColumn, Detail, FieldAccess, ListTab, NoForm, QueryFilter,
+    ReadOnly, Reads, RelationColumn, Resource, ResourceDef, RowLink, Summary, Table, Tenancy,
+    TextColumn, lens, relation,
 };
 use topcoat::context::Cx;
 
@@ -222,22 +222,31 @@ impl Resource for TooltipCard {
     }
 }
 
-/// A count of the cards whose member holds a salary, with no word on what its predicate reads.
-pub(super) struct CountedCard;
+/// A filter, a tab and a count of the cards whose member holds a salary, with no word on what
+/// their predicates read.
+pub(super) struct PredicateCard;
 
-impl Resource for CountedCard {
+impl Resource for PredicateCard {
     type Model = Card;
     type Form = NoForm<Card>;
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .slug("counted-cards")
+            .slug("predicate-cards")
             .policy(ReadOnly)
             .tenancy(Tenancy::column(Card::fields().tenant_id()))
-            .table(Table::new(TextColumn::new(lens!(Card.code))).summary(
-                Summary::count("High").query(Card::fields().member().salary().eq("S-900")),
-            ))
+            .table(
+                Table::new(TextColumn::new(lens!(Card.code)))
+                    .filters(QueryFilter::new("paid", "Paid").option("High", high()))
+                    .tab(ListTab::new("high", "High").query(high()))
+                    .summary(Summary::count("High").query(high())),
+            )
     }
+}
+
+/// The cards whose member holds the highest salary.
+fn high() -> toasty::stmt::Expr<bool> {
+    Card::fields().member().salary().eq("S-900")
 }
 
 /// A row color reading the member a column loads.

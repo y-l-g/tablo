@@ -55,8 +55,10 @@ foreign keys; a `ComputedColumn`, a `QueryFilter`, a `TextColumn` with a `descri
 `tooltip` or `money_by`, and a `Table::row_color` answer what `.reading(..)` or
 `.row_color_reading(..)` declares, and a custom one `None` until it says. A closure over the row may
 also reach any relation the page loads, so the mount refuses one on a page whose columns load a
-model a mounted resource restricts. Mounting a panel that restricts a field refuses a column or
-filter answering `None`, since the panel cannot tell what it shows. A form watch over a restricted
+model a mounted resource restricts. Mounting a resource over a model a mounted resource restricts
+refuses a column answering `None`, since the panel cannot tell what it shows; mounting any resource
+on a panel that restricts a field refuses a filter, a tab or a summary answering `None`, since a
+predicate may narrow by a field of a related model. A form watch over a restricted
 field from a control outside it is refused too, since a condition shows what it watches.
 
 The record form is a typed struct (ADR-0022), so a field the user may not change still takes a
