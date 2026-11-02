@@ -22,6 +22,7 @@ which the list, form and detail pages follow. This table maps their names to Tab
 | `->disabled()` | `.disabled()`, `.disabled_on_edit()` |
 | `->visible(fn (Get $get) ..)` | `.visible_when(..)`, a [condition](./forms.md#conditional-fields) |
 | a dependent `Select` | `.depends_on(..)`, a [dependent choice](./forms.md#dependent-choices) |
+| `Select::relationship(modifyQueryUsing: ..)` | `.options_where(..)`, a [filtered choice](./forms.md#filtered-choices) |
 | `CheckboxList`, `Select::multiple()` over an array column | `#[form(options)]` on a `Vec` of an `Options` enum: a [multiple choice](./forms.md#controls) |
 | `TagsInput` | `#[form(tags)]` on a `Vec<String>`: a [tags field](./forms.md#controls) |
 | `Repeater` | `Field::repeater` over a `#[document]` list |

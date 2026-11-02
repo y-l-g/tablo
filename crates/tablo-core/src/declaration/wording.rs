@@ -227,6 +227,11 @@ impl fmt::Display for DeclarationErrorKind {
                 "choice '{field}' depends on a column its options do not have: call \
                  `relationship::<R>()` and name a column of `R`'s model in `depends_on`"
             ),
+            Self::UnfilterableChoice { field } => write!(
+                f,
+                "choice '{field}' filters its options but loads none from a relationship: call \
+                 `relationship::<R>()` or drop `options_where`"
+            ),
             Self::MultipleDependentChoice { field } => write!(
                 f,
                 "choice '{field}' depends on another field through a multiple choice, which \

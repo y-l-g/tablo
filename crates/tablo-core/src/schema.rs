@@ -252,9 +252,9 @@ impl<F> Schema<F> {
             .collect()
     }
 
-    /// What is wrong with the schema's dependent choices: a column of another model than the
-    /// relationship's source, or no relationship, and a parent the schema does not place, or one
-    /// a condition disables, which posts nothing to narrow the options by.
+    /// What is wrong with the schema's dependent and filtered choices: a column of another model
+    /// than the relationship's source, or no relationship, and a parent the schema does not place,
+    /// or one a condition disables, which posts nothing to narrow the options by.
     fn dependent_errors(&self) -> Vec<crate::DeclarationErrorKind> {
         let mut errors = Vec::new();
         for field in &self.fields {
@@ -263,6 +263,11 @@ impl<F> Schema<F> {
             };
             if choice.misdeclared_parent() {
                 errors.push(crate::DeclarationErrorKind::MisdeclaredDependentChoice {
+                    field: field.name().to_string(),
+                });
+            }
+            if choice.misdeclared_filter() {
+                errors.push(crate::DeclarationErrorKind::UnfilterableChoice {
                     field: field.name().to_string(),
                 });
             }

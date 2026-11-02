@@ -435,6 +435,14 @@ pub enum DeclarationErrorKind {
         /// The dependent choice.
         field: String,
     },
+    /// A choice whose [`options_where`](crate::ChoiceField::options_where) has no relationship
+    /// to narrow.
+    ///
+    /// Declare `relationship::<R>()`, or drop `options_where`.
+    UnfilterableChoice {
+        /// The filtered choice.
+        field: String,
+    },
     /// A dependent choice that takes several options, or that depends on one that does: a
     /// multiple choice's key holds a list, which narrows nothing.
     ///
@@ -453,8 +461,8 @@ pub enum DeclarationErrorKind {
         field: String,
     },
     /// A [creatable](crate::ChoiceField::creatable) choice that is not a single select over a
-    /// resource's records: a multiple choice, radios or buttons, a dependent choice, a source that
-    /// is not a resource, no relationship, or a choice in a repeater's rows.
+    /// resource's records: a multiple choice, radios or buttons, a dependent or filtered choice, a
+    /// source that is not a resource, no relationship, or a choice in a repeater's rows.
     ///
     /// Drop `creatable`, or declare the choice as a single select with `relationship::<R>()` over
     /// a resource `R`.

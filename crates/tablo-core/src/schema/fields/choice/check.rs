@@ -70,7 +70,7 @@ impl ChoiceControl {
             }
             return Vec::new();
         };
-        let scope = match self.scope(parent) {
+        let scope = match self.scope(cx, parent) {
             Scope::All => None,
             Scope::Within(scope) => Some(scope),
             Scope::Nothing => return vec![text!("tablo-field-invalid", label = label)],
@@ -146,7 +146,7 @@ impl ChoiceControl {
         if trimmed.is_empty() {
             return Vec::new();
         }
-        let scope = match self.scope(parent) {
+        let scope = match self.scope(cx, parent) {
             Scope::All => None,
             Scope::Within(scope) => Some(scope),
             Scope::Nothing => return vec![text!("tablo-field-invalid", label = label)],
