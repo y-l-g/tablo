@@ -2,16 +2,16 @@
 //! page, the export, the search, the sort, the filters, the tabs and the form; one the user may
 //! view but not change renders disabled; a submission posting either is refused; an edit keeps what
 //! the user could not change; and the mount refuses a declaration that would show the field anyway.
-//! A widget's record table hides it as the list does, and a row link reading it shows to no one
-//! who may not view it.
+//! A widget's record table hides it as the list does, and a row link or a summary reading it shows
+//! to no one who may not view it.
 
 use tablo::{
     Ability, Color, ComputedColumn, DeclarationErrorKind, Detail, FieldAccess, FieldAccessFault,
     FieldErrors, ListTab, Page, PageDef, QueryFilter, Reads, RecordTable, Resource, ResourceDef,
-    RowLink, Schema, Site, Tab, Table, Tabs, Tenancy, TenantId, TextColumn, Widget, lens,
+    RowLink, Schema, Site, Summary, Tab, Table, Tabs, Tenancy, TenantId, TextColumn, Widget, lens,
     testing::{
-        columns, groups, ignored_filters, record_tables, row_actions, row_keys, rows, tab_links,
-        tabs,
+        columns, groups, ignored_filters, record_tables, row_actions, row_keys, rows, summaries,
+        tab_links, tabs,
     },
 };
 use toasty::Db;
@@ -87,6 +87,12 @@ impl Resource for EmployeeResource {
                         .query(Employee::fields().salary().eq("S-900"))
                         .reading(Reads::of(lens!(Employee.salary)))
                         .badge(),
+                )
+                .summary(Summary::count("Employees"))
+                .summary(
+                    Summary::count("High earners")
+                        .query(Employee::fields().salary().eq("S-900"))
+                        .reading(Reads::of(lens!(Employee.salary))),
                 ),
             )
     }
@@ -437,7 +443,23 @@ async fn a_hidden_field_answers_no_search_or_filter() {
             .collect::<Vec<_>>(),
         [("all", None), ("high", Some(1))]
     );
+    // A summary over the salary counts for the user who may view it, and is dropped for the one
+    // who may not, whose count would tell how many earn it.
+    let counted = |html: &str| {
+        summaries(html)
+            .into_iter()
+            .map(|summary| (summary.label, summary.count))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        counted(&tabbed),
+        [
+            ("Employees".to_string(), 1),
+            ("High earners".to_string(), 1)
+        ]
+    );
     let tabbed = page(&sales, "/admin/employees?tab=high").await;
+    assert_eq!(counted(&tabbed), [("Employees".to_string(), 2)]);
     let keys: Vec<_> = tab_links(&tabbed).into_iter().map(|tab| tab.key).collect();
     assert_eq!(keys, ["all"]);
     let mut keys = row_keys(&tabbed);
@@ -639,7 +661,8 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
                     }))
                     .tab(
                         ListTab::new("high", "High").query(Employee::fields().salary().eq("S-900")),
-                    ),
+                    )
+                    .summary(Summary::count("High").query(Employee::fields().salary().eq("S-900"))),
                 )
         }
     }
@@ -712,6 +735,16 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
             &FieldAccessFault::UndeclaredReads {
                 what: "tab",
                 name: "high".to_string()
+            }
+        )),
+        "{errors:?}"
+    );
+    assert!(
+        faults.contains(&(
+            &Site::Table,
+            &FieldAccessFault::UndeclaredReads {
+                what: "summary",
+                name: "High".to_string()
             }
         )),
         "{errors:?}"

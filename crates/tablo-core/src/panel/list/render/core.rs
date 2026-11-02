@@ -90,6 +90,11 @@ impl<M> WiredTable<M> {
             position: page.position,
             sort: self.sort_for(state),
             filters: self.filter_views(cx, state).await?,
+            summaries: page
+                .summaries
+                .into_iter()
+                .map(|(label, count)| (label.localize(cx), count))
+                .collect(),
         };
         frame.render_page(cx, loaded, state, path, signals).await
     }
@@ -132,6 +137,8 @@ struct Loaded<'a> {
     /// The sort the rows are in.
     sort: Option<Sort>,
     filters: FilterViews<'a>,
+    /// Each summary's localized label and count.
+    summaries: Vec<(String, u64)>,
 }
 
 impl Frame<'_> {
@@ -232,6 +239,7 @@ impl Frame<'_> {
             position,
             sort,
             mut filters,
+            summaries,
         } = loaded;
         let signals = &signals
             .clone()
@@ -294,7 +302,8 @@ impl Frame<'_> {
             }
             .boxed()
         } else {
-            pager_views = pager;
+            pager_views = render_summaries(cx, summaries).into_iter().collect();
+            pager_views.extend(pager);
             let rows = render_rows(cx, row_data, &self.row_chrome(state, signals, with_bulk));
             view! {
                 cx =>
@@ -335,6 +344,34 @@ impl Frame<'_> {
         };
         Ok(table_frame(cx, false, content.boxed()))
     }
+}
+
+/// The summaries under the rows, each its label and count; `None` without one.
+fn render_summaries(cx: &Cx, summaries: Vec<(String, u64)>) -> Option<BoxView<'_>> {
+    if summaries.is_empty() {
+        return None;
+    }
+    Some(
+        view! {
+            cx =>
+            <dl
+                class="flex flex-wrap gap-x-6 gap-y-1 border-t border-border px-4 py-3 text-sm sm:px-6"
+                data-table-summaries=""
+            >
+                for (label, count) in summaries {
+                    <div
+                        class="flex items-baseline gap-1.5"
+                        data-summary=(label.clone())
+                        data-summary-count=(count.to_string())
+                    >
+                        <dt class="text-muted-foreground">(label)</dt>
+                        <dd class="font-medium tabular-nums">(count.to_string())</dd>
+                    </div>
+                }
+            </dl>
+        }
+        .boxed(),
+    )
 }
 
 /// Render the table's card, shared by the loaded table and its skeleton.

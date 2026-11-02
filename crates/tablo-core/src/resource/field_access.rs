@@ -454,9 +454,9 @@ pub(crate) fn check_choices<T: 'static, F>(
     }
 }
 
-/// What `declared`'s filters and tabs show or read that no mount may: records under a label a
-/// panel cannot mask, and records a relation the filter's or the tab's reads reach holds, of a
-/// model a mounted resource restricts a field of.
+/// What `declared`'s filters, tabs and summaries show or read that no mount may: records under a
+/// label a panel cannot mask, and records a relation their reads reach holds, of a model a mounted
+/// resource restricts a field of.
 pub(crate) fn check_filters<R: Resource>(
     cx: &Cx,
     declared: &Mounted<R>,
@@ -487,10 +487,24 @@ pub(crate) fn check_filters<R: Resource>(
             DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
         }));
     }
+    // A summary counts, so a predicate that does not say what it reads could count by a field of
+    // any model a mounted resource restricts, not only this resource's own.
+    for summary in declared.table.declared_summaries() {
+        let fault = match summary.reads() {
+            None => Some(FieldAccessFault::UndeclaredReads {
+                what: "summary",
+                name: summary.name(),
+            }),
+            reads => relation_fault(cx, summary.name(), reads),
+        };
+        errors.extend(fault.map(|fault| {
+            DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
+        }));
+    }
 }
 
-/// The relation a filter's or a tab's `reads`, named `name`, reach that no mount may read: one
-/// whose model a mounted resource restricts a field of, or one the mount cannot resolve.
+/// The relation a filter's, a tab's or a summary's `reads`, named `name`, reach that no mount may
+/// read: one whose model a mounted resource restricts a field of, or one the mount cannot resolve.
 fn relation_fault<M: toasty::schema::Model>(
     cx: &Cx,
     name: String,

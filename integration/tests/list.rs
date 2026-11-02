@@ -1,12 +1,13 @@
 //! A resource's list page over test-local resources: the row chrome each policy and form allows,
 //! the row links it may carry, the signals that carry each list's query, and the list query its
-//! widgets read.
+//! widgets read, and the summaries under its rows.
 
 use std::collections::HashSet;
 
 use tablo::{
-    Ability, NoForm, Page, PageDef, Panel, Resource, ResourceDef, RowLink, Stat, Table, TextColumn,
-    Widget, lens, testing::stats,
+    Ability, NoForm, Page, PageDef, Panel, Resource, ResourceDef, RowLink, Stat, Summary, Table,
+    TextColumn, Widget, lens,
+    testing::{stats, summaries},
 };
 use toasty::Db;
 use topcoat::{
@@ -419,4 +420,50 @@ async fn a_row_links_only_a_url_a_cell_may_link() {
         .collect();
     links.sort();
     assert_eq!(links, ["/docs/a", "https://example.com/a"], "{html}");
+}
+
+/// Lists the items two to a page, counting them all and those starting with "A".
+struct SummedResource;
+
+impl Resource for SummedResource {
+    type Model = Item;
+    type Form = NoForm<Item>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new().slug("items").policy(list_only).table(
+            items_table()
+                .page_size(2)
+                .summary(Summary::count("Items"))
+                .summary(
+                    Summary::count("Starting with A")
+                        .query(Item::fields().name().starts_with("A"))
+                        .reading(lens!(Item.name).into()),
+                ),
+        )
+    }
+}
+
+/// A summary counts every row the list selects, not the page it shows, and follows the search.
+#[tokio::test]
+async fn a_summary_counts_the_whole_list_under_its_search() {
+    let router = mount(
+        items(&["Ada", "Adam", "Bob"]).await,
+        panel().resource::<SummedResource>(),
+    )
+    .expect("panel builds");
+    let counted = async |uri: &str| {
+        let html = body_string(get(&router, uri).await).await;
+        summaries(&html)
+            .into_iter()
+            .map(|summary| (summary.label, summary.count))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        counted("/admin/items").await,
+        [("Items".to_string(), 3), ("Starting with A".to_string(), 2)]
+    );
+    assert_eq!(
+        counted("/admin/items?q=Bob").await,
+        [("Items".to_string(), 1), ("Starting with A".to_string(), 0)]
+    );
 }

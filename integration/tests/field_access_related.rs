@@ -464,6 +464,27 @@ async fn a_row_closure_beside_a_restricted_load_is_refused() {
     );
 }
 
+/// A summary counting by a field another resource restricts would tell how many records hold
+/// each value of it, so one whose predicate does not say what it reads is refused even over a
+/// model no resource restricts.
+#[tokio::test]
+async fn an_undeclared_summary_beside_a_restricting_resource_is_refused() {
+    let errors = refusal(mount(
+        db().await,
+        panel()
+            .resource::<MemberResource>()
+            .resource::<CountedCard>(),
+    ));
+    let fault = FieldAccessFault::UndeclaredReads {
+        what: "summary",
+        name: "High".to_string(),
+    };
+    assert!(
+        faults(&errors).contains(&(Site::Table, fault)),
+        "{errors:?}"
+    );
+}
+
 /// A count shows no field of the records it counts, so it mounts over a source that is not a
 /// resource and over a resource alike.
 #[tokio::test]
