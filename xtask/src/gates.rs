@@ -45,6 +45,7 @@ pub const ASSET_SUITES: &[&str] = &[
     "crates/tablo-ui/assets/selects.test.js",
     "crates/tablo-ui/assets/tabs.test.js",
     "crates/tablo-ui/assets/theme.test.js",
+    "crates/tablo-ui/assets/wizard.test.js",
 ];
 
 pub fn repo_root() -> PathBuf {

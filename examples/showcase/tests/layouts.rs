@@ -1,10 +1,11 @@
-//! Layout blocks: the post form's and the post detail page's tabs, and the user form's sections.
+//! Layout blocks: the post form's and the post detail page's tabs, the user form's sections, and
+//! the author form's wizard.
 
 use showcase::{
     app::UserResource,
     models::{Author, Post, User, UserFormField},
 };
-use tablo::testing::{Section, Tab, tabs};
+use tablo::testing::{Section, Tab, tabs, wizard_steps};
 
 use crate::common::{
     body_string, demo_client, full_db,
@@ -165,4 +166,51 @@ async fn a_collapsed_section_holding_an_error_renders_open() {
     assert!(reply.field_error(UserFormField::Age).is_some());
     let sections = reply.sections();
     assert!(section_posting(&sections, "age").open, "{sections:?}");
+}
+
+#[tokio::test]
+async fn the_create_form_renders_every_step_and_opens_on_the_first() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let html = body_string(client.get("/admin/authors/-/create").await).await;
+    let steps = wizard_steps(&html);
+    assert_eq!(
+        steps
+            .iter()
+            .map(|step| (step.label.as_str(), step.current, step.keys.clone()))
+            .collect::<Vec<_>>(),
+        [
+            ("Name", true, vec!["name".to_string()]),
+            ("Contact", false, vec!["email".to_string()]),
+        ],
+        "a later step's controls render, so the form posts them"
+    );
+    assert!(steps.iter().all(|step| !step.errored), "{steps:?}");
+}
+
+#[tokio::test]
+async fn a_refused_create_opens_on_the_step_holding_the_error() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let resp = client
+        .submit(
+            "/admin/authors/-/create",
+            "name=Refused&email=not-an-address",
+        )
+        .await;
+    assert!(
+        resp.status().is_success(),
+        "the refusal re-renders the form"
+    );
+    let steps = wizard_steps(&body_string(resp).await);
+    assert_eq!(
+        steps
+            .iter()
+            .map(|step| (step.current, step.errored))
+            .collect::<Vec<_>>(),
+        [(false, false), (true, true)],
+        "{steps:?}"
+    );
 }

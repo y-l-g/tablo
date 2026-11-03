@@ -89,6 +89,7 @@ pub const REPEATERS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../asset
 pub const FILE_LISTS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/file_lists.js");
 pub const PASSWORD_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/password.js");
 pub const TABS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/tabs.js");
+pub const WIZARD_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/wizard.js");
 pub const FORMS_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/forms.js");
 pub const RICH_TEXT_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/rich_text.js");
 pub const SEARCH_SHORTCUT_JS: topcoat::asset::Asset =
@@ -100,7 +101,7 @@ pub const CHOICE_CREATE_JS: topcoat::asset::Asset =
 pub const TIPTAP_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/tiptap/tiptap.js");
 
 /// The scripts every panel page loads, in order.
-pub const SHELL_SCRIPTS: [topcoat::asset::Asset; 11] = [
+pub const SHELL_SCRIPTS: [topcoat::asset::Asset; 12] = [
     SIDEBAR_JS,
     THEME_JS,
     SELECTS_JS,
@@ -109,6 +110,7 @@ pub const SHELL_SCRIPTS: [topcoat::asset::Asset; 11] = [
     FILE_LISTS_JS,
     PASSWORD_JS,
     TABS_JS,
+    WIZARD_JS,
     FORMS_JS,
     RICH_TEXT_JS,
     SEARCH_SHORTCUT_JS,

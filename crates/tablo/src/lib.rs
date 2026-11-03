@@ -92,10 +92,11 @@ pub mod prelude {
         Policy, Posted, PublicLink, QueryFilter, ReadOnly, Reads, RecordForm, RecordPage,
         RecordPageDef, RecordTable, Relation, RelationColumn, RepeaterColumn, Resource,
         ResourceDef, ResourcePage, RouterBuilderPanelExt, RowLink, Schema, Section, SelectColumn,
-        SelectFilter, Series, Sort, Stat, Summary, Tab, Table, Tabs, Tenancy, TenantId,
+        SelectFilter, Series, Sort, Stat, Step, Summary, Tab, Table, Tabs, Tenancy, TenantId,
         TernaryFilter, Text, TextColumn, TextField, TextInputColumn, Toggle, ToggleColumn, Trend,
-        Widget, WidgetDef, WriteError, can, can_list, can_open, can_view_field, filter_keys, lens,
-        list_query, page_filters, relation, scoped_query, t, tenant_id, text, when,
+        Widget, WidgetDef, Wizard, WriteError, can, can_list, can_open, can_view_field,
+        filter_keys, lens, list_query, page_filters, relation, scoped_query, t, tenant_id, text,
+        when,
     };
     #[cfg(feature = "rich-text")]
     pub use tablo_core::{RichTextColumn, RichTextField, Tool};

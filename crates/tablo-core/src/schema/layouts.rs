@@ -1,5 +1,5 @@
-//! Holds the `Section`, `Group`, `Grid` and `Tabs` blocks that lay out a form's fields or a detail
-//! page's columns.
+//! Holds the `Section`, `Group`, `Grid`, `Tabs` and `Wizard` blocks that lay out a form's fields or
+//! a detail page's columns.
 
 use tablo_ui::field_group as ui_field_group;
 use topcoat::{
@@ -17,10 +17,12 @@ use super::{
 
 mod section;
 mod span;
+mod wizard;
 
 pub use section::Section;
 pub(crate) use section::titled;
 pub(crate) use span::{Span, spanned};
+pub use wizard::{Step, Wizard};
 
 /// An unlabelled block grouping a form's fields or a detail page's columns.
 #[derive(Debug)]
@@ -214,7 +216,7 @@ macro_rules! conditional_blocks {
     };
 }
 
-conditional_blocks!(Section, Group, Grid, Tabs, Tab);
+conditional_blocks!(Section, Group, Grid, Tabs, Tab, Wizard, Step);
 
 /// Generates `span` and `span_full` for every block a [`Grid`] lays out.
 macro_rules! spanning_blocks {
@@ -239,7 +241,7 @@ macro_rules! spanning_blocks {
     };
 }
 
-spanning_blocks!(Section, Group, Grid, Tabs);
+spanning_blocks!(Section, Group, Grid, Tabs, Wizard);
 
 /// Renders a `Tabs` block's list of triggers.
 const TAB_LIST: StaticClass = class!(

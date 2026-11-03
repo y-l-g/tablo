@@ -12,7 +12,7 @@ use super::{
     condition::{Condition, disable, watch},
     embedded::Embedded,
     fields::{Field, Placement},
-    layouts::{Grid, Group, Section, Tab, Tabs, spanned},
+    layouts::{Grid, Group, Section, Step, Tab, Tabs, Wizard, spanned},
 };
 use crate::values::{FieldError, FieldErrors, FormValue, FormValues};
 
@@ -27,6 +27,10 @@ pub(crate) enum Node {
     Tabs(Box<Tabs>),
     /// One tab, placed only in a `Tabs` block's children.
     Tab(Box<Tab>),
+    /// A `Wizard` block, whose children are its `Step` nodes.
+    Wizard(Box<Wizard>),
+    /// One step, placed only in a `Wizard` block's children.
+    Step(Box<Step>),
     Embedded(Box<Embedded>),
 }
 
@@ -235,7 +239,7 @@ impl Node {
                 Ok(source.guard(cx, field.condition(), view))
             }
             // A block whose every field is masked renders no heading over nothing.
-            Node::Section(_) | Node::Group(_) | Node::Grid(_) | Node::Tabs(_)
+            Node::Section(_) | Node::Group(_) | Node::Grid(_) | Node::Tabs(_) | Node::Wizard(_)
                 if !self.shows_any(fields, source) =>
             {
                 Ok(().boxed())
@@ -258,6 +262,12 @@ impl Node {
             }
             // A tab renders through its block, which lays out its trigger and its panel.
             Node::Tab(t) => Box::pin(render_nodes(cx, &t.children.nodes, fields, source)).await,
+            Node::Wizard(w) => {
+                let view = Box::pin(w.render(cx, fields, source)).await?;
+                Ok(source.guard(cx, w.condition.as_ref(), view))
+            }
+            // A step renders through its block, which lays out its trigger and its panel.
+            Node::Step(s) => Box::pin(render_nodes(cx, &s.children.nodes, fields, source)).await,
             Node::Embedded(e) => Box::pin(e.render(cx, fields, source)).await,
         }
     }
@@ -327,6 +337,8 @@ impl Node {
             Node::Grid(g) => Some(&g.children.nodes),
             Node::Tabs(t) => Some(&t.children.nodes),
             Node::Tab(t) => Some(&t.children.nodes),
+            Node::Wizard(w) => Some(&w.children.nodes),
+            Node::Step(s) => Some(&s.children.nodes),
             Node::Field(_) | Node::Embedded(_) => None,
         }
     }
@@ -338,6 +350,8 @@ impl Node {
             Node::Grid(g) => Some(&mut g.children.nodes),
             Node::Tabs(t) => Some(&mut t.children.nodes),
             Node::Tab(t) => Some(&mut t.children.nodes),
+            Node::Wizard(w) => Some(&mut w.children.nodes),
+            Node::Step(s) => Some(&mut s.children.nodes),
             Node::Field(_) | Node::Embedded(_) => None,
         }
     }

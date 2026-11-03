@@ -288,6 +288,8 @@ impl Node {
             Node::Grid(g) => g.condition.as_ref(),
             Node::Tabs(t) => t.condition.as_ref(),
             Node::Tab(t) => t.condition.as_ref(),
+            Node::Wizard(w) => w.condition.as_ref(),
+            Node::Step(s) => s.condition.as_ref(),
             Node::Embedded(_) => None,
         }
     }
