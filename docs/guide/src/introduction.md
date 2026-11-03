@@ -29,9 +29,6 @@ Tablo is a layer over two upstream projects:
 
 ## How to read this guide
 
-Coming from Filament? [That chapter](./coming-from.md) maps their names to
-Tablo's.
-
 [Your first panel](./first-panel.md) builds a complete, runnable panel in one file. Each later
 chapter covers one part of it:
 
