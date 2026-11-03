@@ -181,29 +181,67 @@ async fn ensure_in_tenant<R: Resource>(
     Ok(())
 }
 
-/// The default [`Resource::delete_record`]: stamps the soft-delete column of a resource that
-/// declares one, and removes the row of any other, through the tenant-scoped query.
-pub(super) async fn delete<R: Resource>(
+/// The derived delete: stamps the [`soft_delete`](super::ResourceDef::soft_delete) column with
+/// the time on a resource that declares one, and removes the row on any other, through `ex`.
+///
+/// It writes through the tenant-scoped query, filtered to the record's primary key, so a record
+/// outside the request's tenant is left alone. An overriding
+/// [`delete_record`](Resource::delete_record) that refuses some records delegates the others
+/// here:
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Order { #[key] #[auto] id: uuid::Uuid, paid: bool }
+/// # use tablo_core::{NoForm, Resource, WriteError, write_delete};
+/// # use topcoat::context::Cx;
+/// # struct OrderResource;
+/// impl Resource for OrderResource {
+///     # type Model = Order;
+///     # type Form = NoForm<Order>;
+///     async fn delete_record(
+///         cx: &Cx,
+///         order: &Order,
+///         ex: &mut dyn toasty::Executor,
+///     ) -> Result<(), WriteError> {
+///         if order.paid {
+///             return Err(WriteError::declined("A paid order stays"));
+///         }
+///         write_delete::<Self>(cx, order, ex).await
+///     }
+/// }
+/// ```
+///
+/// # Errors
+///
+/// [`WriteError::Failed`] for a resource the context's panel does not mount, a soft-delete lens
+/// naming no column (the mount refuses it first), or the driver's error.
+pub async fn write_delete<R: Resource>(
     cx: &Cx,
     record: &R::Model,
     ex: &mut dyn Executor,
-) -> Result<()> {
+) -> Result<(), WriteError> {
     let resource = require_mounted::<R>(cx)?;
     if resource.soft_delete.is_some() {
         let now = toasty::stmt::Value::from(jiff::Timestamp::now());
-        return stamp(cx, &resource, record, Trashed::Without, now, ex).await;
+        return Ok(stamp(cx, &resource, record, Trashed::Without, now, ex).await?);
     }
-    remove(cx, &resource, record, Trashed::Without, ex).await
+    Ok(remove(cx, &resource, record, Trashed::Without, ex).await?)
 }
 
-/// The default [`Resource::restore_record`]: empties the soft-delete column of a trashed record.
-pub(super) async fn restore<R: Resource>(
+/// The derived restore: empties the [`soft_delete`](super::ResourceDef::soft_delete) column of a
+/// trashed record, through `ex` and the tenant-scoped query, as [`write_delete`] stamps it.
+///
+/// # Errors
+///
+/// [`WriteError::Failed`] for a resource that declares no soft-delete column or that the
+/// context's panel does not mount, or the driver's error.
+pub async fn write_restore<R: Resource>(
     cx: &Cx,
     record: &R::Model,
     ex: &mut dyn Executor,
-) -> Result<()> {
+) -> Result<(), WriteError> {
     let resource = require_mounted::<R>(cx)?;
-    stamp(
+    Ok(stamp(
         cx,
         &resource,
         record,
@@ -211,17 +249,23 @@ pub(super) async fn restore<R: Resource>(
         toasty::stmt::Value::Null,
         ex,
     )
-    .await
+    .await?)
 }
 
-/// The default [`Resource::force_delete_record`]: removes a trashed record's row.
-pub(super) async fn force_delete<R: Resource>(
+/// The derived force delete: removes a trashed record's row, through `ex` and the tenant-scoped
+/// query, as [`write_delete`] removes one.
+///
+/// # Errors
+///
+/// [`WriteError::Failed`] for a resource the context's panel does not mount, or the driver's
+/// error.
+pub async fn write_force_delete<R: Resource>(
     cx: &Cx,
     record: &R::Model,
     ex: &mut dyn Executor,
-) -> Result<()> {
+) -> Result<(), WriteError> {
     let resource = require_mounted::<R>(cx)?;
-    remove(cx, &resource, record, Trashed::Only, ex).await
+    Ok(remove(cx, &resource, record, Trashed::Only, ex).await?)
 }
 
 /// Sets `record`'s soft-delete column to `value`, if `trashed` admits it.

@@ -56,7 +56,7 @@ pub use relation::{ForeignKey, Relation};
 pub(crate) use relation::{Links, RelationKind};
 pub use soft_delete::Trashed;
 pub(crate) use soft_delete::{SoftDelete, TRASH_FILTER, TrashFilter};
-pub use write::{write_create, write_update};
+pub use write::{write_create, write_delete, write_force_delete, write_restore, write_update};
 pub use write_error::WriteError;
 
 /// Maps one Toasty `Model` to its admin UI.
@@ -188,45 +188,46 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// calls this with the same transaction as `ex`. The hooks receive the
     /// snapshot as [`Change::Delete`].
     ///
-    /// The default deletes the row through [`scoped_query`], filtered to the
-    /// record's primary key, or stamps its
-    /// [`soft_delete`](ResourceDef::soft_delete) column with the time when the resource declares
-    /// one. Override to delete another way, or to refuse with [`WriteError::declined`]: the
-    /// transaction rolls back and the message flashes, as it does for the restore, the force
-    /// delete and the bulk delete.
+    /// The default is [`write_delete`]: it deletes the row through [`scoped_query`], filtered to
+    /// the record's primary key, or stamps its [`soft_delete`](ResourceDef::soft_delete) column
+    /// with the time when the resource declares one. Override to delete another way, or to refuse
+    /// with [`WriteError::declined`] and delegate the rest to [`write_delete`]: the transaction
+    /// rolls back and the message flashes, as it does for the restore, the force delete and the
+    /// bulk delete.
     fn delete_record(
         cx: &Cx,
         record: &Self::Model,
         ex: &mut dyn toasty::Executor,
     ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send {
-        async move { Ok(write::delete::<Self>(cx, record, ex).await?) }
+        write_delete::<Self>(cx, record, ex)
     }
 
     /// Restore the already-authorized trashed `record` of a resource that
     /// [soft-deletes](ResourceDef::soft_delete), inside the handler's transaction.
     ///
     /// The handler loads `record` through [`scoped_query_in`] with [`Trashed::Only`] and checks
-    /// [`Ability::Restore`](crate::Ability::Restore) on it. The default empties the soft-delete
-    /// column.
+    /// [`Ability::Restore`](crate::Ability::Restore) on it. The default, [`write_restore`], empties
+    /// the soft-delete column.
     fn restore_record(
         cx: &Cx,
         record: &Self::Model,
         ex: &mut dyn toasty::Executor,
     ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send {
-        async move { Ok(write::restore::<Self>(cx, record, ex).await?) }
+        write_restore::<Self>(cx, record, ex)
     }
 
     /// Delete the already-authorized trashed `record` for good, inside the handler's
     /// transaction.
     ///
     /// The handler loads `record` through [`scoped_query_in`] with [`Trashed::Only`] and checks
-    /// [`Ability::ForceDelete`](crate::Ability::ForceDelete) on it. The default removes the row.
+    /// [`Ability::ForceDelete`](crate::Ability::ForceDelete) on it. The default,
+    /// [`write_force_delete`], removes the row.
     fn force_delete_record(
         cx: &Cx,
         record: &Self::Model,
         ex: &mut dyn toasty::Executor,
     ) -> impl std::future::Future<Output = Result<(), WriteError>> + Send {
-        async move { Ok(write::force_delete::<Self>(cx, record, ex).await?) }
+        write_force_delete::<Self>(cx, record, ex)
     }
 
     /// Bulk-delete the already-authorized `records`: the handler
