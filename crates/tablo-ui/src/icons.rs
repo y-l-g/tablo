@@ -50,10 +50,12 @@ pub const PLUS: IconData = iconify_icon!("lucide:plus");
 pub const DOWNLOAD: IconData = iconify_icon!("lucide:download");
 /// Page action: import a CSV file into the list.
 pub const UPLOAD: IconData = iconify_icon!("lucide:upload");
-/// A file list row's drag handle.
+/// A file list's drag handle.
 pub const GRIP_VERTICAL: IconData = iconify_icon!("lucide:grip-vertical");
 /// Back to the list.
 pub const ARROW_LEFT: IconData = iconify_icon!("lucide:arrow-left");
+/// Move an image a gallery lists one place later.
+pub const ARROW_RIGHT: IconData = iconify_icon!("lucide:arrow-right");
 /// Empty state.
 pub const INBOX: IconData = iconify_icon!("lucide:inbox");
 /// A link that leaves the panel (a public page).

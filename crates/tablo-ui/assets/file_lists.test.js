@@ -3,10 +3,12 @@
 //     node --test crates/tablo-ui/assets/file_lists.test.js
 //
 // What the cases protect:
-// * a row's buttons move it one place, and the rows' order is all the server
-//   reads the list's order from;
-// * dragging a row's handle puts it where the pointer lets go, and marks the
-//   form changed once;
+// * an item's buttons move it one place, and the items' order is all the
+//   server reads the list's order from;
+// * a dragged item lands where the pointer lets go, in a column of rows and in
+//   a grid of tiles, and marks the form changed once;
+// * a mouse drags an item from anywhere but its controls, a finger only by its
+//   grip;
 // * a move fires a bubbling `change`, so the leave-page guard counts it;
 // * a button at either end, or outside a file list, moves nothing;
 // * files dropped on a zone join a list's input after its own, and replace a
@@ -14,7 +16,7 @@
 // * a picked file's remove button takes that file, and no other, out of what
 //   the input posts;
 // * a picked file shows a thumbnail only in an image zone, and only for an
-//   image;
+//   image, and its size;
 // * the single wiring pass: one listener per event type, so an event acts once.
 
 const test = require('node:test');
@@ -26,7 +28,7 @@ const { listenerDocument } = require('./test-dom');
 
 // Only as wide as the script needs: attributes, children, the sibling,
 // ancestor and descendant walks, a box for the drag, and selectors made of
-// `[attr]` or `tag[attr="value"]`, joined by commas.
+// `tag`, `[attr]` or `tag[attr="value"]`, joined by commas.
 class Element {
   constructor(attributes = {}, children = [], tag = 'div') {
     this.tagName = tag.toUpperCase();
@@ -38,6 +40,8 @@ class Element {
     this.textContent = '';
     this.hidden = false;
     this.top = 0;
+    this.left = 0;
+    this.width = 100;
     children.forEach((child) => this.appendChild(child));
   }
 
@@ -84,14 +88,14 @@ class Element {
   }
 
   getBoundingClientRect() {
-    return { top: this.top, height: 10 };
+    return { top: this.top, bottom: this.top + 10, height: 10, left: this.left, width: this.width };
   }
 
   matches(selector) {
     return selector.split(',').some((one) => {
-      const [, tag, name, value] = /^(\w*)\[([\w-]+)(?:="([^"]*)")?\]$/.exec(one.trim());
+      const [, tag, name, value] = /^(\w*)(?:\[([\w-]+)(?:="([^"]*)")?\])?$/.exec(one.trim());
       if (tag && this.tagName !== tag.toUpperCase()) return false;
-      if (!this.hasAttribute(name)) return false;
+      if (name && !this.hasAttribute(name)) return false;
       return value === undefined || this.getAttribute(name) === value;
     });
   }
@@ -138,19 +142,31 @@ class Element {
   }
 }
 
-// A file list holding a row per path, each with its up and down buttons and its
-// handle, the rows ten pixels tall and stacked.
+// A file list holding an item per path, each a handle with its up and down
+// buttons, its grip and its name, the items ten pixels tall and stacked.
 function fileList(paths) {
   const rows = paths.map((path, index) => {
-    const row = new Element({ 'data-file-item': path }, [
-      new Element({ 'data-file-up': '' }),
-      new Element({ 'data-file-down': '' }),
-      new Element({ 'data-file-handle': '' }),
+    const row = new Element({ 'data-file-item': path, 'data-file-handle': '' }, [
+      new Element({ 'data-file-up': '' }, [], 'button'),
+      new Element({ 'data-file-down': '' }, [], 'button'),
+      new Element({ 'data-file-grip': '' }, [], 'span'),
+      new Element({}, [new Element({ href: path }, [], 'a')]),
     ]);
     row.top = index * 10;
     return row;
   });
   return new Element({ 'data-file-list': 'photos' }, rows);
+}
+
+// The same list as a grid of tiles forty pixels wide, `columns` to a line.
+function fileGrid(paths, columns) {
+  const list = fileList(paths);
+  list.children.forEach((tile, index) => {
+    tile.width = 40;
+    tile.left = (index % columns) * 40;
+    tile.top = Math.floor(index / columns) * 10;
+  });
+  return list;
 }
 
 function order(list) {
@@ -159,7 +175,9 @@ function order(list) {
 
 function button(list, path, kind) {
   const row = list.children.find((row) => row.getAttribute('data-file-item') === path);
-  return row.children[{ up: 0, down: 1, handle: 2 }[kind]];
+  if (kind === 'item') return row;
+  if (kind === 'link') return row.children[3].children[0];
+  return row.children[{ up: 0, down: 1, grip: 2 }[kind]];
 }
 
 // A drop zone around a file input holding `files`, with the picked-file
@@ -173,6 +191,7 @@ function dropZone(files, { multiple = true, image = false } = {}) {
   const tile = new Element({}, [
     new Element({ 'data-file-picked-thumb': '' }, [], 'img'),
     new Element({ 'data-file-picked-name': '' }, [], 'span'),
+    new Element({ 'data-file-picked-size': '' }, [], 'span'),
     new Element({ 'data-file-unpick': '' }, [], 'button'),
   ]);
   tile.children[0].hidden = true;
@@ -186,7 +205,7 @@ function dropZone(files, { multiple = true, image = false } = {}) {
   return { zone, input };
 }
 
-const file = (name, type = 'image/png') => ({ name, type });
+const file = (name, type = 'image/png', size = 1500) => ({ name, type, size });
 const names = (input) => input.files.map((f) => f.name);
 
 // What the browser's `DataTransfer` gives: a list the added files land in.
@@ -220,7 +239,7 @@ function dragEvent(target, files, types = ['Files']) {
 
 // --- the cases -----------------------------------------------------------------
 
-const { act, joined, place, render } = require('./file_lists.js');
+const { act, joined, place, render, size } = require('./file_lists.js');
 
 test('a row moves one place up or down', () => {
   const list = fileList(['/a', '/b', '/c']);
@@ -256,24 +275,59 @@ test('a button outside a file list does nothing', () => {
 test('a dragged row lands before the first row whose middle is below the pointer', () => {
   const list = fileList(['/a', '/b', '/c']);
   const row = list.children[0];
-  assert.equal(place(list, row, 16), true, 'past the middle of /b');
+  assert.equal(place(list, row, 90, 16), true, 'past the middle of /b');
   assert.deepEqual(order(list), ['/b', '/a', '/c']);
-  assert.equal(place(list, row, 16), false, 'the same spot again moves nothing');
-  assert.equal(place(list, row, 99), true);
+  assert.equal(place(list, row, 90, 16), false, 'the same spot again moves nothing');
+  assert.equal(place(list, row, 0, 99), true);
   assert.deepEqual(order(list), ['/b', '/c', '/a']);
-  assert.equal(place(list, row, 99), false, 'already last');
+  assert.equal(place(list, row, 0, 99), false, 'already last');
+});
+
+test('a dragged tile lands before the first tile the pointer comes before, line by line', () => {
+  // /a /b
+  // /c /d
+  const list = fileGrid(['/a', '/b', '/c', '/d'], 2);
+  const tile = list.children[0];
+  list.width = 80;
+  assert.equal(place(list, tile, 70, 5), true, 'past the middle of /b, on its line');
+  assert.deepEqual(order(list), ['/b', '/a', '/c', '/d']);
+  assert.equal(place(list, tile, 10, 15), false, 'left of /c is where it already is');
+  assert.equal(place(list, tile, 50, 15), true, 'left of the middle of /d');
+  assert.deepEqual(order(list), ['/b', '/c', '/a', '/d']);
+});
+
+test('a mouse drags an item from anywhere but its controls, a finger by its grip', () => {
+  const { fire } = installed();
+  const list = fileList(['/a', '/b']);
+  const press = (target, pointerType) =>
+    fire('pointerdown', { target, pointerType, button: 0, pointerId: 1, preventDefault() {} });
+  const dragging = () => list.children[0].hasAttribute('data-dragging');
+  const release = () => fire('pointerup', { pointerId: 1 });
+
+  press(button(list, '/a', 'link'), 'mouse');
+  assert.equal(dragging(), false, 'a link stays a link');
+  press(button(list, '/a', 'up'), 'mouse');
+  assert.equal(dragging(), false, 'a button stays a button');
+  press(button(list, '/a', 'item'), 'touch');
+  assert.equal(dragging(), false, 'a finger on the item scrolls the page');
+  press(button(list, '/a', 'grip'), 'touch');
+  assert.equal(dragging(), true);
+  release();
+  press(button(list, '/a', 'item'), 'mouse');
+  assert.equal(dragging(), true);
+  release();
 });
 
 test('dragging a handle reorders the list and marks the form changed once', () => {
   const { fire } = installed();
   const list = fileList(['/a', '/b', '/c']);
-  const handle = button(list, '/a', 'handle');
+  const handle = button(list, '/a', 'grip');
   const down = { target: handle, button: 0, pointerId: 1, preventDefault() {} };
   fire('pointerdown', down);
   assert.equal(list.children[0].hasAttribute('data-dragging'), true);
-  fire('pointermove', { pointerId: 1, clientY: 16 });
-  fire('pointermove', { pointerId: 2, clientY: 99 });
-  fire('pointermove', { pointerId: 1, clientY: 26 });
+  fire('pointermove', { pointerId: 1, clientX: 90, clientY: 16 });
+  fire('pointermove', { pointerId: 2, clientX: 90, clientY: 99 });
+  fire('pointermove', { pointerId: 1, clientX: 90, clientY: 26 });
   fire('pointerup', { pointerId: 1 });
   assert.deepEqual(order(list), ['/b', '/c', '/a'], 'another pointer moves nothing');
   assert.equal(list.children[2].hasAttribute('data-dragging'), false);
@@ -354,6 +408,16 @@ test('a picked file shows a thumbnail in an image zone, and only for an image', 
   const files = dropZone(picked);
   render(files.zone, files.input, urls);
   assert.deepEqual(thumbs(files.zone), [null, null]);
+  assert.deepEqual(
+    files.zone.querySelectorAll('[data-file-picked-size]').map((bytes) => bytes.textContent),
+    [size(1500), size(1500)],
+  );
+});
+
+test('a size reads in kilobytes, or megabytes past a thousand of them', () => {
+  assert.equal(size(1500, 'en'), '2 kB');
+  assert.equal(size(10, 'en'), '1 kB', 'never zero');
+  assert.equal(size(2_500_000, 'en'), '2.5 MB');
 });
 
 test('one listener per event type, so an event acts once', () => {

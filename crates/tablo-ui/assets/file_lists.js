@@ -1,24 +1,26 @@
 // Ordering, dropping and previews for Tablo file fields.
 //
-// A file list renders `[data-file-list]` holding one `[data-file-item]` row per
-// stored file. Each row posts its path under the list's `keep_<field>` key,
-// and the server keeps the rows in the order the form posts them, which is the
-// order they show. A row's `[data-file-up]` and `[data-file-down]` buttons move
-// it, and so does dragging its `[data-file-handle]`, so moving a row touches
-// nothing but its place. Each button is `type="button"`, so none submits the
-// form.
+// A file list renders `[data-file-list]` holding one `[data-file-item]` per
+// stored file, a row or an image's tile. Each posts its path under the list's
+// `keep_<field>` key, and the server keeps them in the order the form posts
+// them, which is the order they show. An item's `[data-file-up]` and
+// `[data-file-down]` buttons move it, and so does dragging it, a
+// `[data-file-handle]`: a mouse anywhere but its links and buttons, a finger
+// by its `[data-file-grip]` alone, so the rest of it still scrolls the page.
+// Moving an item touches nothing but its place. Each button is
+// `type="button"`, so none submits the form.
 //
 // Every file field's input sits in a `[data-file-drop]` zone. Files dropped on
 // the zone join the input's, a list's after the ones it holds and a single
 // field's in place of its one. The zone's `[data-file-pending]` lists the files
 // the input holds, each a copy of the zone's `[data-file-picked-template]`
-// with its name, a thumbnail when the zone is `[data-file-image]` and the file
-// an image, and a `[data-file-unpick]` button taking it back out. The input is
+// with its name, its size, a thumbnail when the zone is `[data-file-image]`
+// and the file an image, and a `[data-file-unpick]` button taking it back out. The input is
 // what posts, so the server sees nothing of this but the files it sends, in the
 // order the input holds them.
 
-// Move the row holding `button` one place up or down; `false` when the button
-// is no file list's.
+// Move the item holding `button` one place earlier or later; `false` when the
+// button is no file list's.
 function act(button) {
   const row = button.closest('[data-file-item]');
   const list = button.closest('[data-file-list]');
@@ -46,13 +48,22 @@ function changed(node) {
   node.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-// Put `row` of `list` before the first other row whose middle lies below `y`,
-// or last; `true` when that moves it.
-function place(list, row, y) {
+// Put `row` of `list` before the first other item the point `x`, `y` comes
+// before in reading order, or last; `true` when that moves it. A point comes
+// before an item above it, and before one beside it when left of its middle;
+// an item wider than half the list is a row, which the point comes before
+// when above its middle.
+function place(list, row, x, y) {
+  // A list laid out as its parent's `contents` has no box of its own.
+  const width =
+    list.getBoundingClientRect().width ||
+    (list.parentElement ? list.parentElement.getBoundingClientRect().width : 0);
   const others = Array.from(list.children).filter((other) => other !== row);
   const below = others.find((other) => {
     const box = other.getBoundingClientRect();
-    return y < box.top + box.height / 2;
+    if (y < box.top) return true;
+    if (y >= box.bottom) return false;
+    return box.width * 2 > width ? y < box.top + box.height / 2 : x < box.left + box.width / 2;
   });
   const before = below || null;
   if (row.nextElementSibling === before) return false;
@@ -82,6 +93,16 @@ function inputOf(zone) {
   return zone.querySelector('input[type="file"]');
 }
 
+// `bytes` spelled in kilobytes or megabytes, in the page's language.
+function size(bytes, lang) {
+  const mega = bytes >= 1000 * 1000;
+  return new Intl.NumberFormat(lang || undefined, {
+    style: 'unit',
+    unit: mega ? 'megabyte' : 'kilobyte',
+    maximumFractionDigits: mega ? 1 : 0,
+  }).format(mega ? bytes / (1000 * 1000) : Math.max(1, Math.round(bytes / 1000)));
+}
+
 // List the files `input` holds in its zone `zone`, each a copy of the zone's
 // template. `url` makes an image file's thumbnail address.
 function render(zone, input, url) {
@@ -91,11 +112,15 @@ function render(zone, input, url) {
   pending.querySelectorAll('img[src]').forEach((img) => url.revoke(img.src));
   pending.replaceChildren();
   const image = zone.hasAttribute('data-file-image');
+  const doc = zone.ownerDocument;
+  const lang = doc && doc.documentElement ? doc.documentElement.lang : '';
   Array.from(input.files || []).forEach((file, index) => {
     const tile = template.content.firstElementChild.cloneNode(true);
     const name = tile.querySelector('[data-file-picked-name]');
     name.textContent = file.name;
     name.id = `${input.id}-picked-${index}`;
+    const bytes = tile.querySelector('[data-file-picked-size]');
+    if (bytes) bytes.textContent = size(file.size || 0, lang);
     const unpick = tile.querySelector('[data-file-unpick]');
     unpick.setAttribute('data-file-unpick', String(index));
     unpick.setAttribute('aria-describedby', name.id);
@@ -177,12 +202,15 @@ function install(
     hold(input, joined(input, e.dataTransfer.files), transfer);
   });
 
-  // Dragging a row by its handle. The pointer is captured, so the moves keep
-  // coming while it leaves the handle.
+  // Dragging an item. The pointer is captured, so the moves keep coming while
+  // it leaves the item.
   let drag = null;
   doc.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
-    const handle = e.target && e.target.closest && e.target.closest('[data-file-handle]');
+    const target = e.target && e.target.closest ? e.target : null;
+    if (!target || target.closest('a, button, input, label')) return;
+    if (e.pointerType === 'touch' && !target.closest('[data-file-grip]')) return;
+    const handle = target.closest('[data-file-handle]');
     const row = handle && handle.closest('[data-file-item]');
     const list = row && row.closest('[data-file-list]');
     if (!list) return;
@@ -193,7 +221,7 @@ function install(
   });
   doc.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.pointer) return;
-    if (place(drag.list, drag.row, e.clientY)) drag.moved = true;
+    if (place(drag.list, drag.row, e.clientX, e.clientY)) drag.moved = true;
   });
   const end = (e) => {
     if (!drag || e.pointerId !== drag.pointer) return;
@@ -210,5 +238,5 @@ if (typeof document !== 'undefined') install();
 // Exposed for the Node unit test (`file_lists.test.js`); the guard keeps the
 // export out of the browser.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { act, install, joined, place, render };
+  module.exports = { act, install, joined, place, render, size };
 }
