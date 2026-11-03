@@ -1,7 +1,7 @@
 //! Reads values back out of rendered responses: bodies, cookies, form data, the page's language,
 //! and the semantic HTML queries over tables, action buttons, fields, filters, the ignored-filters
 //! banner, the import page, rich text values, the notification bell, the global search, sections,
-//! the sidebar, tabs, a list's tab bar, and widgets.
+//! the sidebar, tabs, a list's tab bar, widgets, and wizard steps.
 
 mod bell;
 mod choice_create;
@@ -19,6 +19,7 @@ mod sidebar;
 mod summaries;
 mod tabs;
 mod widgets;
+mod wizard;
 
 pub use bell::{Bell, BellNotification, bell};
 pub use choice_create::{CreateOptionLink, Picked, create_option_links, picked, posts_picking};
@@ -45,6 +46,7 @@ use topcoat::router::Body;
 pub use widgets::{
     ChartData, ChartSeries, RecordTableData, StatTile, charts, record_tables, stats, widgets,
 };
+pub use wizard::{WizardStep, wizard_steps};
 
 /// One `Cookie` header value from `(name, value)` pairs, or `None` when empty.
 pub fn cookie_header<'a>(cookies: impl IntoIterator<Item = (&'a str, &'a str)>) -> Option<String> {

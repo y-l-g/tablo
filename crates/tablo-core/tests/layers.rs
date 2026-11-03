@@ -128,6 +128,7 @@ const RENDER_HOOKS: &[&str] = &[
     "schema/fields/text.rs",
     "schema/layouts.rs",
     "schema/layouts/section.rs",
+    "schema/layouts/wizard.rs",
     "schema/repeater.rs",
     "table/filter/date.rs",
     "table/filter/input.rs",

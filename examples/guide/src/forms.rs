@@ -34,6 +34,16 @@ pub fn account_tabs() -> Schema<UserForm> {
 }
 // ANCHOR_END: forms-tabs
 
+// ANCHOR: forms-wizard
+pub fn account_wizard() -> Schema<UserForm> {
+    let c = UserForm::controls();
+    Schema::new(Wizard::new([
+        Step::new("Account").schema((c.email.email(), c.role)),
+        Step::new("Profile").schema(Grid::new(2).schema((c.name, c.age))),
+    ]))
+}
+// ANCHOR_END: forms-wizard
+
 // ANCHOR: forms-sections
 pub fn account_sections() -> Schema<UserForm> {
     let c = UserForm::controls();
@@ -408,7 +418,7 @@ pub struct PostForm {
 
 // ANCHOR: forms-repeater
 #[derive(Debug, Clone, toasty::Embed, tablo::FormInput)]
-pub struct Step {
+pub struct RecipeStep {
     #[form(multiline = 2)]
     pub instruction: String,
     #[form(blank = 0)]
@@ -423,7 +433,7 @@ pub struct Recipe {
     pub title: String,
     // Stored in one column.
     #[document]
-    pub steps: Vec<Step>,
+    pub steps: Vec<RecipeStep>,
 }
 
 #[derive(Debug, Clone, tablo::RecordForm)]
@@ -431,7 +441,7 @@ pub struct Recipe {
 pub struct RecipeForm {
     pub title: String,
     #[form(repeat)]
-    pub steps: Vec<Step>,
+    pub steps: Vec<RecipeStep>,
 }
 // ANCHOR_END: forms-repeater
 

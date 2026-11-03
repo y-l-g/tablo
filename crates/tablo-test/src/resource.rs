@@ -442,6 +442,11 @@ impl<'c, 'a, K: PartialEq> Reply<'c, 'a, K> {
         crate::tabs(&self.html)
     }
 
+    /// See [`wizard_steps`](crate::wizard_steps).
+    pub fn wizard_steps(&self) -> Vec<crate::WizardStep> {
+        crate::wizard_steps(&self.html)
+    }
+
     /// See [`sections`](crate::sections).
     pub fn sections(&self) -> Vec<crate::Section> {
         crate::sections(&self.html)

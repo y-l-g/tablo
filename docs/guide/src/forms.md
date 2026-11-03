@@ -181,6 +181,18 @@ A refused submission reopens on the first tab holding an error, and the browser 
 control it refuses itself. [`Tabs`](https://y-l.fr/tablo/nightly/api/tablo/struct.Tabs.html) has the
 full rules.
 
+`Wizard::new` walks the user through its `Step`s in order, with a button to the next step and one
+back. The next step opens once the browser's own checks pass on the current one, and Enter in a
+field moves forward rather than saving. As with tabs, every step's fields render and post, and the
+form's own buttons save from any step:
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-wizard}}
+```
+
+A refused submission reopens on the first step holding an error.
+[`Wizard`](https://y-l.fr/tablo/nightly/api/tablo/struct.Wizard.html) has the full rules.
+
 **Fields** are what `controls()` hands over, and what a page's or an action's schema builds from
 a Toasty field lens:
 

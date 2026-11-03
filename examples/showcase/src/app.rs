@@ -9,8 +9,8 @@ use tablo::{
     NavigationItem, Notification, Notifications, Pagination, Panel, PanelHandle, PanelUser,
     PasswordReset, PublicLink, QueryFilter, Reads, Relation, RelationColumn, RepeaterColumn,
     Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt, RowLink, Schema, Section,
-    SelectFilter, Tab, Table, Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn,
-    ToggleColumn, TwoFactor, lens, relation, tenant_id, when,
+    SelectFilter, Step, Tab, Table, Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn,
+    ToggleColumn, TwoFactor, Wizard, lens, relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -110,9 +110,11 @@ impl Resource for AuthorResource {
             .navigation_group("Blog")
             .policy(when(blog_open))
             .tenancy(Tenancy::column(lens!(Author.tenant_id)))
-            .form(Schema::new(
-                Section::new("Profile").schema((c.name, c.email.email())),
-            ))
+            // Asks for the name, then the address.
+            .form(Schema::new(Wizard::new([
+                Step::new("Name").schema(c.name),
+                Step::new("Contact").schema(c.email.email()),
+            ])))
             .table(Table::new((
                 TextColumn::new(lens!(Author.name)).weight(FontWeight::Medium),
                 // A mail link, and a button copying the address.

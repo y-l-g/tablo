@@ -193,8 +193,8 @@ pub use schema::RichTextField;
 pub use schema::{
     ChoiceField, CustomField, EmbeddedForm, Field, FileField, Grid, Group, IntoFormValue,
     IntoOptions, IntoSchema, MAX_RELATIONSHIP_OPTIONS, MAX_REPEATER_ROWS, Options, RepeaterField,
-    Schema, Section, Source, Switch, Tab, Tabs, TextField, Toggle, Watched, input::FormInput,
-    parse_items, write_items,
+    Schema, Section, Source, Step, Switch, Tab, Tabs, TextField, Toggle, Watched, Wizard,
+    input::FormInput, parse_items, write_items,
 };
 pub use table::{
     ActionLayout, Cursor, DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, DateFilter, FilterValue,

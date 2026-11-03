@@ -34,7 +34,7 @@ pub(crate) use fields::{
     is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,
 };
 pub(crate) use input::FormInput;
-pub use layouts::{Grid, Group, HoldsTabs, Section, Tab, Tabs};
+pub use layouts::{Grid, Group, HoldsTabs, Section, Step, Tab, Tabs, Wizard};
 pub(crate) use layouts::{TabView, tab_id, tab_view, titled};
 pub(crate) use lenses::Binding;
 pub use lenses::form_key;
