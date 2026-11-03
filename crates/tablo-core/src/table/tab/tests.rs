@@ -57,3 +57,62 @@ fn a_tab_reads_what_its_query_names() {
     let open = ListTab::<Task>::new("open", "Open").query(Task::fields().featured().eq(false));
     assert_eq!(open.reads().fields(), ["featured"]);
 }
+
+/// A stage whose options list a value its form spelling refuses, as a hand-written `Options` may.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed)]
+enum Stage {
+    Open,
+}
+
+impl Options for Stage {
+    fn options() -> Vec<(String, crate::Text)> {
+        vec![
+            ("open".to_string(), crate::Text::from("Open")),
+            ("Closed".to_string(), crate::Text::from("Closed")),
+        ]
+    }
+}
+
+impl FormScalar for Stage {
+    fn parse_form(value: &str) -> std::result::Result<Self, crate::Text> {
+        match value {
+            "open" => Ok(Self::Open),
+            _ => Err(crate::Text::from("not a stage")),
+        }
+    }
+
+    fn to_form(&self) -> String {
+        "open".to_string()
+    }
+}
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Ticket {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    title: String,
+    stage: Stage,
+}
+
+/// The option tabs offer every row first, then a counted tab per option reading its field; an
+/// option the field's type does not parse is misdeclared rather than offered.
+#[test]
+fn option_tabs_offer_all_then_a_counted_tab_per_option() {
+    let table = Table::<Ticket>::new(TextColumn::new(lens!(Ticket.title)))
+        .option_tabs(Ticket::fields().stage());
+    let tabs = table.declared_tabs();
+    assert_eq!(
+        tabs.iter().map(ListTab::key).collect::<Vec<_>>(),
+        ["all", "open"]
+    );
+    assert!(!tabs[0].has_badge() && tabs[0].reads().fields().is_empty());
+    assert!(tabs[1].has_badge());
+    assert_eq!(tabs[1].reads().fields(), ["stage"]);
+    assert_eq!(
+        table.declaration_errors(),
+        [DeclarationErrorKind::UnparsedTabOption {
+            value: "Closed".to_string()
+        }]
+    );
+}

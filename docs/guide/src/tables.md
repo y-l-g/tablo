@@ -270,6 +270,13 @@ search and the filters, and the export and a selection of every matching record 
 tab. The panel reads the fields a tab's predicate names off the predicate, so that
 [field access](./resources.md#field-access) hides the tab from a user who may not view one. [`ListTab`](https://y-l.fr/tablo/nightly/api/tablo/struct.ListTab.html) has the rules.
 
+A tab per option of an [`Options`](#presenting-values) field is one call: `all`, then a counted tab per
+status, keyed by its value, so `?tab=draft` lists the drafts:
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-option-tabs}}
+```
+
 ## Summaries
 
 A summary counts records under the rows: every record the list selects, or those a predicate

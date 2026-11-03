@@ -74,6 +74,7 @@ tablo-confirm-selected = Enregistrements sélectionnés :
 tablo-list-select-all = Sélectionner toutes les lignes
 tablo-list-select-matching = Sélectionner tous les résultats
 tablo-list-all-matching = Tous les enregistrements correspondants
+tablo-list-tab-all = Tous
 tablo-list-sort = Trier par { $column } { $direction ->
     [descending] décroissant
    *[ascending] croissant

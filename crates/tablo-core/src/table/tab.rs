@@ -2,11 +2,11 @@
 //! counts their badges show.
 
 use derive_where::derive_where;
-use toasty::stmt::{Expr, List, Query};
+use toasty::stmt::{Expr, IntoExpr, List, Path, Query};
 use topcoat::{Result, context::Cx};
 
 use super::{Table, TableState};
-use crate::{DeclarationErrorKind, lens::Reads};
+use crate::{DeclarationErrorKind, lens::Reads, schema::Options, values::FormScalar};
 
 /// One tab a table offers above its rows: a preset predicate the reader picks with
 /// `?tab=<key>`, beside the search and the filters it combines with.
@@ -99,6 +99,45 @@ impl<M> Table<M> {
     /// Offer `tab` above the rows, after the declared ones.
     pub fn tab(mut self, tab: ListTab<M>) -> Self {
         self.tabs.push(tab);
+        self
+    }
+
+    /// Offer a tab admitting every row, keyed `all`, then a tab per option of the [`Options`]
+    /// field `lens` binds, in declaration order, after the declared ones. An option's tab is keyed
+    /// by its value and labelled by its label, admits the rows holding it, and shows their count.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
+    /// # enum Status { Draft, Published }
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, status: Status }
+    /// use tablo_core::{Table, TextColumn, lens};
+    ///
+    /// // `?tab=all`, `?tab=draft` and `?tab=published`.
+    /// Table::new(TextColumn::new(lens!(Post.title))).option_tabs(lens!(Post.status));
+    /// ```
+    ///
+    /// An option whose value the field's type does not parse is a declaration error, since its
+    /// tab would admit no row.
+    pub fn option_tabs<T>(mut self, lens: impl Into<Path<M, T>>) -> Self
+    where
+        T: Options + FormScalar + IntoExpr<T>,
+    {
+        let path: Path<M, T> = lens.into();
+        self.tabs
+            .push(ListTab::new("all", crate::text!("tablo-list-tab-all")));
+        for (value, label) in T::options() {
+            match T::parse_form(&value) {
+                Ok(option) => self.tabs.push(
+                    ListTab::new(value, label)
+                        .query(path.clone().eq(option))
+                        .badge(),
+                ),
+                Err(_) => self
+                    .misdeclared
+                    .push(DeclarationErrorKind::UnparsedTabOption { value }),
+            }
+        }
         self
     }
 

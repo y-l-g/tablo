@@ -170,7 +170,7 @@ async fn the_post_list_widget_follows_the_list() {
 
     let all = body_string(client.get("/admin/posts").await).await;
     let searched = body_string(client.get("/admin/posts?q=Second").await).await;
-    for (label, key) in [("Drafts", "drafts"), ("Published", "published")] {
+    for (label, key) in [("Drafts", "draft"), ("Published", "published")] {
         assert_eq!(tile(&searched, label), badge(&searched, key), "{searched}");
     }
     assert_ne!(
@@ -179,7 +179,7 @@ async fn the_post_list_widget_follows_the_list() {
         "the search narrows the figure"
     );
 
-    let drafts = body_string(client.get("/admin/posts?tab=drafts").await).await;
-    assert_eq!(tile(&drafts, "Drafts"), badge(&drafts, "drafts"));
+    let drafts = body_string(client.get("/admin/posts?tab=draft").await).await;
+    assert_eq!(tile(&drafts, "Drafts"), badge(&drafts, "draft"));
     assert_eq!(tile(&drafts, "Published").as_deref(), Some("0"), "{drafts}");
 }
