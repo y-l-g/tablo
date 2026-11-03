@@ -27,7 +27,9 @@ offered locale of its language, by likely subtags: `zh-HK` reads `zh-Hant`.
 - A label Tablo derives from a name is a message with an English fallback: the field `word_count`
   reads the message `field-word_count`, else "Word count". An app translates its derived labels
   in its catalog without declaring them. Fields, columns and filters share the id of their name,
-  so one message translates all three.
+  so one message translates all three. A `belongs_to` relation's one foreign key takes the
+  relation's name rather than its own: `author_id` and `author` name one record, and a label
+  "Author id" would leak the column.
 - An enum's options are the attributes of one message, `option-{enum}.{variant}`: the variant's
   snake-case name is always a valid Fluent identifier, where an option's value, which a form
   posts, need not be, and a translator finds an enum's words together. An option's label is a

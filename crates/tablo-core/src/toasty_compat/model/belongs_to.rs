@@ -41,3 +41,20 @@ pub(crate) fn belongs_tos<M: toasty::schema::Model>() -> Vec<BelongsTo> {
     let count = M::schema().as_root().map_or(0, |root| root.fields.len());
     (0..count).filter_map(belongs_to::<M>).collect()
 }
+
+/// The name `field`'s label derives from: the `belongs_to` relation's when `field` is the one
+/// foreign key that relation writes, so `author_id` reads `field-author` as the `author`
+/// relation does, else its own.
+pub(crate) fn label_name<'a>(field: &'a app::Field, root: &'a app::ModelRoot) -> &'a str {
+    let name = field.name.app_unwrap();
+    root.fields
+        .iter()
+        .find_map(|relation| match &relation.ty {
+            app::FieldTy::BelongsTo(belongs_to) => match belongs_to.foreign_key.fields.as_slice() {
+                [key] if key.source == field.id => relation.name.app.as_deref(),
+                _ => None,
+            },
+            _ => None,
+        })
+        .unwrap_or(name)
+}

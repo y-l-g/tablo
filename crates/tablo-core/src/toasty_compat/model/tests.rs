@@ -36,3 +36,37 @@ fn uniqueness_reads_the_model_index_list() {
         "the primary key is unique by construction, not by declared constraint"
     );
 }
+
+#[derive(Debug, toasty::Model)]
+struct Team {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+}
+
+#[derive(Debug, toasty::Model)]
+struct Player {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    #[index]
+    squad_id: uuid::Uuid,
+    #[belongs_to(key = squad_id, references = id)]
+    squad: toasty::Deferred<Team>,
+    badge_id: String,
+}
+
+/// A `belongs_to` relation's foreign key reads the relation's label, named after the relation
+/// rather than the model it targets; another field ending in `_id` keeps its own.
+#[test]
+fn a_foreign_key_takes_its_relations_label() {
+    let label = |path: &ModelPath| field::<Player>(path).unwrap().label.key();
+    assert_eq!(
+        label(&ModelPath::of(&Player::fields().squad_id())),
+        "field-squad"
+    );
+    assert_eq!(
+        label(&ModelPath::of(&Player::fields().badge_id())),
+        "field-badge_id"
+    );
+}

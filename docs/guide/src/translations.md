@@ -87,6 +87,7 @@ translates it in its catalog without declaring it:
 | Declared | Message | Fallback |
 | --- | --- | --- |
 | a field, column or filter on `word_count` | `field-word_count` | Word count |
+| one on the foreign key `author_id` of the `belongs_to` relation `author`, or on the relation | `field-author` | Author |
 | a resource over the model `BlogPost` | `resource-blog-post` | Blog post |
 | its plural | `resource-blog-post.plural` | Blog posts |
 | the plural of a label `text!("post")` | `post.plural` | the id |
@@ -95,7 +96,8 @@ translates it in its catalog without declaring it:
 | the variant `PublishedLate` of an `Options` enum `PostStatus` | `option-post-status.published_late` | Published late |
 
 A field, its column and its filter share the message of their name, so one translation spells
-all three. An enum's options are the attributes of one message, which spells the enum's select, its
+all three. A `belongs_to` relation's one foreign key shares the relation's message: the
+relationship field on `author_id` and the relation column on `author` read the same label. An enum's options are the attributes of one message, which spells the enum's select, its
 column's cells, its group headers and its filter's options:
 
 ```ftl

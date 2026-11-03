@@ -428,7 +428,7 @@ struct Declared<M> {
 impl<M> Declared<M> {
     fn of<R>(relation: &RelationLens<M, R>, width: ColumnWidth) -> Self {
         let (name, field_label, misdeclared) = match relation.field() {
-            Ok((name, _)) => (name.to_string(), crate::Text::field(name), None),
+            Ok(name) => (name.to_string(), crate::Text::field(name), None),
             Err(error) => (String::new(), crate::Text::from(""), Some(error)),
         };
         Self {

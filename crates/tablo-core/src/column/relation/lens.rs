@@ -29,7 +29,7 @@ use crate::{DeclarationErrorKind, column::Includes, toasty_compat::model};
 pub struct RelationLens<M, R> {
     includes: Includes<M>,
     /// The relation field's name, or why the path names no single field.
-    field: Result<(String, String), DeclarationErrorKind>,
+    field: Result<String, DeclarationErrorKind>,
     /// The relation field, and the foreign keys of a `belongs_to`: what showing it reads.
     reads: Vec<String>,
     #[derive_where(skip(Debug))]
@@ -58,7 +58,7 @@ where
         };
         Self {
             includes: Includes::new().with(path),
-            field: info.map(|f| (f.name, f.label)),
+            field: info.map(|f| f.name),
             reads,
             read,
         }
@@ -86,11 +86,8 @@ impl<M, R> RelationLens<M, R> {
     }
 
     /// The field's name and label, or why the path names no single field.
-    pub(crate) fn field(&self) -> Result<(&str, &str), DeclarationErrorKind> {
-        self.field
-            .as_ref()
-            .map(|(name, label)| (name.as_str(), label.as_str()))
-            .map_err(Clone::clone)
+    pub(crate) fn field(&self) -> Result<&str, DeclarationErrorKind> {
+        self.field.as_deref().map_err(Clone::clone)
     }
 }
 
