@@ -6,6 +6,8 @@ no SPA build step.
 
 Tablo is experimental: until 1.0, a minor version may break the API.
 
+Try the live demo at [demo.tablo.y-l.fr](https://demo.tablo.y-l.fr).
+
 [![CI](https://github.com/y-l-g/tablo/actions/workflows/ci.yml/badge.svg)](https://github.com/y-l-g/tablo/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/y-l-g/tablo/blob/master/LICENSE)
 
 ## Quick start
@@ -93,15 +95,15 @@ writes as the resource's `Form`, and give it a policy that allows `Create` and `
 
 ## Documentation
 
-- **[User guide](https://y-l.fr/tablo/nightly/guide/)**, from the [guide source](https://github.com/y-l-g/tablo/blob/master/docs/guide/); build it
+- **[User guide](https://y-l.fr/tablo/nightly/guide/)**, from the **[guide source](https://github.com/y-l-g/tablo/blob/master/docs/guide/)**; build it
   locally with `mdbook build docs/guide`.
 - **[API reference](https://y-l.fr/tablo/nightly/api/tablo/)**, the rustdoc of the
   workspace.
-- [Showcase](https://github.com/y-l-g/tablo/blob/master/examples/showcase/): the runnable reference.
-- [Vocabulary](https://github.com/y-l-g/tablo/blob/master/CONTEXT.md): the project's terms.
-- [Design decisions](https://github.com/y-l-g/tablo/blob/master/docs/adr/): one record each.
-- Upstream: the [Toasty guide](https://tokio-rs.github.io/toasty/0.11.0/guide/) (queries,
-  relations, migrations) and the [Topcoat docs](https://docs.rs/topcoat) (`view!`,
+- **[Showcase](https://github.com/y-l-g/tablo/blob/master/examples/showcase/)**: the runnable reference.
+- **[Vocabulary](https://github.com/y-l-g/tablo/blob/master/CONTEXT.md)**: the project's terms.
+- **[Design decisions](https://github.com/y-l-g/tablo/blob/master/docs/adr/)**: one record each.
+- Upstream: the **[Toasty guide](https://tokio-rs.github.io/toasty/0.11.0/guide/)** (queries,
+  relations, migrations) and the **[Topcoat docs](https://docs.rs/topcoat)** (`view!`,
   `#[component]`, routing, cookies and sessions).
 
 ## Contributing
@@ -111,4 +113,4 @@ The [contributing guide](https://github.com/y-l-g/tablo/blob/master/CONTRIBUTING
 
 ## License
 
-MIT — see [LICENSE](https://github.com/y-l-g/tablo/blob/master/LICENSE).
+MIT, see [LICENSE](https://github.com/y-l-g/tablo/blob/master/LICENSE).
