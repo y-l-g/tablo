@@ -35,7 +35,7 @@ pub(crate) use fields::{
 };
 pub(crate) use input::FormInput;
 pub use layouts::{Grid, Group, HoldsTabs, Section, Tab, Tabs};
-pub(crate) use layouts::{tab_id, tab_view, tabs_chrome, titled};
+pub(crate) use layouts::{TabView, tab_id, tab_view, titled};
 pub(crate) use lenses::Binding;
 pub use lenses::form_key;
 pub(crate) use mask::FormMask;

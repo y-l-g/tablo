@@ -50,6 +50,20 @@ pub fn account_sections() -> Schema<UserForm> {
 }
 // ANCHOR_END: forms-sections
 
+// ANCHOR: forms-sidebar
+pub fn account_sidebar() -> Schema<UserForm> {
+    let c = UserForm::controls();
+    Schema::new(
+        Grid::new(3).schema((
+            Section::new("Profile")
+                .span(2)
+                .schema(Grid::new(2).schema((c.name.span_full(), c.age))),
+            Section::new("Account").schema((c.email.email(), c.role)),
+        )),
+    )
+}
+// ANCHOR_END: forms-sidebar
+
 // ANCHOR: forms-field-basics
 pub fn account_form() -> Schema<UserForm> {
     let c = UserForm::controls();

@@ -16,15 +16,18 @@ use super::{
 };
 
 mod section;
+mod span;
 
 pub use section::Section;
 pub(crate) use section::titled;
+pub(crate) use span::{Span, spanned};
 
 /// An unlabelled block grouping a form's fields or a detail page's columns.
 #[derive(Debug)]
 pub struct Group<C = Schema> {
     pub(crate) children: C,
     pub(crate) condition: Option<Condition>,
+    span: Option<Span>,
 }
 
 impl Default for Group<()> {
@@ -32,6 +35,7 @@ impl Default for Group<()> {
         Self {
             children: (),
             condition: None,
+            span: None,
         }
     }
 }
@@ -56,17 +60,18 @@ impl<C> Group<C> {
         Group {
             children: f(self.children),
             condition: self.condition,
+            span: self.span,
         }
     }
 
     /// The group around `body`.
     pub(crate) fn chrome<'a>(&self, cx: &'a Cx, body: BoxView<'a>) -> BoxView<'a> {
-        group_chrome(cx, body)
+        group_chrome(cx, self.span, body)
     }
 }
 
-fn group_chrome<'a>(cx: &'a Cx, body: BoxView<'a>) -> BoxView<'a> {
-    view! { cx => ui_field_group((body)) }.boxed()
+fn group_chrome<'a>(cx: &'a Cx, span: Option<Span>, body: BoxView<'a>) -> BoxView<'a> {
+    spanned(cx, span, view! { cx => ui_field_group((body)) }.boxed())
 }
 
 impl Group<Schema> {
@@ -83,11 +88,34 @@ impl Group<Schema> {
 
 /// A block of `cols` columns, clamped to 1..12, laying out a form's fields or a detail page's
 /// columns.
+///
+/// The grid lays its columns out once it is wide enough for them: 28rem for two columns, 42rem for
+/// three and 56rem for four or more. Narrower, it stacks its children in one column. It measures
+/// its own width rather than the screen's, so a grid in a narrow column stacks on a wide screen. A
+/// child spans more than one column through its `span`.
+///
+/// ```rust
+/// # #[derive(Debug, toasty::Model, tablo_core::ModelColumns)]
+/// # struct Product {
+/// #     #[key] #[auto] id: uuid::Uuid, name: String, description: String, visible: bool,
+/// # }
+/// use tablo_core::{Field, Grid, Group, Schema, Section};
+///
+/// let product = Product::fields();
+/// Schema::new(Grid::new(3).schema((
+///     Group::new().span(2).schema(Section::new("Product").schema((
+///         Field::text(product.name()),
+///         Field::text(product.description()).multiline(4),
+///     ))),
+///     Section::new("Status").schema(Field::toggle(product.visible())),
+/// )));
+/// ```
 #[derive(Debug)]
 pub struct Grid<C = Schema> {
     cols: u8,
     pub(crate) children: C,
     pub(crate) condition: Option<Condition>,
+    span: Option<Span>,
 }
 
 impl Grid<()> {
@@ -96,6 +124,7 @@ impl Grid<()> {
             cols: cols.clamp(1, 12),
             children: (),
             condition: None,
+            span: None,
         }
     }
 
@@ -115,33 +144,41 @@ impl<C> Grid<C> {
             cols: self.cols,
             children: f(self.children),
             condition: self.condition,
+            span: self.span,
         }
     }
 
     /// The grid around `body`.
     pub(crate) fn chrome<'a>(&self, cx: &'a Cx, body: BoxView<'a>) -> BoxView<'a> {
-        grid_chrome(cx, self.cols, body)
+        grid_chrome(cx, self.cols, self.span, body)
     }
 }
 
-fn grid_chrome<'a>(cx: &'a Cx, cols: u8, body: BoxView<'a>) -> BoxView<'a> {
+fn grid_chrome<'a>(cx: &'a Cx, cols: u8, span: Option<Span>, body: BoxView<'a>) -> BoxView<'a> {
     // Static literals for Tailwind scanner — `format!("grid grid-cols-{}")` would be
-    // purged because Tailwind only sees literal substrings.
+    // purged because Tailwind only sees literal substrings. `--tablo-cols` tells a spanning
+    // child how many columns the grid lays out at its current width.
     let class: &'static str = match cols {
-        1 => "grid grid-cols-1 gap-4",
-        2 => "grid grid-cols-2 gap-4",
-        3 => "grid grid-cols-3 gap-4",
-        4 => "grid grid-cols-4 gap-4",
-        5 => "grid grid-cols-5 gap-4",
-        6 => "grid grid-cols-6 gap-4",
-        7 => "grid grid-cols-7 gap-4",
-        8 => "grid grid-cols-8 gap-4",
-        9 => "grid grid-cols-9 gap-4",
-        10 => "grid grid-cols-10 gap-4",
-        11 => "grid grid-cols-11 gap-4",
-        _ => "grid grid-cols-12 gap-4",
+        1 => "grid grid-cols-1 gap-4 [--tablo-cols:1]",
+        2 => "grid grid-cols-1 gap-4 [--tablo-cols:1] @md:grid-cols-2 @md:[--tablo-cols:2]",
+        3 => "grid grid-cols-1 gap-4 [--tablo-cols:1] @2xl:grid-cols-3 @2xl:[--tablo-cols:3]",
+        4 => "grid grid-cols-1 gap-4 [--tablo-cols:1] @4xl:grid-cols-4 @4xl:[--tablo-cols:4]",
+        5 => "grid grid-cols-1 gap-4 [--tablo-cols:1] @4xl:grid-cols-5 @4xl:[--tablo-cols:5]",
+        6 => "grid grid-cols-1 gap-4 [--tablo-cols:1] @4xl:grid-cols-6 @4xl:[--tablo-cols:6]",
+        7 => "grid grid-cols-1 gap-4 [--tablo-cols:1] @4xl:grid-cols-7 @4xl:[--tablo-cols:7]",
+        8 => "grid grid-cols-1 gap-4 [--tablo-cols:1] @4xl:grid-cols-8 @4xl:[--tablo-cols:8]",
+        9 => "grid grid-cols-1 gap-4 [--tablo-cols:1] @4xl:grid-cols-9 @4xl:[--tablo-cols:9]",
+        10 => "grid grid-cols-1 gap-4 [--tablo-cols:1] @4xl:grid-cols-10 @4xl:[--tablo-cols:10]",
+        11 => "grid grid-cols-1 gap-4 [--tablo-cols:1] @4xl:grid-cols-11 @4xl:[--tablo-cols:11]",
+        _ => "grid grid-cols-1 gap-4 [--tablo-cols:1] @4xl:grid-cols-12 @4xl:[--tablo-cols:12]",
     };
-    view! { cx => <div class=(class)>(body)</div> }.boxed()
+    // The grid measures the container around it: an element cannot query its own width.
+    let grid = view! {
+        cx =>
+        <div class="@container"><div class=(class)>(body)</div></div>
+    }
+    .boxed();
+    spanned(cx, span, grid)
 }
 
 impl Grid<Schema> {
@@ -178,6 +215,31 @@ macro_rules! conditional_blocks {
 }
 
 conditional_blocks!(Section, Group, Grid, Tabs, Tab);
+
+/// Generates `span` and `span_full` for every block a [`Grid`] lays out.
+macro_rules! spanning_blocks {
+    ($($ty:ident),+ $(,)?) => {
+        $(
+            impl<C> $ty<C> {
+                /// Spans `columns` of the [`Grid`] holding the block, clamped to 1..12. While the
+                /// grid stacks its children, or lays out fewer columns, the block spans them all.
+                /// Outside a grid, the span does nothing.
+                pub fn span(mut self, columns: u8) -> Self {
+                    self.span = Some(Span::columns(columns));
+                    self
+                }
+
+                /// Spans every column of the [`Grid`] holding the block.
+                pub fn span_full(mut self) -> Self {
+                    self.span = Some(Span::Full);
+                    self
+                }
+            }
+        )+
+    };
+}
+
+spanning_blocks!(Section, Group, Grid, Tabs);
 
 /// Renders a `Tabs` block's list of triggers.
 const TAB_LIST: StaticClass = class!(
@@ -219,6 +281,7 @@ pub struct Tabs<C = Schema> {
     /// The block's tabs, each one node.
     pub(crate) children: C,
     pub(crate) condition: Option<Condition>,
+    span: Option<Span>,
 }
 
 impl<C: HoldsTabs> Tabs<C> {
@@ -231,6 +294,7 @@ impl<C: HoldsTabs> Tabs<C> {
         Self {
             children,
             condition: None,
+            span: None,
         }
     }
 }
@@ -240,7 +304,13 @@ impl<C> Tabs<C> {
         Tabs {
             children: f(self.children),
             condition: self.condition,
+            span: self.span,
         }
+    }
+
+    /// The block around its rendered `tabs`.
+    pub(crate) fn chrome<'a>(&self, cx: &'a Cx, tabs: Vec<TabView<'a>>) -> BoxView<'a> {
+        spanned(cx, self.span, tabs_chrome(cx, tabs))
     }
 }
 
@@ -369,7 +439,7 @@ pub(crate) fn tab_view<'a>(
 }
 
 /// The block around its rendered `tabs`: the triggers in a list over the panels.
-pub(crate) fn tabs_chrome<'a>(cx: &'a Cx, tabs: Vec<TabView<'a>>) -> BoxView<'a> {
+fn tabs_chrome<'a>(cx: &'a Cx, tabs: Vec<TabView<'a>>) -> BoxView<'a> {
     let (triggers, panels): (Vec<_>, Vec<_>) =
         tabs.into_iter().map(|tab| (tab.trigger, tab.panel)).unzip();
     view! {
@@ -431,6 +501,6 @@ impl Tabs<Schema> {
                 panel: source.guard(cx, tab.condition.as_ref(), view.panel),
             });
         }
-        Ok(tabs_chrome(cx, views))
+        Ok(self.chrome(cx, views))
     }
 }

@@ -15,7 +15,7 @@ use crate::{
         RepeaterColumn, SelectColumn, TextColumn, TextInputColumn, ToggleColumn, include_relations,
         restrict_relations, shows, unavailable_sources,
     },
-    schema::{Grid, Group, HoldsTabs, Section, Tab, Tabs, tab_id, tab_view, tabs_chrome},
+    schema::{Grid, Group, HoldsTabs, Section, Tab, TabView, Tabs, tab_id, tab_view},
 };
 
 /// The declaration of a detail page: [`Column`]s, the same ones a [`Table`](crate::Table) lists,
@@ -259,7 +259,9 @@ impl<M> Detail<M> {
                 Node::Grid(grid) => {
                     grid.chrome(cx, grid.children.render_in(cx, record, hidden, depth))
                 }
-                Node::Tabs(tabs) => tabs.children.render_tabs(cx, record, hidden, depth),
+                Node::Tabs(tabs) => {
+                    tabs.chrome(cx, tabs.children.render_tabs(cx, record, hidden, depth))
+                }
                 // A tab renders through its block, which lays out its trigger and its panel.
                 Node::Tab(tab) => tab.children.render_in(cx, record, hidden, depth),
             })
@@ -275,9 +277,8 @@ impl<M> Detail<M> {
         record: &M,
         hidden: &[String],
         depth: usize,
-    ) -> BoxView<'a> {
-        let views = self
-            .nodes
+    ) -> Vec<TabView<'a>> {
+        self.nodes
             .iter()
             .filter_map(|node| match node {
                 Node::Tab(tab) if tab.children.shows_any(cx, hidden) => Some(tab),
@@ -294,8 +295,7 @@ impl<M> Detail<M> {
                 let body = tab.children.render_in(cx, record, hidden, depth + 1);
                 tab_view(cx, &id, tab.label(), index == 0, false, body)
             })
-            .collect();
-        tabs_chrome(cx, views)
+            .collect()
     }
 
     /// Whether any column shows to `cx`, which may not view the `hidden` fields.

@@ -9,11 +9,14 @@ use topcoat::{
     view::{StaticClass, class, *},
 };
 
-use super::super::{
-    Schema,
-    condition::Condition,
-    fields::Field,
-    tree::{IntoSchema, Source, render_nodes},
+use super::{
+    super::{
+        Schema,
+        condition::Condition,
+        fields::Field,
+        tree::{IntoSchema, Source, render_nodes},
+    },
+    Span, spanned,
 };
 
 /// Renders a `Section`'s titled panel: a title row, ruled off from the body under it.
@@ -81,6 +84,7 @@ pub struct Section<C = Schema> {
     look: Look,
     pub(crate) children: C,
     pub(crate) condition: Option<Condition>,
+    pub(super) span: Option<Span>,
 }
 
 impl Section<()> {
@@ -96,6 +100,7 @@ impl Section<()> {
             },
             children: (),
             condition: None,
+            span: None,
         }
     }
 
@@ -152,12 +157,13 @@ impl<C> Section<C> {
             look: self.look,
             children: f(self.children),
             condition: self.condition,
+            span: self.span,
         }
     }
 
     /// The titled panel around `body`, or the title alone when the section holds nothing.
     pub(crate) fn chrome<'a>(&self, cx: &'a Cx, body: Option<BoxView<'a>>) -> BoxView<'a> {
-        section_chrome(cx, &self.look, body, false)
+        section_chrome(cx, &self.look, self.span, body, false)
     }
 }
 
@@ -169,9 +175,15 @@ impl<C> Section<C> {
 fn section_chrome<'a>(
     cx: &'a Cx,
     look: &Look,
+    span: Option<Span>,
     body: Option<BoxView<'a>>,
     errored: bool,
 ) -> BoxView<'a> {
+    spanned(cx, span, panel(cx, look, body, errored))
+}
+
+/// The section's panel, as `section_chrome` spans it.
+fn panel<'a>(cx: &'a Cx, look: &Look, body: Option<BoxView<'a>>, errored: bool) -> BoxView<'a> {
     let extra = look.extra_class.clone();
     let heading = heading(cx, look);
     let description = look.description.clone();
@@ -262,7 +274,7 @@ pub(crate) fn titled<'a>(cx: &'a Cx, title: crate::Text, body: BoxView<'a>) -> B
         aside: false,
         extra_class: None,
     };
-    section_chrome(cx, &look, Some(body), false)
+    section_chrome(cx, &look, None, Some(body), false)
 }
 
 /// The section's title, after its icon.
@@ -292,7 +304,7 @@ impl Section<Schema> {
         source: &Source<'_>,
     ) -> Result<BoxView<'a>> {
         if self.children.nodes.is_empty() {
-            return Ok(section_chrome(cx, &self.look, None, false));
+            return Ok(section_chrome(cx, &self.look, self.span, None, false));
         }
         let errored = self
             .children
@@ -300,6 +312,12 @@ impl Section<Schema> {
             .iter()
             .any(|node| node.has_error(fields, source));
         let body = render_nodes(cx, &self.children.nodes, fields, source).await?;
-        Ok(section_chrome(cx, &self.look, Some(body), errored))
+        Ok(section_chrome(
+            cx,
+            &self.look,
+            self.span,
+            Some(body),
+            errored,
+        ))
     }
 }

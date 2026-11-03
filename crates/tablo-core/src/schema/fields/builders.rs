@@ -8,6 +8,7 @@ use super::{
     super::{
         IntoSchema, OptionSource, Retype, Schema,
         condition::{Condition, Watched},
+        layouts::Span,
         repeater::RepeaterControl,
     },
     ChoiceControl, Control, ControlKind, Field, Kind, Pattern, TextControl,
@@ -83,6 +84,20 @@ macro_rules! base_modifiers {
                 values: impl IntoIterator<Item = impl Into<String>>,
             ) -> Self {
                 self.0.condition = Some(Condition::new(watched, values));
+                self
+            }
+
+            /// Spans `columns` of the [`Grid`](crate::Grid) holding the field, clamped to 1..12.
+            /// While the grid stacks its children, or lays out fewer columns, the field spans them
+            /// all. Outside a grid, the span does nothing.
+            pub fn span(mut self, columns: u8) -> Self {
+                self.0.span = Some(Span::columns(columns));
+                self
+            }
+
+            /// Spans every column of the [`Grid`](crate::Grid) holding the field.
+            pub fn span_full(mut self) -> Self {
+                self.0.span = Some(Span::Full);
                 self
             }
         }
