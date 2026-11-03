@@ -1,7 +1,6 @@
 # Summary
 
 - [Introduction](./introduction.md)
-- [Coming from Filament](./coming-from.md)
 - [Your first panel](./first-panel.md)
 - [Panel and routing](./panel-and-routing.md)
 - [Resources](./resources.md)
