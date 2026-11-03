@@ -45,6 +45,7 @@ chapter covers one part of it:
 | [Actions](./actions.md) | record actions, header actions and their input |
 | [Policy, auth, tenancy](./policy-auth-tenancy.md) | who may see and change what |
 | [Data access](./data-access.md) | querying Toasty from your own pages |
+| [Organizing an app](./organizing-an-app.md) | where models, resources, panels and settings go as an app grows |
 | [Extension points](./extension-points.md) | the traits for your own columns, filters, controls and option sources |
 | [Security](./security.md) | the defaults and what your deployment must provide |
 | [Deployment](./deployment.md) | the release binary, its asset bundle, migrations |

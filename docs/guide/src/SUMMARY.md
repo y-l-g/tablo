@@ -13,6 +13,7 @@
 - [Translations](./translations.md)
 - [Policy, auth, tenancy](./policy-auth-tenancy.md)
 - [Data access](./data-access.md)
+- [Organizing an app](./organizing-an-app.md)
 - [Extension points](./extension-points.md)
 - [Security](./security.md)
 - [Deployment](./deployment.md)
