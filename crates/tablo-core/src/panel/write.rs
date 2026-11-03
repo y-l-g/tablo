@@ -53,7 +53,7 @@ pub(crate) async fn commit_write_then<'a, R: Resource, T>(
     let written = match written {
         Ok((value, outcome)) => {
             let change = change(value);
-            match R::before_commit(cx, &change, &mut *tx).await {
+            match super::commit_hook::before_commit::<R>(cx, &change, &mut *tx).await {
                 Ok(()) => match end_changed_credentials(cx, &mut *tx, &change).await {
                     Ok(()) => keep_uploads(cx, resource, &change)
                         .await

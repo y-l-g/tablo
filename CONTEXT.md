@@ -60,6 +60,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Related form | A `has_one` relation's related resource's own form, rendered inside the owner's create and edit form under the related resource's slug, and written through that resource after the owner, in the owner's transaction. | Inline form, Nested resource, Has-one form |
 | Action | A user-invoked mutation, on one record or a bulk selection. | Command, Operation, Modal |
 | Change | What one write of a resource wrote, as `before_commit` and `after_commit` receive it: the kind of write and the rows it names. | Event, Committed |
+| Commit hook | A `CommitHook` a panel runs inside the transaction of every write of any of its resources, after the resource's own `before_commit`, with the change as a `PanelChange`. | Observer, Listener, Middleware |
 | Refusal | A submission the panel answers by rendering its form again with an error under each field it names, writing nothing: a parse, rule, `validate_record` or `validate_input` error, or a record fn's or an action's `WriteError::Refused`, which also rolls back what the fn wrote. An import row with such errors is a refused row. | Rejection, Validation failure |
 | Outcome | What an action's run asks of the response once its write commits: the notification it flashes and where it lands. | Result, Response, Effect |
 | Notification | A message for a panel user: a status, a title, a description and links. A write flashes one as a toast; `Notifications` stores one. | Alert, Message, Flash (for the type) |

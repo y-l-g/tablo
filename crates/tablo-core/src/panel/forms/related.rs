@@ -522,7 +522,7 @@ async fn write<C: Resource>(
             }
         }
     };
-    C::before_commit(cx, &change, &mut *ex).await?;
+    crate::panel::commit_hook::before_commit::<C>(cx, &change, &mut *ex).await?;
     crate::panel::write::end_changed_credentials(cx, &mut *ex, &change).await?;
     Ok(Written::Done(Box::new(move |cx| {
         Box::pin(crate::resource::run_after_commit::<C>(cx, change))

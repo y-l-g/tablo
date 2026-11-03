@@ -28,9 +28,14 @@ impl HeaderHooks {
     pub(super) fn of<R: Resource>() -> Self {
         Self {
             before: |cx, name, ex| {
-                Box::pin(
-                    async move { R::before_commit(cx, &Change::HeaderAction { name }, ex).await },
-                )
+                Box::pin(async move {
+                    crate::panel::commit_hook::before_commit::<R>(
+                        cx,
+                        &Change::HeaderAction { name },
+                        ex,
+                    )
+                    .await
+                })
             },
             after: |cx, name| Box::pin(run_after_commit::<R>(cx, Change::HeaderAction { name })),
         }

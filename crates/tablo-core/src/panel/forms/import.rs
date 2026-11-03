@@ -537,7 +537,9 @@ pub(crate) fn resource_import_post<R: Resource>(cx: &Cx, body: Body) -> BoxView<
             // Each row is a create, so the hook a create runs inside its transaction runs once
             // per row; an `Err` rolls the whole file back.
             let change = Change::Create(record);
-            if let Err(error) = R::before_commit(cx, &change, &mut *tx).await {
+            if let Err(error) =
+                crate::panel::commit_hook::before_commit::<R>(cx, &change, &mut *tx).await
+            {
                 return Err(super::super::write::failed_write(cx, WRITE_IMPORT, error));
             }
             created.push(change);

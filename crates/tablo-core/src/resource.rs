@@ -253,6 +253,8 @@ pub trait Resource: Sized + Send + Sync + 'static {
 
     /// Work inside the write's transaction, after the record fn or action wrote: an audit row,
     /// a counter, a row in another table that must commit with the write or not at all.
+    /// Work every resource of a panel does, such as an audit trail, belongs in a
+    /// [`CommitHook`](crate::CommitHook), which the panel runs right after this one.
     ///
     /// Called once per write, with the [`Change`] it made, through `ex`, the open transaction:
     /// run every statement through it, and notify through
