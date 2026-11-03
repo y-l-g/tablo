@@ -1,5 +1,5 @@
 //! An `Options` enum field filtered against the database: the posted option value, not Toasty's
-//! stored discriminant, selects the rows.
+//! stored discriminant, selects the rows; and the variants the derive lists.
 
 use tablo::{SelectFilter, extend::Filter as _};
 use toasty::Db;
@@ -71,4 +71,9 @@ async fn a_select_filter_matches_the_variant_its_option_value_names() {
     );
     let previous = SelectFilter::of(Ticket::fields().previous());
     assert_eq!(titles(&mut db, &previous, "arch").await, ["reopened"]);
+}
+
+#[test]
+fn all_lists_every_variant_in_declaration_order() {
+    assert_eq!(Stage::ALL, [Stage::Open, Stage::Archived]);
 }
