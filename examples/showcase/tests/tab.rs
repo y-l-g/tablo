@@ -49,12 +49,12 @@ async fn a_tab_lists_and_counts_the_rows_it_admits() {
             .collect::<Vec<_>>(),
         [
             ("all", true, None),
-            ("drafts", false, Some(drafts.len() as u64)),
+            ("draft", false, Some(drafts.len() as u64)),
             ("published", false, Some(published.len() as u64)),
         ],
         "{html}"
     );
-    assert_eq!(listed(&client, "tab=drafts").await, drafts);
+    assert_eq!(listed(&client, "tab=draft").await, drafts);
     assert_eq!(listed(&client, "tab=published").await, published);
 }
 
@@ -77,18 +77,18 @@ async fn a_badge_counts_within_the_search_and_filters() {
             .find(|tab| tab.key == key)
             .and_then(|tab| tab.count)
     };
-    for (key, status) in [("published", "published"), ("drafts", "draft")] {
+    for (key, status) in [("published", "published"), ("draft", "draft")] {
         let query = format!("q=Second&f.featured=false&f.status={status}");
         let expected = listed(&client, &query).await.len() as u64;
         assert_eq!(count(key), Some(expected), "{key} in {html}");
     }
     let all = listed(&client, "").await.len() as u64;
     assert!(
-        count("drafts").is_some_and(|drafts| drafts > 0 && drafts < all),
+        count("draft").is_some_and(|drafts| drafts > 0 && drafts < all),
         "the search and filters narrow a non-empty count: {html}"
     );
-    let drafts: &TabLink = tabs.iter().find(|tab| tab.key == "drafts").expect("drafts");
-    for kept in ["tab=drafts", "q=Second", "f.featured=false", "per_page=10"] {
+    let drafts: &TabLink = tabs.iter().find(|tab| tab.key == "draft").expect("drafts");
+    for kept in ["tab=draft", "q=Second", "f.featured=false", "per_page=10"] {
         assert!(drafts.href.contains(kept), "{kept} in {}", drafts.href);
     }
     assert!(!drafts.href.contains("page=2&") && !drafts.href.ends_with("&page=2"));
@@ -178,7 +178,7 @@ async fn a_tab_contradicting_a_filter_lists_nothing() {
     let client = demo_client(&router, &db).await;
     let html = body_string(
         client
-            .get("/admin/posts?tab=drafts&f.status=published")
+            .get("/admin/posts?tab=draft&f.status=published")
             .await,
     )
     .await;
@@ -187,6 +187,6 @@ async fn a_tab_contradicting_a_filter_lists_nothing() {
         Some(EmptyReason::Filters),
         "{html}"
     );
-    let drafts = tab_links(&html).into_iter().find(|tab| tab.key == "drafts");
+    let drafts = tab_links(&html).into_iter().find(|tab| tab.key == "draft");
     assert_eq!(drafts.and_then(|tab| tab.count), Some(0));
 }

@@ -75,6 +75,7 @@ tablo-confirm-selected = Selected records:
 tablo-list-select-all = Select all rows
 tablo-list-select-matching = Select all matching
 tablo-list-all-matching = All matching records
+tablo-list-tab-all = All
 tablo-list-sort = Sort by { $column } { $direction ->
     [descending] descending
    *[ascending] ascending

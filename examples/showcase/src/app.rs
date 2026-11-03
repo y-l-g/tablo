@@ -5,12 +5,12 @@ use std::path::PathBuf;
 use tablo::{
     Ability, ActionLayout, Allow, Auth, AuthMail, BooleanColumn, Brand, Change, Color,
     ComputedColumn, CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification,
-    EmbeddedColumn, FieldErrors, FontWeight, GlobalSearch, Grid, Group, HeaderAction, ListTab,
-    ModelColumns, NavigationItem, Notification, Notifications, Pagination, Panel, PanelHandle,
-    PanelUser, PasswordReset, PublicLink, QueryFilter, Reads, Relation, RelationColumn,
-    RepeaterColumn, Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt, RowLink, Schema,
-    Section, SelectFilter, Tab, Table, Tabs, Tenancy, TenantRegistration, TernaryFilter,
-    TextColumn, ToggleColumn, TwoFactor, lens, relation, tenant_id, when,
+    EmbeddedColumn, FieldErrors, FontWeight, GlobalSearch, Grid, Group, HeaderAction, ModelColumns,
+    NavigationItem, Notification, Notifications, Pagination, Panel, PanelHandle, PanelUser,
+    PasswordReset, PublicLink, QueryFilter, Reads, Relation, RelationColumn, RepeaterColumn,
+    Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt, RowLink, Schema, Section,
+    SelectFilter, Tab, Table, Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn,
+    ToggleColumn, TwoFactor, lens, relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -291,14 +291,8 @@ fn post_table() -> Table<Post> {
         .new_tab()
         .reading(Reads::of(lens!(Post.status)).and(lens!(Post.id))),
     )
-    // Every post, then the drafts and the published posts, each counted.
-    .tab(ListTab::new("all", "All"))
-    .tab(post_status_tab("drafts", "Drafts", PostStatus::Draft))
-    .tab(post_status_tab(
-        "published",
-        "Published",
-        PostStatus::Published,
-    ))
+    // Every post, then a tab per status, each counted.
+    .option_tabs(lens!(Post.status))
     // Five filters: the reader sets several, then applies them at once.
     .deferred_filters()
     .filters((
@@ -326,13 +320,6 @@ fn post_table() -> Table<Post> {
     ))
     .group_by(lens!(Post.status))
     .group_by(lens!(Post.featured))
-}
-
-/// The tab `key` listing the posts in `status`, with their count.
-fn post_status_tab(key: &str, label: &str, status: PostStatus) -> ListTab<Post> {
-    ListTab::new(key, label.to_string())
-        .query(Post::fields().status().eq(status))
-        .badge()
 }
 
 #[derive(tablo::RecordForm)]

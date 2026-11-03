@@ -49,6 +49,12 @@ pub fn post_table() -> Table<Post> {
 }
 // ANCHOR_END: post-table-post
 
+// ANCHOR: table-option-tabs
+pub fn status_tabs() -> Table<Post> {
+    Table::new(TextColumn::new(lens!(Post.title))).option_tabs(lens!(Post.status))
+}
+// ANCHOR_END: table-option-tabs
+
 // ANCHOR: table-date
 pub fn date_column() -> DateColumn<User, jiff::Timestamp> {
     DateColumn::new(lens!(User.created_at)).sortable()

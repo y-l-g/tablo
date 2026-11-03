@@ -174,6 +174,11 @@ impl fmt::Display for DeclarationErrorKind {
                  each option as the field's form value, or take the type's own with \
                  `SelectFilter::of`"
             ),
+            Self::UnparsedTabOption { value } => write!(
+                f,
+                "the option tabs offer '{value}', which the field's type does not parse: spell \
+                 each option as the field's form value"
+            ),
             Self::DuplicateField { name } => write!(
                 f,
                 "two fields are named '{name}': each input needs a distinct field"
