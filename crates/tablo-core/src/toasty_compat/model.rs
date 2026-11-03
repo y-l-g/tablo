@@ -17,7 +17,7 @@ use toasty::{
 use toasty_core::{driver::Capability, stmt::PathRoot};
 use topcoat::context::Cx;
 
-use crate::{DeclarationErrorKind, Text, naming::capitalize};
+use crate::{DeclarationErrorKind, Text};
 
 /// A model's id in the app schema.
 pub(crate) type ModelId = app::ModelId;
@@ -154,8 +154,8 @@ pub(crate) struct FieldInfo {
     pub(crate) index: usize,
     /// The field's name, which is also its form key.
     pub(crate) name: String,
-    /// The label a declaration defaults to: the name, capitalized.
-    pub(crate) label: String,
+    /// The label a declaration defaults to: [`Text::field`] of [`label_name`].
+    pub(crate) label: Text,
     pub(crate) nullable: bool,
     /// Whether a unique index covers the field.
     ///
@@ -249,7 +249,7 @@ fn field_info(field: &app::Field, root: &app::ModelRoot) -> Option<FieldInfo> {
     Some(FieldInfo {
         index: field.id.index,
         name: name.to_string(),
-        label: capitalize(name),
+        label: Text::field(belongs_to::label_name(field, root)),
         nullable: field.nullable(),
         unique: root.indices.iter().any(|index| {
             index.unique && !index.primary_key && index.fields.iter().any(|f| f.field == field.id)
@@ -337,7 +337,7 @@ pub(crate) struct LeafField {
 impl From<FieldInfo> for LeafField {
     fn from(field: FieldInfo) -> Self {
         Self {
-            label: crate::Text::field(&field.name),
+            label: field.label,
             name: field.name,
             nullable: field.nullable,
             unique: field.unique,
