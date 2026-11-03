@@ -157,6 +157,18 @@ long form reads as a list of topics. `.collapsible()` lets the title fold the fi
 A folded section's fields still post, and a section holding a field error renders open.
 [`Section`](https://y-l.fr/tablo/nightly/api/tablo/struct.Section.html) has the full rules.
 
+A grid stacks its children in one column until it is wide enough for its columns, so a form reads
+the same on a phone. A block or a field takes `.span(n)` to cover `n` of its grid's columns, and
+`.span_full()` to cover them all. A three-column grid whose first section spans two puts the
+fields the user edits most in a main column and the rest in a sidebar beside it:
+
+```rust
+{{#include ../../../examples/guide/src/forms.rs:forms-sidebar}}
+```
+
+[`Grid`](https://y-l.fr/tablo/nightly/api/tablo/struct.Grid.html) has the widths at which each grid
+lays out its columns.
+
 `Tabs::new` shows one `Tab` at a time. Each tab's fields still render and post while another
 tab shows, so splitting a long form into tabs changes what the user sees, not what the form
 submits:

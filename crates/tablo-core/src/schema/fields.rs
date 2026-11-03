@@ -37,7 +37,7 @@ pub(crate) use text::{Kind, Pattern, TextControl, password_reveal};
 use toasty::stmt::{List, Path};
 use topcoat::context::Cx;
 
-use super::{condition::Condition, lenses::Binding, repeater::RepeaterControl};
+use super::{condition::Condition, layouts::Span, lenses::Binding, repeater::RepeaterControl};
 use crate::{
     Text,
     schema::FormInput,
@@ -104,6 +104,8 @@ pub struct Field {
     control: ControlKind,
     /// The condition showing the field, set by `visible_when`.
     condition: Option<Condition>,
+    /// How many of its grid's columns the field spans, set by `span` and `span_full`.
+    span: Option<Span>,
     /// Whether the control is a checkbox, which a condition follows through `checked`.
     checkbox: bool,
     /// Whether the checkbox must be checked, set by `accepted`.
@@ -172,6 +174,7 @@ impl Field {
             required: false,
             control,
             condition: None,
+            span: None,
             checkbox: false,
             accepted: false,
             help: None,
@@ -406,6 +409,11 @@ impl Field {
     /// The condition showing the field, if any.
     pub(crate) fn condition(&self) -> Option<&Condition> {
         self.condition.as_ref()
+    }
+
+    /// How many of its grid's columns the field spans, if set.
+    pub(crate) fn span(&self) -> Option<Span> {
+        self.span
     }
 
     /// Shows the field only while `condition` holds, as `visible_when` does.

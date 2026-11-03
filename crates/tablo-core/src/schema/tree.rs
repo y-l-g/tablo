@@ -12,7 +12,7 @@ use super::{
     condition::{Condition, disable, watch},
     embedded::Embedded,
     fields::{Field, Placement},
-    layouts::{Grid, Group, Section, Tab, Tabs},
+    layouts::{Grid, Group, Section, Tab, Tabs, spanned},
 };
 use crate::values::{FieldError, FieldErrors, FormValue, FormValues};
 
@@ -204,6 +204,7 @@ impl Node {
                 // A repeater's rows render from the keys and errors of each of their controls.
                 if let Some(repeater) = field.as_repeater() {
                     let view = Box::pin(repeater.render(cx, field, source)).await?;
+                    let view = spanned(cx, field.span(), view);
                     return Ok(source.guard(cx, field.condition(), view));
                 }
                 let error = source.error_for(field);
@@ -230,6 +231,7 @@ impl Node {
                 if let Some(condition) = field.disabling() {
                     view = disable(cx, condition, &source.scope, source.values, view);
                 }
+                let view = spanned(cx, field.span(), view);
                 Ok(source.guard(cx, field.condition(), view))
             }
             // A block whose every field is masked renders no heading over nothing.
