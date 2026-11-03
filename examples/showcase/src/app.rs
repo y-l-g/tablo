@@ -332,7 +332,6 @@ fn post_table() -> Table<Post> {
 fn post_status_tab(key: &str, label: &str, status: PostStatus) -> ListTab<Post> {
     ListTab::new(key, label.to_string())
         .query(Post::fields().status().eq(status))
-        .reading(lens!(Post.status).into())
         .badge()
 }
 

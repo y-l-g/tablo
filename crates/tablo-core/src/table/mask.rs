@@ -18,16 +18,19 @@ impl<M> Table<M> {
     /// column or field it drops. A search, a sort or a filter naming one then matches nothing the
     /// table declares, as one naming an unknown column does. It drops a column showing a field of
     /// a related record its resource hides from `cx` too.
-    pub(crate) fn without(&self, cx: &Cx, hidden: &[String]) -> Self {
+    pub(crate) fn without(&self, cx: &Cx, hidden: &[String]) -> Self
+    where
+        M: toasty::schema::Model,
+    {
         let mut table = self.clone();
         table
             .columns
             .retain(|column| crate::column::shows(cx, &**column, hidden));
         table.filters.retain(|filter| shows(filter.reads(), hidden));
-        table.tabs.retain(|tab| shows(tab.reads(), hidden));
+        table.tabs.retain(|tab| shows(Some(tab.reads()), hidden));
         table
             .summaries
-            .retain(|summary| shows(summary.reads(), hidden));
+            .retain(|summary| shows(Some(summary.reads()), hidden));
         table
             .groupings
             .retain(|group| shows(Some(group.reads()), hidden));

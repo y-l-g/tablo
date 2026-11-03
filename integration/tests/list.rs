@@ -435,9 +435,7 @@ impl Resource for SummedResource {
                 .page_size(2)
                 .summary(Summary::count("Items"))
                 .summary(
-                    Summary::count("Starting with A")
-                        .query(Item::fields().name().starts_with("A"))
-                        .reading(lens!(Item.name).into()),
+                    Summary::count("Starting with A").query(Item::fields().name().starts_with("A")),
                 ),
         )
     }

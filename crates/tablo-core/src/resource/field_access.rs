@@ -483,22 +483,13 @@ pub(crate) fn check_filters<R: Resource>(
     }
     for tab in declared.table.declared_tabs() {
         let name = tab.key().to_string();
-        let fault = match tab.reads() {
-            None => Some(FieldAccessFault::UndeclaredReads { what: "tab", name }),
-            reads => relation_fault(cx, name, reads),
-        };
+        let fault = relation_fault(cx, name, Some(tab.reads()));
         errors.extend(fault.map(|fault| {
             DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
         }));
     }
     for summary in declared.table.declared_summaries() {
-        let fault = match summary.reads() {
-            None => Some(FieldAccessFault::UndeclaredReads {
-                what: "summary",
-                name: summary.name(),
-            }),
-            reads => relation_fault(cx, summary.name(), reads),
-        };
+        let fault = relation_fault(cx, summary.name(), Some(summary.reads()));
         errors.extend(fault.map(|fault| {
             DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
         }));

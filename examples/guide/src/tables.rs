@@ -35,17 +35,12 @@ pub fn post_table() -> Table<Post> {
     .tab(
         ListTab::new("drafts", "Drafts")
             .query(Post::fields().status().eq(PostStatus::Draft))
-            .reading(lens!(Post.status).into())
             .badge(),
     )
     // ANCHOR_END: table-tabs
     // ANCHOR: table-summaries
     .summary(Summary::count("Posts"))
-    .summary(
-        Summary::count("Featured")
-            .query(Post::fields().featured().eq(true))
-            .reading(lens!(Post.featured).into()),
-    )
+    .summary(Summary::count("Featured").query(Post::fields().featured().eq(true)))
     // ANCHOR_END: table-summaries
     // ANCHOR: table-group-by
     .group_by(lens!(Post.status))
