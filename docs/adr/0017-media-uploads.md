@@ -4,9 +4,19 @@ A file field's bytes go to an `Uploader` the app installs once per panel; the fr
 body cap, the multipart parsing and filename sanitization, and stores the returned string
 verbatim. A panel whose resource form declares a file field and installs no uploader refuses to
 mount: storing the filename and dropping the bytes would lose the upload without telling the user.
-A refusal is user input, rendered under the field. The field renders a file input and a
-clear control, nothing more: previews, drag-and-drop and progress belong to an app's media
-library. Uploads run before the write transaction, so a rolled-back write does not undo a store.
+A refusal is user input, rendered under the field. Uploads run before the write transaction, so a
+rolled-back write does not undo a store.
+
+The field renders a file input and a clear control, and around the input a zone that
+`file_lists.js` enhances: files dropped on it join the input's, and it lists the files the input
+holds, each with a button taking it back out. `FileField::image` shows those and the stored file as
+thumbnails, the stored one from the signed link its name already uses. All of it acts on the
+input alone, so the submission is the same multipart body as without the script, and the rules
+below hold unchanged. An app cannot build this itself: a custom control receives no file bytes, and
+an app route storing the files and posting back their paths would let the browser name what a
+record stores, which the file list's rules exist to refuse. Uploading each file as it is picked,
+with progress, stays out: it needs a staging route and a tag per staged file, a phase of its own.
+Cropping and resizing belong to an app's `Uploader`, and a table of media to its media library.
 
 A file list binds a `Vec<String>` column: one path per file, in the order the form lists them, its
 input taking several files at once. Each stored file renders as a row posting its bare path back,
@@ -15,8 +25,9 @@ without JavaScript. A save starts from the list the record stores inside its tra
 remove checkbox drops a path, a posted path the record does not store is ignored, a stored path no
 row posts stays after the posted ones, and the posted rows keep the order they post in. So a stale
 form or a row a script left out never deletes a file another save added. Moving a row is
-`file_lists.js` moving its element, so the order needs no key of its own and the browser renumbers
-nothing; without JavaScript the rows keep their stored order. A refused submission's uploads are
+`file_lists.js` moving its element, by its buttons or by dragging its handle, so the order needs no
+key of its own and the browser renumbers nothing; without JavaScript the rows keep their stored
+order. The files a submission adds land after the rows, in the order the input holds them. A refused submission's uploads are
 carried under the tag a single file field's carry uses, beside the rows. A list choosing more files
 than `max_files` stores none of them.
 
