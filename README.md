@@ -95,16 +95,13 @@ writes as the resource's `Form`, and give it a policy that allows `Create` and `
 
 ## Documentation
 
-- **[User guide](https://y-l.fr/tablo/nightly/guide/)**, from the **[guide source](https://github.com/y-l-g/tablo/blob/master/docs/guide/)**; build it
-  locally with `mdbook build docs/guide`.
-- **[API reference](https://y-l.fr/tablo/nightly/api/tablo/)**, the rustdoc of the
-  workspace.
-- **[Showcase](https://github.com/y-l-g/tablo/blob/master/examples/showcase/)**: the runnable reference.
-- **[Vocabulary](https://github.com/y-l-g/tablo/blob/master/CONTEXT.md)**: the project's terms.
-- **[Design decisions](https://github.com/y-l-g/tablo/blob/master/docs/adr/)**: one record each.
-- Upstream: the **[Toasty guide](https://tokio-rs.github.io/toasty/0.11.0/guide/)** (queries,
-  relations, migrations) and the **[Topcoat docs](https://docs.rs/topcoat)** (`view!`,
-  `#[component]`, routing, cookies and sessions).
+- **[User guide](https://y-l.fr/tablo/nightly/guide/)**
+- **[API reference](https://y-l.fr/tablo/nightly/api/tablo/)**
+- **[Showcase](https://github.com/y-l-g/tablo/blob/master/examples/showcase/)**
+- **[Vocabulary](https://github.com/y-l-g/tablo/blob/master/CONTEXT.md)**
+- **[Design decisions](https://github.com/y-l-g/tablo/blob/master/docs/adr/)**
+- **[Toasty](https://tokio-rs.github.io/toasty/0.11.0/guide/)**
+- **[Topcoat](https://docs.rs/topcoat)**
 
 ## Contributing
 
