@@ -163,6 +163,9 @@ impl<F> ChoiceField<F> {
     ///   it was. The submission checks the key as for any relationship.
     /// - The option shows the record's [`record_title`](crate::ResourceDef::record_title) until the
     ///   form renders again, even under [`relationship_labelled`](Self::relationship_labelled).
+    /// - The dialog takes the height of the form, up to the screen's, and titles it. In the dialog
+    ///   a [`Section`](crate::Section) has no panel and does not fold, and a section alone in the
+    ///   form shows no title.
     /// - Without JavaScript the link opens the create page in a new tab, and the record is offered
     ///   once the form renders again.
     /// - Mounting refuses a creatable choice that is not a single select over a resource's records:

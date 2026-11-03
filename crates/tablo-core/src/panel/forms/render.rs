@@ -5,7 +5,7 @@ use topcoat::{
     context::Cx,
     icon::icon,
     router::{Body, error::forbidden},
-    view::{BoxView, ViewExt, attributes, view},
+    view::{BoxView, StaticClass, ViewExt, attributes, class, view},
 };
 
 use super::{
@@ -24,6 +24,17 @@ use crate::{
     t,
     topcoat_compat::async_page,
 };
+
+/// The row of a form page's buttons.
+const FOOTER: StaticClass = class!("flex items-center gap-2");
+
+/// The row of a framed form's buttons: the dialog's footer, edge to edge over `[data-pick-page]`'s
+/// padding and in view while a long form scrolls behind it, which fades out above the row.
+const PICK_FOOTER: StaticClass = class!(
+    "sticky bottom-0 z-10 -mx-6 -mb-6 flex items-center gap-2 bg-card px-6 pt-2 pb-6",
+    "before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:h-4",
+    "before:bg-linear-to-t before:from-card before:to-transparent",
+);
 
 /// What a form page shows around its form: the create page and the edit page differ only here.
 pub(crate) struct FormChrome<'a> {
@@ -263,7 +274,8 @@ pub(crate) async fn render_form_page<'a>(
     let values = &mask.shown(values);
     let mut source = crate::schema::Source::form(values, errors)
         .editing(editing)
-        .masked(mask);
+        .masked(mask)
+        .flat(picking);
     if let Some(url) = options {
         source = source.options_at(url);
     }
@@ -296,6 +308,94 @@ pub(crate) async fn render_form_page<'a>(
     } else {
         tablo_ui::ButtonVariant::Primary
     };
+    let footer = if picking { PICK_FOOTER } else { FOOTER };
+    let form = view! {
+        cx =>
+        <form
+            method="post"
+            action=(action)
+            enctype=(enctype)
+            class="flex flex-col gap-4"
+            data-form-guard=(t!(cx, "tablo-form-unsaved"))
+            data-form-dirty=(dirty)
+        >
+            (crate::csrf::field(cx, &csrf))
+            if stale {
+                tablo_ui::alert(
+                    variant: tablo_ui::AlertVariant::Destructive,
+                    attrs: attributes! { role="alert" data-stale="" },
+                    tablo_ui::alert_title((t!(cx, "tablo-form-stale")))
+                    tablo_ui::alert_description(
+                        (t!(cx, "tablo-form-stale-description"))
+                    )
+                )
+            }
+            if let Some(message) = declined {
+                tablo_ui::alert(
+                    variant: tablo_ui::AlertVariant::Destructive,
+                    attrs: attributes! { role="alert" data-declined="" },
+                    tablo_ui::alert_description((message))
+                )
+            }
+            if unseen {
+                tablo_ui::alert(
+                    variant: tablo_ui::AlertVariant::Destructive,
+                    attrs: attributes! { role="alert" data-unseen-error="" },
+                    tablo_ui::alert_title((t!(cx, "tablo-form-unseen")))
+                    tablo_ui::alert_description(
+                        (t!(cx, "tablo-form-unseen-description"))
+                    )
+                )
+            }
+            for carried in carried_fields {
+                (carried)
+            }
+            (form_html)
+            for related in related {
+                (related)
+            }
+            <footer class=(footer)>
+                tablo_ui::button(
+                    variant: submit_variant,
+                    attrs: attributes! { type="submit" },
+                    (submit_label)
+                )
+                if another {
+                    tablo_ui::button(
+                        variant: tablo_ui::ButtonVariant::Outline,
+                        attrs: attributes! {
+                            type="submit"
+                            name=(crate::form::ANOTHER_FIELD)
+                            value="1"
+                        },
+                        (t!(cx, "tablo-form-create-another"))
+                    )
+                }
+                if picking {
+                    tablo_ui::button(
+                        variant: tablo_ui::ButtonVariant::Outline,
+                        attrs: attributes! { type="button" data-pick-cancel="" },
+                        (t!(cx, "tablo-cancel"))
+                    )
+                } else {
+                    <a
+                        (crate::navigation::runtime_link(cx, &cancel))
+                        class=(tablo_ui::button_variants(
+                            tablo_ui::ButtonVariant::Outline,
+                            tablo_ui::ButtonSize::Md,
+                        ))
+                    >
+                        (t!(cx, "tablo-cancel"))
+                    </a>
+                }
+            </footer>
+        </form>
+    }
+    .boxed();
+    // The dialog around a framed form titles it and owns its width.
+    if picking {
+        return Ok(form);
+    }
     Ok(view! {
         cx =>
         tablo_ui::page(
@@ -324,85 +424,7 @@ pub(crate) async fn render_form_page<'a>(
             )
             (render_record_navigation(cx, navigation))
             tablo_ui::page_content(
-                <form
-                    method="post"
-                    action=(action)
-                    enctype=(enctype)
-                    class="flex flex-col gap-4"
-                    data-form-guard=(t!(cx, "tablo-form-unsaved"))
-                    data-form-dirty=(dirty)
-                >
-                    (crate::csrf::field(cx, &csrf))
-                    if stale {
-                        tablo_ui::alert(
-                            variant: tablo_ui::AlertVariant::Destructive,
-                            attrs: attributes! { role="alert" data-stale="" },
-                            tablo_ui::alert_title((t!(cx, "tablo-form-stale")))
-                            tablo_ui::alert_description(
-                                (t!(cx, "tablo-form-stale-description"))
-                            )
-                        )
-                    }
-                    if let Some(message) = declined {
-                        tablo_ui::alert(
-                            variant: tablo_ui::AlertVariant::Destructive,
-                            attrs: attributes! { role="alert" data-declined="" },
-                            tablo_ui::alert_description((message))
-                        )
-                    }
-                    if unseen {
-                        tablo_ui::alert(
-                            variant: tablo_ui::AlertVariant::Destructive,
-                            attrs: attributes! { role="alert" data-unseen-error="" },
-                            tablo_ui::alert_title((t!(cx, "tablo-form-unseen")))
-                            tablo_ui::alert_description(
-                                (t!(cx, "tablo-form-unseen-description"))
-                            )
-                        )
-                    }
-                    for carried in carried_fields {
-                        (carried)
-                    }
-                    (form_html)
-                    for related in related {
-                        (related)
-                    }
-                    <div class="flex items-center gap-2">
-                        tablo_ui::button(
-                            variant: submit_variant,
-                            attrs: attributes! { type="submit" },
-                            (submit_label)
-                        )
-                        if another {
-                            tablo_ui::button(
-                                variant: tablo_ui::ButtonVariant::Outline,
-                                attrs: attributes! {
-                                    type="submit"
-                                    name=(crate::form::ANOTHER_FIELD)
-                                    value="1"
-                                },
-                                (t!(cx, "tablo-form-create-another"))
-                            )
-                        }
-                        if picking {
-                            tablo_ui::button(
-                                variant: tablo_ui::ButtonVariant::Outline,
-                                attrs: attributes! { type="button" data-pick-cancel="" },
-                                (t!(cx, "tablo-cancel"))
-                            )
-                        } else {
-                            <a
-                                (crate::navigation::runtime_link(cx, &cancel))
-                                class=(tablo_ui::button_variants(
-                                    tablo_ui::ButtonVariant::Outline,
-                                    tablo_ui::ButtonSize::Md,
-                                ))
-                            >
-                                (t!(cx, "tablo-cancel"))
-                            </a>
-                        }
-                    </div>
-                </form>
+                (form)
                 for relation in relations {
                     (relation)
                 }

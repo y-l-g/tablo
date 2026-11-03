@@ -3,7 +3,9 @@
 //! The link opens the create page in a new tab, which works without JavaScript; `choice_create.js`
 //! opens it in the dialog instead, and makes the record the dialog saves the choice.
 
-use tablo_ui::{ButtonSize, ButtonVariant, button, button_variants, dialog, dialog_content};
+use tablo_ui::{
+    ButtonSize, ButtonVariant, button, button_variants, dialog, dialog_content, dialog_title,
+};
 use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
 
 /// The select `control` with the link creating a related record beside it, and the closed dialog
@@ -47,15 +49,23 @@ pub(super) fn with_create_link<'a>(
                 data-create-option-select=(select)
             },
             dialog_content(
-                attrs: attributes! { class="[&]:max-w-3xl gap-0 p-0 overflow-hidden" },
+                attrs: attributes! {
+                    class="[&]:max-h-[calc(100dvh-2rem)] [&]:gap-0 [&]:p-0 \
+                           [&]:shadow-xl overflow-hidden"
+                },
                 // Not a `form method="dialog"`: the dialog sits in the record form, a nested
                 // form's end tag closes that one, and the fields after the choice leave it.
-                <div class="flex justify-end border-b border-border p-2">
+                <div class="px-6 pt-6 pe-14">
+                    dialog_title(
+                        attrs: attributes! { class="text-base" },
+                        (title.clone())
+                    )
                     button(
                         variant: ButtonVariant::Ghost,
                         size: ButtonSize::Icon,
                         attrs: attributes! {
                             type="button"
+                            class="absolute end-2.5 top-2.5 text-muted-foreground"
                             aria-label=(crate::t!(cx, "tablo-close"))
                             @click=$(|_e: Event| {
                                 raw!(
@@ -67,9 +77,12 @@ pub(super) fn with_create_link<'a>(
                         icon(data: tablo_ui::icons::X)
                     )
                 </div>
+                // `choice_create.js` fits the height to the framed page once it has loaded; the
+                // panel's maximum height shrinks the frame, and the page scrolls inside it.
                 <iframe
-                    title=(title)
-                    class="h-[80vh] w-full border-0"
+                    title=(title.clone())
+                    class="h-64 min-h-0 w-full shrink border-0 opacity-0 transition-opacity \
+                           data-loaded:opacity-100"
                     data-create-option-frame=""
                 ></iframe>
             )

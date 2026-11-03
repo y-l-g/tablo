@@ -347,7 +347,10 @@ impl Panel {
             let body = async_page(async move {
                 Ok(view! {
                     cx =>
-                    <main class="p-6">(slot)</main>
+                    // `main` paints the frame; the block inside it is what the frame fits.
+                    <main class="min-h-dvh bg-card text-card-foreground">
+                        <div class="px-6 pt-6 pb-6" data-pick-page="">(slot)</div>
+                    </main>
                     (Self::toaster(cx).await?)
                 }
                 .boxed())

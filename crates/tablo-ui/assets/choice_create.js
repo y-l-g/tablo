@@ -15,6 +15,12 @@
 //   its value, the select announces a `change` so a condition or a searchable
 //   combobox follows, and the dialog closes. A `[data-picked-hidden]` page,
 //   for a record the user may not choose, leaves the choice as it was.
+// * The frame fits the height of the `[data-pick-page]` block of the page it
+//   shows, following that block and any searchable choice's open list, so the
+//   dialog is as tall as the form. Past the height of the screen the panel
+//   shrinks the frame and the page scrolls inside it. Any other page, such as
+//   a sign-in page, keeps the frame's own height. The form's first control
+//   takes the focus, or its first invalid one after a refused save.
 // * A `[data-pick-cancel]` button in the frame, Escape there that no control in
 //   it took, or the dialog's own close button closes the dialog. Closing drops
 //   the frame's unsaved-changes mark, so leaving it does not ask, and empties
@@ -72,6 +78,34 @@ function focusChoice(select) {
   (filter || select).focus();
 }
 
+// The height the framed `page` needs, or null when it is not a pick page. An
+// open searchable choice's list is positioned out of the flow, so it counts on
+// its own.
+function pageHeight(page) {
+  const block = page.querySelector('[data-pick-page]');
+  if (!block) return null;
+  const top = block.getBoundingClientRect().top;
+  const lists = Array.from(page.querySelectorAll('[data-options-list]')).filter((list) => !list.hidden);
+  const bottoms = [block, ...lists].map((node) => node.getBoundingClientRect().bottom);
+  return Math.ceil(Math.max(...bottoms) - top);
+}
+
+// Fit `frame` to `page`, twice: a frame too short for its page shows a
+// scrollbar, whose width can stack a grid, so the height measured then is
+// taller than the page needs once the frame fits.
+function fit(frame, page) {
+  for (let pass = 0; pass < 2; pass += 1) {
+    const height = pageHeight(page);
+    frame.style.height = height === null ? '' : `${height}px`;
+  }
+}
+
+// The control a framed form starts on: its first invalid one, else its first.
+function firstControl(page) {
+  const controls = 'input:not([type="hidden"]), select:not([hidden]), textarea';
+  return page.querySelector('form [aria-invalid="true"]') || page.querySelector(`form :is(${controls})`);
+}
+
 // Whether a click `e` is a plain primary click, which opens the dialog; any
 // other opens the link as the browser would.
 function plainClick(e) {
@@ -97,6 +131,22 @@ function install(doc) {
       const dialog = frame.closest('[data-create-option-dialog]');
       const page = frame.contentDocument;
       if (!dialog || !page || landed(doc, dialog, page)) return;
+      // Closing empties the frame, whose blank page loads too.
+      if (!dialog.open) return;
+      fit(frame, page);
+      frame.setAttribute('data-loaded', '');
+      const control = firstControl(page);
+      if (control) control.focus();
+      const refit = () => fit(frame, page);
+      const block = page.querySelector('[data-pick-page]');
+      if (block) {
+        new page.defaultView.ResizeObserver(refit).observe(block);
+        new page.defaultView.MutationObserver(refit).observe(block, {
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['hidden'],
+        });
+      }
       page.addEventListener('click', (click) => {
         if (click.target.closest && click.target.closest('[data-pick-cancel]')) dialog.close();
       });
@@ -117,6 +167,8 @@ function install(doc) {
       if (page) {
         page.querySelectorAll('form[data-form-dirty]').forEach((form) => form.removeAttribute('data-form-dirty'));
       }
+      frame.removeAttribute('data-loaded');
+      frame.style.height = '';
       frame.src = 'about:blank';
     },
     true,
@@ -130,5 +182,5 @@ if (typeof document !== 'undefined') {
 // Exposed for the Node unit test (`choice_create.test.js`); the guard keeps the
 // export out of the browser.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { install, pickUrl, choose, landed };
+  module.exports = { install, pickUrl, choose, landed, pageHeight, firstControl };
 }
