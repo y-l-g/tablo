@@ -16,7 +16,8 @@ use crate::{Text, lens::Reads};
 /// predicate reuses the count a [`Pagination::Pages`](super::Pagination::Pages) list takes for
 /// its pager, and a list showing no rows counts nothing. Like a [`ListTab`](super::ListTab),
 /// it is not access control: a summary whose predicate reads a field
-/// [`field_access`](crate::ResourceDef::field_access) hides from the user does not show to them.
+/// [`field_access`](crate::ResourceDef::field_access) hides from the user does not show to them,
+/// the panel reading the fields off the predicate.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -25,19 +26,14 @@ use crate::{Text, lens::Reads};
 ///
 /// Table::new(TextColumn::new(lens!(Post.title)))
 ///     .summary(Summary::count("Posts"))
-///     .summary(
-///         Summary::count("Published")
-///             .query(Post::fields().published().eq(true))
-///             .reading(lens!(Post.published).into()),
-///     );
+///     .summary(Summary::count("Published").query(Post::fields().published().eq(true)));
 /// ```
 #[derive_where(Clone)]
 pub struct Summary<M> {
     label: Text,
     /// The records the count admits among the list's; `None` admits every one.
     query: Option<Expr<bool>>,
-    /// The fields `query` reads, when declared.
-    reads: Option<Reads<M>>,
+    _model: std::marker::PhantomData<fn() -> M>,
 }
 
 impl<M> Summary<M> {
@@ -46,7 +42,7 @@ impl<M> Summary<M> {
         Self {
             label: label.into(),
             query: None,
-            reads: None,
+            _model: std::marker::PhantomData,
         }
     }
 
@@ -56,26 +52,20 @@ impl<M> Summary<M> {
         self
     }
 
-    /// Declare the fields the [`query`](Self::query) reads, which a panel needs once any of its
-    /// resources restricts a field with [`field_access`](crate::ResourceDef::field_access): the
-    /// summary shows only to a user who may view every one.
-    pub fn reading(mut self, reads: Reads<M>) -> Self {
-        self.reads = Some(reads);
-        self
-    }
-
     /// The label, as a declaration error names the summary.
     pub(crate) fn name(&self) -> String {
         self.label.english()
     }
 
-    /// The fields the summary reads off a row, or `None` when its query does not say. A summary
-    /// with no query reads nothing.
-    pub(crate) fn reads(&self) -> Option<Reads<M>> {
-        match &self.query {
-            None => Some(Reads::nothing()),
-            Some(_) => self.reads.clone(),
-        }
+    /// The fields the summary's predicate reads off a row; a summary with no predicate reads
+    /// nothing.
+    pub(crate) fn reads(&self) -> Reads<M>
+    where
+        M: toasty::schema::Model,
+    {
+        self.query
+            .as_ref()
+            .map_or_else(Reads::nothing, Reads::of_predicate)
     }
 }
 

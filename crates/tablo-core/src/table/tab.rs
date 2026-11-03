@@ -16,8 +16,9 @@ use crate::{DeclarationErrorKind, lens::Reads};
 /// the list shows its warning banner, and the export and a selection of every matching record
 /// refuse it, as they do an unknown filter.
 ///
-/// A tab narrows what the list shows; it is not access control. A tab reading a field
-/// [`field_access`](crate::ResourceDef::field_access) hides from the user does not show to them.
+/// A tab narrows what the list shows; it is not access control. A tab whose query reads a field
+/// [`field_access`](crate::ResourceDef::field_access) hides from the user does not show to them:
+/// the panel reads the fields off the query.
 ///
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
@@ -29,7 +30,6 @@ use crate::{DeclarationErrorKind, lens::Reads};
 ///     .tab(
 ///         ListTab::new("drafts", "Drafts")
 ///             .query(Post::fields().published().eq(false))
-///             .reading(lens!(Post.published).into())
 ///             .badge(),
 ///     );
 /// ```
@@ -39,10 +39,9 @@ pub struct ListTab<M> {
     label: crate::Text,
     /// The rows the tab admits; `None` admits every row.
     query: Option<Expr<bool>>,
-    /// The fields `query` reads, when declared.
-    reads: Option<Reads<M>>,
     /// Whether the tab shows how many rows it holds.
     badge: bool,
+    _model: std::marker::PhantomData<fn() -> M>,
 }
 
 impl<M> ListTab<M> {
@@ -52,22 +51,14 @@ impl<M> ListTab<M> {
             key: key.into(),
             label: label.into(),
             query: None,
-            reads: None,
             badge: false,
+            _model: std::marker::PhantomData,
         }
     }
 
     /// Admit only the rows `predicate` selects.
     pub fn query(mut self, predicate: Expr<bool>) -> Self {
         self.query = Some(predicate);
-        self
-    }
-
-    /// Declare the fields the [`query`](Self::query) reads, which a panel needs once any of its
-    /// resources restricts a field with [`field_access`](crate::ResourceDef::field_access): the
-    /// tab shows only to a user who may view every one.
-    pub fn reading(mut self, reads: Reads<M>) -> Self {
-        self.reads = Some(reads);
         self
     }
 
@@ -93,13 +84,14 @@ impl<M> ListTab<M> {
         self.badge
     }
 
-    /// The fields the tab reads off a row, or `None` when its query does not say. A tab with no
-    /// query reads nothing.
-    pub(crate) fn reads(&self) -> Option<Reads<M>> {
-        match &self.query {
-            None => Some(Reads::nothing()),
-            Some(_) => self.reads.clone(),
-        }
+    /// The fields the tab's query reads off a row; a tab with no query reads nothing.
+    pub(crate) fn reads(&self) -> Reads<M>
+    where
+        M: toasty::schema::Model,
+    {
+        self.query
+            .as_ref()
+            .map_or_else(Reads::nothing, Reads::of_predicate)
     }
 }
 

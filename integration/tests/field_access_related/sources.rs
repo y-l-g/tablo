@@ -5,8 +5,8 @@
 
 use tablo::{
     Action, Allow, Field, FieldAccessFault, FieldError, FormInput, FormValues, Outcome,
-    QueryFilter, Reads, Resource, ResourceDef, Schema, SelectFilter, Site, Table, Tenancy,
-    TextColumn, lens,
+    QueryFilter, Resource, ResourceDef, Schema, SelectFilter, Site, Table, Tenancy, TextColumn,
+    lens,
 };
 use toasty::Db;
 use topcoat::context::Cx;
@@ -168,8 +168,7 @@ impl Resource for ThroughCards {
             .table(
                 Table::new(TextColumn::new(lens!(Card.code))).filters(
                     QueryFilter::new("through", "Through")
-                        .option("Ada", Card::fields().member().name().eq("Ada"))
-                        .reading(Reads::of(Card::fields().member())),
+                        .option("Ada", Card::fields().member().name().eq("Ada")),
                 ),
             )
     }
@@ -187,13 +186,9 @@ impl Resource for LocalCards {
             .slug("local-cards")
             .policy(Allow)
             .tenancy(Tenancy::column(Card::fields().tenant_id()))
-            .table(
-                Table::new(TextColumn::new(lens!(Card.code))).filters(
-                    QueryFilter::new("local", "Local")
-                        .option("C-1", Card::fields().code().eq("C-1"))
-                        .reading(Reads::of(lens!(Card.code))),
-                ),
-            )
+            .table(Table::new(TextColumn::new(lens!(Card.code))).filters(
+                QueryFilter::new("local", "Local").option("C-1", Card::fields().code().eq("C-1")),
+            ))
     }
 }
 

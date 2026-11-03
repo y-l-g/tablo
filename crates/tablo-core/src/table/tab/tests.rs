@@ -49,16 +49,11 @@ fn two_tabs_sharing_a_key_are_misdeclared() {
     );
 }
 
-/// A tab with no query reads nothing; one with a query reads what it declares, else is unknown.
+/// A tab with no query reads nothing; one with a query reads the fields the query names.
 #[test]
-fn a_tab_reads_what_its_query_declares() {
+fn a_tab_reads_what_its_query_names() {
     let all: ListTab<Task> = ListTab::new("all", "All");
-    assert!(all.reads().is_some_and(|reads| reads.fields().is_empty()));
+    assert!(all.reads().fields().is_empty());
     let open = ListTab::<Task>::new("open", "Open").query(Task::fields().featured().eq(false));
-    assert!(open.reads().is_none());
-    let declared = open.reading(lens!(Task.featured).into());
-    assert_eq!(
-        declared.reads().map(|reads| reads.fields().to_vec()),
-        Some(vec!["featured".to_string()])
-    );
+    assert_eq!(open.reads().fields(), ["featured"]);
 }

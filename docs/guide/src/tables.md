@@ -267,9 +267,8 @@ predicate of its own:
 `?tab=drafts` shows a tab, and a list without `?tab=` shows the first. A tab combines with the
 search and the filters, and the export and a selection of every matching record follow it.
 `.badge()` counts a tab's rows under the current search and filters, one more query per badged
-tab. A tab whose predicate reads a field declares it with `.reading(..)`, as a `QueryFilter`
-does, so that [field access](./resources.md#field-access) hides the tab from a user who may not view
-the field. [`ListTab`](https://y-l.fr/tablo/nightly/api/tablo/struct.ListTab.html) has the rules.
+tab. The panel reads the fields a tab's predicate names off the predicate, so that
+[field access](./resources.md#field-access) hides the tab from a user who may not view one. [`ListTab`](https://y-l.fr/tablo/nightly/api/tablo/struct.ListTab.html) has the rules.
 
 ## Summaries
 
@@ -281,8 +280,8 @@ selects among them.
 ```
 
 It counts in the database under the current tab, search and filters, across every page, one
-query per summary each time the list renders. A summary whose predicate reads a field declares it
-with `.reading(..)`, as a tab does. [`Summary`](https://y-l.fr/tablo/nightly/api/tablo/struct.Summary.html)
+query per summary each time the list renders, and hides, as a tab does, from a user who may not
+view a field its predicate reads. [`Summary`](https://y-l.fr/tablo/nightly/api/tablo/struct.Summary.html)
 has the rules. Toasty offers no other aggregate yet, so a summary only counts: a sum or an average
 over the whole query waits for it.
 

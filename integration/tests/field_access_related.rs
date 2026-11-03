@@ -477,10 +477,10 @@ async fn a_row_closure_beside_a_restricted_load_is_refused() {
 }
 
 /// A filter, a tab or a summary narrowing by a field another resource restricts would tell which
-/// records hold each value of it, so one whose predicate does not say what it reads is refused
-/// even over a model no resource restricts.
+/// records hold each value of it, so one whose predicate reads through a relation to that model
+/// is refused, even over a model no resource restricts.
 #[tokio::test]
-async fn an_undeclared_predicate_beside_a_restricting_resource_is_refused() {
+async fn a_predicate_through_a_restricted_relation_is_refused() {
     let errors = refusal(mount(
         db().await,
         panel()
@@ -488,12 +488,12 @@ async fn an_undeclared_predicate_beside_a_restricting_resource_is_refused() {
             .resource::<PredicateCard>(),
     ));
     let found = faults(&errors);
-    for (what, name) in [("filter", "paid"), ("tab", "high"), ("summary", "High")] {
-        let fault = FieldAccessFault::UndeclaredReads {
-            what,
+    for name in ["paid", "high", "High"] {
+        let fault = FieldAccessFault::UnmaskedRelation {
             name: name.to_string(),
+            model: "Member".to_string(),
         };
-        assert!(found.contains(&(Site::Table, fault)), "{what}: {errors:?}");
+        assert!(found.contains(&(Site::Table, fault)), "{name}: {errors:?}");
     }
 }
 

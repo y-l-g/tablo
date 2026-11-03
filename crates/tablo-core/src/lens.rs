@@ -156,6 +156,19 @@ impl<M> Reads<M> {
         }
     }
 
+    /// The fields `predicate` reads, off its expression: a filter's, a tab's or a summary's.
+    pub(crate) fn of_predicate(predicate: &toasty::stmt::Expr<bool>) -> Self
+    where
+        M: toasty::schema::Model,
+    {
+        let (fields, unresolved) = crate::toasty_compat::predicate::root_fields::<M>(predicate);
+        let reads = fields.into_iter().fold(Self::nothing(), Self::named);
+        Self {
+            unresolved,
+            ..reads
+        }
+    }
+
     /// These fields and the root field `name`.
     pub(crate) fn named(mut self, name: impl Into<String>) -> Self {
         let name = name.into();

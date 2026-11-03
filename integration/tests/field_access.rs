@@ -77,22 +77,18 @@ impl Resource for EmployeeResource {
                 ))
                 .filters(
                     QueryFilter::new("paid", "Paid")
-                        .option("High", Employee::fields().salary().eq("S-900"))
-                        .reading(Reads::of(lens!(Employee.salary))),
+                        .option("High", Employee::fields().salary().eq("S-900")),
                 )
                 .group_by(lens!(Employee.salary))
                 .tab(ListTab::new("all", "All"))
                 .tab(
                     ListTab::new("high", "High")
                         .query(Employee::fields().salary().eq("S-900"))
-                        .reading(Reads::of(lens!(Employee.salary)))
                         .badge(),
                 )
                 .summary(Summary::count("Employees"))
                 .summary(
-                    Summary::count("High earners")
-                        .query(Employee::fields().salary().eq("S-900"))
-                        .reading(Reads::of(lens!(Employee.salary))),
+                    Summary::count("High earners").query(Employee::fields().salary().eq("S-900")),
                 ),
             )
     }
@@ -633,7 +629,7 @@ async fn an_error_on_a_hidden_field_shows_an_alert_only() {
 }
 
 /// The mount refuses a record title over a restricted field, and a column that does not say which
-/// fields it reads.
+/// fields it reads; a tab and a summary need not say.
 #[tokio::test]
 async fn a_declaration_showing_a_restricted_field_is_refused() {
     struct Titled;
@@ -730,24 +726,14 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
         "a row link may read any field: {errors:?}"
     );
     assert!(
-        faults.contains(&(
-            &Site::Table,
-            &FieldAccessFault::UndeclaredReads {
-                what: "tab",
-                name: "high".to_string()
+        faults.iter().all(|(_, fault)| !matches!(
+            fault,
+            FieldAccessFault::UndeclaredReads {
+                what: "tab" | "summary",
+                ..
             }
         )),
-        "{errors:?}"
-    );
-    assert!(
-        faults.contains(&(
-            &Site::Table,
-            &FieldAccessFault::UndeclaredReads {
-                what: "summary",
-                name: "High".to_string()
-            }
-        )),
-        "{errors:?}"
+        "a tab and a summary read their fields off their predicates: {errors:?}"
     );
 }
 

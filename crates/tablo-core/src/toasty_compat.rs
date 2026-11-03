@@ -9,6 +9,7 @@
 //!   multi-step `via`).
 //! - [`model`]: a model's fields, columns, indices and relations, and an embedded path's column
 //!   (tablo#183).
+//! - [`predicate`]: the root fields a predicate reads, which Toasty's typed `Expr` does not tell.
 //! - [`pk`]: the primary key read off an instance and spelled as a URL id that parses back into a
 //!   predicate through `toasty_core`'s untyped expressions.
 //! - [`value_text`]: a value's text, for URL ids and enum discriminants.
@@ -23,6 +24,7 @@ pub(crate) mod cursor;
 pub(crate) mod join;
 pub(crate) mod model;
 pub(crate) mod pk;
+pub(crate) mod predicate;
 
 use toasty::stmt::{Expr, Value};
 use toasty_core::stmt::{ExprLike, VisitMut, visit_mut};

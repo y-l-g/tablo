@@ -129,9 +129,10 @@ the panel shows its records, and one `edit` refuses sees its control disabled.
 [`ResourceDef::field_access`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.field_access) lists every place
 the rule reaches.
 
-The panel cannot see inside a closure, so a `ComputedColumn`, a `QueryFilter` and a `TextColumn`
-with a `description` say which fields they read, and on a panel that restricts a field the mount
-refuses one that does not:
+The panel cannot see inside a closure, so a `ComputedColumn` and a `TextColumn` with a
+`description` say which fields they read, and on a panel that restricts a field the mount refuses
+one that does not. A `QueryFilter`, a tab and a summary need not: the panel reads the fields off
+their predicates.
 
 ```rust,ignore
 ComputedColumn::new("Pay", |e: &Employee| e.salary.to_string())

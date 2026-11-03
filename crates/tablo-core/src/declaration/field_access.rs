@@ -40,13 +40,14 @@ pub enum FieldAccessFault {
     Watched,
     /// A column or a filter of a resource over a model a panel restricts a field of does not
     /// declare the fields it reads, so the panel cannot tell whether it shows the restricted one.
-    /// A summary's predicate must declare them once any mounted resource restricts a field, of
+    /// A custom filter must declare them once any mounted resource restricts a field, of
     /// whichever model.
     ///
-    /// Declare `.reading(Reads::of(..))` on a `ComputedColumn`, a `QueryFilter`, a `Summary` or a
-    /// described `TextColumn`, or implement `reads` on a custom column or filter.
+    /// Declare `.reading(Reads::of(..))` on a `ComputedColumn`, a described `TextColumn`, a row
+    /// color or a row link, or implement `reads` on a custom column or filter. A `QueryFilter`, a
+    /// tab and a summary read theirs off their predicates.
     UndeclaredReads {
-        /// `"column"`, `"filter"`, `"tab"`, `"summary"`, `"row color"` or `"row link"`.
+        /// `"column"`, `"filter"`, `"row color"` or `"row link"`.
         what: &'static str,
         /// The column's or the filter's name.
         name: String,
