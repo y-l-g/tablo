@@ -217,16 +217,23 @@ fn post_form() -> Schema<PostForm> {
             c.body.rich_text().placeholder("The full story…"),
         )),
         Tabs::new([
-            Tab::new("Details").schema((
-                Grid::new(2).schema((c.status.buttons(), c.featured)),
-                c.author_id.searchable().creatable().label("Author"),
-                c.cover_id.searchable().label("Cover"),
-                c.categories.searchable(),
-                c.tags,
-            )),
-            Tab::new("SEO").schema(c.seo),
-            Tab::new("Publication").schema(c.publication),
-            Tab::new("Further reading").schema(c.links.add_label("Add link")),
+            Tab::new("Details")
+                .icon(tablo::ui::icons::FILE_TEXT)
+                .schema((
+                    Grid::new(2).schema((c.status.buttons(), c.featured)),
+                    c.author_id.searchable().creatable().label("Author"),
+                    c.cover_id.searchable().label("Cover"),
+                    c.categories.searchable(),
+                    c.tags,
+                )),
+            Tab::new("SEO").icon(tablo::ui::icons::SEARCH).schema(c.seo),
+            Tab::new("Publication")
+                .icon(tablo::ui::icons::EYE)
+                .schema(c.publication),
+            Tab::new("Further reading")
+                .icon(tablo::ui::icons::LINK)
+                .badge("Optional")
+                .schema(c.links.add_label("Add link")),
         ]),
     ))
 }
@@ -252,9 +259,15 @@ fn post_detail() -> Detail<Post> {
             TextColumn::new(lens!(Post.tags)),
         ))),
         Tabs::new([
-            Tab::new("SEO").columns(EmbeddedColumn::new(lens!(Post.seo))),
-            Tab::new("Publication").columns(EmbeddedColumn::new(lens!(Post.publication))),
-            Tab::new("Further reading").columns(RepeaterColumn::new(lens!(Post.links))),
+            Tab::new("SEO")
+                .icon(tablo::ui::icons::SEARCH)
+                .columns(EmbeddedColumn::new(lens!(Post.seo))),
+            Tab::new("Publication")
+                .icon(tablo::ui::icons::EYE)
+                .columns(EmbeddedColumn::new(lens!(Post.publication))),
+            Tab::new("Further reading")
+                .icon(tablo::ui::icons::LINK)
+                .columns(RepeaterColumn::new(lens!(Post.links))),
         ]),
     ))
 }

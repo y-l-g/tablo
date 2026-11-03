@@ -1,14 +1,17 @@
 //! Reads a page's `Tabs` blocks: `[role=tab]` for each trigger, `aria-selected` for the active
-//! one, `aria-controls` for its `[role=tabpanel]`, `hidden` on a panel the page hides, and
-//! `data-tab-error` on the trigger of a tab holding a field error.
+//! one, `aria-controls` for its `[role=tabpanel]`, `hidden` on a panel the page hides,
+//! `data-tab-error` on the trigger of a tab holding a field error, and `[data-tab-badge]` for the
+//! badge closing a trigger.
 
 use super::dom::{attr_value, strip_text, tags_where};
 
 /// One tab of a `Tabs` block.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tab {
-    /// The trigger's text.
+    /// The trigger's text, without its badge.
     pub label: String,
+    /// The text of the trigger's badge, if it shows one.
+    pub badge: Option<String>,
     /// Whether the page opens on this tab: its trigger is selected and its panel shows.
     pub active: bool,
     /// Whether the trigger marks a field error in the tab.
@@ -44,8 +47,17 @@ pub fn tabs(html: &str) -> Vec<Tab> {
                 }
             }
         }
+        // The badge closes the trigger: the label is what comes before it.
+        let (label, badge) = match inner.find("data-tab-badge") {
+            Some(at) => {
+                let start = inner[..at].rfind('<').unwrap_or(at);
+                (&inner[..start], Some(strip_text(&inner[start..])))
+            }
+            None => (inner.as_str(), None),
+        };
         Tab {
-            label: strip_text(&inner),
+            label: strip_text(label),
+            badge,
             active: shown && attr_value(&attrs, "aria-selected").as_deref() == Some("true"),
             errored: attrs.iter().any(|(name, _)| name == "data-tab-error"),
             keys,

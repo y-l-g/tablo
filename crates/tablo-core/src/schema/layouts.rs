@@ -5,10 +5,12 @@ use tablo_ui::field_group as ui_field_group;
 use topcoat::{
     Result,
     context::Cx,
+    icon::{IconData, icon},
     view::{StaticClass, class, *},
 };
 
 use super::{
+    super::Color,
     Schema,
     condition::{Condition, Watched},
     fields::Field,
@@ -317,17 +319,44 @@ impl<C> Tabs<C> {
 }
 
 /// One tab of a [`Tabs`] block: a titled trigger and the fields or columns it shows.
+///
+/// ```rust
+/// # #[derive(Debug, toasty::Model, tablo_core::ModelColumns)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String, bio: String }
+/// use tablo_core::{Color, Field, Tab};
+///
+/// let user = User::fields();
+/// Tab::new("About")
+///     .icon(tablo_ui::icons::USER)
+///     .badge("New")
+///     .badge_color(Color::Info)
+///     .schema(Field::text(user.bio()).multiline(4));
+/// ```
 #[derive(Debug)]
 pub struct Tab<C = Schema> {
-    label: crate::Text,
+    face: TabFace,
     pub(crate) children: C,
     pub(crate) condition: Option<Condition>,
+}
+
+/// What a tab's trigger shows.
+#[derive(Debug)]
+pub(crate) struct TabFace {
+    label: crate::Text,
+    icon: Option<IconData>,
+    badge: Option<crate::Text>,
+    badge_color: Option<Color>,
 }
 
 impl Tab<()> {
     pub fn new(label: impl Into<crate::Text>) -> Self {
         Self {
-            label: label.into(),
+            face: TabFace {
+                label: label.into(),
+                icon: None,
+                badge: None,
+                badge_color: None,
+            },
             children: (),
             condition: None,
         }
@@ -346,15 +375,33 @@ impl<C> Tab<C> {
 
     pub(crate) fn map<D>(self, f: impl FnOnce(C) -> D) -> Tab<D> {
         Tab {
-            label: self.label,
+            face: self.face,
             children: f(self.children),
             condition: self.condition,
         }
     }
 
-    /// The trigger's text.
-    pub(crate) fn label(&self) -> &crate::Text {
-        &self.label
+    /// Shows `icon` before the label.
+    pub fn icon(mut self, data: IconData) -> Self {
+        self.face.icon = Some(data);
+        self
+    }
+
+    /// Shows a badge reading `text` after the label, such as a count or `"New"`.
+    pub fn badge(mut self, text: impl Into<crate::Text>) -> Self {
+        self.face.badge = Some(text.into());
+        self
+    }
+
+    /// Leads the badge with a dot in `color`.
+    pub fn badge_color(mut self, color: Color) -> Self {
+        self.face.badge_color = Some(color);
+        self
+    }
+
+    /// What the trigger shows.
+    pub(crate) fn face(&self) -> &TabFace {
+        &self.face
     }
 }
 
@@ -389,13 +436,13 @@ pub(crate) struct TabView<'a> {
     pub(crate) panel: BoxView<'a>,
 }
 
-/// Renders the tab `id` of a block whose active tab is `active`: a trigger reading `label`, and a
+/// Renders the tab `id` of a block whose active tab is `active`: a trigger showing `face`, and a
 /// panel holding `body`, hidden unless `active`. `errored` marks the trigger of a tab holding a
 /// field error.
 pub(crate) fn tab_view<'a>(
     cx: &'a Cx,
     id: &str,
-    label: &crate::Text,
+    face: &TabFace,
     active: bool,
     errored: bool,
     body: BoxView<'a>,
@@ -403,7 +450,10 @@ pub(crate) fn tab_view<'a>(
     let tab = format!("{id}-tab");
     let panel = format!("{id}-tabpanel");
     let (labelled_by, panel_id) = (tab.clone(), panel.clone());
-    let label = label.localize(cx);
+    let label = face.label.localize(cx);
+    let glyph = face.icon.clone();
+    let badge = face.badge.as_ref().map(|text| text.localize(cx));
+    let dot = face.badge_color.map(Color::dot_class);
     let selected = if active { "true" } else { "false" };
     let tabindex = if active { "0" } else { "-1" };
     let trigger = view! {
@@ -418,7 +468,23 @@ pub(crate) fn tab_view<'a>(
             data-tab-error=(errored)
             class=(TAB_TRIGGER)
         >
+            if let Some(data) = glyph {
+                icon(
+                    data: data,
+                    attrs: attributes! { class="size-4 shrink-0" aria-hidden="true" }
+                )
+            }
             (label)
+            if let Some(text) = badge {
+                tablo_ui::badge(
+                    variant: tablo_ui::BadgeVariant::Secondary,
+                    attrs: attributes! { data-tab-badge="" class="tabular-nums" },
+                    if let Some(dot) = dot {
+                        <span class=(dot) aria-hidden="true"></span>
+                    }
+                    (text)
+                )
+            }
         </button>
     }
     .boxed();
@@ -497,7 +563,7 @@ impl Tabs<Schema> {
             let body = render_nodes(cx, &tab.children.nodes, fields, source).await;
             source.set_tab_depth(depth);
             let body = body?;
-            let view = tab_view(cx, &id, tab.label(), index == active, errored[index], body);
+            let view = tab_view(cx, &id, tab.face(), index == active, errored[index], body);
             views.push(TabView {
                 trigger: source.guard(cx, tab.condition.as_ref(), view.trigger),
                 panel: source.guard(cx, tab.condition.as_ref(), view.panel),

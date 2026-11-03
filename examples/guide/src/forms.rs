@@ -28,8 +28,14 @@ pub fn account_layout() -> Schema<UserForm> {
 pub fn account_tabs() -> Schema<UserForm> {
     let c = UserForm::controls();
     Schema::new(Tabs::new([
-        Tab::new("Account").schema((c.email.email(), c.role)),
-        Tab::new("Profile").schema(Grid::new(2).schema((c.name, c.age))),
+        Tab::new("Account")
+            .icon(tablo::ui::icons::MAIL)
+            .schema((c.email.email(), c.role)),
+        Tab::new("Profile")
+            .icon(tablo::ui::icons::USER)
+            .badge("New")
+            .badge_color(tablo::Color::Info)
+            .schema(Grid::new(2).schema((c.name, c.age))),
     ]))
 }
 // ANCHOR_END: forms-tabs

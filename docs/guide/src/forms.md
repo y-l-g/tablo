@@ -171,7 +171,7 @@ lays out its columns.
 
 `Tabs::new` shows one `Tab` at a time. Each tab's fields still render and post while another
 tab shows, so splitting a long form into tabs changes what the user sees, not what the form
-submits:
+submits. A tab's trigger can lead with an icon and close with a badge, which a color dots:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-tabs}}

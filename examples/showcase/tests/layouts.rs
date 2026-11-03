@@ -48,6 +48,13 @@ async fn the_create_form_renders_every_tab_and_opens_on_the_first() {
             .all(|k| !tabs[0].keys.contains(k))
     );
     assert!(tabs.iter().all(|tab| !tab.errored));
+    // A badge reads apart from the label it follows.
+    let reading = tab_posting(&tabs, "links");
+    assert_eq!(
+        (reading.label.as_str(), reading.badge.as_deref()),
+        ("Further reading", Some("Optional"))
+    );
+    assert_eq!(tabs[0].badge, None);
 }
 
 #[tokio::test]

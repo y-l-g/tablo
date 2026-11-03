@@ -293,7 +293,7 @@ impl<M> Detail<M> {
                     .map(|column| tab_id(&format!("detail-{}", column.name()), depth))
                     .unwrap_or_default();
                 let body = tab.children.render_in(cx, record, hidden, depth + 1);
-                tab_view(cx, &id, tab.label(), index == 0, false, body)
+                tab_view(cx, &id, tab.face(), index == 0, false, body)
             })
             .collect()
     }
