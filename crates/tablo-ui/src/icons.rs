@@ -12,9 +12,9 @@ pub const COPY: IconData = iconify_icon!("lucide:copy");
 pub const ELLIPSIS: IconData = iconify_icon!("lucide:ellipsis");
 /// Sortable column, neither direction active.
 pub const ARROW_UP_DOWN: IconData = iconify_icon!("lucide:arrow-up-down");
-/// Sortable column, sorted ascending.
+/// Sortable column, sorted ascending; a file list row moving up.
 pub const ARROW_UP: IconData = iconify_icon!("lucide:arrow-up");
-/// Sortable column, sorted descending.
+/// Sortable column, sorted descending; a file list row moving down.
 pub const ARROW_DOWN: IconData = iconify_icon!("lucide:arrow-down");
 /// Toast success, and a `true` boolean cell.
 pub const CIRCLE_CHECK: IconData = iconify_icon!("lucide:circle-check");
@@ -50,6 +50,8 @@ pub const PLUS: IconData = iconify_icon!("lucide:plus");
 pub const DOWNLOAD: IconData = iconify_icon!("lucide:download");
 /// Page action: import a CSV file into the list.
 pub const UPLOAD: IconData = iconify_icon!("lucide:upload");
+/// A file list row's drag handle.
+pub const GRIP_VERTICAL: IconData = iconify_icon!("lucide:grip-vertical");
 /// Back to the list.
 pub const ARROW_LEFT: IconData = iconify_icon!("lucide:arrow-left");
 /// Empty state.

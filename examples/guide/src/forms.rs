@@ -402,7 +402,10 @@ pub struct AlbumForm {
 
 pub fn album_form() -> Schema<AlbumForm> {
     let c = AlbumForm::controls();
-    Schema::new((c.title, c.photos.extensions(["png", "jpg"]).max_files(12)))
+    Schema::new((
+        c.title,
+        c.photos.image().extensions(["png", "jpg"]).max_files(12),
+    ))
 }
 // ANCHOR_END: forms-file-list
 

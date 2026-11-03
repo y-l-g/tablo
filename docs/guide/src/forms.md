@@ -544,6 +544,12 @@ served file's type comes from its extension, so the extension decides how a brow
 [`FileField::extensions`](https://y-l.fr/tablo/nightly/api/tablo/struct.FileField.html#method.extensions)
 has the rules.
 
+The input sits in a zone that takes files dropped on it, and lists the files picked or dropped
+before the form saves them, each with a Remove button taking it back out. `.image()` shows each of
+them as a thumbnail, and the stored file beside its name; it changes what the field shows, not
+what it takes, so pair it with `.extensions`. Without JavaScript the zone is the browser's own file
+input.
+
 Any other store implements `Uploader`. This one refuses a file whose first bytes are not a PNG's
 or a JPEG's signature, which no field rule checks, then stores through the `DirUploader` that
 `Panel::uploads_dir_with` hands it, so its files still answer only at signed URLs. It forwards
@@ -566,11 +572,12 @@ served files carry.
 `#[form(file)]` on a `Vec<String>`, or `Field::files` on a page, makes a file list: the column
 stores one path per file, in the order the form lists them. Its input takes several files at once,
 which a save adds after the stored ones, and each stored file has its own remove checkbox, so the
-list works without JavaScript. With it, each row also has Move up and Move down buttons, and the
-list saves in the order its rows show. Only the remove checkbox drops a stored file: a file another
-save added while the form was open stays. The extensions and size apply to each file, and
-`max_files` bounds how many the list holds once a save adds its files; choosing more than that
-stores none:
+list works without JavaScript. With it, each row also has Move up and Move down buttons and a
+handle to drag it by, and the list saves in the order its rows show. Files dropped on the input's
+zone join the ones already picked, and `.image()` shows every stored and picked file as a
+thumbnail. Only the remove checkbox drops a stored file: a file another save added while the form
+was open stays. The extensions and size apply to each file, and `max_files` bounds how many the
+list holds once a save adds its files; choosing more than that stores none:
 
 ```rust
 {{#include ../../../examples/guide/src/forms.rs:forms-file-list}}

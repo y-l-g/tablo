@@ -1,5 +1,5 @@
-//! The file builder's rules: the extensions a file field takes, its most bytes, and a list's most
-//! files.
+//! The file builder's rules: the extensions a file field takes, its most bytes, a list's most
+//! files, and whether it shows them as images.
 
 use super::{super::ControlKind, FileField};
 
@@ -56,6 +56,31 @@ impl<F> FileField<F> {
     pub fn max_bytes(mut self, max_bytes: usize) -> Self {
         if let ControlKind::File(file) = &mut self.0.control {
             file.max_bytes = Some(max_bytes);
+        }
+        self
+    }
+
+    /// Show each stored file as a thumbnail beside its name, and each file the user picks or drops
+    /// as one before the form saves it.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # struct Product { #[key] #[auto] id: uuid::Uuid, gallery: Vec<String> }
+    /// # use tablo_core::{Field, lens};
+    /// Field::files(lens!(Product.gallery))
+    ///     .image()
+    ///     .extensions(["png", "jpg", "jpeg", "webp"])
+    ///     .max_files(5);
+    /// ```
+    ///
+    /// - It changes what the field shows, not what it takes: pair it with
+    ///   [`extensions`](Self::extensions), or a file that is no image shows as a broken one. The
+    ///   thumbnail loads from the same signed link as the file's name.
+    /// - Only a stored value that may become a link has a thumbnail: a rooted path or an `http(s)`
+    ///   URL.
+    pub fn image(mut self) -> Self {
+        if let ControlKind::File(file) = &mut self.0.control {
+            file.image = true;
         }
         self
     }
