@@ -98,7 +98,7 @@ impl Resource for InvoiceResource {
     }
 
     async fn delete_record(
-        _cx: &Cx,
+        cx: &Cx,
         record: &Invoice,
         ex: &mut dyn toasty::Executor,
     ) -> Result<(), WriteError> {
@@ -109,11 +109,7 @@ impl Resource for InvoiceResource {
         if record.status == "draft" && after_another {
             return Err(WriteError::declined(ALONE));
         }
-        Invoice::filter(Invoice::fields().id().eq(record.id))
-            .delete()
-            .exec(&mut *ex)
-            .await?;
-        Ok(())
+        tablo::write_delete::<Self>(cx, record, ex).await
     }
 }
 
