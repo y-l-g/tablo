@@ -8,6 +8,10 @@
 // * a searchable choice's box shows the record's title;
 // * a page carrying no saved record leaves the choice and the dialog alone;
 // * Escape in the frame closes the dialog unless a control in it took the key;
+// * the frame fits the pick page, an open list reaching past it included, and
+//   keeps its own height on any other page;
+// * a framed form starts on its first control, or its first invalid one;
+// * the blank page a closed dialog's frame loads does not mark the frame loaded;
 // * closing drops the frame's unsaved-changes mark before emptying it, so
 //   leaving the framed form does not ask;
 // * a plain click opens the dialog on the framed page, and a modified click
@@ -17,7 +21,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { listenerDocument } = require('./test-dom');
-const { install, pickUrl, choose, landed } = require('./choice_create');
+const { install, pickUrl, choose, landed, pageHeight, firstControl } = require('./choice_create');
 
 // A stand-in `Event`, which Node's runtime provides but the test pins.
 global.Event = class {
@@ -129,6 +133,42 @@ test('a page carrying no saved record leaves the choice and the dialog', () => {
   assert.equal(shown.closed, false);
 });
 
+// A node spanning `top` to `bottom`.
+function box(top, bottom, init = {}) {
+  return { getBoundingClientRect: () => ({ top, bottom }), ...init };
+}
+
+// A framed page whose pick block is `block`, holding the searchable lists `lists`.
+function sized(block, lists = []) {
+  return {
+    querySelector: (selector) => (selector === '[data-pick-page]' ? block : null),
+    querySelectorAll: (selector) => (selector === '[data-options-list]' ? lists : []),
+  };
+}
+
+test('the frame fits the pick block, rounding up', () => {
+  assert.equal(pageHeight(sized(box(0, 319.2))), 320);
+});
+
+test('an open list past the block makes the frame taller, a closed one does not', () => {
+  assert.equal(pageHeight(sized(box(0, 300), [box(250, 490)])), 490);
+  assert.equal(pageHeight(sized(box(0, 300), [box(250, 490, { hidden: true })])), 300);
+});
+
+test('a page with no pick block keeps the height the frame has', () => {
+  assert.equal(pageHeight(sized(null)), null);
+});
+
+test('a framed form starts on its first invalid control, else its first', () => {
+  const first = {};
+  const invalid = {};
+  const finding = (found) => ({
+    querySelector: (selector) => (selector.includes('aria-invalid') ? found : first),
+  });
+  assert.equal(firstControl(finding(invalid)), invalid);
+  assert.equal(firstControl(finding(null)), first);
+});
+
 // A link naming the dialog `create`, whose frame records its source.
 function opening() {
   const frame = { src: '' };
@@ -190,6 +230,7 @@ function framed() {
     querySelectorAll: (selector) => (selector === 'form[data-form-dirty]' && form.dirty ? [form] : []),
   });
   const shown = {
+    open: true,
     closed: false,
     matches: (selector) => selector === '[data-create-option-dialog]',
     querySelector: (selector) => (selector === '[data-create-option-frame]' ? frame : null),
@@ -200,19 +241,30 @@ function framed() {
   const frame = {
     src: 'http://localhost/admin/authors/-/create?pick=1',
     contentDocument: page,
+    style: {},
+    loaded: false,
+    setAttribute() {
+      this.loaded = true;
+    },
+    removeAttribute() {
+      this.loaded = false;
+    },
     matches: (selector) => selector === '[data-create-option-frame]',
     closest: (selector) => (selector === '[data-create-option-dialog]' ? shown : null),
   };
   const doc = listenerDocument({ getElementById: () => null });
   install(doc);
-  for (const handler of doc.listeners('load')) handler({ target: frame });
+  const load = () => {
+    for (const handler of doc.listeners('load')) handler({ target: frame });
+  };
+  load();
   const key = (init) => {
     for (const handler of page.listeners('keydown')) handler({ key: 'Escape', defaultPrevented: false, ...init });
   };
   const close = () => {
     for (const handler of doc.listeners('close')) handler({ target: shown });
   };
-  return { form, frame, shown, key, close };
+  return { form, frame, shown, load, key, close };
 }
 
 test('Escape in the frame closes the dialog unless a control took it', () => {
@@ -226,7 +278,18 @@ test('Escape in the frame closes the dialog unless a control took it', () => {
 
 test('closing the dialog drops the unsaved-changes mark and empties the frame', () => {
   const { form, frame, close } = framed();
+  frame.style.height = '320px';
   close();
   assert.equal(form.dirty, false);
   assert.equal(frame.src, 'about:blank');
+  assert.equal(frame.style.height, '', 'the next opening starts from the frame\'s own height');
+});
+
+test('the blank page a closed dialog loads leaves the frame unmarked', () => {
+  const { frame, shown, load } = framed();
+  assert.equal(frame.loaded, true, 'the page an open dialog loads marks the frame');
+  shown.open = false;
+  frame.loaded = false;
+  load();
+  assert.equal(frame.loaded, false);
 });

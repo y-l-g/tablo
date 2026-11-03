@@ -33,6 +33,13 @@ const SUMMARY: StaticClass = class!(
     "[[open]>&]:border-b [[open]>&]:border-border",
 );
 
+/// Renders a section with no panel of its own, a rule above it when another block precedes it.
+/// Alone in its form the title goes: the dialog around the form already names the record.
+const FLAT: StaticClass = class!(
+    "flex flex-col gap-4 [&:not(:first-of-type)]:border-t [&:not(:first-of-type)]:border-border",
+    "[&:not(:first-of-type)]:pt-6 [&:only-of-type>[data-section-title]]:hidden",
+);
+
 /// Whether a section folds its body away.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Collapse {
@@ -263,6 +270,28 @@ fn panel<'a>(cx: &'a Cx, look: &Look, body: Option<BoxView<'a>>, errored: bool) 
     }
 }
 
+/// The section `look` describes as a heading over `body`, for a form a dialog frames. Nothing folds
+/// here: a dialog's form is short, and a section always shows what it asks for.
+fn flat<'a>(cx: &'a Cx, look: &Look, span: Option<Span>, body: Option<BoxView<'a>>) -> BoxView<'a> {
+    let extra = look.extra_class.clone();
+    let heading = heading(cx, look);
+    let description = look.description.clone();
+    let view = view! {
+        cx =>
+        <div class=(class!(FLAT, extra)) data-section="">
+            <div data-section-title="">(heading)</div>
+            if let Some(description) = description {
+                card_description((description))
+            }
+            if let Some(body) = body {
+                <div class="flex flex-col gap-6">(body)</div>
+            }
+        </div>
+    }
+    .boxed();
+    spanned(cx, span, view)
+}
+
 /// `body` under `title`, as a section declaring nothing else renders it: a related form's inside
 /// its owner's form.
 pub(crate) fn titled<'a>(cx: &'a Cx, title: crate::Text, body: BoxView<'a>) -> BoxView<'a> {
@@ -304,7 +333,11 @@ impl Section<Schema> {
         source: &Source<'_>,
     ) -> Result<BoxView<'a>> {
         if self.children.nodes.is_empty() {
-            return Ok(section_chrome(cx, &self.look, self.span, None, false));
+            return Ok(if source.is_flat() {
+                flat(cx, &self.look, self.span, None)
+            } else {
+                section_chrome(cx, &self.look, self.span, None, false)
+            });
         }
         let errored = self
             .children
@@ -312,6 +345,9 @@ impl Section<Schema> {
             .iter()
             .any(|node| node.has_error(fields, source));
         let body = render_nodes(cx, &self.children.nodes, fields, source).await?;
+        if source.is_flat() {
+            return Ok(flat(cx, &self.look, self.span, Some(body)));
+        }
         Ok(section_chrome(
             cx,
             &self.look,

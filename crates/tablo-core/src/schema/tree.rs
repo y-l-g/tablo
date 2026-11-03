@@ -54,6 +54,8 @@ pub struct Source<'a> {
     /// How many tabs hold the node rendering now, which tells a nested block's DOM ids from its
     /// outer tab's.
     tab_depth: AtomicUsize,
+    /// Whether a dialog frames the form, whose sections then render without a panel.
+    flat: bool,
 }
 
 impl<'a> Source<'a> {
@@ -69,7 +71,19 @@ impl<'a> Source<'a> {
             mask: super::FormMask::default(),
             prefix: String::new(),
             tab_depth: AtomicUsize::new(0),
+            flat: false,
         }
+    }
+
+    /// Renders sections without a panel when `flat`, for a form a dialog frames.
+    pub(crate) fn flat(mut self, flat: bool) -> Self {
+        self.flat = flat;
+        self
+    }
+
+    /// Whether sections render without a panel.
+    pub(super) fn is_flat(&self) -> bool {
+        self.flat
     }
 
     /// Renders the edit form of a stored record, where `disabled_on_edit` disables a control.
