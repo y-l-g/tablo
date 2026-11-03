@@ -7,10 +7,11 @@ mount: storing the filename and dropping the bytes would lose the upload without
 A refusal is user input, rendered under the field. Uploads run before the write transaction, so a
 rolled-back write does not undo a store.
 
-The field renders a file input and a clear control, and around the input a zone that
-`file_lists.js` enhances: files dropped on it join the input's, and it lists the files the input
-holds, each with a button taking it back out. `FileField::image` shows those and the stored file as
-thumbnails, the stored one from the signed link its name already uses. All of it acts on the
+The field renders one panel: a drop area over its file input, then the stored files, each with
+its clear control, a checkbox drawn as a round button. `file_lists.js` enhances it: files dropped
+on the panel join the input's, and it lists the files the input holds after the stored ones, each
+with a button taking it back out. `FileField::image` shows those and the stored files as image
+tiles, a stored one from the signed link its name already uses. All of it acts on the
 input alone, so the submission is the same multipart body as without the script, and the rules
 below hold unchanged. An app cannot build this itself: a custom control receives no file bytes, and
 an app route storing the files and posting back their paths would let the browser name what a
@@ -25,7 +26,7 @@ without JavaScript. A save starts from the list the record stores inside its tra
 remove checkbox drops a path, a posted path the record does not store is ignored, a stored path no
 row posts stays after the posted ones, and the posted rows keep the order they post in. So a stale
 form or a row a script left out never deletes a file another save added. Moving a row is
-`file_lists.js` moving its element, by its buttons or by dragging its handle, so the order needs no
+`file_lists.js` moving its element, by its buttons or by dragging it, so the order needs no
 key of its own and the browser renumbers nothing; without JavaScript the rows keep their stored
 order. The files a submission adds land after the rows, in the order the input holds them. A refused submission's uploads are
 carried under the tag a single file field's carry uses, beside the rows. A list choosing more files

@@ -1,10 +1,6 @@
 //! The file control: a file input storing the uploaded file's path, or a list of them, and the
 //! extensions, size and count it takes.
 
-use tablo_ui::{
-    ButtonSize, ButtonVariant, button, checkbox as ui_checkbox, input as ui_input,
-    label as ui_label,
-};
 use topcoat::{Result, context::Cx, view::*};
 
 use super::{Field, render_field};
@@ -149,9 +145,33 @@ impl Field {
         // The clear flag is a transport key stripped before any record fn.
         let clear_name = format!("clear_{name}");
         let clear_id = format!("clear_{id}");
-        // A value that is not a rooted path or `http(s)` URL renders as text.
-        let stored_display: Option<BoxView<'a>> =
-            stored.map(|current| stored_upload_row(cx, current, file.image));
+        let image = file.image;
+        let stored_display: Option<BoxView<'a>> = stored.map(|current| {
+            let name_id = format!("{id}-file");
+            // A disabled control keeps the stored file, so it offers no clearing.
+            let remove = (!disabled).then(|| {
+                remove_toggle(
+                    cx,
+                    clear_name,
+                    "1".to_owned(),
+                    clear_id,
+                    name_id.clone(),
+                    image,
+                    "tablo-file-remove",
+                )
+            });
+            let tile = StoredTile {
+                path: current,
+                name_id,
+                image,
+                remove,
+                moves: None,
+                keep: None,
+                movable: false,
+            }
+            .render(cx);
+            view! { cx => <div class="contents">(tile)</div> }.boxed()
+        });
         let aria_invalid = chrome.aria_invalid();
         let accept = file.accept();
         let described_by = [
@@ -163,54 +183,30 @@ impl Field {
         .reduce(|ids, id| format!("{ids} {id}"));
         let input = view! {
             cx =>
-            ui_input(
-                attrs: attributes! {
-                    id=(id)
-                    type="file"
-                    name=(name.clone())
-                    accept=(accept)
-                    required=(control_required)
-                    disabled=(disabled)
-                    aria-required=(control_required.then_some("true"))
-                    aria-invalid=(aria_invalid)
-                    aria-describedby=(described_by)
-                }
-            )
+            <input
+                class=(INPUT_CLASS)
+                id=(id)
+                type="file"
+                name=(name)
+                accept=(accept)
+                required=(control_required)
+                disabled=(disabled)
+                aria-required=(control_required.then_some("true"))
+                aria-invalid=(aria_invalid)
+                aria-describedby=(described_by)
+            >
         }
         .boxed();
-        let input = if disabled {
-            input
-        } else {
-            drop_zone(cx, file, input, "tablo-file-drop")
-        };
-        let control = view! {
-            cx =>
-            if let Some(row) = stored_display {
-                (row)
-            }
-            (input)
-            // A disabled control keeps the stored file, so it offers neither the hint nor clearing.
-            if is_edit && !disabled {
-                <div class="text-xs text-muted-foreground" id=(hint_id.clone())>
+        let hint = (is_edit && !disabled).then(|| {
+            view! {
+                cx =>
+                <div class="sr-only" id=(hint_id)>
                     (crate::t!(cx, "tablo-file-keep"))
                 </div>
-                <div class="mt-2 flex items-center gap-2">
-                    ui_checkbox(
-                        attrs: attributes! {
-                            id=(clear_id.clone())
-                            name=(clear_name)
-                            value="1"
-                            disabled=(disabled)
-                        }
-                    )
-                    ui_label(
-                        attrs: attributes! { for=(clear_id) class="text-xs text-muted-foreground" },
-                        (crate::t!(cx, "tablo-file-remove"))
-                    )
-                </div>
             }
-        }
-        .boxed();
+            .boxed()
+        });
+        let control = upload_panel(cx, image, input, "tablo-file-drop", stored_display, hint);
         render_field(
             cx,
             &chrome,
@@ -263,97 +259,6 @@ pub(crate) fn file_href(cx: &Cx, path: &str) -> String {
     }
 }
 
-/// The `Current: …` row a file field shows for a stored value, led by the file's thumbnail when
-/// the field holds `image`s and the value may become a URL.
-fn stored_upload_row<'a>(cx: &'a Cx, path: String, image: bool) -> BoxView<'a> {
-    let text = path.clone();
-    let href = is_linkable(&path).then(|| file_href(cx, &path));
-    let thumbnail = href.clone().filter(|_| image);
-    let inner: BoxView<'a> = match href {
-        Some(href) => view! {
-            cx =>
-            <a class="font-medium text-foreground underline" href=(href)>(text)</a>
-        }
-        .boxed(),
-        None => view! { cx => <span class="font-medium text-foreground">(text)</span> }.boxed(),
-    };
-    view! {
-        cx =>
-        <div
-            class="flex min-w-0 items-center gap-3 text-xs text-muted-foreground"
-            data-file-current=(path)
-        >
-            // The name beside it says what the image is.
-            if let Some(src) = thumbnail {
-                <img
-                    class="size-16 shrink-0 rounded-md border border-border object-cover"
-                    src=(src)
-                    alt=""
-                    loading="lazy"
-                >
-            }
-            <span class="min-w-0 break-all">
-                (crate::t!(cx, "tablo-file-current"))
-                " "
-                (inner)
-            </span>
-        </div>
-    }
-    .boxed()
-}
-
-/// The zone around a file field's `input` that files dropped on it fill, and where
-/// `assets/file_lists.js` lists the files picked and not saved yet, each a copy of the zone's
-/// template with a button taking it back out. The browser sends the input's files, so without the
-/// script the zone is the input and its `hint`.
-fn drop_zone<'a>(
-    cx: &'a Cx,
-    file: &FileControl,
-    input: BoxView<'a>,
-    hint: &'static str,
-) -> BoxView<'a> {
-    let image = file.image;
-    view! {
-        cx =>
-        <div
-            class="flex flex-col gap-2 rounded-md border border-dashed border-input p-3 transition-colors data-[dragging]:border-primary data-[dragging]:bg-foreground/5"
-            data-file-drop=""
-            data-file-image=(image)
-        >
-            (input)
-            <div
-                class="flex flex-wrap gap-2 empty:hidden"
-                role="list"
-                data-file-pending=""
-            ></div>
-            <div class="text-xs text-muted-foreground">(crate::t!(cx, hint))</div>
-            <template data-file-picked-template="">
-                <div
-                    class="flex items-center gap-2 rounded-md border border-border p-1 ps-2 text-xs"
-                    role="listitem"
-                >
-                    if image {
-                        <img
-                            class="size-16 shrink-0 rounded object-cover"
-                            alt=""
-                            hidden=(true)
-                            data-file-picked-thumb=""
-                        >
-                    }
-                    <span class="min-w-0 break-all" data-file-picked-name=""></span>
-                    button(
-                        variant: ButtonVariant::Ghost,
-                        size: ButtonSize::Sm,
-                        attrs: attributes! { type="button" data-file-unpick="" },
-                        (crate::t!(cx, "tablo-files-remove"))
-                    )
-                </div>
-            </template>
-        </div>
-    }
-    .boxed()
-}
-
 /// A stored upload path, as a link when it is a rooted path or an `http(s)` URL and as text
 /// otherwise.
 pub(crate) fn stored_upload<'a>(cx: &'a Cx, value: &str) -> BoxView<'a> {
@@ -384,6 +289,9 @@ pub(crate) fn stored_upload<'a>(cx: &'a Cx, value: &str) -> BoxView<'a> {
 }
 
 mod list;
+mod panel;
+
+use panel::{INPUT_CLASS, StoredTile, remove_toggle, upload_panel};
 
 #[cfg(test)]
 mod tests;
