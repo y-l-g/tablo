@@ -59,7 +59,16 @@ use crate::Text;
 /// }
 /// ```
 ///
-/// The derive also gives the enum `value()`, `label()` and `from_value()`.
+/// The derive also gives the enum `value()`, `label()` and `from_value()`, and `ALL`, every
+/// variant in declaration order, for a figure per option:
+///
+/// ```rust
+/// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
+/// # enum Status { Draft, Published }
+/// for status in Status::ALL {
+///     println!("{}", status.value());
+/// }
+/// ```
 pub trait Options {
     /// Every option as `(value, label)`, in declaration order.
     fn options() -> Vec<(String, Text)>;
