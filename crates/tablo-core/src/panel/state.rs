@@ -106,6 +106,8 @@ pub(crate) struct PanelState {
     /// shows no global search.
     pub(crate) searches: Vec<Searchable>,
     pub(crate) limits: crate::Limits,
+    /// The hooks every write of the panel runs before it commits, in registration order.
+    pub(crate) commit_hooks: Vec<super::commit_hook::CommitHookFn>,
 }
 
 /// Whether `path` is `prefix` or sits below it, segment by segment: `/admin`

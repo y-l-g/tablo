@@ -77,6 +77,43 @@ impl<M> Change<M> {
         }
     }
 
+    /// The same change, each record read through `f`.
+    pub(crate) fn map<N>(&self, f: impl Fn(&M) -> N) -> Change<N> {
+        match self {
+            Self::Create(record) => Change::Create(f(record)),
+            Self::Update { before, after } => Change::Update {
+                before: f(before),
+                after: f(after),
+            },
+            Self::Delete(records) => Change::Delete(records.iter().map(f).collect()),
+            Self::Restore(records) => Change::Restore(records.iter().map(f).collect()),
+            Self::ForceDelete(records) => Change::ForceDelete(records.iter().map(f).collect()),
+            Self::Action { name, records } => Change::Action {
+                name,
+                records: records.iter().map(f).collect(),
+            },
+            Self::HeaderAction { name } => Change::HeaderAction { name },
+            Self::Attach {
+                owner,
+                relation,
+                key,
+            } => Change::Attach {
+                owner: f(owner),
+                relation: relation.clone(),
+                key: key.clone(),
+            },
+            Self::Detach {
+                owner,
+                relation,
+                keys,
+            } => Change::Detach {
+                owner: f(owner),
+                relation: relation.clone(),
+                keys: keys.clone(),
+            },
+        }
+    }
+
     /// Whether the change is a run of the custom action `A`.
     ///
     /// It compares against `A::NAME`, as [`Ability::is_action`](crate::Ability::is_action) does,

@@ -20,6 +20,7 @@ use topcoat::{
 
 use super::{
     Panel, Root, error_page,
+    files::served_root,
     headers::{self, ServedDir},
     host::PanelHost,
     register::Registry,
@@ -195,6 +196,7 @@ impl Panel {
             translations,
             global_search,
             limits,
+            commit_hooks,
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
         let serves_tenants = serves_tenants(&auth, &mounts);
@@ -321,6 +323,7 @@ impl Panel {
             endpoints,
             searches,
             limits,
+            commit_hooks,
         });
         let prefix_path = route_path(&prefix);
         builder = builder
@@ -588,12 +591,6 @@ fn validation_cx(db: &Db, mounts: &Arc<Mounts>) -> Cx {
         topcoat::context::try_context::<Arc<Mounts>>(cx).map(|mounts| &**mounts)
     }));
     Cx::new().with_shared(Arc::new(values))
-}
-
-/// A served directory's pattern without its catch-all's name: the router treats
-/// `/uploads/{*file}` and `/uploads/{*path}` as one route.
-pub(super) fn served_root(path: &str) -> &str {
-    path.rsplit_once("{*").map_or(path, |(root, _)| root)
 }
 
 #[cfg(test)]

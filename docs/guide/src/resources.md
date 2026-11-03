@@ -218,6 +218,23 @@ An error it returns is logged and the write stays committed, and a crash between
 the hook skips it, so a row that must exist whenever the write does is written in
 `before_commit`.
 
+An audit trail over every resource of a panel registers one
+[`CommitHook`](https://y-l.fr/tablo/nightly/api/tablo/trait.CommitHook.html) on the panel instead
+of a `before_commit` on each resource, so a resource added later cannot be left out. It runs inside
+the same transaction, after the resource's own hook, and receives a
+[`PanelChange`](https://y-l.fr/tablo/nightly/api/tablo/struct.PanelChange.html): the resource's
+slug and label, and the `Change` with each record named by its key and its URL:
+
+```rust,ignore
+impl CommitHook for Audit {
+    async fn before_commit(cx: &Cx, change: &PanelChange, ex: &mut dyn Executor) -> Result<()> {
+        // change.label(), change.change().records()[0].url(), …
+    }
+}
+
+Panel::new("admin").before_commit::<Audit>()
+```
+
 [`Change`](https://y-l.fr/tablo/nightly/api/tablo/enum.Change.html) lists what each variant carries, and what a change does not
 say, such as the links a form wrote. The audit example's match lists every variant without a `_`
 arm, so a kind of write a later Tablo adds breaks the build instead of going unaudited.

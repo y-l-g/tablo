@@ -72,6 +72,7 @@ pub(crate) fn panel_state<U: crate::PanelUser>(
         endpoints: Vec::new(),
         searches: Vec::new(),
         limits: crate::Limits::default(),
+        commit_hooks: Vec::new(),
     }
 }
 
