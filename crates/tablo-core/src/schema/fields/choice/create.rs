@@ -4,7 +4,7 @@
 //! opens it in the dialog instead, and makes the record the dialog saves the choice.
 
 use tablo_ui::{ButtonSize, ButtonVariant, button, button_variants, dialog, dialog_content};
-use topcoat::{context::Cx, icon::icon, view::*};
+use topcoat::{context::Cx, icon::icon, runtime::Event, view::*};
 
 /// The select `control` with the link creating a related record beside it, and the closed dialog
 /// the link opens: `select` is the select's DOM id, `label` the field's, and `url` the related
@@ -18,6 +18,7 @@ pub(super) fn with_create_link<'a>(
     url: String,
 ) -> BoxView<'a> {
     let dialog_id = format!("{select}-create");
+    let close_id = dialog_id.clone();
     let select = select.to_string();
     let title = crate::t!(cx, "tablo-field-create-option-title", label = label);
     view! {
@@ -47,17 +48,25 @@ pub(super) fn with_create_link<'a>(
             },
             dialog_content(
                 attrs: attributes! { class="[&]:max-w-3xl gap-0 p-0 overflow-hidden" },
-                <form
-                    method="dialog"
-                    class="flex justify-end border-b border-border p-2"
-                >
+                // Not a `form method="dialog"`: the dialog sits in the record form, a nested
+                // form's end tag closes that one, and the fields after the choice leave it.
+                <div class="flex justify-end border-b border-border p-2">
                     button(
                         variant: ButtonVariant::Ghost,
                         size: ButtonSize::Icon,
-                        attrs: attributes! { aria-label=(crate::t!(cx, "tablo-close")) },
+                        attrs: attributes! {
+                            type="button"
+                            aria-label=(crate::t!(cx, "tablo-close"))
+                            @click=$(|_e: Event| {
+                                raw!(
+                                    "document.getElementById(String(${close_id})).close()",
+                                    (),
+                                );
+                            })
+                        },
                         icon(data: tablo_ui::icons::X)
                     )
-                </form>
+                </div>
                 <iframe
                     title=(title)
                     class="h-[80vh] w-full border-0"
