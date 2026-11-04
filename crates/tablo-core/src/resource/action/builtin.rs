@@ -4,7 +4,7 @@ use topcoat::context::Cx;
 
 use super::{ActionEntry, ErasedInput, InputSpec, Places};
 use crate::{
-    BoxFuture,
+    BoxFuture, Color,
     policy::Ability,
     resource::{Change, Resource, Trashed, WriteError},
     text,
@@ -38,7 +38,7 @@ impl<R: Resource> ActionEntry<R> {
             icon: || None,
             label_for: |_, _| text!("tablo-action-restore"),
             icon_for: |_, _| None,
-            destructive: false,
+            color: Color::Gray,
         }
     }
 
@@ -69,7 +69,7 @@ impl<R: Resource> ActionEntry<R> {
             icon: || None,
             label_for: |_, _| text!("tablo-action-force-delete"),
             icon_for: |_, _| None,
-            destructive: true,
+            color: Color::Danger,
         }
     }
 
@@ -119,7 +119,7 @@ impl<R: Resource> ActionEntry<R> {
             icon: || None,
             label_for: |_, _| text!("tablo-action-delete"),
             icon_for: |_, _| None,
-            destructive: true,
+            color: Color::Danger,
         }
     }
 }

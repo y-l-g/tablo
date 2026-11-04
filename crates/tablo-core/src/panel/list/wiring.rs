@@ -6,6 +6,7 @@ use topcoat::{context::Cx, icon::IconData};
 
 use super::TableSignals;
 use crate::{
+    Color,
     resource::Trashed,
     schema::Schema,
     table::{BoxColumn, ColumnChoice, Table, TableState},
@@ -71,8 +72,8 @@ pub(crate) struct TableAction<M> {
     pub(crate) icon: Option<IconData>,
     /// The text and icon of its row button on one record.
     pub(crate) record_face: RecordFace<M>,
-    /// Whether its buttons are tinted as destructive ones.
-    pub(crate) destructive: bool,
+    /// The colour its buttons are tinted in.
+    pub(crate) color: Color,
     /// The action's input form, when it asks for one: its buttons open the input's dialog.
     pub(crate) input: Option<fn() -> Schema>,
     /// The records it takes: the live ones, or a soft-deleting resource's trashed ones.

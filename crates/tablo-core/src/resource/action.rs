@@ -16,7 +16,7 @@ pub use places::Places;
 
 use super::{Mounted, Resource, WriteError};
 use crate::{
-    BoxFuture,
+    BoxFuture, Color,
     form::{FieldError, FieldErrors, FormInput, FormValues},
     naming::{derived_id, sentence_case},
     policy::Ability,
@@ -183,10 +183,11 @@ pub trait Action<R: Resource>: 'static {
     /// ```
     const ICON: Option<IconData> = None;
 
-    /// Whether the button is tinted as a destructive one, as Delete's is. Defaults to `false`.
+    /// The colour the button is tinted in, as Delete's is in [`Color::Danger`]. Defaults to
+    /// [`Color::Gray`], the untinted button.
     ///
     /// It changes how the button looks, not what it asks: [`CONFIRM`](Self::CONFIRM) asks first.
-    const DESTRUCTIVE: bool = false;
+    const COLOR: Color = Color::Gray;
 
     /// The question the confirmation dialog asks when [`CONFIRM`](Self::CONFIRM) is set. Defaults
     /// to the message `tablo-confirm-run`, "Run this action?". An action with input confirms in
@@ -389,7 +390,7 @@ impl<R: Resource> Actions<R> {
             icon: || A::ICON,
             label_for: A::label_for,
             icon_for: A::icon_for,
-            destructive: A::DESTRUCTIVE,
+            color: A::COLOR,
         });
         self
     }
@@ -447,8 +448,8 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) label_for: fn(&Cx, &R::Model) -> crate::Text,
     /// The icon of its button on one record.
     pub(crate) icon_for: fn(&Cx, &R::Model) -> Option<IconData>,
-    /// Whether its button is tinted as a destructive one.
-    pub(crate) destructive: bool,
+    /// The colour its button is tinted in.
+    pub(crate) color: Color,
 }
 
 impl<R: Resource> ActionEntry<R> {
