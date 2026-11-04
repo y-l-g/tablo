@@ -41,6 +41,8 @@ struct ActionButton {
     confirm: Option<String>,
     /// The icon before the label.
     icon: Option<IconData>,
+    /// The count a badge shows after the label, for a header action declared with one.
+    badge: Option<String>,
     /// The colour the button is tinted in.
     color: Color,
     /// The action's input, when it asks for one.
@@ -77,6 +79,7 @@ pub(crate) fn header_bar(
     url: &str,
     actions: &HeaderActions,
     allowed: impl Fn(&HeaderEntry) -> bool,
+    badges: &[(&'static str, String)],
 ) -> ActionBar {
     let buttons = actions
         .entries()
@@ -89,6 +92,10 @@ pub(crate) fn header_bar(
             confirm: (action.confirm && !action.input.takes_input)
                 .then(|| (action.prompt)().localize(cx)),
             icon: (action.icon)(),
+            badge: badges
+                .iter()
+                .find(|(name, _)| *name == action.name)
+                .map(|(_, count)| count.clone()),
             color: action.color,
             input: Input::of(action.input, action.confirm, url, action.name),
             disabled: None,
@@ -138,6 +145,7 @@ pub(crate) fn record_bar<R: Resource>(
                 icon: (action.icon_for)(cx, record)
                     .or(action.removes.then_some(tablo_ui::icons::TRASH)),
                 color: action.color,
+                badge: None,
                 input: Input::of(action.input, action.confirm, &resource.url, action.name),
                 disabled,
             })
@@ -153,6 +161,7 @@ pub(crate) fn record_bar<R: Resource>(
             confirm: Some(t!(cx, "tablo-confirm-delete-record")),
             icon: Some(tablo_ui::icons::TRASH),
             color: Color::Danger,
+            badge: None,
             input: None,
             disabled: None,
         });
@@ -171,6 +180,7 @@ impl ActionBar {
                 confirm: None,
                 icon: None,
                 color: Color::Gray,
+                badge: None,
                 input: Some(Input {
                     spec: input,
                     confirm: false,
@@ -239,6 +249,7 @@ impl ActionButton {
             url,
             confirm,
             icon: face_icon,
+            badge,
             color,
             input,
             disabled,
@@ -254,6 +265,14 @@ impl ActionButton {
                 icon(data: data)
             }
             (label)
+            if let Some(count) = badge {
+                <span
+                    data-action-badge="count"
+                    class="rounded-full bg-muted px-1.5 text-xs font-medium tabular-nums"
+                >
+                    (count)
+                </span>
+            }
         }
         .boxed();
         if let Some((name, reason)) = disabled {
