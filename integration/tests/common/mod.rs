@@ -1,8 +1,9 @@
 use http::header::{CONTENT_SECURITY_POLICY, CONTENT_TYPE, COOKIE};
 pub use tablo::testing::{
-    TestClient, action_label, body_bytes, body_string, confirms_first, cookie_header, field_error,
-    field_error_message, filter_options, form_body, input_value, input_values, mount, refusal,
-    response_cookies, rows, set_cookie_header, sortable_columns, test_db,
+    TestClient, action_label, action_tooltip, body_bytes, body_string, confirms_first,
+    cookie_header, disabled_actions, field_error, field_error_message, filter_options, form_body,
+    input_value, input_values, mount, refusal, response_cookies, rows, set_cookie_header,
+    sortable_columns, test_db,
 };
 use tablo::{Auth, Notification, Panel, Resource};
 use toasty::Db;

@@ -72,6 +72,8 @@ pub(crate) struct TableAction<M> {
     pub(crate) icon: Option<IconData>,
     /// The text and icon of its row button on one record.
     pub(crate) record_face: RecordFace<M>,
+    /// The hint its row buttons show on hover.
+    pub(crate) tooltip: Option<String>,
     /// The colour its buttons are tinted in.
     pub(crate) color: Color,
     /// The action's input form, when it asks for one: its buttons open the input's dialog.

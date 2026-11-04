@@ -218,6 +218,15 @@ pub trait Action<R: Resource>: 'static {
         Self::ICON
     }
 
+    /// The hint a row's button shows on hover, for an action whose label says too little.
+    /// Defaults to none.
+    ///
+    /// A button refused on its record shows its [`disabled_reason`](Self::disabled_reason)
+    /// instead.
+    fn tooltip() -> Option<crate::Text> {
+        None
+    }
+
     /// Whether `record`'s state lets the action run on it: a published post refuses "publish".
     /// Defaults to `true`.
     ///
@@ -390,6 +399,7 @@ impl<R: Resource> Actions<R> {
             icon: || A::ICON,
             label_for: A::label_for,
             icon_for: A::icon_for,
+            tooltip: A::tooltip,
             color: A::COLOR,
         });
         self
@@ -448,6 +458,8 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) label_for: fn(&Cx, &R::Model) -> crate::Text,
     /// The icon of its button on one record.
     pub(crate) icon_for: fn(&Cx, &R::Model) -> Option<IconData>,
+    /// The hint its row's button shows on hover.
+    pub(crate) tooltip: fn() -> Option<crate::Text>,
     /// The colour its button is tinted in.
     pub(crate) color: Color,
 }

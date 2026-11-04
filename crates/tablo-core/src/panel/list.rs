@@ -213,6 +213,7 @@ fn wire_custom_actions<R: Resource>(
                 prompt: (action.prompt)(false).localize(cx),
                 bulk_prompt: (action.prompt)(true).localize(cx),
                 icon: (action.icon)(),
+                tooltip: (action.tooltip)().map(|text| text.localize(cx)),
                 record_face: Arc::new(move |record: &R::Model| {
                     (
                         (action.label_for)(&face_cx, record).localize(&face_cx),

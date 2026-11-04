@@ -23,25 +23,32 @@ pub fn confirms_first(html: &str, action: &str) -> Option<bool> {
         .map(|(_, attrs, _)| attr_value(&attrs, "type").as_deref() == Some("button"))
 }
 
-/// The text of the button posting to `url`, a custom action's route, on a row or a record page,
-/// its icon aside. A row's button posts itself; a record page's button sits in the form posting
-/// to `url`. `None` when no button posts there.
-pub fn action_label(html: &str, url: &str) -> Option<String> {
+/// The button posting to `url`, a custom action's route, on a row or a record page, as its
+/// element. A row's button posts itself; a record page's button sits in the form posting to `url`.
+fn posting_button(html: &str, url: &str) -> Option<Element> {
     let posts_to = |attrs: &Attrs, name: &str| {
         attr_value(attrs, name).is_some_and(|posted| posted.split('?').next() == Some(url))
     };
-    let text = |(_, _, inner): Element| strip_text(&inner);
     elements(html, "button")
         .into_iter()
         .find(|(_, attrs, _)| posts_to(attrs, "formaction"))
-        .map(text)
         .or_else(|| {
             elements(html, "form")
                 .into_iter()
                 .find(|(_, attrs, _)| posts_to(attrs, "action"))
                 .and_then(|(_, _, inner)| elements(&inner, "button").into_iter().next())
-                .map(text)
         })
+}
+
+/// The text of the button posting to `url`, its icon aside. `None` when no button posts there.
+pub fn action_label(html: &str, url: &str) -> Option<String> {
+    posting_button(html, url).map(|(_, _, inner)| strip_text(&inner))
+}
+
+/// The hint the button posting to `url` shows on hover. `None` when no button posts there or it
+/// shows none.
+pub fn action_tooltip(html: &str, url: &str) -> Option<String> {
+    posting_button(html, url).and_then(|(_, attrs, _)| attr_value(&attrs, "title"))
 }
 
 /// Whether the bulk bar offers to select every record the list's query selects, beyond its page.

@@ -41,6 +41,11 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
             let mut attrs = trigger(cx, chrome, action);
             let tone = action.color.button_tone();
             attrs.extend(attributes! { cx => class=(tone) aria-describedby=(described.clone()) });
+            // A disabled button keeps its reason as its title, so the hint is added only to one
+            // that is enabled.
+            if let Some(hint) = &action.tooltip {
+                attrs.extend(attributes! { cx => title=(hint.clone()) });
+            }
             let (label, face) = (action.label.clone(), action.icon.clone());
             view! {
                 cx =>
