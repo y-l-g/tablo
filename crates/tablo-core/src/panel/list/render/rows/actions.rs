@@ -38,9 +38,8 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
         .custom
         .iter()
         .map(|action| {
-            let mut attrs = trigger(cx, chrome, action);
-            let tone = action.color.button_tone();
-            attrs.extend(attributes! { cx => class=(tone) aria-describedby=(described.clone()) });
+            let mut attrs = trigger(cx, chrome, action, action.color.button_tone());
+            attrs.extend(attributes! { cx => aria-describedby=(described.clone()) });
             // A disabled button keeps its reason as its title, so the hint is added only to one
             // that is enabled.
             if let Some(hint) = &action.tooltip {
@@ -153,12 +152,12 @@ fn row_link<'a>(
 }
 
 /// The attributes of a custom action's button in a row: disabled with its reason, opening its
-/// input dialog, or writing.
-fn trigger(cx: &Cx, chrome: &RowChrome, action: &RowButton) -> Attributes {
+/// input dialog, or writing. `class` is the button's colour, which a disabled button keeps too.
+fn trigger(cx: &Cx, chrome: &RowChrome, action: &RowButton, class: Option<&str>) -> Attributes {
     if let Some(reason) = &action.disabled {
-        return disabled_trigger(cx, action.name, reason);
+        return disabled_trigger(cx, action.name, reason, class);
     }
-    match action.input {
+    let mut attrs = match action.input {
         Some(name) => input_trigger(
             cx,
             &chrome.form,
@@ -178,7 +177,9 @@ fn trigger(cx: &Cx, chrome: &RowChrome, action: &RowButton) -> Attributes {
                 .map(|prompt| run_confirmation(cx, prompt)),
             false,
         ),
-    }
+    };
+    attrs.extend(attributes! { cx => class=(class) });
+    attrs
 }
 
 /// The row's actions behind one button: its links, custom actions, View and Edit, then Delete
@@ -205,12 +206,10 @@ fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> 
         })
         .collect();
     items.extend(row.custom.iter().map(|action| {
-        let mut attrs = trigger(cx, chrome, action);
+        let class = (action.color != Color::Gray).then_some(action.color.text_class());
+        let mut attrs = trigger(cx, chrome, action, class);
         if action.disabled.is_none() {
             closes(&mut attrs);
-        }
-        if action.color != Color::Gray {
-            attrs.extend(attributes! { cx => class=(action.color.text_class()) });
         }
         let (label, face) = (action.label.clone(), action.icon.clone());
         view! {

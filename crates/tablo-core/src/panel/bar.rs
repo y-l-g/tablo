@@ -281,11 +281,7 @@ impl ActionButton {
                 button(
                     variant: variant,
                     size: ButtonSize::Md,
-                    attrs: {
-                        let mut attrs = disabled_trigger(cx, name, &reason);
-                        attrs.extend(attributes! { cx => class=(tone) });
-                        attrs
-                    },
+                    attrs: disabled_trigger(cx, name, &reason, tone),
                     (face)
                 )
             }
@@ -399,14 +395,24 @@ impl ActionButton {
 }
 
 /// The attributes of the button of the action `name`, which the record's state refuses: it posts
-/// nothing, stays focusable so a reader hears `reason`, and shows `reason` on hover.
-pub(crate) fn disabled_trigger(cx: &Cx, name: &str, reason: &str) -> Attributes {
+/// nothing, stays focusable so a reader hears `reason`, and shows `reason` on hover. Its `tone`
+/// joins the disabled classes, since a second `class` attribute would replace them.
+pub(crate) fn disabled_trigger(
+    cx: &Cx,
+    name: &str,
+    reason: &str,
+    tone: Option<&str>,
+) -> Attributes {
+    let class = tone.map_or_else(
+        || "cursor-not-allowed opacity-50".to_string(),
+        |tone| format!("cursor-not-allowed opacity-50 {tone}"),
+    );
     attributes! {
         cx =>
         type="button"
         aria-disabled="true"
         title=(reason.to_string())
         data-disabled-action=(name.to_string())
-        class="cursor-not-allowed opacity-50"
+        class=(class)
     }
 }
