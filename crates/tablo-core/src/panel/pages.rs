@@ -104,7 +104,7 @@ fn header_buttons<'a>(cx: &'a Cx, page: TypeId, mounted: &MountedPage) -> BoxVie
     let Some(url) = super::state::current(cx).and_then(|panel| panel.urls.get(&page)) else {
         return ().boxed();
     };
-    super::header_bar(cx, url, &mounted.header_actions, |_| true).render(cx)
+    super::header_bar(cx, url, &mounted.header_actions, |_| true, &[]).render(cx)
 }
 
 /// The header buttons of the page `P` the request may run, for its

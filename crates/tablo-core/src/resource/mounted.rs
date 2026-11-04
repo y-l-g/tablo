@@ -51,6 +51,8 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) record_pages: Vec<super::RecordPageEntry<R>>,
     pub(crate) actions: Actions<R>,
     pub(crate) header_actions: HeaderActions,
+    /// The header actions' badges [`ResourceDef::header_action_with_badge`] declares.
+    header_badges: Vec<(&'static str, toasty::stmt::Expr<bool>)>,
     /// The grid [`ResourceDef::list_widget`] fills above the list's table.
     pub(crate) list_widgets: crate::widget::WidgetGrid,
     pub(crate) fields: Vec<FormField<<R::Form as RecordForm>::Field>>,
@@ -131,6 +133,7 @@ impl<R: Resource> Mounted<R> {
             navigation,
             navigation_hidden: def.navigation_hidden,
             navigation_badge: def.navigation_badge,
+            header_badges: def.header_badges,
             policy: def.policy,
             queries: def.queries,
             tenancy: def.tenancy,
@@ -165,13 +168,32 @@ impl<R: Resource> Mounted<R> {
     /// renders on every page, which a badge must not fail.
     pub(crate) async fn navigation_badge(&self, cx: &Cx) -> Option<String> {
         let filter = self.navigation_badge.clone()?;
+        self.count_badge(cx, filter).await
+    }
+
+    /// The badges [`ResourceDef::header_action_with_badge`] declares: each header action's name
+    /// with its count, none for a zero.
+    pub(crate) async fn header_action_badges(&self, cx: &Cx) -> Vec<(&'static str, String)> {
+        let mut badges = Vec::with_capacity(self.header_badges.len());
+        for (name, filter) in &self.header_badges {
+            if let Some(count) = self.count_badge(cx, filter.clone()).await {
+                badges.push((*name, count));
+            }
+        }
+        badges
+    }
+
+    /// The count of the rows `filter` matches, as badge text, none for zero. A tenant-scoped
+    /// resource shows none to a request without a tenant, whose list refuses it too. A failed count
+    /// shows none either, logged: a badge renders on every page, which it must not fail.
+    async fn count_badge(&self, cx: &Cx, filter: toasty::stmt::Expr<bool>) -> Option<String> {
         if self.tenancy.is_scoped() && crate::tenant_id(cx).is_none() {
             return None;
         }
         let query = match self.scoped_query(cx) {
             Ok(query) => query.filter(filter),
             Err(error) => {
-                tracing::error!(error = %error, "navigation badge query");
+                tracing::error!(error = %error, "badge query");
                 return None;
             }
         };
@@ -179,7 +201,7 @@ impl<R: Resource> Mounted<R> {
             Ok(0) => None,
             Ok(count) => Some(count.to_string()),
             Err(error) => {
-                tracing::error!(error = %error, "navigation badge count");
+                tracing::error!(error = %error, "badge count");
                 None
             }
         }

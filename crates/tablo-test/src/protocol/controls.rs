@@ -51,6 +51,16 @@ pub fn action_tooltip(html: &str, url: &str) -> Option<String> {
     posting_button(html, url).and_then(|(_, attrs, _)| attr_value(&attrs, "title"))
 }
 
+/// The count a header action's button shows as its badge, posting to `url`. `None` when no button
+/// posts there or it shows no badge.
+pub fn action_badge(html: &str, url: &str) -> Option<String> {
+    let (_, _, inner) = posting_button(html, url)?;
+    elements(&inner, "span")
+        .into_iter()
+        .find(|(_, attrs, _)| attr_value(attrs, "data-action-badge").is_some())
+        .map(|(_, _, count)| strip_text(&count))
+}
+
 /// Whether the bulk bar offers to select every record the list's query selects, beyond its page.
 pub fn selects_matching(html: &str) -> bool {
     open_tags(html).iter().any(|(tag, attrs, _)| {

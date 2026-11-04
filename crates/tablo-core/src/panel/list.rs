@@ -350,14 +350,21 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
             .selecting_matching();
         // A write lands back on the list as the reader left it.
         let back = state.without_cursor(&resource.url);
-        let mut actions = header_bar(cx, &resource.url, &resource.header_actions, |action| {
-            resource.can(
-                cx,
-                Ability::RunHeader {
-                    action: action.name,
-                },
-            )
-        });
+        let badges = resource.header_action_badges(cx).await;
+        let mut actions = header_bar(
+            cx,
+            &resource.url,
+            &resource.header_actions,
+            |action| {
+                resource.can(
+                    cx,
+                    Ability::RunHeader {
+                        action: action.name,
+                    },
+                )
+            },
+            &badges,
+        );
         let table = if back == resource.url {
             table
         } else {

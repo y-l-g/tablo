@@ -5,7 +5,7 @@ use std::sync::Arc;
 use toasty::stmt::{Expr, Path};
 use topcoat::{context::Cx, icon::IconData};
 
-use super::{Action, Actions, HeaderAction, HeaderActions, Relation, Resource, SoftDelete};
+use super::{Action, Actions, HeaderActions, Relation, Resource, SoftDelete};
 use crate::{
     DeclarationErrorKind, Lens,
     detail::Detail,
@@ -17,6 +17,8 @@ use crate::{
     tenancy::Tenancy,
     toasty_compat::model::{self, ModelPath},
 };
+
+mod header_actions;
 
 /// What a [`Resource`] declares: its names, navigation, policy, tenancy, table, list widgets, form,
 /// detail page, record pages, relations and actions.
@@ -72,6 +74,8 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) record_pages: Vec<super::RecordPageEntry<R>>,
     pub(crate) actions: Actions<R>,
     pub(crate) header_actions: HeaderActions,
+    /// The header actions' badges, each action's name with the filter its count matches.
+    pub(crate) header_badges: Vec<(&'static str, Expr<bool>)>,
     pub(crate) list_widgets: crate::widget::WidgetGrid,
     /// The columns [`Self::create_column`] names, or why a path names no column.
     pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
@@ -108,6 +112,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             record_pages: Vec::new(),
             actions: Actions::default(),
             header_actions: HeaderActions::new(),
+            header_badges: Vec::new(),
             list_widgets: crate::widget::WidgetGrid::default(),
             create_columns: Vec::new(),
             pages: super::Pages::default(),
@@ -433,43 +438,6 @@ impl<R: Resource> ResourceDef<R> {
     #[must_use]
     pub fn action<A: Action<R>>(mut self) -> Self {
         self.actions = self.actions.add::<A>();
-        self
-    }
-
-    /// Adds the [`HeaderAction`] `A`, which acts on no record, to the list page's header, after
-    /// the ones already declared.
-    ///
-    /// The policy decides who may run it, through [`Ability::ViewAny`](crate::Ability::ViewAny)
-    /// and [`Ability::RunHeader`](crate::Ability::RunHeader) with its name, which no other action
-    /// of the resource may share. An `A::NAME` that is not a single URL path segment does not
-    /// compile.
-    ///
-    /// ```rust,compile_fail,E0080
-    /// # use tablo_core::{HeaderAction, NoForm, Resource, ResourceDef};
-    /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-    /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
-    /// # struct PostResource;
-    /// # impl Resource for PostResource {
-    /// #     type Model = Post;
-    /// #     type Form = NoForm<Post>;
-    /// # }
-    /// struct RecountTags;
-    ///
-    /// impl HeaderAction for RecountTags {
-    ///     type Input = ();
-    ///     const NAME: &'static str = "recount/tags";
-    ///
-    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> {
-    ///         Ok(tablo_core::Outcome::done())
-    ///     }
-    /// }
-    ///
-    /// let _def = ResourceDef::<PostResource>::new().header_action::<RecountTags>();
-    /// ```
-    #[must_use]
-    pub fn header_action<A: HeaderAction>(mut self) -> Self {
-        self.header_actions = self.header_actions.add::<A>();
         self
     }
 
