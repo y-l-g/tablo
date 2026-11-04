@@ -33,6 +33,7 @@ use topcoat::{
 
 use super::{TableSignals, WiredTable};
 use crate::{
+    Color,
     panel::url::with_return,
     schema::Schema,
     table::{ActionLayout, Alignment, ColumnWidth, TableState, query_of},
@@ -105,7 +106,7 @@ struct BulkAction<'t> {
     /// The question the confirmation dialog asks.
     prompt: &'t str,
     icon: Option<IconData>,
-    destructive: bool,
+    color: Color,
     /// Whether its button opens the action's input dialog.
     input: bool,
 }
@@ -171,7 +172,7 @@ impl<M> WiredTable<M> {
                     confirm: action.confirm && action.input.is_none(),
                     prompt: &action.bulk_prompt,
                     icon: action.icon.clone(),
-                    destructive: action.destructive,
+                    color: action.color,
                     input: action.input.is_some(),
                 })
                 .collect(),

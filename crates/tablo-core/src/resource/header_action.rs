@@ -7,7 +7,7 @@ use topcoat::{Result, context::Cx, icon::IconData};
 
 use super::{ErasedInput, InputResult, InputSpec, parse_validated};
 use crate::{
-    BoxFuture, FormInput,
+    BoxFuture, Color, FormInput,
     form::{FieldErrors, FormValues},
     naming::{derived_id, sentence_case},
     policy::Ability,
@@ -83,10 +83,11 @@ pub trait HeaderAction: 'static {
     /// The icon before the button's label. Defaults to none.
     const ICON: Option<IconData> = None;
 
-    /// Whether the button is tinted as a destructive one. Defaults to `false`.
+    /// The colour the button is tinted in, as Delete's is in [`Color::Danger`]. Defaults to
+    /// [`Color::Gray`], the untinted button.
     ///
     /// It changes how the button looks, not what it asks: [`CONFIRM`](Self::CONFIRM) asks first.
-    const DESTRUCTIVE: bool = false;
+    const COLOR: Color = Color::Gray;
 
     /// The question the confirmation dialog asks when [`CONFIRM`](Self::CONFIRM) is set. Defaults
     /// to the message `tablo-confirm-run`, "Run this action?". An action with input confirms in
@@ -255,7 +256,7 @@ impl HeaderActions {
             confirm: A::CONFIRM,
             prompt: A::confirmation,
             icon: || A::ICON,
-            destructive: A::DESTRUCTIVE,
+            color: A::COLOR,
         });
         self
     }
@@ -298,8 +299,8 @@ pub(crate) struct HeaderEntry {
     pub(crate) prompt: fn() -> crate::Text,
     /// The icon before its button's label.
     pub(crate) icon: fn() -> Option<IconData>,
-    /// Whether its button is tinted as a destructive one.
-    pub(crate) destructive: bool,
+    /// The colour its button is tinted in.
+    pub(crate) color: Color,
 }
 
 /// [`FormInput::parse`], then [`HeaderAction::validate_input`], behind a function pointer.

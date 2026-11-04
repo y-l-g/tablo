@@ -219,7 +219,7 @@ fn wire_custom_actions<R: Resource>(
                         (action.icon_for)(&face_cx, record),
                     )
                 }),
-                destructive: action.destructive,
+                color: action.color,
                 input: action.input.takes_input.then_some(action.input.schema),
                 trashed: action.trashed,
                 allowed: Arc::new(move |record: &R::Model| {

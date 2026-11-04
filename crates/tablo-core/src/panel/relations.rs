@@ -19,6 +19,7 @@ use super::{
     state::current,
 };
 use crate::{
+    Color,
     navigation::runtime_link,
     panel::{
         list::TableAction,
@@ -269,7 +270,7 @@ fn detach_action<C: Resource>(cx: &Cx, resource: &Arc<Mounted<C>>) -> TableActio
         bulk_prompt: String::new(),
         icon: None,
         record_face: Arc::new(move |_| (label.clone(), None)),
-        destructive: false,
+        color: Color::Gray,
         input: None,
         trashed: Trashed::With,
         allowed: Arc::new(move |record: &C::Model| policy.can(&policy_cx, Ability::View(record))),

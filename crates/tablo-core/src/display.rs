@@ -87,6 +87,21 @@ impl Color {
         }
     }
 
+    /// The classes that tint a button in this color, `None` for the neutral button. They are
+    /// marked important to win over the outline button's own colors.
+    pub(crate) const fn button_tone(self) -> Option<&'static str> {
+        match self {
+            Self::Gray => None,
+            Self::Primary => Some("text-primary! hover:bg-primary/5! active:bg-primary/10!"),
+            Self::Success => Some("text-success! hover:bg-success/5! active:bg-success/10!"),
+            Self::Warning => Some("text-warning! hover:bg-warning/5! active:bg-warning/10!"),
+            Self::Danger => {
+                Some("text-destructive! hover:bg-destructive/5! active:bg-destructive/10!")
+            }
+            Self::Info => Some("text-info! hover:bg-info/5! active:bg-info/10!"),
+        }
+    }
+
     /// The class of a cell's text in this color.
     pub(crate) const fn text_class(self) -> &'static str {
         match self {

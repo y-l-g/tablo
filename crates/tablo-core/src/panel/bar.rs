@@ -13,7 +13,7 @@ use topcoat::{
 };
 
 use crate::{
-    HeaderActions,
+    Color, HeaderActions,
     panel::{
         input::{InputDialog, Posts, open_dialog},
         url::{
@@ -41,8 +41,8 @@ struct ActionButton {
     confirm: Option<String>,
     /// The icon before the label.
     icon: Option<IconData>,
-    /// Whether the button is tinted as a destructive one.
-    destructive: bool,
+    /// The colour the button is tinted in.
+    color: Color,
     /// The action's input, when it asks for one.
     input: Option<Input>,
     /// The action's name and why the button shows disabled, when the record's state refuses it.
@@ -89,7 +89,7 @@ pub(crate) fn header_bar(
             confirm: (action.confirm && !action.input.takes_input)
                 .then(|| (action.prompt)().localize(cx)),
             icon: (action.icon)(),
-            destructive: action.destructive,
+            color: action.color,
             input: Input::of(action.input, action.confirm, url, action.name),
             disabled: None,
         })
@@ -137,7 +137,7 @@ pub(crate) fn record_bar<R: Resource>(
                     .then(|| (action.prompt)(false).localize(cx)),
                 icon: (action.icon_for)(cx, record)
                     .or(action.removes.then_some(tablo_ui::icons::TRASH)),
-                destructive: action.destructive,
+                color: action.color,
                 input: Input::of(action.input, action.confirm, &resource.url, action.name),
                 disabled,
             })
@@ -152,7 +152,7 @@ pub(crate) fn record_bar<R: Resource>(
             url: delete_action_url(&resource.url, &key),
             confirm: Some(t!(cx, "tablo-confirm-delete-record")),
             icon: Some(tablo_ui::icons::TRASH),
-            destructive: true,
+            color: Color::Danger,
             input: None,
             disabled: None,
         });
@@ -170,7 +170,7 @@ impl ActionBar {
                 url,
                 confirm: None,
                 icon: None,
-                destructive: false,
+                color: Color::Gray,
                 input: Some(Input {
                     spec: input,
                     confirm: false,
@@ -239,14 +239,14 @@ impl ActionButton {
             url,
             confirm,
             icon: face_icon,
-            destructive,
+            color,
             input,
             disabled,
         } = self;
-        // A destructive button is outlined like its neighbors and tinted, so an irreversible
-        // write reads as a warning without outweighing the page's primary action.
+        // A tinted button is outlined like its neighbors, so its colour marks it without
+        // outweighing the page's primary action.
         let variant = ButtonVariant::Outline;
-        let tone = destructive.then_some(DESTRUCTIVE_TONE);
+        let tone = color.button_tone();
         let confirm_label = label.clone();
         let face = view! {
             cx =>
@@ -391,8 +391,3 @@ pub(crate) fn disabled_trigger(cx: &Cx, name: &str, reason: &str) -> Attributes 
         class="cursor-not-allowed opacity-50"
     }
 }
-
-/// A destructive button's tint over the outline button, marked important to win over the
-/// outline's own colors.
-pub(crate) const DESTRUCTIVE_TONE: &str =
-    "text-destructive! hover:bg-destructive/5! active:bg-destructive/10!";

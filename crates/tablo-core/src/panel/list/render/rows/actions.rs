@@ -14,11 +14,7 @@ use super::{
     },
     RowButton, RowChrome, RowLinkView, RowView,
 };
-use crate::{
-    dom,
-    panel::bar::{DESTRUCTIVE_TONE, disabled_trigger},
-    t,
-};
+use crate::{Color, dom, panel::bar::disabled_trigger, t};
 
 /// The row's actions cell: its links and custom actions, then View, Edit and Delete, each only
 /// when the row's policy allows it.
@@ -43,7 +39,7 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
         .iter()
         .map(|action| {
             let mut attrs = trigger(cx, chrome, action);
-            let tone = action.destructive.then_some(DESTRUCTIVE_TONE);
+            let tone = action.color.button_tone();
             attrs.extend(attributes! { cx => class=(tone) aria-describedby=(described.clone()) });
             let (label, face) = (action.label.clone(), action.icon.clone());
             view! {
@@ -208,8 +204,8 @@ fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> 
         if action.disabled.is_none() {
             closes(&mut attrs);
         }
-        if action.destructive {
-            attrs.extend(attributes! { cx => class="text-destructive" });
+        if action.color != Color::Gray {
+            attrs.extend(attributes! { cx => class=(action.color.text_class()) });
         }
         let (label, face) = (action.label.clone(), action.icon.clone());
         view! {

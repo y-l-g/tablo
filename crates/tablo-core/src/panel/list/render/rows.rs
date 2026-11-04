@@ -13,6 +13,7 @@ use super::{
     CHROME_CELL_CLASS, Frame,
 };
 use crate::{
+    Color,
     column::Column,
     panel::url::{delete_action_url, row_action_url, row_edit_url, row_view_url},
     t,
@@ -361,7 +362,7 @@ struct RowButton {
     /// The question the confirmation dialog asks first, when it does.
     confirm: Option<String>,
     icon: Option<IconData>,
-    destructive: bool,
+    color: Color,
     /// The action's name when it asks for input, which its dialog then does.
     input: Option<&'static str>,
     /// Why the button shows disabled, when the record's state refuses the action.
@@ -477,7 +478,7 @@ impl<M> WiredTable<M> {
                                     confirm: (action.confirm && input.is_none())
                                         .then(|| action.prompt.clone()),
                                     icon: face_icon,
-                                    destructive: action.destructive,
+                                    color: action.color,
                                     input,
                                     disabled,
                                 })
