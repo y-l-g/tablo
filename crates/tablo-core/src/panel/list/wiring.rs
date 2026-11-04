@@ -17,6 +17,9 @@ pub(crate) type RowPolicy<M> = Arc<dyn Fn(&M) -> RowActions + Send + Sync>;
 /// Why a row action's button shows disabled on one record, if it does.
 pub(crate) type DisabledReason<M> = Arc<dyn Fn(&M) -> Option<String> + Send + Sync>;
 
+/// The text and icon of a row action's button on one record, which the record's state may change.
+pub(crate) type RecordFace<M> = Arc<dyn Fn(&M) -> (String, Option<IconData>) + Send + Sync>;
+
 /// Which row actions one record may use.
 ///
 /// A denied action emits no link, and a row denied `delete` renders no bulk checkbox.
@@ -66,6 +69,8 @@ pub(crate) struct TableAction<M> {
     pub(crate) bulk_prompt: String,
     /// The icon before its buttons' label.
     pub(crate) icon: Option<IconData>,
+    /// The text and icon of its row button on one record.
+    pub(crate) record_face: RecordFace<M>,
     /// Whether its buttons are tinted as destructive ones.
     pub(crate) destructive: bool,
     /// The action's input form, when it asks for one: its buttons open the input's dialog.

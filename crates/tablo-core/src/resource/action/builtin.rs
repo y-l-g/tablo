@@ -36,6 +36,8 @@ impl<R: Resource> ActionEntry<R> {
                 }
             },
             icon: || None,
+            label_for: |_, _| text!("tablo-action-restore"),
+            icon_for: |_, _| None,
             destructive: false,
         }
     }
@@ -65,6 +67,8 @@ impl<R: Resource> ActionEntry<R> {
                 }
             },
             icon: || None,
+            label_for: |_, _| text!("tablo-action-force-delete"),
+            icon_for: |_, _| None,
             destructive: true,
         }
     }
@@ -113,6 +117,8 @@ impl<R: Resource> ActionEntry<R> {
                 }
             },
             icon: || None,
+            label_for: |_, _| text!("tablo-action-delete"),
+            icon_for: |_, _| None,
             destructive: true,
         }
     }

@@ -469,13 +469,14 @@ impl<M> WiredTable<M> {
                                 };
                                 let url = row_action_url(prefix, &key, action.name);
                                 let input = action.input.map(|_| action.name);
+                                let (label, face_icon) = (action.record_face)(row);
                                 Some(RowButton {
                                     name: action.name,
-                                    label: action.label.clone(),
+                                    label,
                                     url: frame.action_url(url),
                                     confirm: (action.confirm && input.is_none())
                                         .then(|| action.prompt.clone()),
-                                    icon: action.icon.clone(),
+                                    icon: face_icon,
                                     destructive: action.destructive,
                                     input,
                                     disabled,

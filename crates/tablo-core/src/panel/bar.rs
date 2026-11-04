@@ -127,7 +127,7 @@ pub(crate) fn record_bar<R: Resource>(
             };
             let url = row_action_url(&resource.url, &key, action.name);
             Some(ActionButton {
-                label: (action.label)().localize(cx),
+                label: (action.label_for)(cx, record).localize(cx),
                 url: if action.removes {
                     url
                 } else {
@@ -135,7 +135,8 @@ pub(crate) fn record_bar<R: Resource>(
                 },
                 confirm: (action.confirm && !action.input.takes_input)
                     .then(|| (action.prompt)(false).localize(cx)),
-                icon: (action.icon)().or(action.removes.then_some(tablo_ui::icons::TRASH)),
+                icon: (action.icon_for)(cx, record)
+                    .or(action.removes.then_some(tablo_ui::icons::TRASH)),
                 destructive: action.destructive,
                 input: Input::of(action.input, action.confirm, &resource.url, action.name),
                 disabled,
