@@ -202,6 +202,21 @@ pub trait Action<R: Resource>: 'static {
         crate::Text::derived(derived_id("action", Self::NAME), sentence_case(Self::NAME))
     }
 
+    /// The text of the button on one `record`: its row's, or its record page's. Defaults to
+    /// [`label`](Self::label), which the bulk bar, the input dialogs and the messages use.
+    ///
+    /// Override it when the record's state changes what the action reads: "Deactivate" on an
+    /// active employee, "Activate" on one that is not.
+    fn label_for(_cx: &Cx, _record: &R::Model) -> crate::Text {
+        Self::label()
+    }
+
+    /// The icon of the button on one `record`, in its row and on its record page. Defaults to
+    /// [`ICON`](Self::ICON).
+    fn icon_for(_cx: &Cx, _record: &R::Model) -> Option<IconData> {
+        Self::ICON
+    }
+
     /// Whether `record`'s state lets the action run on it: a published post refuses "publish".
     /// Defaults to `true`.
     ///
@@ -372,6 +387,8 @@ impl<R: Resource> Actions<R> {
             removes: false,
             prompt: |_| A::confirmation(),
             icon: || A::ICON,
+            label_for: A::label_for,
+            icon_for: A::icon_for,
             destructive: A::DESTRUCTIVE,
         });
         self
@@ -426,6 +443,10 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) prompt: fn(bool) -> crate::Text,
     /// The icon before its button's label.
     pub(crate) icon: fn() -> Option<IconData>,
+    /// The text of its button on one record, in the record's row or on its record page.
+    pub(crate) label_for: fn(&Cx, &R::Model) -> crate::Text,
+    /// The icon of its button on one record.
+    pub(crate) icon_for: fn(&Cx, &R::Model) -> Option<IconData>,
     /// Whether its button is tinted as a destructive one.
     pub(crate) destructive: bool,
 }

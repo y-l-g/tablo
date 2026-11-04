@@ -302,7 +302,11 @@ async fn mutate<'a, R: Resource>(
             )
         )
     });
-    let label = (action.label)().localize(cx);
+    let label = match target {
+        Target::Record => (action.label_for)(cx, &rows[0]),
+        Target::Bulk => (action.label)(),
+    }
+    .localize(cx);
     let page = |page: InputPage, label: String| {
         let title = match target {
             Target::Record => crate::t!(

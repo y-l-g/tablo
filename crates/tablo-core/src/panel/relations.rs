@@ -258,15 +258,17 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
 /// view.
 fn detach_action<C: Resource>(cx: &Cx, resource: &Arc<Mounted<C>>) -> TableAction<C::Model> {
     let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
+    let label = crate::t!(cx, "tablo-relation-detach");
     TableAction {
         name: DETACH,
-        label: crate::t!(cx, "tablo-relation-detach"),
+        label: label.clone(),
         row: true,
         bulk: true,
         confirm: false,
         prompt: String::new(),
         bulk_prompt: String::new(),
         icon: None,
+        record_face: Arc::new(move |_| (label.clone(), None)),
         destructive: false,
         input: None,
         trashed: Trashed::With,

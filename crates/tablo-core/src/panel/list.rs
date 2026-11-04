@@ -202,6 +202,7 @@ fn wire_custom_actions<R: Resource>(
         .map(|action| {
             let action = *action;
             let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
+            let face_cx = cx.clone();
             let (reason_cx, reasons) = (cx.clone(), Arc::clone(resource));
             TableAction {
                 name: action.name,
@@ -212,6 +213,12 @@ fn wire_custom_actions<R: Resource>(
                 prompt: (action.prompt)(false).localize(cx),
                 bulk_prompt: (action.prompt)(true).localize(cx),
                 icon: (action.icon)(),
+                record_face: Arc::new(move |record: &R::Model| {
+                    (
+                        (action.label_for)(&face_cx, record).localize(&face_cx),
+                        (action.icon_for)(&face_cx, record),
+                    )
+                }),
                 destructive: action.destructive,
                 input: action.input.takes_input.then_some(action.input.schema),
                 trashed: action.trashed,
