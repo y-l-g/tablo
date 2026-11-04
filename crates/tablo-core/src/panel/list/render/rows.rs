@@ -367,6 +367,8 @@ struct RowButton {
     input: Option<&'static str>,
     /// Why the button shows disabled, when the record's state refuses the action.
     disabled: Option<String>,
+    /// The hint the button shows on hover, which a disabled button leaves to its reason.
+    tooltip: Option<String>,
 }
 
 impl<M> WiredTable<M> {
@@ -471,6 +473,10 @@ impl<M> WiredTable<M> {
                                 let url = row_action_url(prefix, &key, action.name);
                                 let input = action.input.map(|_| action.name);
                                 let (label, face_icon) = (action.record_face)(row);
+                                let tooltip = match disabled {
+                                    Some(_) => None,
+                                    None => action.tooltip.clone(),
+                                };
                                 Some(RowButton {
                                     name: action.name,
                                     label,
@@ -480,6 +486,7 @@ impl<M> WiredTable<M> {
                                     icon: face_icon,
                                     color: action.color,
                                     input,
+                                    tooltip,
                                     disabled,
                                 })
                             })

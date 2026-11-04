@@ -270,6 +270,7 @@ fn detach_action<C: Resource>(cx: &Cx, resource: &Arc<Mounted<C>>) -> TableActio
         bulk_prompt: String::new(),
         icon: None,
         record_face: Arc::new(move |_| (label.clone(), None)),
+        tooltip: None,
         color: Color::Gray,
         input: None,
         trashed: Trashed::With,

@@ -8,7 +8,9 @@ use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{action_label, body_string, get, mount, panel, test_db};
+use crate::common::{
+    action_label, action_tooltip, body_string, disabled_actions, get, mount, panel, test_db,
+};
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
 struct Account {
@@ -48,6 +50,40 @@ impl Action<AccountResource> for Toggle {
     }
 }
 
+/// Sends an account its welcome mail, which only an active account may receive. Its row's button
+/// shows the hint below, or the reason it is disabled on an inactive account.
+struct Notify;
+
+impl Action<AccountResource> for Notify {
+    type Input = ();
+    const NAME: &'static str = "notify";
+
+    fn label() -> tablo::Text {
+        "Notify".into()
+    }
+
+    fn tooltip() -> Option<tablo::Text> {
+        Some("Sends the welcome mail".into())
+    }
+
+    fn can_run(_cx: &Cx, account: &Account) -> bool {
+        account.active
+    }
+
+    fn disabled_reason(_cx: &Cx, _account: &Account) -> Option<tablo::Text> {
+        Some("Reactivate the account first".into())
+    }
+
+    async fn run(
+        _cx: &Cx,
+        _: &[Account],
+        _: (),
+        _: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+        Ok(tablo::Outcome::done())
+    }
+}
+
 struct AccountResource;
 
 impl Resource for AccountResource {
@@ -60,6 +96,7 @@ impl Resource for AccountResource {
             .policy(Allow)
             .table(Table::new(TextColumn::new(lens!(Account.name))))
             .action::<Toggle>()
+            .action::<Notify>()
     }
 }
 
@@ -84,6 +121,10 @@ fn router(db: &Db) -> Router {
 
 fn toggle_url(account: &Account) -> String {
     format!("/admin/accounts/{}/-/actions/toggle", account.id)
+}
+
+fn notify_url(account: &Account) -> String {
+    format!("/admin/accounts/{}/-/actions/notify", account.id)
 }
 
 #[tokio::test]
@@ -130,5 +171,31 @@ async fn a_record_page_names_the_action_for_its_record() {
         action_label(&html, &toggle_url(&bea)).as_deref(),
         Some("Activate"),
         "Bea's page offers to activate her: {html}"
+    );
+}
+
+#[tokio::test]
+async fn a_row_hovers_its_action_hint_and_a_disabled_button_its_reason() {
+    let db = db().await;
+    let ada = seed(&db, "Ada", true).await;
+    seed(&db, "Bea", false).await;
+    let router = router(&db);
+
+    let html = body_string(get(&router, "/admin/accounts").await).await;
+    assert_eq!(
+        action_tooltip(&html, &notify_url(&ada)).as_deref(),
+        Some("Sends the welcome mail"),
+        "an active account's Notify hovers its hint: {html}"
+    );
+    assert_eq!(
+        action_tooltip(&html, &toggle_url(&ada)),
+        None,
+        "an action with no hint shows no hover text: {html}"
+    );
+    assert!(
+        disabled_actions(&html).iter().any(|disabled| {
+            disabled.name == "notify" && disabled.reason == "Reactivate the account first"
+        }),
+        "an inactive account's Notify shows disabled with its reason, not its hint: {html}"
     );
 }
