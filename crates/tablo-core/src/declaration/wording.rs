@@ -40,6 +40,10 @@ impl fmt::Display for DeclarationErrorKind {
             Self::NotificationsWithoutAuth => f.write_str(
                 "notifications are for signed-in users: `Panel::notifications` needs auth on",
             ),
+            Self::ExternalAuthFeature { feature } => write!(
+                f,
+                "`Auth::external` leaves credentials to the host app: drop `{feature}`",
+            ),
             Self::FileFieldWithoutUploader { field } => write!(
                 f,
                 "file field `{field}` needs an uploader to store its bytes: install one with \

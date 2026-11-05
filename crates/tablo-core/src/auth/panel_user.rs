@@ -134,7 +134,8 @@ pub trait PanelUser: Any + Send + Sync {
 /// [`AdminUser`](super::AdminUser) model; an app with an existing user table implements it and
 /// passes the value to [`Panel::auth`](crate::Panel::auth) via
 /// [`Auth::custom`](crate::Auth::custom). Sessions are the framework's, so an implementation only
-/// maps credentials to a user and a stored id back to one.
+/// maps credentials to a user and a stored id back to one. An app that signs its users in itself
+/// implements [`ExternalAuth`](crate::ExternalAuth) instead.
 ///
 /// Every *credential* failure must return `Ok(None)`, never a distinguishable
 /// error: the login response is one generic message for all of them. An

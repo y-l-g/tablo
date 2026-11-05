@@ -8,6 +8,7 @@ pub mod actions;
 pub mod build_script;
 pub mod data_access;
 pub mod detail_pages;
+pub mod existing_app;
 pub mod first_panel;
 pub mod forms;
 pub mod models;

@@ -13,6 +13,10 @@ What Tablo does by default, and what your deployment must provide for those defa
   carries a forwarding header the router ignored logs a warning.
 - **Per-IP and multi-replica rate limiting** at your proxy or firewall, for what the panel's
   throttle does not count: [`LoginThrottle`](https://y-l.fr/tablo/nightly/api/tablo/struct.LoginThrottle.html) lists it.
+- **The panel gate, whoever signs users in.** Put a panel behind an app's own sign-in with
+  [`Auth::external`](./existing-app.md#signing-in-through-the-app), not with `Auth::disabled()` and
+  a layer of your own: the panel's endpoints serve at `/_topcoat/runtime`, outside its prefix, and
+  only its gate covers them.
 - **Session revocation.** Call
   [`auth::revoke_sessions_for_user`](https://y-l.fr/tablo/nightly/api/tablo/auth/fn.revoke_sessions_for_user.html) when a password
   changes outside the panel's edit form, in a custom action, or a custom user's credentials

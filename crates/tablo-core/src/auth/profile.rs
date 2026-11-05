@@ -13,7 +13,6 @@ use topcoat::{
         error::{forbidden, not_found, see_other, too_many_requests},
         request::client_ip,
     },
-    session,
     view::BoxView,
 };
 
@@ -220,7 +219,7 @@ impl<E: ProfileEditor> DynProfileEditor for E {
             if update == ProfileUpdate::Credentials {
                 // The new credential and the end of the sessions the old one opened commit
                 // together, or neither does. The token only reaches the browser with the response.
-                let session = session::start(cx).await?;
+                let session = super::session::start(cx).await?;
                 replace_sessions(cx, &mut tx, signed, TypeId::of::<E::User>(), &session).await?;
             }
             tx.commit().await.map_err(crate::error::unavailable)?;

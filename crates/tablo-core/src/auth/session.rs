@@ -1,12 +1,15 @@
 //! Server-side sessions: the [`AuthSession`] rows, their lookup, revocation
 //! and sweep.
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use jiff::Timestamp;
 use topcoat::{
     context::Cx,
-    session::{self, TokenHash},
+    session::{self, TokenHash, TokenStore, cookie::CookieTokenStore},
 };
 
 use super::{
@@ -21,12 +24,23 @@ use crate::{
 /// How long a session stays valid: seven days, fixed.
 pub const SESSION_LIFETIME: Duration = Duration::from_hours(24 * 7);
 
+/// The cookie that carries a panel session's token. Tablo keeps it apart from the router's
+/// [`SessionConfig`](topcoat::session::SessionConfig), so a host app's own Topcoat sessions and a
+/// panel's never replace each other's token.
+pub const SESSION_COOKIE: &str = "__Host-tablo_session";
+
+/// [`SESSION_COOKIE`] as the store names it: the store adds the `__Host-` prefix.
+fn token_store() -> CookieTokenStore {
+    CookieTokenStore::new().name("tablo_session")
+}
+
 /// Shipped server-side session record: the SHA-256 hash of the client token,
 /// the user it authenticates, the panel that signed the user in, and its
 /// expiry. The raw token is never stored.
 ///
-/// A session lasts [`SESSION_LIFETIME`] from login, is replaced on each login and deleted on
-/// logout; each successful login also deletes up to 500 expired sessions. It belongs to the panel
+/// A session rides in [`SESSION_COOKIE`], lasts [`SESSION_LIFETIME`] from login, is replaced on
+/// each login and deleted on logout; each successful login also deletes up to 500 expired
+/// sessions. It belongs to the panel
 /// that signed the user in: another panel's gate treats the request as anonymous, and
 /// [`auth::user`](crate::auth::user) answers `None` there. One browser holds one session, so
 /// signing in to a second panel ends the first, and renaming a panel's prefix ends the sessions
@@ -55,6 +69,31 @@ pub struct AuthSession {
     #[index]
     pub expires_at: Timestamp,
     pub created_at: Timestamp,
+}
+
+/// Starts a new session, issuing a fresh token in [`SESSION_COOKIE`].
+pub(super) async fn start(cx: &Cx) -> topcoat::Result<session::Session> {
+    let token = session::Token::random();
+    token_store()
+        .write(cx, token.clone(), SESSION_LIFETIME)
+        .await?;
+    Ok(session::Session {
+        token_hash: token.hash(),
+        expires_at: SystemTime::now() + SESSION_LIFETIME,
+    })
+}
+
+/// Discards the request's token, returning its hash so the caller can delete the row.
+pub(super) async fn stop(cx: &Cx) -> topcoat::Result<Option<TokenHash>> {
+    let hash = token_hash(cx).await?;
+    token_store().delete(cx).await?;
+    Ok(hash)
+}
+
+/// The hash of the token the request presents; `None` when it presents none or a malformed one.
+async fn token_hash(cx: &Cx) -> topcoat::Result<Option<TokenHash>> {
+    let token = token_store().read(cx).await?;
+    Ok(token.map(|token| token.hash()))
 }
 
 pub(super) fn token_key(hash: &TokenHash) -> String {
@@ -216,7 +255,7 @@ async fn insert(
 }
 
 pub(super) async fn select_tenant(cx: &Cx, tenant: TenantId) -> topcoat::Result<()> {
-    let Some(hash) = session::token_hash(cx).await? else {
+    let Some(hash) = token_hash(cx).await? else {
         return Err(topcoat::router::error::forbidden().into());
     };
     let mut db = crate::db::db(cx)?;
@@ -243,7 +282,7 @@ pub(super) async fn start_once(
     if let Some(session) = started {
         return Ok(session.clone());
     }
-    let session = session::start(cx).await?;
+    let session = start(cx).await?;
     *started = Some(session.clone());
     Ok(session)
 }
@@ -255,13 +294,10 @@ pub(super) async fn start_once(
 ///
 /// The opaque sign-in outage when the database cannot answer; any other failure keeps its mapping.
 pub(super) async fn fresh_session(cx: &Cx) -> topcoat::Result<session::Session> {
-    if let Some(hash) = session::token_hash(cx)
-        .await
-        .map_err(infrastructure_failure)?
-    {
+    if let Some(hash) = token_hash(cx).await.map_err(infrastructure_failure)? {
         delete_session(cx, &hash).await?;
     }
-    session::start(cx).await.map_err(infrastructure_failure)
+    start(cx).await.map_err(infrastructure_failure)
 }
 
 async fn delete_session_row(cx: &Cx, key: &str) -> topcoat::Result<()> {
@@ -358,7 +394,7 @@ pub(super) async fn sweep_expired_sessions(cx: &Cx) -> topcoat::Result<()> {
 /// Returns the request's live session row, purging it when expired and reading
 /// nothing when no session cookie is present.
 pub(super) async fn session_row(cx: &Cx) -> topcoat::Result<Option<AuthSession>> {
-    let Some(hash) = session::token_hash(cx).await? else {
+    let Some(hash) = token_hash(cx).await? else {
         return Ok(None);
     };
     let key = token_key(&hash);

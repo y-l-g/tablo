@@ -100,7 +100,7 @@ pub(crate) async fn end_changed_credentials(
     if let Some(signed) = super::signed(cx).filter(|signed| {
         signed.user.user_id() == user_id && panels.iter().any(|p| Arc::ptr_eq(p, &signed.realm))
     }) {
-        let session = topcoat::session::start(cx).await?;
+        let session = super::session::start(cx).await?;
         return super::session::replace_sessions(cx, ex, signed, user_type, &session).await;
     }
     super::session::end_credentials(ex, &user_id, &panels, super::token::REVOCATION).await

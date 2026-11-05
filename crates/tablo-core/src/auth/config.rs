@@ -1,19 +1,23 @@
 //! [`Auth`]: the panel's authentication configuration, from the authenticator to the pages and
 //! mail it adds.
 
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use super::{
     AdminUser, AuthMail, Authenticator, DynAuthenticator, EmailVerification, LoginThrottle,
     PanelUser, PasswordAuth, PasswordReset, ProfileEditor, Registrar, TenantEditor,
-    TenantRegistration, TwoFactor, profile::DynProfileEditor, registration::DynRegistrar,
+    TenantRegistration, TwoFactor,
+    external::{DynExternal, ExternalAuth, ExternalUsers},
+    profile::DynProfileEditor,
+    registration::DynRegistrar,
     tenant_profile::DynTenantEditor,
 };
 
 /// The panel's authentication configuration (ADR-0013).
 ///
 /// The default is [`Auth::password`]; [`Auth::custom`] installs an app-owned
-/// [`Authenticator`]; [`Auth::disabled`] is the explicit fail-open opt-out.
+/// [`Authenticator`]; [`Auth::external`] hands sign-in to the host app; [`Auth::disabled`] is the
+/// explicit fail-open opt-out.
 /// Sign-in attempts are throttled per login and address by default; see [`Auth::throttle`].
 /// [`Auth::account_throttle`] adds an opt-in count per login across addresses.
 /// [`Auth::registration`] adds a sign-up page, [`Auth::profile`] a profile page, and
@@ -38,10 +42,15 @@ impl Auth {
 
     /// Explicit fail-open opt-out for public demos (ADR-0013): no gate, no
     /// login routes, sessions unused.
+    ///
+    /// It is no way to put the panel behind an app's own sign-in: a layer over the prefix leaves
+    /// Topcoat's runtime path open, where the panel's search and other endpoints answer anyone.
+    /// [`Auth::external`] gates both.
     #[must_use]
     pub fn disabled() -> Self {
         Self::new(AuthConfig {
             authenticator: None,
+            external: None,
             throttle: LoginThrottle::off(),
             account_throttle: LoginThrottle::off(),
             registrar: None,
@@ -64,6 +73,7 @@ impl<U: PanelUser> Auth<U> {
     pub fn custom<A: Authenticator<User = U>>(authenticator: A) -> Self {
         Self::new(AuthConfig {
             authenticator: Some(Box::new(authenticator)),
+            external: None,
             throttle: LoginThrottle::default(),
             account_throttle: LoginThrottle::off(),
             registrar: None,
@@ -77,6 +87,20 @@ impl<U: PanelUser> Auth<U> {
             tenant_editor: None,
             two_factor: None,
         })
+    }
+
+    /// A panel whose users sign in through the host app: no password form, and no credential of
+    /// Tablo's. See [`ExternalAuth`].
+    ///
+    /// Mounting refuses what needs Tablo to own the credentials:
+    /// [`registration`](Self::registration), [`password_reset`](Self::password_reset),
+    /// [`email_verification`](Self::email_verification) and [`two_factor`](Self::two_factor).
+    #[must_use]
+    pub fn external<E: ExternalAuth<User = U>>(external: E) -> Self {
+        let external = Arc::new(external);
+        let mut auth = Self::custom(ExternalUsers(Arc::clone(&external)));
+        auth.config.external = Some(external);
+        auth
     }
 
     fn new(config: AuthConfig) -> Self {
@@ -404,6 +428,7 @@ impl<U> std::fmt::Debug for Auth<U> {
 /// What an [`Auth`] declares, with the user type erased once the builder has checked it.
 pub(crate) struct AuthConfig {
     authenticator: Option<Box<dyn DynAuthenticator>>,
+    external: Option<Arc<dyn DynExternal>>,
     throttle: LoginThrottle,
     account_throttle: LoginThrottle,
     pub(super) registrar: Option<Box<dyn DynRegistrar>>,
@@ -427,6 +452,11 @@ impl AuthConfig {
     /// The authenticator, or `None` when auth is disabled.
     pub(crate) fn authenticator(&self) -> Option<&dyn DynAuthenticator> {
         self.authenticator.as_deref()
+    }
+
+    /// The host app's sign-in, when [`Auth::external`] installs it.
+    pub(crate) fn external(&self) -> Option<&dyn DynExternal> {
+        self.external.as_deref()
     }
 
     /// The sign-in throttle.

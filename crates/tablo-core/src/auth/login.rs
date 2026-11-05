@@ -8,13 +8,12 @@ use topcoat::{
         request::{client_ip, uri},
         response::IntoResponse,
     },
-    session,
     view::{BoxView, ViewExt},
 };
 
 use super::{
     infrastructure_failure, panel_root, resolved,
-    session::{delete_session, fresh_session, record, select_tenant, sweep_expired_sessions},
+    session::{delete_session, fresh_session, record, select_tenant, stop, sweep_expired_sessions},
     signed, unauthenticated_error,
 };
 use crate::{
@@ -42,7 +41,7 @@ pub(super) const GENERIC_ERROR: &str = "tablo-login-failed";
 pub const TENANT_FIELD: &str = "tenant";
 
 /// Where the panel's login page lives: `{prefix}/login`.
-pub(super) fn login_url(cx: &Cx) -> String {
+pub(crate) fn login_url(cx: &Cx) -> String {
     format!("{}/login", panel_prefix(cx))
 }
 
@@ -68,9 +67,11 @@ pub(super) fn login_url_with_next(cx: &Cx) -> String {
     url
 }
 
-/// Accepts only same-origin relative paths as a post-login destination;
-/// rejects absolute URLs, `//host` targets, backslashes, and control characters.
-pub(crate) fn safe_next(next: &str) -> Option<&str> {
+/// `next` when it is a same-origin path, the only post-login destination Tablo follows: an
+/// absolute URL, a `//host` target, a backslash or a control character answers `None`. An app that
+/// reads a `next` of its own, as an [`ExternalAuth`](crate::ExternalAuth) login page does, checks
+/// it here before redirecting to it.
+pub fn safe_next(next: &str) -> Option<&str> {
     crate::outcome::same_origin_path(next)
 }
 
@@ -230,12 +231,15 @@ pub(super) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         };
         let parts = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
-        if let Some(hash) = session::stop(cx).await? {
+        if let Some(hash) = stop(cx).await? {
             delete_session(cx, &hash).await?;
         }
         // The session's open bells check it again, and stop.
         crate::bus::bus(cx).wake(&signed.realm.prefix, &signed.user.user_id());
-        let target = login_url(cx);
+        let target = match signed.realm.auth.external() {
+            Some(external) => external.logout_url(cx),
+            None => login_url(cx),
+        };
         topcoat::router::error::see_other(target).into_response(cx)
     })
 }

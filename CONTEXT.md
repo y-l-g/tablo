@@ -71,6 +71,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Form input | A typed value a form posts under keys no column binds, from `FormInput`: an action input, a sign-up, a repeater's item. | Input (alone), Params, Form object |
 | Action input | The typed value an action asks for before it runs, in a dialog over the page, or on its input page after a refusal. Its fields bind no column. | Action form, Parameters, Payload |
 | Authenticator | The trait that loads a panel user from credentials or a session id. | Provider, LoginManager |
+| External auth | The trait a host app implements to sign a panel's users in itself, set by `Auth::external`: it names the request's user and the app's login page. | SSO provider, Guard, RemoteAuth |
 | Registrar | The trait that creates a panel user from the sign-up page's input. | Registration handler, SignupProvider, UserCreator |
 | Profile editor | The trait that lets the signed-in panel user edit their own account on the profile page. | Account settings, ProfileProvider, UserUpdater |
 | Password resetter | The trait that finds an account by email and sets its password when a mailed reset link is used. | Password broker, ResetProvider |

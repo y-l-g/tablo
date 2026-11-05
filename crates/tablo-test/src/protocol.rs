@@ -252,7 +252,7 @@ fn has_attribute(attrs: &str, name: &str) -> bool {
 }
 
 /// Names the session cookie Topcoat's default token store writes.
-pub const SESSION_COOKIE: &str = "__Host-session";
+pub use tablo_core::auth::SESSION_COOKIE;
 
 /// The `(name, value)` pairs a response's `Set-Cookie` headers carry.
 pub fn response_cookies(response: &http::Response<Body>) -> Vec<(String, String)> {

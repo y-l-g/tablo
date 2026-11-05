@@ -29,6 +29,7 @@ lists each one. This chapter covers what goes wrong once the panel mounts.
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | every form POST answers 403 off `localhost` | the session and CSRF cookies are `Secure`, so the browser drops them over plain HTTP | serve the app over HTTPS |
+| the browser bounces between the app's login page and `{prefix}/login` | `ExternalAuth::current_user` answers `None` on panel requests for a user the app signed in | read the same session the login page writes; install the app's cookies and sessions before `.panel(..)` |
 | a user signs in and gets 403 | the user has no panel access: `AdminUser.active` is `false`, or your `PanelUser` denies it | activate the user |
 | sign-ins answer the wrong-password message for a correct password | the throttle allows five attempts a minute per login and address, and `Auth::account_throttle`, when set, counts per login across addresses; behind a proxy every client shares the proxy's address | wait out the window; install `TrustedProxies` on the router |
 | a form POST answers 400 | it carries a key the form does not declare: a custom control posting an extra input, or a hand-built request | post only the record form's keys |
