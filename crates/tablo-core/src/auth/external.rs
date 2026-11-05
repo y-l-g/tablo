@@ -9,22 +9,24 @@ use topcoat::{
     router::{
         Body, RouteFuture,
         error::{redirect, see_other},
-        response::IntoResponse,
+        request::method,
+        response::{IntoResponse, Response},
     },
-    view::{ViewExt, view},
+    view::{BoxView, ViewExt, view},
 };
 
 use super::{
-    Authenticator, PanelUser,
+    Authenticator, PanelUser, UNAVAILABLE_ERROR,
     gate::refused,
     infrastructure_failure,
     login::{login_url, next_from_query},
+    page::{AuthPage, render},
     panel_root,
     realm::current_realm,
     registration::with_next,
-    session::{fresh_session, record, sweep_expired_sessions},
+    session::{fresh_session, record, session_row, sweep_expired_sessions},
 };
-use crate::{BoxFuture, DeclarationErrorKind, auth::AuthConfig};
+use crate::{BoxFuture, DeclarationErrorKind, auth::AuthConfig, error::TabloError};
 
 /// A host app's own sign-in, which a panel trusts in place of a login form (ADR-0013).
 ///
@@ -35,10 +37,13 @@ use crate::{BoxFuture, DeclarationErrorKind, auth::AuthConfig};
 /// An anonymous request to the panel's `{prefix}/login` goes to
 /// [`login_url`](Self::login_url). Once the app has signed the user in and sent them back, the
 /// panel starts a panel session of its own, which holds what the panel keeps per browser, such as
-/// the selected tenant. On every later request the gate asks `current_user` again, and a session
-/// whose user it no longer names ends: signing out of the app, or into another account, takes
-/// effect on the panel's next request. A browser holds one panel session, so on two panels each
-/// page load on the other starts its session again.
+/// the selected tenant. On every later request the gate asks `current_user` again and serves a
+/// session only while it names the session's user: signing out of the app, or into another
+/// account, takes effect on the panel's next request.
+///
+/// A browser holds one panel session, on any kind of panel: entering this panel ends a session
+/// held on another, and on two panels behind `ExternalAuth` each page load on the other starts its
+/// session again.
 ///
 /// ```rust
 /// use tablo_core::{ExternalAuth, PanelUser, auth::safe_next};
@@ -83,6 +88,10 @@ use crate::{BoxFuture, DeclarationErrorKind, auth::AuthConfig};
 ///     fn login_url(&self, _cx: &Cx, next: &str) -> String {
 ///         format!("/login?return_to={next}")
 ///     }
+///
+///     fn logout_url(&self, _cx: &Cx) -> String {
+///         "/sign-out".to_owned()
+///     }
 /// }
 /// ```
 pub trait ExternalAuth: Send + Sync + 'static {
@@ -93,8 +102,12 @@ pub trait ExternalAuth: Send + Sync + 'static {
     ///
     /// It runs on the gate of every panel request, and again when a live connection checks its
     /// session, long after the response started: it reads the request and never writes a cookie,
-    /// so a sliding app session refreshes elsewhere. A failure to reach the app's store returns
-    /// the error, which answers as a sign-in outage rather than as a signed-out user.
+    /// so a sliding app session refreshes elsewhere. A live connection keeps the cookies of its
+    /// handshake, so to end a session at once it must consult state the server holds: a signed
+    /// cookie alone keeps naming its user until it expires. The app's session cookie must also
+    /// reach a page opened from another site, as `SameSite=Lax` does, or a followed link finds no
+    /// user. A failure to reach the app's store returns the error, which the panel logs and
+    /// answers with an opaque 500 rather than as a signed-out user.
     fn current_user(
         &self,
         cx: &Cx,
@@ -106,12 +119,11 @@ pub trait ExternalAuth: Send + Sync + 'static {
     /// anything.
     fn login_url(&self, cx: &Cx, next: &str) -> String;
 
-    /// Where the shell's Sign out lands, once it has ended the panel's session. It ends only that
-    /// one: name a route that also ends the app's, or the user's next panel request signs them
-    /// in again. Defaults to `/`.
-    fn logout_url(&self, _cx: &Cx) -> String {
-        "/".to_owned()
-    }
+    /// Where the shell's Sign out goes, once it has ended the panel's session. That ends only the
+    /// panel's, so while the app's lives the user's next panel request signs them in again. Name
+    /// a route that ends the app's session, or a page of the app's that offers to: the browser
+    /// reaches it by GET, and it may lie on another origin, such as an SSO provider's.
+    fn logout_url(&self, cx: &Cx) -> String;
 }
 
 /// [`ExternalAuth`] with its user type erased, as the panel keeps it.
@@ -124,13 +136,22 @@ pub(crate) trait DynExternal: Send + Sync {
     fn logout_url(&self, cx: &Cx) -> String;
 }
 
+/// The app's answer for the request. Any failure is logged and stays opaque, whatever the app
+/// reached for: an identity provider's error is no more a signed-out user than a database's.
+async fn app_user<E: ExternalAuth>(external: &E, cx: &Cx) -> topcoat::Result<Option<E::User>> {
+    external.current_user(cx).await.map_err(|error| {
+        tracing::error!(error = %error, "the app's sign-in failed");
+        TabloError::Infrastructure(UNAVAILABLE_ERROR).into()
+    })
+}
+
 impl<E: ExternalAuth> DynExternal for E {
     fn current_user<'a>(
         &'a self,
         cx: &'a Cx,
     ) -> BoxFuture<'a, topcoat::Result<Option<Arc<dyn PanelUser>>>> {
         Box::pin(async move {
-            let user = ExternalAuth::current_user(self, cx).await?;
+            let user = app_user(self, cx).await?;
             Ok(user.map(|user| Arc::new(user) as Arc<dyn PanelUser>))
         })
     }
@@ -161,13 +182,17 @@ impl<E: ExternalAuth> Authenticator for ExternalUsers<E> {
     }
 
     async fn find_by_id(&self, cx: &Cx, id: &str) -> topcoat::Result<Option<E::User>> {
-        let user = ExternalAuth::current_user(&*self.0, cx).await?;
+        let user = app_user(&*self.0, cx).await?;
         Ok(user.filter(|user| user.user_id() == id))
     }
 }
 
-/// `GET {prefix}/login` on a panel behind [`ExternalAuth`]: starts a panel session for the app's
-/// signed-in user and lands on `next`, or sends an anonymous request to the app's login page.
+/// `GET {prefix}/login` on a panel behind [`ExternalAuth`]: lands the app's signed-in user on
+/// `next`, starting a panel session unless the request holds theirs, or sends an anonymous request
+/// to the app's login page.
+///
+/// A link can bring a browser here at any time, so the user's session stands: replacing it would
+/// lose the tenant they act for. A HEAD changes nothing.
 pub(super) fn external_login(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let panel = current_realm(cx).ok_or_else(topcoat::router::error::not_found)?;
@@ -176,10 +201,7 @@ pub(super) fn external_login(cx: &Cx, _body: Body) -> RouteFuture<'_> {
             .external()
             .ok_or_else(topcoat::router::error::not_found)?;
         let next = next_from_query(cx).unwrap_or_default();
-        let user = external
-            .current_user(cx)
-            .await
-            .map_err(infrastructure_failure)?;
+        let user = external.current_user(cx).await?;
         let Some(user) = user else {
             let back = with_next(login_url(cx), &next);
             let back: String = form_urlencoded::byte_serialize(back.as_bytes()).collect();
@@ -189,11 +211,17 @@ pub(super) fn external_login(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         if !user.can_access_panel(&panel.prefix) {
             return no_access(cx, external.logout_url(cx)).await;
         }
-        if let Err(error) = sweep_expired_sessions(cx).await {
-            tracing::error!(error = %error, "expired-session sweep failed");
+        let holds_theirs = session_row(cx)
+            .await
+            .map_err(infrastructure_failure)?
+            .is_some_and(|row| row.panel == panel.prefix && row.user_id == user.user_id());
+        if !holds_theirs && *method(cx) != http::Method::HEAD {
+            if let Err(error) = sweep_expired_sessions(cx).await {
+                tracing::error!(error = %error, "expired-session sweep failed");
+            }
+            let session = fresh_session(cx).await?;
+            record(cx, &session, &*user, panel).await?;
         }
-        let session = fresh_session(cx).await?;
-        record(cx, &session, &*user, panel).await?;
         let target = if next.is_empty() {
             panel_root(cx)
         } else {
@@ -203,13 +231,12 @@ pub(super) fn external_login(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     })
 }
 
-/// The 403 page for an app user the panel refuses: they hold no panel session to sign out of, so
-/// its button leaves for the app.
-async fn no_access(cx: &Cx, leave: String) -> topcoat::Result<topcoat::router::response::Response> {
-    let link = view! {
+/// The button that leaves for the app's sign-out at `url`.
+fn sign_out_link(cx: &Cx, url: String) -> BoxView<'_> {
+    view! {
         cx =>
         <a
-            href=(leave)
+            href=(url)
             class=(button_variants(ButtonVariant::Outline, ButtonSize::Md))
             data-external-sign-out=""
         >
@@ -217,8 +244,39 @@ async fn no_access(cx: &Cx, leave: String) -> topcoat::Result<topcoat::router::r
             (crate::t!(cx, "tablo-shell-sign-out"))
         </a>
     }
+    .boxed()
+}
+
+/// The 403 page for an app user the panel refuses: they hold no panel session to sign out of, so
+/// its button leaves for the app.
+async fn no_access(cx: &Cx, leave: String) -> topcoat::Result<Response> {
+    refused(cx, sign_out_link(cx, leave)).await
+}
+
+/// What the shell's Sign out answers: a page that moves on to `url` itself. A redirect would
+/// answer the form's post, and the panel's `form-action 'self'` stops such a redirect from leaving
+/// the origin, with the panel's session already gone and the app's still alive.
+pub(super) async fn leave_for(cx: &Cx, url: String) -> topcoat::Result<Response> {
+    let refresh = format!("0;url={url}");
+    let form = view! {
+        cx =>
+        <meta http-equiv="refresh" content=(refresh) />
+        (sign_out_link(cx, url))
+    }
     .boxed();
-    refused(cx, link).await
+    let page = render(
+        cx,
+        AuthPage {
+            title: crate::t!(cx, "tablo-shell-sign-out"),
+            description: crate::t!(cx, "tablo-external-leaving"),
+            status: None,
+            form,
+            switch: None,
+            note: None,
+        },
+    )
+    .await?;
+    page.single().await?.into_response(cx)
 }
 
 /// What an [`Auth::external`](crate::Auth::external) panel may not declare: the features that need

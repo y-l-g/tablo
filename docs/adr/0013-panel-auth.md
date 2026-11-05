@@ -12,9 +12,10 @@ is the explicit opt-out.
   one of those, and a panel writing it would replace a host app's Topcoat session on every login.
 - An app that signs its users in itself keeps doing so through `ExternalAuth`, set by
   `Auth::external`: Tablo asks it for the request's user. The panel still keeps its own session
-  row, which holds the selected tenant and binds the browser to the panel, and it ends once the
-  app's session stops naming the row's user. The gates read that session as any other, so
-  external auth adds no path through them that could fail open.
+  row, which holds the selected tenant and binds the browser to the panel, and it serves only
+  while the app's session names the row's user. The gates read that session as any other, so
+  external auth adds no path through them that could fail open. The row outlives a request whose
+  app session names no one, because a live connection's cookies can be older than the browser's.
 - The gate fails closed, and a user without access is refused like a bad password. Passwords use
   Argon2id, and login verifies even for an unknown user.
 - A user has tenant memberships; the session selects one. Core auth never requires a tenant; a

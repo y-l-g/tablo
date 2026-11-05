@@ -53,7 +53,7 @@ impl ExternalAuth for AppSession {
     }
 
     fn logout_url(&self, _cx: &Cx) -> String {
-        "/signed-out".to_string()
+        "/sign-out".to_string()
     }
 }
 // ANCHOR_END: existing-app-external

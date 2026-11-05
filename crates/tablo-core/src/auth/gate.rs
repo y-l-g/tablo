@@ -150,6 +150,10 @@ impl Layer for PanelGate {
                 // above.
                 Some(_) if page_load(&cx) => no_access(&cx).await,
                 Some(_) => Err(forbidden().into()),
+                // Signing out of the app leaves a panel tab behind: its Sign out still answers.
+                None if logout_route && self.realm.auth.external().is_some() => {
+                    next.run(&cx, body).await
+                }
                 // Pages redirect to the login route with a validated `next`;
                 // runtime endpoints, non-GET requests, and page re-runs
                 // answer 401.

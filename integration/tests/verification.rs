@@ -9,9 +9,9 @@ use tablo::{
     Auth, AuthMail, AuthMailFault, DeclarationErrorKind, EmailVerification, LoginThrottle, NoForm,
     NotificationStatus, Panel, PasswordAuth, PasswordSignUp, ReadOnly, Resource, ResourceDef,
     RouterBuilderPanelExt, Table, TextColumn, VerificationFault,
-    auth::{AdminUser, AuthSession, AuthToken, create_admin},
+    auth::{AdminUser, AuthSession, AuthToken, SESSION_COOKIE, create_admin},
     lens,
-    testing::{SESSION_COOKIE, form_body, session_cookie_value},
+    testing::{form_body, session_cookie_value},
 };
 use toasty::Db;
 use topcoat::{

@@ -12,6 +12,7 @@ use topcoat::{
 };
 
 use super::{
+    external::leave_for,
     infrastructure_failure, panel_root, resolved,
     session::{delete_session, fresh_session, record, select_tenant, stop, sweep_expired_sessions},
     signed, unauthenticated_error,
@@ -225,22 +226,26 @@ async fn failed(
 pub(super) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         // Any resolved user may log out, including one without panel access,
-        // so the session row and cookie do not linger to expiry.
-        let Some(signed) = resolved(cx) else {
+        // so the session row and cookie do not linger to expiry. So may a user the app signed
+        // out behind this tab: the panel holds their session, and they still mean to leave.
+        let signed = resolved(cx);
+        let external = current_realm(cx).and_then(|panel| panel.auth.external());
+        if signed.is_none() && external.is_none() {
             return Err(unauthenticated_error(cx));
-        };
+        }
         let parts = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         if let Some(hash) = stop(cx).await? {
             delete_session(cx, &hash).await?;
         }
         // The session's open bells check it again, and stop.
-        crate::bus::bus(cx).wake(&signed.realm.prefix, &signed.user.user_id());
-        let target = match signed.realm.auth.external() {
-            Some(external) => external.logout_url(cx),
-            None => login_url(cx),
-        };
-        topcoat::router::error::see_other(target).into_response(cx)
+        if let Some(signed) = signed {
+            crate::bus::bus(cx).wake(&signed.realm.prefix, &signed.user.user_id());
+        }
+        match external {
+            Some(external) => leave_for(cx, external.logout_url(cx)).await,
+            None => topcoat::router::error::see_other(login_url(cx)).into_response(cx),
+        }
     })
 }
 

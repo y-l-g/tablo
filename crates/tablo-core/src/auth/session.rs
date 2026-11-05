@@ -43,7 +43,8 @@ fn token_store() -> CookieTokenStore {
 /// sessions. It belongs to the panel
 /// that signed the user in: another panel's gate treats the request as anonymous, and
 /// [`auth::user`](crate::auth::user) answers `None` there. One browser holds one session, so
-/// signing in to a second panel ends the first, and renaming a panel's prefix ends the sessions
+/// signing in to a second panel ends the first, entering a panel behind
+/// [`ExternalAuth`](crate::ExternalAuth) included, and renaming a panel's prefix ends the sessions
 /// it issued. Sessions stay valid until they expire unless
 /// [`revoke_sessions_for_user`](crate::auth::revoke_sessions_for_user) ends them.
 ///
@@ -414,8 +415,12 @@ pub(super) async fn session_row(cx: &Cx) -> topcoat::Result<Option<AuthSession>>
     Ok(Some(row))
 }
 
-/// Resolves `row` to its user, purging the row when the user no longer
-/// authenticates.
+/// Resolves `row` to its user, purging the row when the user no longer authenticates.
+///
+/// A panel behind [`ExternalAuth`](crate::ExternalAuth) keeps it: there `None` speaks for this
+/// request's copy of the app's cookies, which a live connection opened before a rotation still
+/// holds, and the browser's fresh tab goes on using the row. It serves no one the app does not
+/// name, and the next entry for another user replaces it.
 pub(super) async fn session_user(
     cx: &Cx,
     row: AuthSession,
@@ -433,7 +438,9 @@ pub(super) async fn session_user(
             tenant: row.tenant,
         })),
         None => {
-            delete_session_row(cx, &row.token_hash).await?;
+            if panel.auth.external().is_none() {
+                delete_session_row(cx, &row.token_hash).await?;
+            }
             Ok(None)
         }
     }

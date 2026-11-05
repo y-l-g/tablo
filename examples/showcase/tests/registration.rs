@@ -4,7 +4,7 @@
 use http::header::LOCATION;
 use showcase::models::{DEMO_ADMIN_EMAIL, Seat, Staff, Workspace};
 use tablo::{
-    auth::{AuthSession, verify_password},
+    auth::{AuthSession, SESSION_COOKIE, verify_password},
     testing::{field_error, rows},
 };
 use toasty::Db;
@@ -80,7 +80,7 @@ async fn a_sign_up_creates_the_account_and_its_workspace_and_signs_it_in_unverif
         .unwrap();
     assert_eq!(sessions.len(), 1);
     assert_eq!(sessions[0].panel, "/admin");
-    let client = TestClient::new(&router).cookie(tablo::testing::SESSION_COOKIE, &session);
+    let client = TestClient::new(&router).cookie(SESSION_COOKIE, &session);
     // The panel verifies addresses: the new account reaches only the page asking for the proof.
     let unverified = client.get("/admin/posts").await;
     assert_eq!(

@@ -6,9 +6,9 @@ use std::{collections::BTreeSet, time::Duration};
 use futures_util::{SinkExt, StreamExt};
 use tablo::{
     Auth, DeclarationErrorKind, Notification, Panel, PanelHandle, PanelUser, RouterBuilderPanelExt,
-    auth::{AuthSession, mint_session, revoke_sessions_for_user},
+    auth::{AuthSession, SESSION_COOKIE, mint_session, revoke_sessions_for_user},
     notification::StoredNotification,
-    testing::{Bell, SESSION_COOKIE, TestClient, bell, body_string, refusal},
+    testing::{Bell, TestClient, bell, body_string, refusal},
 };
 use toasty::Db;
 use tokio_tungstenite::tungstenite::{Message, client::IntoClientRequest};

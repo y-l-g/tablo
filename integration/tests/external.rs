@@ -4,11 +4,12 @@ use std::time::Duration;
 
 use http::header::LOCATION;
 use tablo::{
-    Auth, DeclarationErrorKind, EmailVerification, ExternalAuth, GlobalSearch, NoForm, Panel,
-    PasswordAuth, PasswordReset, PasswordSignUp, Resource, ResourceDef, RouterBuilderPanelExt,
-    TwoFactor,
+    Auth, DeclarationErrorKind, EmailVerification, ExternalAuth, GlobalSearch, Membership, NoForm,
+    Panel, PanelUser, PasswordAuth, PasswordReset, PasswordSignUp, Resource, ResourceDef,
+    RouterBuilderPanelExt, Tenancy, TenantId, TwoFactor,
     auth::{AdminUser, AuthSession, SESSION_COOKIE},
     lens,
+    testing::{external_sign_out, form_body, refreshes_to, row_keys},
 };
 use toasty::Db;
 use topcoat::{
@@ -186,22 +187,74 @@ async fn an_offsite_next_lands_on_the_panel() {
     assert_eq!(location(&entered), "/admin");
 }
 
-/// A session presented before the sign-in cannot be replayed after it.
+/// A link can bring a browser back to the login route: the user's session stands.
 #[tokio::test]
-async fn entering_replaces_the_session_the_request_presents() {
+async fn entering_again_keeps_the_users_session() {
     let db = db().await;
     let ada = employee(&db, "Ada", true).await;
     let router = router(&db);
     let browser = enter(&host_login(&TestClient::new(&router), &ada).await).await;
+    let session = session_rows(&db).await;
 
-    enter(&browser).await;
+    let again = browser.get("/admin/login?next=%2Fadmin%2Fbooks").await;
 
-    assert_eq!(session_rows(&db).await.len(), 1);
+    assert_eq!(location(&again), "/admin/books");
+    assert!(
+        response_cookies(&again)
+            .iter()
+            .all(|(name, _)| name != SESSION_COOKIE)
+    );
+    let rows = session_rows(&db).await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].token_hash, session[0].token_hash);
 }
 
-/// Signing out of the app ends the panel on its next request, pages and runtime path alike.
+/// A monitor carrying the app's cookie reads the route and leaves no session.
 #[tokio::test]
-async fn signing_out_of_the_app_ends_the_panel_session() {
+async fn a_head_starts_no_session() {
+    let db = db().await;
+    let ada = employee(&db, "Ada", true).await;
+    let router = router(&db);
+    let browser = host_login(&TestClient::new(&router), &ada).await;
+
+    let probed = browser.head("/admin/login").await;
+
+    assert_eq!(probed.status(), 303);
+    assert!(
+        response_cookies(&probed)
+            .iter()
+            .all(|(name, _)| name != SESSION_COOKIE)
+    );
+    assert!(session_rows(&db).await.is_empty());
+}
+
+/// A session belongs to the panel that started it, so the next panel starts its own.
+#[tokio::test]
+async fn another_panel_starts_its_own_session() {
+    let db = db().await;
+    let ada = employee(&db, "Ada", true).await;
+    let router = host_routes(
+        Router::builder().discover().with(db.clone()),
+        Duration::from_hours(24),
+    )
+    .panel(panel())
+    .and_then(|router| router.panel(Panel::new("staff").auth(Auth::external(AppSession))))
+    .expect("the panels mount")
+    .build();
+    let browser = enter(&host_login(&TestClient::new(&router), &ada).await).await;
+
+    let entered = browser.get("/staff/login").await;
+
+    assert_eq!(entered.status(), 303);
+    let rows = session_rows(&db).await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].panel, "/staff");
+}
+
+/// Signing out of the app shuts the panel on its next request, pages and runtime path alike, and
+/// signing back in finds the panel session as it stood.
+#[tokio::test]
+async fn signing_out_of_the_app_shuts_the_panel() {
     let db = db().await;
     let ada = employee(&db, "Ada", true).await;
     let router = router(&db);
@@ -224,8 +277,32 @@ async fn signing_out_of_the_app_ends_the_panel_session() {
             .status(),
         401
     );
-    assert!(session_rows(&db).await.is_empty());
     assert_eq!(browser.get("/admin/books").await.status(), 307);
+
+    let browser = host_login(&browser, &ada).await;
+    assert_eq!(browser.get("/admin/books").await.status(), 200);
+}
+
+/// A connection keeps the cookies of its handshake: one that outlives the app's token rotation
+/// reads as signed out, and leaves the browser's fresh tab its session.
+#[tokio::test]
+async fn a_stale_app_cookie_leaves_the_session_standing() {
+    let db = db().await;
+    let ada = employee(&db, "Ada", true).await;
+    let router = router(&db);
+    let stale = enter(&host_login(&TestClient::new(&router), &ada).await).await;
+    let fresh = host_login(&stale, &ada).await;
+
+    stale.post_form("/app/logout", String::new()).await;
+
+    assert_eq!(
+        stale
+            .call_procedure(SEARCH_SHARD, SEARCH_ARGS)
+            .await
+            .status(),
+        401
+    );
+    assert_eq!(fresh.get("/admin/books").await.status(), 200);
 }
 
 /// A panel session never outlives the app account it started for: another sign-in on the app
@@ -264,14 +341,18 @@ async fn an_app_user_without_panel_access_is_refused() {
             .iter()
             .all(|(name, _)| name != SESSION_COOKIE)
     );
-    assert!(body_string(refused).await.contains(r#"href="/goodbye""#));
+    assert_eq!(
+        external_sign_out(&body_string(refused).await).as_deref(),
+        Some("/goodbye")
+    );
     assert!(session_rows(&db).await.is_empty());
     assert_eq!(browser.get("/admin/books").await.status(), 307);
 }
 
-/// The shell's Sign out ends the panel's session, keeps the app's, and leaves for the app.
+/// The shell's Sign out ends the panel's session, keeps the app's, and moves on to the app by a
+/// page of its own: `form-action 'self'` would stop a redirect that leaves the origin.
 #[tokio::test]
-async fn signing_out_of_the_panel_lands_on_the_app() {
+async fn signing_out_of_the_panel_moves_on_to_the_app() {
     let db = db().await;
     let ada = employee(&db, "Ada", true).await;
     let router = router(&db);
@@ -279,10 +360,198 @@ async fn signing_out_of_the_panel_lands_on_the_app() {
 
     let out = browser.submit("/admin/logout", "").await;
 
-    assert_eq!(out.status(), 303);
-    assert_eq!(location(&out), "/goodbye");
+    assert_eq!(out.status(), 200);
+    let page = body_string(out).await;
+    assert_eq!(refreshes_to(&page).as_deref(), Some("/goodbye"));
+    assert_eq!(external_sign_out(&page).as_deref(), Some("/goodbye"));
     assert!(session_rows(&db).await.is_empty());
     assert_eq!(body_string(browser.get("/app/me").await).await, "Ada");
+}
+
+/// A tab left open across a sign-out on the app can still sign out, and clears the panel's cookie.
+#[tokio::test]
+async fn sign_out_answers_after_the_app_signed_out() {
+    let db = db().await;
+    let ada = employee(&db, "Ada", true).await;
+    let router = router(&db);
+    let browser = enter(&host_login(&TestClient::new(&router), &ada).await).await;
+    let out = browser.post_form("/app/logout", String::new()).await;
+    let browser = browser.cookies(&response_cookies(&out));
+
+    let out = browser.submit("/admin/logout", "").await;
+
+    assert_eq!(out.status(), 200);
+    assert!(session_rows(&db).await.is_empty());
+}
+
+/// A panel's Sign out with no session and no CSRF token still changes nothing.
+#[tokio::test]
+async fn sign_out_without_a_csrf_token_is_refused() {
+    let db = db().await;
+    let ada = employee(&db, "Ada", true).await;
+    let router = router(&db);
+    let browser = enter(&host_login(&TestClient::new(&router), &ada).await).await;
+    let out = browser.post_form("/app/logout", String::new()).await;
+    let browser = browser.cookies(&response_cookies(&out));
+
+    let forged = browser.post_form("/admin/logout", String::new()).await;
+
+    assert_eq!(forged.status(), 403);
+    assert_eq!(session_rows(&db).await.len(), 1);
+}
+
+const ACME: Uuid = Uuid::from_u128(0xac);
+const GLOBEX: Uuid = Uuid::from_u128(0x61);
+
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct Note {
+    #[key]
+    #[auto]
+    id: Uuid,
+    tenant_id: TenantId,
+    body: String,
+}
+
+struct NoteResource;
+
+impl Resource for NoteResource {
+    type Model = Note;
+    type Form = NoForm<Note>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy_fn(|cx, _ability: tablo::Ability<'_, Note>| {
+                tablo::auth::user::<Member>(cx).is_some()
+            })
+            .tenancy(Tenancy::column(Note::fields().tenant_id()))
+    }
+}
+
+/// An app user with a seat in two tenants.
+struct Member {
+    employee: Employee,
+    seats: Vec<Membership>,
+}
+
+impl PanelUser for Member {
+    fn user_id(&self) -> String {
+        self.employee.user_id()
+    }
+
+    fn display_name(&self) -> &str {
+        self.employee.display_name()
+    }
+
+    fn can_access_panel(&self, panel: &str) -> bool {
+        self.employee.can_access_panel(panel)
+    }
+
+    fn tenants(&self) -> &[Membership] {
+        &self.seats
+    }
+}
+
+struct MemberSession;
+
+impl ExternalAuth for MemberSession {
+    type User = Member;
+
+    async fn current_user(&self, cx: &Cx) -> topcoat::Result<Option<Member>> {
+        Ok(current_employee(cx).await?.map(|employee| Member {
+            employee,
+            seats: vec![
+                Membership::new(ACME.into(), "Acme"),
+                Membership::new(GLOBEX.into(), "Globex"),
+            ],
+        }))
+    }
+
+    fn login_url(&self, _cx: &Cx, next: &str) -> String {
+        format!("/login?return_to={next}")
+    }
+
+    fn logout_url(&self, _cx: &Cx) -> String {
+        "/goodbye".to_string()
+    }
+}
+
+/// The tenant a user chose survives a trip through the login route and through a sign-out on the
+/// app, and a tenant's records stay its own on the way.
+#[tokio::test]
+async fn the_selected_tenant_survives_entering_again() {
+    let db = test_db(toasty::models!(AuthSession, Employee, HostSession, Note)).await;
+    let ada = employee(&db, "Ada", true).await;
+    for (tenant, body) in [(ACME, "acme note"), (GLOBEX, "globex note")] {
+        toasty::create!(Note {
+            tenant_id: TenantId::from(tenant),
+            body: body.to_string(),
+        })
+        .exec(&mut db.clone())
+        .await
+        .expect("seed the note");
+    }
+    let globex = Note::filter(Note::fields().body().eq("globex note"))
+        .first()
+        .exec(&mut db.clone())
+        .await
+        .expect("the read succeeds")
+        .expect("the note exists");
+    let router = host_routes(
+        Router::builder().discover().with(db.clone()),
+        Duration::from_hours(24),
+    )
+    .panel(
+        Panel::new("admin")
+            .auth(Auth::external(MemberSession))
+            .resource::<NoteResource>(),
+    )
+    .expect("the panel mounts")
+    .build();
+    let browser = enter(&host_login(&TestClient::new(&router), &ada).await).await;
+
+    let chosen = form_body(&[("tenant", &GLOBEX.to_string())]);
+    assert_eq!(browser.submit("/admin/tenant", &chosen).await.status(), 303);
+    assert_eq!(browser.get("/admin/login").await.status(), 303);
+    let out = browser.post_form("/app/logout", String::new()).await;
+    let browser = host_login(&browser.cookies(&response_cookies(&out)), &ada).await;
+    assert_eq!(browser.get("/admin/login").await.status(), 303);
+
+    let rows = session_rows(&db).await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].tenant, Some(TenantId::from(GLOBEX)));
+    let page = body_string(browser.get("/admin/notes").await).await;
+    assert_eq!(row_keys(&page), [globex.id.to_string()]);
+}
+
+struct BrokenSession;
+
+impl ExternalAuth for BrokenSession {
+    type User = Employee;
+
+    async fn current_user(&self, _cx: &Cx) -> topcoat::Result<Option<Employee>> {
+        Err(std::io::Error::other("the provider said no").into())
+    }
+
+    fn login_url(&self, _cx: &Cx, _next: &str) -> String {
+        "/login".to_string()
+    }
+
+    fn logout_url(&self, _cx: &Cx) -> String {
+        "/goodbye".to_string()
+    }
+}
+
+/// An app that cannot answer is no signed-out user: the panel fails closed and keeps the cause.
+#[tokio::test]
+async fn a_failing_app_answers_with_an_opaque_500() {
+    let db = db().await;
+    let router = mount(db, Panel::new("admin").auth(Auth::external(BrokenSession)))
+        .expect("the panel mounts");
+
+    let answer = TestClient::new(&router).get("/admin/login").await;
+
+    assert_eq!(answer.status(), 500);
+    assert!(!body_string(answer).await.contains("provider"));
 }
 
 /// No password signs in, however the form is posted.
@@ -310,6 +579,10 @@ impl ExternalAuth for AdminSession {
 
     fn login_url(&self, _cx: &Cx, _next: &str) -> String {
         "/login".to_string()
+    }
+
+    fn logout_url(&self, _cx: &Cx) -> String {
+        "/goodbye".to_string()
     }
 }
 

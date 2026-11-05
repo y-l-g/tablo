@@ -63,11 +63,21 @@ A visitor with no app session follows this path:
 {{#include ../../../examples/guide/src/existing_app.rs:existing-app-return}}
 ```
 
-The gate asks `current_user` on every request. Signing out of the app, or into another account,
-ends the panel session at the panel's next request, with no call to
-`auth::revoke_sessions_for_user`. The shell's Sign out ends the panel's session alone and lands on
-`logout_url`; point that at a route that ends the app's session too, or the next visit to the
-panel signs the user in again.
+The gate asks `current_user` on every request, and serves a session only while it names the
+session's user. Signing out of the app, or into another account, shuts the panel at its next
+request, with no call to `auth::revoke_sessions_for_user`. For that to reach a live connection,
+which keeps the cookies of its handshake, `current_user` must consult a session the server holds.
+A browser that returns to the same app user finds its panel session, and its tenant, as it left
+them. The app's session cookie must reach a page opened from another site, as `SameSite=Lax` does;
+behind `SameSite=Strict` a followed link finds no user.
+
+The shell's Sign out ends the panel's session alone, then sends the browser to `logout_url` by GET,
+on any origin. Point that at a route that ends the app's session, an SSO provider's end-session URL
+included, or at a page of the app's that offers to. While the app's session lives, the next visit
+to the panel signs the user in again.
+
+A browser holds one panel session across every panel on the router, so entering this panel ends
+a session held on another.
 
 The app owns the account, so mounting refuses `Auth::registration`, `Auth::password_reset`,
 `Auth::email_verification` and `Auth::two_factor` beside `Auth::external`. The panel's tenant menu,
