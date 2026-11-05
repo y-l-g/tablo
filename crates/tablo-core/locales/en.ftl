@@ -442,6 +442,7 @@ tablo-login-sign-up = Sign up
 tablo-login-failed = Invalid email or password.
 tablo-login-unavailable = Sign-in is unavailable right now. Try again shortly.
 tablo-gate-description = Your account cannot open { $brand }.
+tablo-external-leaving = Continuing to the sign-out page.
 
 ## Sign-up
 

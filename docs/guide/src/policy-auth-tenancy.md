@@ -222,6 +222,9 @@ Sessions stay in `AuthSession`, which `tablo::models!` registers. It registers t
 `AdminUser` too, which only `PasswordAuth` reads: with another authenticator its table stays
 empty.
 
+An app with a sign-in of its own, such as SSO, keeps it through `Auth::external`: see
+[Adding a panel to an existing app](./existing-app.md#signing-in-through-the-app).
+
 ### Sign-up
 
 `Auth::registration` lets visitors create their own account at `{prefix}/register`, which the

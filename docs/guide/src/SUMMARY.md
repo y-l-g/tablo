@@ -11,6 +11,7 @@
 - [Notifications](./notifications.md)
 - [Translations](./translations.md)
 - [Policy, auth, tenancy](./policy-auth-tenancy.md)
+- [Adding a panel to an existing app](./existing-app.md)
 - [Data access](./data-access.md)
 - [Organizing an app](./organizing-an-app.md)
 - [Extension points](./extension-points.md)

@@ -4,7 +4,10 @@
 
 use http::header::LOCATION;
 use showcase::models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Staff};
-use tablo::{RouterBuilderPanelExt, auth::AuthSession};
+use tablo::{
+    RouterBuilderPanelExt,
+    auth::{AuthSession, SESSION_COOKIE},
+};
 use topcoat::{
     context::Cx,
     mail::{MailConfig, MemoryTransport, RouterBuilderMailExt},
@@ -12,9 +15,9 @@ use topcoat::{
 };
 
 use crate::common::{
-    SESSION_COOKIE, TestClient, body_string, find_href_with, form_body, full_db, input_value,
-    mount, response_cookies, routers::router_for_tests as router, runtime_post,
-    session_cookie_value, set_cookie_header,
+    TestClient, body_string, find_href_with, form_body, full_db, input_value, mount,
+    response_cookies, routers::router_for_tests as router, runtime_post, session_cookie_value,
+    set_cookie_header,
 };
 
 #[tokio::test]

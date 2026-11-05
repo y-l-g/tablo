@@ -7,6 +7,7 @@ use topcoat::router::{BodyLimit, PageFn, RouteFn, RouteHandlerFn, RouterBuilder}
 
 use super::{
     AdminUser, AuthConfig, Realm, email_change,
+    external::external_login,
     login::{MAX_LOGIN_BYTES, login_page, login_post, logout_post, tenant_post},
     password_reset::{forgot_page, forgot_post, reset_page, reset_post},
     profile::{profile_page, profile_post},
@@ -55,6 +56,7 @@ pub(crate) fn declaration_errors(
             services.cookie_key,
         ))
         .chain(super::mail::declaration_errors(auth, services.mail))
+        .chain(super::external::declaration_errors(auth))
         .collect()
 }
 
@@ -102,19 +104,23 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
     let (prefix, auth) = (&realm.prefix, &realm.auth);
     if !auth.is_disabled() {
         let login_path = route_path(&format!("{prefix}/login"));
-        builder = builder
-            .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(login_path.clone()))
-            .route(RouteFn::new(
-                http::Method::GET,
-                login_path.clone(),
-                login_page,
-            ))
-            .route(RouteFn::new(http::Method::POST, login_path, login_post))
-            .route(RouteFn::new(
-                http::Method::POST,
-                route_path(&format!("{prefix}/logout")),
-                logout_post,
-            ));
+        builder = if auth.external().is_some() {
+            builder.route(RouteFn::new(http::Method::GET, login_path, external_login))
+        } else {
+            builder
+                .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(login_path.clone()))
+                .route(RouteFn::new(
+                    http::Method::GET,
+                    login_path.clone(),
+                    login_page,
+                ))
+                .route(RouteFn::new(http::Method::POST, login_path, login_post))
+        };
+        builder = builder.route(RouteFn::new(
+            http::Method::POST,
+            route_path(&format!("{prefix}/logout")),
+            logout_post,
+        ));
         if realm.serves_tenants {
             builder = builder.route(RouteFn::new(
                 http::Method::POST,

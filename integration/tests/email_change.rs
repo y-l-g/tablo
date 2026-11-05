@@ -6,9 +6,9 @@ use http::header::LOCATION;
 use tablo::{
     Auth, AuthMail, EmailVerification, NoForm, Panel, PasswordAuth, ReadOnly, Resource,
     ResourceDef, RouterBuilderPanelExt, Table, TextColumn,
-    auth::{AdminUser, AuthSession, AuthToken, create_admin},
+    auth::{AdminUser, AuthSession, AuthToken, SESSION_COOKIE, create_admin},
     lens,
-    testing::{SESSION_COOKIE, form_body, session_cookie_value},
+    testing::{form_body, session_cookie_value},
 };
 use toasty::Db;
 use topcoat::{

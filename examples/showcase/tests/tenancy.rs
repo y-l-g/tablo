@@ -5,13 +5,14 @@ use showcase::models::{
 };
 use tablo::{
     TenantId,
+    auth::SESSION_COOKIE,
     testing::{IgnoredFilter, IgnoredReason, find_href_with, ignored_filters, nav_badge, row_keys},
 };
 use topcoat::router::Body;
 
 use crate::common::{
-    SESSION_COOKIE, body_string, demo_client, form_body, full_db, input_value, mint_session,
-    response_cookies, routers::router_for_tests as router, tenanted_db, tenantless_client,
+    body_string, demo_client, form_body, full_db, input_value, mint_session, response_cookies,
+    routers::router_for_tests as router, tenanted_db, tenantless_client,
 };
 
 #[tokio::test]

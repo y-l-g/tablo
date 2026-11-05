@@ -12,7 +12,7 @@ use topcoat::{
         request::{method, uri},
         response::{IntoResponse, Response, response_headers},
     },
-    view::{ViewExt, attributes, view},
+    view::{BoxView, ViewExt, attributes, view},
 };
 
 use super::{
@@ -92,8 +92,11 @@ impl Layer for PanelGate {
                     || path == email_change::cancel_url(&cx));
             let challenge = self.realm.auth.two_factor_config().is_some()
                 && path == two_factor::challenge_url(&cx);
-            let public =
-                path == login_url(&cx) || sign_up || reset || confirm || email_change || challenge;
+            // A panel behind external auth serves its login path on GET alone.
+            let login = path == login_url(&cx)
+                && (self.realm.auth.external().is_none()
+                    || matches!(*method(&cx), http::Method::GET | http::Method::HEAD));
+            let public = login || sign_up || reset || confirm || email_change || challenge;
             if public
                 && matches!(
                     *method(&cx),
@@ -147,6 +150,10 @@ impl Layer for PanelGate {
                 // above.
                 Some(_) if page_load(&cx) => no_access(&cx).await,
                 Some(_) => Err(forbidden().into()),
+                // Signing out of the app leaves a panel tab behind: its Sign out still answers.
+                None if logout_route && self.realm.auth.external().is_some() => {
+                    next.run(&cx, body).await
+                }
                 // Pages redirect to the login route with a validated `next`;
                 // runtime endpoints, non-GET requests, and page re-runs
                 // answer 401.
@@ -243,6 +250,11 @@ async fn no_access(cx: &Cx) -> topcoat::Result<Response> {
         </form>
     }
     .boxed();
+    refused(cx, form).await
+}
+
+/// The 403 page a signed-in user the panel refuses reads, with `form` as its way out.
+pub(super) async fn refused<'a>(cx: &'a Cx, form: BoxView<'a>) -> topcoat::Result<Response> {
     let page = render(
         cx,
         AuthPage {

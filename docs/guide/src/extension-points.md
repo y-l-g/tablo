@@ -1,7 +1,8 @@
 # Extension points
 
-The seams for reaching outside a resource declaration. Four have full sections
+The seams for reaching outside a resource declaration. Five have full sections
 of their own: [`Authenticator`](./policy-auth-tenancy.md),
+[`ExternalAuth`](./existing-app.md),
 [`Uploader`](./forms.md), [`Panel::layout_shell`](./panel-and-routing.md), and
 [`wired_table`](./data-access.md). The remaining three are documented here.
 

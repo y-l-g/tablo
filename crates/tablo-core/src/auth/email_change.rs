@@ -482,7 +482,7 @@ pub(super) fn cancel_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             return super::verification::invalid_link(cx).await;
         }
         // The cancelling browser may hold one of the ended sessions; its cookie goes too.
-        topcoat::session::stop(cx).await?;
+        super::session::stop(cx).await?;
         set_notification(
             cx,
             Notification::success(crate::t!(cx, "tablo-email-change-kept")).description(crate::t!(

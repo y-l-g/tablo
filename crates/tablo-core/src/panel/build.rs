@@ -15,7 +15,6 @@ use topcoat::{
         RouterBuilderDirectoryExt, error::redirect,
     },
     runtime::{PrefetchMode, RouterBuilderRuntimeExt, RuntimeSetup},
-    session::{RouterBuilderSessionExt, SessionConfig},
 };
 
 use super::{
@@ -29,7 +28,7 @@ use super::{
 };
 use crate::{
     DeclarationError, DeclarationErrorKind, MountError, Site,
-    auth::{AuthHost, PanelGate, Realm, RuntimeGate, SESSION_LIFETIME},
+    auth::{AuthHost, PanelGate, Realm, RuntimeGate},
     bus::NotificationBus,
     declaration::segment_fault,
     naming::route_path,
@@ -86,10 +85,11 @@ pub trait RouterBuilderPanelExt: Sized {
     ///
     /// The panel reads the router's `Db` and asset bundle, so `.with(db)` and
     /// `.assets(..)` come first. The first panel mounted also installs what every panel shares:
-    /// cookies, sessions unless the router already configures them, the gate over Topcoat's
-    /// runtime endpoints, and Topcoat's runtime layer with link prefetching off unless the router
-    /// already set those up. The runtime layer has no path, so mount panels after the app's own
-    /// pathless layers: a page re-run must reach those layers already rewritten to a `GET`.
+    /// cookies, the gate over Topcoat's runtime endpoints, and Topcoat's runtime layer with link
+    /// prefetching off unless the router already set those up. A panel keeps its sessions in its
+    /// own cookie, so the app's Topcoat sessions, if any, stay the app's. The runtime layer has no
+    /// path, so mount panels after the app's own pathless layers: a page re-run must reach
+    /// those layers already rewritten to a `GET`.
     ///
     /// # Errors
     ///
@@ -516,11 +516,8 @@ fn mount_errors(
 
 /// Installs what every panel on a router shares.
 fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
-    builder = builder.cookies();
-    if builder.try_context::<SessionConfig>().is_none() {
-        builder = builder.sessions(SessionConfig::builder().lifetime(SESSION_LIFETIME).build());
-    }
     builder = builder
+        .cookies()
         .layer(RuntimeGate::new())
         .with(Panels::default())
         .with(AuthHost(&PanelHost))

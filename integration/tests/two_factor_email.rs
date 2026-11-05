@@ -5,10 +5,10 @@ use http::header::LOCATION;
 use tablo::{
     Auth, AuthMail, AuthMailFault, DeclarationErrorKind, LoginThrottle, Panel,
     RouterBuilderPanelExt, TwoFactor,
-    auth::{AdminUser, AuthFactor, AuthSession, AuthToken, create_admin},
+    auth::{AdminUser, AuthFactor, AuthSession, AuthToken, SESSION_COOKIE, create_admin},
     testing::{
-        SESSION_COOKIE, TestClient, body_string, form_body, recovery_codes, refusal,
-        session_cookie_value, two_factor_state,
+        TestClient, body_string, form_body, recovery_codes, refusal, session_cookie_value,
+        two_factor_state,
     },
 };
 use toasty::Db;

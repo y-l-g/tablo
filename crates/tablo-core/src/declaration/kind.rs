@@ -32,6 +32,13 @@ pub enum DeclarationErrorKind {
     ShellAssetsWithoutBundle,
     /// `Panel::notifications` on `Auth::disabled`, which signs nobody in to notify.
     NotificationsWithoutAuth,
+    /// `Auth::external` beside a feature that needs Tablo to own the account's credentials.
+    ///
+    /// Drop the feature: the host app signs its users in, and keeps their credentials.
+    ExternalAuthFeature {
+        /// The builder call the panel may not declare.
+        feature: &'static str,
+    },
     /// A form declares a file field, but the panel installs no `Uploader` to store its bytes.
     ///
     /// Install one with `Panel::uploads` or `Panel::uploads_dir`.

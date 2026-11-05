@@ -8,6 +8,14 @@ is the explicit opt-out.
 - Sessions are server-side rows keyed by token hash, rotated on login, revocable per user, and
   bound to the panel that issued them. A shard or procedure serves outside every prefix, so a
   panel declares the ones its pages use, and a request to one runs as that panel.
+- A session's token rides in Tablo's own cookie, never the router's `SessionConfig`: a router has
+  one of those, and a panel writing it would replace a host app's Topcoat session on every login.
+- An app that signs its users in itself keeps doing so through `ExternalAuth`, set by
+  `Auth::external`: Tablo asks it for the request's user. The panel still keeps its own session
+  row, which holds the selected tenant and binds the browser to the panel, and it serves only
+  while the app's session names the row's user. The gates read that session as any other, so
+  external auth adds no path through them that could fail open. The row outlives a request whose
+  app session names no one, because a live connection's cookies can be older than the browser's.
 - The gate fails closed, and a user without access is refused like a bad password. Passwords use
   Argon2id, and login verifies even for an unknown user.
 - A user has tenant memberships; the session selects one. Core auth never requires a tenant; a
@@ -33,6 +41,13 @@ is the explicit opt-out.
 
 - Stateless signed-cookie sessions, a `Panel` type parameter, a fixed erased identity struct, a
   tenant cookie, and app-built auth on generic Topcoat sessions.
+- A panel session reading a router's `SessionConfig` when the app installs one: its lifetime and
+  token would be the app's, and the two sign-ins would still share one cookie.
+- `ExternalAuth` with no session row, the app's session alone signing a request in: the tenant
+  switch would need a tenant cookie, and each gate a second path with no row behind it.
+- A `sign_in` function an app's route calls after its own login: every app would write the same
+  route, and the panel would keep a session after the app's ended unless the app revoked it.
+- `Auth::disabled()` with a layer of the app's over the prefix: the runtime path stays open.
 - A `register` method on `Authenticator` with a refusing default: mounting could not tell an
   authenticator that registers from one that does not. A fixed sign-up form: an app that asks
   for more than a name, an email and a password would rebuild the page.

@@ -4,7 +4,7 @@
 use jiff::Timestamp;
 use tablo::{
     Auth, LoginThrottle, Panel, PanelUser, RouterBuilderPanelExt,
-    auth::{AdminUser, AuthSession, create_admin, guard, require_user},
+    auth::{AdminUser, AuthSession, SESSION_COOKIE, create_admin, guard, require_user},
 };
 use toasty::Db;
 use topcoat::{
@@ -14,8 +14,6 @@ use topcoat::{
 use uuid::Uuid;
 
 use crate::common::{mount, set_cookie_header, test_db};
-
-const SESSION_COOKIE: &str = "__Host-session";
 
 /// A database holding ada, whose password is `opensesame`.
 async fn db_with_ada() -> Db {

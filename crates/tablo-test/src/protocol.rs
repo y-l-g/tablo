@@ -43,7 +43,7 @@ pub use search::{SearchGroup, SearchResult, search_box, search_results};
 pub use sections::{Section, sections};
 pub use sidebar::{nav_badge, nav_links};
 pub use summaries::{SummaryFigure, summaries};
-use tablo_core::Notification;
+use tablo_core::{Notification, auth::SESSION_COOKIE};
 pub use tabs::{Tab, tabs};
 use topcoat::router::Body;
 pub use widgets::{
@@ -251,9 +251,6 @@ fn has_attribute(attrs: &str, name: &str) -> bool {
     false
 }
 
-/// Names the session cookie Topcoat's default token store writes.
-pub const SESSION_COOKIE: &str = "__Host-session";
-
 /// The `(name, value)` pairs a response's `Set-Cookie` headers carry.
 pub fn response_cookies(response: &http::Response<Body>) -> Vec<(String, String)> {
     response
@@ -320,6 +317,30 @@ pub fn declined_message(html: &str) -> Option<String> {
     .into_iter()
     .next()?;
     Some(dom::strip_text(&inner))
+}
+
+/// Where a panel behind external auth sends a user out to: the page it refuses them on, and the
+/// page its Sign out answers with, link the app's sign-out from a `data-external-sign-out` element.
+pub fn external_sign_out(html: &str) -> Option<String> {
+    let (_, attrs, _) = dom::tags_where(html, |_, attrs| {
+        attrs
+            .iter()
+            .any(|(attr, _)| attr == "data-external-sign-out")
+    })
+    .into_iter()
+    .next()?;
+    attrs.into_iter().find(|(attr, _)| attr == "href")?.1
+}
+
+/// The URL a `<meta http-equiv="refresh">` moves the page on to.
+pub fn refreshes_to(html: &str) -> Option<String> {
+    let (_, attrs, _) = dom::tags_where(html, |name, attrs| {
+        name == "meta" && attrs.iter().any(|(attr, _)| attr == "http-equiv")
+    })
+    .into_iter()
+    .next()?;
+    let content = attrs.into_iter().find(|(attr, _)| attr == "content")?.1?;
+    content.split_once("url=").map(|(_, url)| url.to_string())
 }
 
 /// Whether a form renders dirty, so leaving the page asks first: a refused save keeps what the

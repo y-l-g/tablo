@@ -4,11 +4,10 @@ pub mod routers;
 
 use showcase::models::{DEMO_ADMIN_EMAIL, PostStatus, seed, seed_content, seed_staff};
 pub use tablo::testing::{
-    SESSION_COOKIE, TestClient, body_string, filter_options, find_href_with, form_body,
-    input_value, mount, multipart_body, response_cookies, row_keys, session_cookie_value,
-    set_cookie_header, test_db,
+    TestClient, body_string, filter_options, find_href_with, form_body, input_value, mount,
+    multipart_body, response_cookies, row_keys, session_cookie_value, set_cookie_header, test_db,
 };
-use tablo::{TenantId, testing::rows};
+use tablo::{TenantId, auth::SESSION_COOKIE, testing::rows};
 use toasty::Db;
 use topcoat::router::{Body, Router};
 

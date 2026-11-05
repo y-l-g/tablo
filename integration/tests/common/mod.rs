@@ -10,6 +10,7 @@ use toasty::Db;
 use topcoat::router::{Body, Router, response::Response};
 use uuid::Uuid;
 
+pub mod host;
 pub mod mail;
 pub mod members;
 

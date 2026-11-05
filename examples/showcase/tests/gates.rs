@@ -3,13 +3,13 @@ use showcase::models::{
     Author, BLOCKED_TENANT, Category, Comment, DEMO_ADMIN_EMAIL, Post, PostCategory, PostStatus,
     Publication, Seo,
 };
-use tablo::auth::ColumnPreference;
+use tablo::auth::{ColumnPreference, SESSION_COOKIE};
 use uuid::Uuid;
 
 use crate::common::{
-    SESSION_COOKIE, TestClient, body_string, comment_count, demo_client, form_body, full_db,
-    mint_session, multipart_body, post_count, routers::router_for_tests as router, runtime_post,
-    tenanted_db, user_count,
+    TestClient, body_string, comment_count, demo_client, form_body, full_db, mint_session,
+    multipart_body, post_count, routers::router_for_tests as router, runtime_post, tenanted_db,
+    user_count,
 };
 
 #[tokio::test]

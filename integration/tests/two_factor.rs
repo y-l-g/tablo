@@ -6,11 +6,13 @@ use http::header::LOCATION;
 use tablo::{
     Auth, DeclarationErrorKind, LoginThrottle, NoForm, Panel, ReadOnly, Resource, ResourceDef,
     RouterBuilderPanelExt, Table, TextColumn, TwoFactor, TwoFactorFault,
-    auth::{AdminUser, AuthFactor, AuthSession, AuthToken, FactorKind, create_admin},
+    auth::{
+        AdminUser, AuthFactor, AuthSession, AuthToken, FactorKind, SESSION_COOKIE, create_admin,
+    },
     lens,
     testing::{
-        SESSION_COOKIE, TestClient, authenticator_code_at, body_string, form_body, now,
-        recovery_codes, refusal, session_cookie_value, two_factor_secret, two_factor_state,
+        TestClient, authenticator_code_at, body_string, form_body, now, recovery_codes, refusal,
+        session_cookie_value, two_factor_secret, two_factor_state,
     },
 };
 use toasty::Db;

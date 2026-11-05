@@ -12,22 +12,23 @@ pub use protocol::{
     Bell, BellNotification, CellEdit, ChartData, ChartSeries, CreateOptionLink, DetailEntry,
     DisabledAction, EmptyReason, EmptyTable, ErrorKind, FilterOption, Group, IgnoredFilter,
     IgnoredReason, ImportError, ImportRefusal, LanguageChoice, PageFilterBar, Picked, PickerColumn,
-    RecordNavLink, RecordTableData, Row, RowActions, SESSION_COOKIE, SearchGroup, SearchResult,
-    Section, StatTile, SummaryFigure, Tab, TabLink, WizardStep, action_badge, action_label,
-    action_tooltip, bell, body_bytes, body_string, charts, column_picker, columns, confirms_first,
-    cookie_header, create_option_links, declined_message, detail_entries, dirty_form,
-    disabled_actions, empty_table, field_error, field_error_message, filter_options,
+    RecordNavLink, RecordTableData, Row, RowActions, SearchGroup, SearchResult, Section, StatTile,
+    SummaryFigure, Tab, TabLink, WizardStep, action_badge, action_label, action_tooltip, bell,
+    body_bytes, body_string, charts, column_picker, columns, confirms_first, cookie_header,
+    create_option_links, declined_message, detail_entries, dirty_form, disabled_actions,
+    empty_table, external_sign_out, field_error, field_error_message, filter_options,
     find_href_with, form_body, groups, ignored_filters, import_columns, import_errors,
     import_refusal, input_value, input_values, language_choices, multipart_body, nav_badge,
     nav_links, notification, page_direction, page_filter_bar, page_language, page_title, picked,
-    posts_picking, record_navigation, record_tables, response_cookies, rich_text_values, robots,
-    row_actions, row_keys, rows, search_box, search_results, sections, selects_matching,
-    session_cookie_value, set_cookie_header, sortable_columns, stale_form, stats, summaries,
-    tab_links, tabs, widgets, wizard_steps,
+    posts_picking, record_navigation, record_tables, refreshes_to, response_cookies,
+    rich_text_values, robots, row_actions, row_keys, rows, search_box, search_results, sections,
+    selects_matching, session_cookie_value, set_cookie_header, sortable_columns, stale_form, stats,
+    summaries, tab_links, tabs, widgets, wizard_steps,
 };
 pub use resource::{FieldOf, Reply, ResourceClient, Submission};
 use tablo_core::{
     DeclarationError, MountError, Panel, PanelHandle, PanelUser, Resource, RouterBuilderPanelExt,
+    auth::SESSION_COOKIE,
 };
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
 pub use two_factor::{
@@ -258,6 +259,12 @@ impl<'a> TestClient<'a> {
     pub async fn get(&self, uri: &str) -> http::Response<Body> {
         self.router
             .handle(self.request(http::Method::GET, uri))
+            .await
+    }
+
+    pub async fn head(&self, uri: &str) -> http::Response<Body> {
+        self.router
+            .handle(self.request(http::Method::HEAD, uri))
             .await
     }
 

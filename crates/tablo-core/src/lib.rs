@@ -136,6 +136,7 @@ pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Se
 
 pub use auth::{
     config::Auth,
+    external::ExternalAuth,
     mail::AuthMail,
     panel_user::{Authenticator, PanelUser},
     password::{PasswordAuth, PasswordSignUp},
