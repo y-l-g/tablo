@@ -11,9 +11,12 @@ is the explicit opt-out.
 - A runtime request also runs only as the panel of the page that sent it. A fetch names its page
   in the `Referer`; a socket's runs carry a header stamped from the handshake's URL, which the
   runtime lets no run set. The name picks among the sessions the cookies prove, so forging it
-  grants nothing, and a request naming no panel keeps the session's own. A panel's documents carry
-  an inline script of their own: Topcoat loads a page whose scripts this document has not run, so
-  entering a panel opens a new socket and no socket outlives its panel.
+  grants nothing, and a request naming no panel keeps the session's own. Tablo's documents carry
+  an inline script of their panel, or of no panel: Topcoat loads a page whose scripts this document
+  has not run, so moving between them opens a new socket. A host's own document carries none, so a
+  link from a panel to one keeps the socket, which still answers as that panel. Runs on a socket
+  Tablo's stamp never saw, because the app installed the runtime layer after the panels, are
+  refused.
 - A session's token rides in Tablo's own cookie, never the router's `SessionConfig`: a router has
   one of those, and a panel writing it would replace a host app's Topcoat session on every login.
 - An app that signs its users in itself keeps doing so through `ExternalAuth`, set by

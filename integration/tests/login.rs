@@ -367,8 +367,9 @@ async fn a_fetch_from_a_page_runs_only_as_that_pages_panel() {
         .await;
     assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
 
-    // A page outside every panel names none, and `/administration` is not `/admin`.
-    for page in ["/billing", "/administration/x"] {
+    // A page outside every panel names none, and `/portal-archive` is not `/portal`: read as the
+    // portal's, the admin session would answer 401.
+    for page in ["/billing", "/portal-archive/x"] {
         let response = router.handle(shard_from_page(&admin, page)).await;
         assert_eq!(response.status(), http::StatusCode::OK, "{page}");
     }
@@ -461,6 +462,26 @@ async fn a_socket_keeps_its_page_on_an_app_installed_runtime() {
     assert!(frames.contains(r#""status":401"#), "{frames}");
 }
 
+/// A runtime layer the app installs after the panels takes the handshake before the stamp, so the
+/// socket's page is unknown: its runs are refused rather than run as whichever session it holds.
+#[tokio::test]
+async fn a_socket_the_stamp_never_saw_runs_nothing() {
+    use topcoat::runtime::RouterBuilderRuntimeExt;
+    let router = Router::builder()
+        .discover()
+        .with(db_with_ada().await)
+        .panel(Panel::new("admin"))
+        .expect("admin builds")
+        .panel(Panel::new("portal"))
+        .expect("portal builds")
+        .runtime()
+        .build();
+    let admin = session_on(&router, "/admin").await;
+    let json = serde_json::json!({ "content-type": "application/json" });
+    let frames = socket_run(router, "/portal/notes", &admin, json, "status").await;
+    assert!(frames.contains(r#""status":500"#), "{frames}");
+}
+
 /// A run cannot rename the socket's panel: Topcoat refuses the header outright.
 #[tokio::test]
 async fn a_run_cannot_name_another_page() {
@@ -472,6 +493,22 @@ async fn a_run_cannot_name_another_page() {
     });
     let frames = socket_run(router, "/portal/notes", &admin, headers, "status").await;
     assert!(frames.contains(r#""status":400"#), "{frames}");
+}
+
+#[derive(Clone)]
+struct AdminHandle(tablo::PanelHandle);
+
+/// An app's page outside every panel, framed by a panel's document.
+#[topcoat::router::page("/framed-by-the-admin-panel")]
+async fn framed_app_page(cx: &Cx) -> topcoat::Result<impl topcoat::view::View> {
+    let AdminHandle(admin) = topcoat::context::context::<AdminHandle>(cx);
+    admin
+        .document(
+            cx,
+            "Billing",
+            topcoat::view::view! { <main>"billing"</main> },
+        )
+        .await
 }
 
 /// The inline scripts of the document at `path`.
@@ -513,4 +550,25 @@ async fn entering_another_panel_is_a_page_load() {
     assert_eq!(admin_page, admin_login);
     let portal_page = panel_marks(&router, "/portal/missing", Some(&portal)).await;
     assert_eq!(portal_page, portal_login);
+}
+
+/// Leaving a panel for an app's page it frames is a page load too: the page has a script of its
+/// own, or the socket would stay and keep answering as the panel.
+#[tokio::test]
+async fn leaving_a_panel_is_a_page_load() {
+    let builder = Router::builder()
+        .discover()
+        .with(db_with_ada().await)
+        .panel(Panel::new("admin"))
+        .expect("admin builds");
+    let admin = builder.panel_handle("admin").expect("mounted above");
+    let router = builder.with(AdminHandle(admin)).build();
+    let session = session_on(&router, "/admin").await;
+
+    let panel_page = panel_marks(&router, "/admin/missing", Some(&session)).await;
+    let app_page = panel_marks(&router, "/framed-by-the-admin-panel", Some(&session)).await;
+    assert!(
+        app_page.iter().any(|script| !panel_page.contains(script)),
+        "{app_page:?} against {panel_page:?}",
+    );
 }
