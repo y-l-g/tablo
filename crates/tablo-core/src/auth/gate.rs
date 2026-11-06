@@ -9,7 +9,7 @@ use topcoat::{
     router::{
         Body, Layer, LayerFuture, Next, Path, PathBuf,
         error::{forbidden, not_found, redirect, unauthorized},
-        request::{method, uri},
+        request::{headers, method, parts, uri},
         response::{IntoResponse, Response, response_headers},
     },
     view::{BoxView, ViewExt, attributes, view},
@@ -309,6 +309,9 @@ impl Layer for RuntimeGate {
             } else {
                 None
             };
+            // A page of another panel holds no session here: it may not act through this one.
+            let page = page_panel(cx, &realms);
+            let signed = signed.filter(|signed| page.is_none_or(|p| Arc::ptr_eq(p, &signed.realm)));
             // The request runs as the panel `realm` serves; a realm no panel serves answers 404.
             let enter = |cx: &Cx, realm: &Arc<Realm>| host.enter(cx, realm).ok_or_else(not_found);
             let admitted = match &signed {
@@ -342,6 +345,68 @@ impl Layer for RuntimeGate {
             }
         })
     }
+}
+
+/// The header a runtime socket's runs name the panel of their page in. A browser sends no
+/// `Referer` on a WebSocket handshake, and a run keeps the handshake's headers but not its URL.
+const PAGE_PANEL: http::HeaderName = http::HeaderName::from_static("x-tablo-page-panel");
+
+/// Stamps a socket handshake to a panel's page with that panel, for [`page_panel`] to read on each
+/// of the socket's runs. It runs around Topcoat's runtime layer, which takes the handshake.
+///
+/// The value only picks among the sessions the request's own cookies prove, so a forged one
+/// reaches nothing a browser could not reach by opening that panel. A run cannot change it:
+/// Topcoat refuses a run that sets any header but its own.
+pub(crate) struct PagePanelStamp;
+
+impl Layer for PagePanelStamp {
+    fn path(&self) -> Option<&Path> {
+        None
+    }
+
+    fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
+        Box::pin(async move {
+            let handshake = headers(cx).contains_key(http::header::SEC_WEBSOCKET_PROTOCOL);
+            let realms = realms(cx);
+            let stamp = handshake
+                .then(|| panel_under(&realms, uri(cx).path()))
+                .flatten()
+                .and_then(|realm| http::HeaderValue::from_str(&realm.prefix).ok());
+            let Some(stamp) = stamp else {
+                return next.run(cx, body).await;
+            };
+            let mut stamped = parts(cx).clone();
+            stamped.headers.insert(PAGE_PANEL, stamp);
+            next.run(&cx.with(stamped), body).await
+        })
+    }
+}
+
+/// The realm whose prefix covers `path`.
+fn panel_under<'r>(realms: &'r [Arc<Realm>], path: &str) -> Option<&'r Arc<Realm>> {
+    realms.iter().find(|realm| {
+        path.strip_prefix(realm.prefix.as_str())
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
+    })
+}
+
+/// The panel whose page sent a runtime request: the socket's stamp, else the `Referer` a panel's
+/// `same-origin` policy keeps on a fetch. `None` for a page outside every panel, and for a request
+/// that names no page.
+fn page_panel<'r>(cx: &Cx, realms: &'r [Arc<Realm>]) -> Option<&'r Arc<Realm>> {
+    let headers = headers(cx);
+    if let Some(prefix) = headers.get(PAGE_PANEL) {
+        return realms
+            .iter()
+            .find(|realm| realm.prefix.as_bytes() == prefix.as_bytes());
+    }
+    let referer: http::Uri = headers
+        .get(http::header::REFERER)?
+        .to_str()
+        .ok()?
+        .parse()
+        .ok()?;
+    panel_under(realms, referer.path())
 }
 
 /// The user the request's session signed in, through the auth of the realm that issued it.
