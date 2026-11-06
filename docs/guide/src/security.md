@@ -92,14 +92,31 @@ separate credentials, give each its own user type, over its own table, with its 
 [`Authenticator`](https://y-l.fr/tablo/nightly/api/tablo/trait.Authenticator.html): a staff password
 then signs in to no customer panel, and a customer panel's weaker sign-in reaches no staff account.
 
+## Several panels, one origin
+
+Each panel keeps its session in its own cookie, and the page a request comes from decides which
+cookie counts. That decides which session a request means; it does not separate panels. They share
+an origin, so a script running on one panel's page, or on any page of the host app, can send
+requests to another panel as whoever the browser is signed in as there. `HttpOnly` keeps the cookie
+from being read, not from being sent.
+
+Put panels of different trust on [separate hosts](./deployment.md#run-it). A cross-site script on
+the customer panel then has no admin session to use, since `__Host-` cookies stay on the host that
+set them.
+
 ## Responses
 
 - **Headers.** Every response under the panel prefix carries a `Content-Security-Policy` that loads
   script files from the panel's origin only and lets no other site frame the panel or receive its
   forms, along with
   `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` and `Cache-Control: no-store`,
-  so the back button after sign-out shows no record. Topcoat's live regions need inline scripts,
-  so the policy does not stop an injected script; escaping does.
+  so the back button after sign-out shows no record. The policy does not stop an injected script;
+  escaping does. Topcoat's live regions need `'unsafe-inline'` and its client expressions need
+  `'unsafe-eval'`, so dropping either breaks the panel, as
+  [`Panel::DEFAULT_CONTENT_SECURITY_POLICY`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#associatedconstant.DEFAULT_CONTENT_SECURITY_POLICY)
+  details. What a custom policy can tighten is where an injected script sends data: with no
+  images, fonts or media on other hosts, set `img-src`, `font-src` and `media-src` to `'self'`
+  plus the `data:` and `blob:` sources the default has.
   [`Panel::content_security_policy`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.content_security_policy)
   replaces the policy, for assets on another origin or a panel framed by an intranet, and lists
   the responses the headers miss. Behind a proxy that serves HTTPS only, turn on HSTS with
