@@ -105,7 +105,6 @@ where
 /// `icon` titled `label`, which a screen reader reads in its place.
 fn icon_cell<'a>(cx: &'a Cx, label: String, glyph: BoxView<'a>) -> BoxView<'a> {
     view! {
-        cx =>
         <span class="inline-flex items-center" title=(label.clone())>
             (glyph)
             <span class="sr-only">(label)</span>

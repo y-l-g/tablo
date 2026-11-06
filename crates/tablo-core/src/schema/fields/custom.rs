@@ -20,7 +20,7 @@ use topcoat::{context::Cx, view::*};
 /// impl Control for Color {
 ///     fn render<'a>(&self, cx: &'a Cx, input: ControlInput) -> BoxView<'a> {
 ///         let attrs = input.attributes(cx);
-///         view! { cx => <input type="color" (attrs)> }.boxed()
+///         view! { <input type="color" (attrs)> }.boxed()
 ///     }
 /// }
 ///
@@ -102,7 +102,6 @@ impl ControlInput {
     pub fn attributes(&self, cx: &Cx) -> Attributes {
         let required = self.required;
         attributes! {
-            cx =>
             id=(self.id.clone())
             name=(self.name.clone())
             value=(self.value.clone())
@@ -149,7 +148,6 @@ fn boolean<'a>(cx: &'a Cx, input: ControlInput, switch: bool) -> BoxView<'a> {
     // Only an accepted box is required: the browser then refuses it unchecked.
     let required = input.required();
     let attrs = attributes! {
-        cx =>
         id=(id)
         name=(name.clone())
         value="true"
@@ -161,7 +159,6 @@ fn boolean<'a>(cx: &'a Cx, input: ControlInput, switch: bool) -> BoxView<'a> {
         aria-describedby=(described_by)
     };
     view! {
-        cx =>
         <input type="hidden" name=(name) value="false" disabled=(disabled)>
         if switch {
             ui_switch(attrs: attrs)

@@ -234,7 +234,6 @@ pub(super) fn external_login(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 /// The button that leaves for the app's sign-out at `url`.
 fn sign_out_link(cx: &Cx, url: String) -> BoxView<'_> {
     view! {
-        cx =>
         <a
             href=(url)
             class=(button_variants(ButtonVariant::Outline, ButtonSize::Md))
@@ -259,7 +258,6 @@ async fn no_access(cx: &Cx, leave: String) -> topcoat::Result<Response> {
 pub(super) async fn leave_for(cx: &Cx, url: String) -> topcoat::Result<Response> {
     let refresh = format!("0;url={url}");
     let form = view! {
-        cx =>
         <meta http-equiv="refresh" content=(refresh) />
         (sign_out_link(cx, url))
     }

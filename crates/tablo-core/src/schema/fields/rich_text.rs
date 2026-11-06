@@ -207,7 +207,6 @@ impl Field {
         let groups: Vec<Vec<Tool>> = rich.toolbar.clone();
         let content_class = format!("{PROSE} {EDITOR}");
         let control = view! {
-            cx =>
             <div
                 class="overflow-hidden rounded-lg border border-border focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background has-[[aria-invalid=true]]:border-destructive"
                 data-rich-text=""

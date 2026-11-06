@@ -66,7 +66,7 @@ pub(crate) fn text_cell(cx: &Cx, cell: TextCell) -> BoxView<'_> {
         let placeholder = cell
             .placeholder
             .map_or_else(|| "—".to_string(), |placeholder| placeholder.localize(cx));
-        view! { cx => <span class="text-muted-foreground">(placeholder)</span> }.boxed()
+        view! { <span class="text-muted-foreground">(placeholder)</span> }.boxed()
     } else {
         value_view(cx, &cell)
     };
@@ -76,7 +76,6 @@ pub(crate) fn text_cell(cx: &Cx, cell: TextCell) -> BoxView<'_> {
     {
         None => value,
         Some(description) => view! {
-            cx =>
             <div class="flex min-w-0 flex-col">
                 <span class="truncate">(value)</span>
                 <span class="truncate text-xs text-muted-foreground">
@@ -96,7 +95,6 @@ pub(crate) fn badges_cell(cx: &Cx, cells: Vec<TextCell>) -> BoxView<'_> {
     }
     let badges: Vec<BoxView<'_>> = cells.iter().map(|cell| value_view(cx, cell)).collect();
     view! {
-        cx =>
         <span class="flex flex-wrap gap-1">
             for badge in badges {
                 (badge)
@@ -134,7 +132,6 @@ fn value_view<'a>(cx: &'a Cx, cell: &TextCell) -> BoxView<'a> {
         .collect::<Vec<_>>()
         .join(" ");
         view! {
-            cx =>
             <span class=(class)>
                 if let Some(glyph) = glyph {
                     (glyph)
@@ -153,7 +150,6 @@ fn value_view<'a>(cx: &'a Cx, cell: &TextCell) -> BoxView<'a> {
                 (None, None)
             };
             view! {
-                cx =>
                 <a
                     href=(href)
                     target=(target)
@@ -173,7 +169,6 @@ fn value_view<'a>(cx: &'a Cx, cell: &TextCell) -> BoxView<'a> {
         return content;
     }
     view! {
-        cx =>
         <span class="inline-flex max-w-full items-center gap-1" title=(title)>
             (content)
             if let Some(copy) = copy {
@@ -190,10 +185,7 @@ pub(crate) fn icon_view(cx: &Cx, data: IconData, color: Option<Color>) -> BoxVie
         Some(color) => format!("size-4 shrink-0 {}", color.text_class()),
         None => "size-4 shrink-0".to_string(),
     };
-    view! {
-        cx =>
-        icon(data: data, attrs: attributes! { class=(class) aria-hidden="true" })
-    }
+    view! { icon(data: data, attrs: attributes! { class=(class) aria-hidden="true" }) }
     .boxed()
 }
 
@@ -205,7 +197,6 @@ fn badge_view<'a>(
     glyph: Option<BoxView<'a>>,
 ) -> BoxView<'a> {
     view! {
-        cx =>
         tablo_ui::badge(
             variant: tablo_ui::BadgeVariant::Outline,
             if let Some(glyph) = glyph {
@@ -224,7 +215,6 @@ fn copy_button(cx: &Cx, value: String) -> BoxView<'_> {
     let label = crate::t!(cx, "tablo-list-copy");
     let copied = value.clone();
     view! {
-        cx =>
         <button
             type="button"
             class="inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"

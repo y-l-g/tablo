@@ -37,7 +37,6 @@ impl Panel {
     ) -> Result<BoxView<'a>> {
         let head: BoxView<'_> = match panel.and_then(|panel| panel.shell_assets) {
             Some(ShellAssets { stylesheet, font }) => view! {
-                cx =>
                 topcoat::dev::script()
                 topcoat::runtime::script()
                 topcoat::font::link(font: font)
@@ -53,7 +52,7 @@ impl Panel {
                 <meta name="tablo-tiptap" content=(tablo_ui::TIPTAP_JS)>
             }
             .boxed(),
-            None => view! { cx => topcoat::dev::script() }.boxed(),
+            None => view! { topcoat::dev::script() }.boxed(),
         };
         // The server renders the stored choice on every page: runtime navigation copies
         // `<html>`'s attributes from the next page and runs no script.
@@ -68,7 +67,6 @@ impl Panel {
         let (lang, dir) = (locale.id().clone(), locale.id().direction());
         let page = metadata(cx).await?;
         Ok(view! {
-            cx =>
             <!DOCTYPE html>
             <html lang=(lang) dir=(dir) class=(html_class)>
                 <head>

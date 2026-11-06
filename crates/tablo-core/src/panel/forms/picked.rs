@@ -62,7 +62,6 @@ fn picked_key(cx: &Cx) -> String {
 fn render_picked(cx: &Cx, option: Option<(String, String)>) -> BoxView<'_> {
     match option {
         Some((value, label)) => view! {
-            cx =>
             tablo_ui::alert(
                 attrs: attributes! {
                     data-picked=""
@@ -76,7 +75,6 @@ fn render_picked(cx: &Cx, option: Option<(String, String)>) -> BoxView<'_> {
         }
         .boxed(),
         None => view! {
-            cx =>
             <div class="flex flex-col gap-4">
                 tablo_ui::alert(
                     attrs: attributes! { data-picked-hidden="" },

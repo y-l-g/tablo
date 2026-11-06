@@ -291,7 +291,6 @@ pub(super) fn live_link(cx: &Cx, url: String, signals: &TableSignals) -> Attribu
     let (query, all) = (signals.query.clone(), signals.all.clone());
     let next = query_of(&url).to_string();
     attributes! {
-        cx =>
         href=(url)
         @click=$(|e: Event| {
             if e.ctrl_key {

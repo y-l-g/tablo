@@ -192,7 +192,6 @@ impl Wizard<Schema> {
             panels.push(source.guard(cx, step.condition.as_ref(), panel));
         }
         let view = view! {
-            cx =>
             <div data-wizard="" class="flex flex-col gap-6">
                 <div class=(STEP_LIST)>
                     for trigger in triggers {
@@ -247,7 +246,6 @@ fn step_view<'a>(
     let label = label.localize(cx);
     let current = place.is_eq();
     let trigger = view! {
-        cx =>
         <button
             type="button"
             id=(trigger_id)
@@ -264,7 +262,6 @@ fn step_view<'a>(
     }
     .boxed();
     let panel = view! {
-        cx =>
         <div
             role="group"
             id=(panel_id)

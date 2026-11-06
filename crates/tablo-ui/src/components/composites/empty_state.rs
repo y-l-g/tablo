@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    context::Cx,
     icon::icon,
     view::{Attributes, Child, StaticClass, View, class, component, view},
 };
@@ -20,12 +21,13 @@ const EMPTY_STATE_ACTION: StaticClass =
 /// # use tablo_ui::empty_state;
 /// # use topcoat::{context::Cx, view::{BoxView, ViewExt, view}};
 /// # fn empty(cx: &Cx) -> BoxView<'_> {
-/// view! { cx => empty_state(title: "No records yet", detail: "Create the first one.") }
+/// view! { empty_state(title: "No records yet", detail: "Create the first one.") }
 /// # .boxed()
 /// # }
 /// ```
 #[component]
 pub async fn empty_state(
+    cx: &Cx,
     /// What is empty, e.g. `"No records yet"`.
     #[into]
     title: String,

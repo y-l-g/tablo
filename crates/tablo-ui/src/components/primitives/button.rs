@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:1b40f815a96997b28f35b8f385f5849d86ca53ba47fb752a3e795bfc24c3a55d — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:53bddb06a7db178a09d1e9395c1edb5e055b5f50107e8d4708ca029ecc1593af — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     view::{Attributes, Child, Class, StaticClass, View, class, component, view},
 };
 
@@ -128,6 +129,7 @@ pub fn button_variants(
 /// ```
 #[component]
 pub async fn button(
+    cx: &Cx,
     #[default] variant: ButtonVariant,
     #[default] size: ButtonSize,
     #[default] mut attrs: Attributes,

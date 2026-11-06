@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:5b361cf4b59cbc7ee7e967b61c27820456327024e749f21a6319e3fb6aba90fd — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:475b5a0dfda650e9998673d317302221c2904c1e0b6878612abb059c86a6fdeb — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     view::{Attributes, Child, StaticClass, View, class, component, view},
 };
 
@@ -28,6 +29,7 @@ use topcoat::{
 /// ```
 #[component]
 pub async fn radio_group(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -61,7 +63,7 @@ const DOT: StaticClass = class!(
 /// Pair it with a label. Classes in `attrs` apply to the wrapper, while other
 /// attributes go on the `<input>`.
 #[component]
-pub async fn radio_group_item(#[default] mut attrs: Attributes) -> Result<impl View> {
+pub async fn radio_group_item(cx: &Cx, #[default] mut attrs: Attributes) -> Result<impl View> {
     // The dot cannot be drawn by the `<input>` itself, which renders no
     // children or pseudo-elements: it is a sibling overlaid on the control,
     // revealed by the input's `peer` state while picked.

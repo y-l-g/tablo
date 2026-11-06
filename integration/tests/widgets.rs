@@ -23,7 +23,7 @@ struct Secret;
 
 impl Widget for Secret {
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => <p>"secret"</p> })
+        Ok(view! { <p>"secret"</p> })
     }
 }
 
@@ -35,7 +35,7 @@ impl Page for Dashboard {
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => <main>(tablo::widgets::<Self>(cx))</main> })
+        Ok(view! { <main>(tablo::widgets::<Self>(cx))</main> })
     }
 }
 
@@ -43,10 +43,12 @@ impl Page for Dashboard {
 fn public_grid(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let entered = topcoat::context::context::<tablo::PanelHandle>(cx).enter(cx);
-        view! { entered => <main>(tablo::widgets::<Dashboard>(&entered))</main> }
-            .boxed()
-            .async_into_response(cx)
-            .await
+        let page = {
+            // The view owns the entered context, so the page outlives this block.
+            let cx = entered;
+            view! { <main>(tablo::widgets::<Dashboard>(cx))</main> }.boxed()
+        };
+        page.async_into_response(cx).await
     })
 }
 
@@ -78,7 +80,7 @@ struct Authors;
 
 impl<T: Send + Sync + 'static> Widget for Count<T> {
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => <p>"count"</p> })
+        Ok(view! { <p>"count"</p> })
     }
 }
 
@@ -99,7 +101,7 @@ impl<const NAMED: bool> Page for Counts<NAMED> {
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => <main>(tablo::widgets::<Self>(cx))</main> })
+        Ok(view! { <main>(tablo::widgets::<Self>(cx))</main> })
     }
 }
 

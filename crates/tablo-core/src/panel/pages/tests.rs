@@ -10,7 +10,7 @@ use crate::Page;
 struct ReportsPage;
 impl Page for ReportsPage {
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => <h1>"Quarterly reports"</h1> })
+        Ok(view! { <h1>"Quarterly reports"</h1> })
     }
 }
 

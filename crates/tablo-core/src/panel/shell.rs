@@ -62,7 +62,6 @@ impl Panel {
         let sections = sidebar::sidebar_sections(nav_items);
 
         Ok(view! {
-            cx =>
             for (label, entries) in sections {
                 sidebar_group(
                     sidebar_group_label((label))
@@ -219,7 +218,6 @@ impl Panel {
         let toaster = Self::toaster(cx).await?;
 
         Ok(view! {
-            cx =>
             sidebar_provider(
                 attrs: attributes! { class=(outer_class) },
                 // No `sidebar_rail`: the header's `sidebar_trigger` is the one toggle.
@@ -346,7 +344,6 @@ impl Panel {
         if super::url::picking(cx) {
             let body = async_page(async move {
                 Ok(view! {
-                    cx =>
                     // `main` paints the frame; the block inside it is what the frame fits.
                     <main class="min-h-dvh bg-card text-card-foreground">
                         <div class="px-6 pt-6 pb-6" data-pick-page="">(slot)</div>

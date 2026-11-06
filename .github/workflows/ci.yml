@@ -284,10 +284,10 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/topcoat
-          key: topcoat-cli-0.11.0
+          key: topcoat-cli-6d95e1ee
       - name: Install topcoat CLI (for `topcoat fmt`)
         if: steps.cache-topcoat.outputs.cache-hit != 'true'
-        run: cargo install topcoat-cli --version 0.11.0 --locked --force
+        run: cargo install --git https://github.com/tokio-rs/topcoat --rev 6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7 topcoat-cli --locked --force
       - name: topcoat fmt (pinned CLI, via xtask)
         # The toolchain and CLI installs stay in CI: xtask runs the check half only.
         # Covers detached fmt (examples/quickstart).

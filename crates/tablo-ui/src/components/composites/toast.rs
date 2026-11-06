@@ -2,6 +2,7 @@
 
 use topcoat::{
     Result,
+    context::Cx,
     icon::icon,
     view::{Attributes, Child, StaticClass, View, attributes, class, component, view},
 };
@@ -55,7 +56,7 @@ const CLOSE: StaticClass = class!(
 /// # use tablo_ui::{icons, toast, toast_close, toast_content, toast_description, toast_icon, toast_title, toaster};
 /// # use topcoat::{context::Cx, icon::icon, view::{BoxView, ViewExt, attributes, view}};
 /// # fn created(cx: &Cx) -> BoxView<'_> {
-/// # view! { cx =>
+/// # view! {
 /// toaster(label: "Notifications",
 ///     toast(attrs: attributes! { data-type="success" },
 ///         toast_icon(icon(data: icons::CIRCLE_CHECK))
@@ -72,6 +73,7 @@ const CLOSE: StaticClass = class!(
 /// ```
 #[component]
 pub async fn toaster(
+    cx: &Cx,
     /// The region's accessible name, such as `"Notifications"`.
     #[into]
     label: String,
@@ -102,6 +104,7 @@ pub async fn toaster(
 /// Renders a toast surface.
 #[component]
 pub async fn toast(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -125,6 +128,7 @@ pub async fn toast(
 /// Renders the status icon slot.
 #[component]
 pub async fn toast_icon(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -143,6 +147,7 @@ pub async fn toast_icon(
 /// Renders the content column.
 #[component]
 pub async fn toast_content(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -156,6 +161,7 @@ pub async fn toast_content(
 /// Renders the toast title.
 #[component]
 pub async fn toast_title(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -169,6 +175,7 @@ pub async fn toast_title(
 /// Renders the toast description.
 #[component]
 pub async fn toast_description(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -186,6 +193,7 @@ pub async fn toast_description(
 /// Renders the close control: a checkbox whose checked state hides its toast.
 #[component]
 pub async fn toast_close(
+    cx: &Cx,
     /// The checkbox's accessible name, such as `"Close"`.
     #[into]
     label: String,

@@ -109,7 +109,6 @@ pub(crate) fn render_field<'a>(
         "ac-field"
     };
     Ok(view! {
-        cx =>
         ui_field(
             attrs: attributes! {
                 class=(field_class)

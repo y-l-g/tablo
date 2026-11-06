@@ -93,7 +93,6 @@ pub(crate) fn language_choices<'a>(cx: &'a Cx, csrf: &str) -> BoxView<'a> {
             let action = action.clone();
             let next = next.clone();
             view! {
-                cx =>
                 <form method="post" action=(action)>
                     (csrf)
                     <input type="hidden" name=(crate::auth::NEXT_FIELD) value=(next)>
@@ -115,7 +114,6 @@ pub(crate) fn language_choices<'a>(cx: &'a Cx, csrf: &str) -> BoxView<'a> {
         })
         .collect();
     view! {
-        cx =>
         dropdown_menu_separator()
         dropdown_menu_label((t!(cx, "tablo-shell-language")))
         for choice in choices {

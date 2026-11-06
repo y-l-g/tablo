@@ -128,7 +128,6 @@ impl Condition {
             let shown = shown(cx, &scope, &condition, initial);
             let enabled = shown.clone();
             Ok(view! {
-                cx =>
                 <fieldset
                     class="contents"
                     :disabled=$(!enabled.get())
@@ -156,7 +155,6 @@ pub(crate) fn disable<'a>(
     async_page(async move {
         let holds = shown(cx, &scope, &condition, initial);
         Ok(view! {
-            cx =>
             <fieldset class="contents" :disabled=$(holds.get())>(inner)</fieldset>
         })
     })
@@ -226,7 +224,6 @@ pub(crate) fn watch<'a>(
                 let off = condition.values.iter().any(|value| value == "false");
                 let name = key.clone();
                 view = view! {
-                    cx =>
                     <div
                         class="contents"
                         @change=$(|e: Event| if e.target.name == name {
@@ -245,7 +242,6 @@ pub(crate) fn watch<'a>(
             };
             let (set, name) = (shown.clone(), key.clone());
             view = view! {
-                cx =>
                 <div
                     class="contents"
                     @change=$(|e: Event| if e.target.name == name {
@@ -259,7 +255,6 @@ pub(crate) fn watch<'a>(
             for value in values {
                 let (set, name) = (shown.clone(), key.clone());
                 view = view! {
-                    cx =>
                     <div
                         class="contents"
                         @change=$(|e: Event| if e.target.name == name {

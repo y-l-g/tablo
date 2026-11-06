@@ -137,7 +137,6 @@ pub(super) fn render(cx: &Cx, crumbs: Vec<Crumb>) -> BoxView<'_> {
     }
     let last = crumbs.len() - 1;
     view! {
-        cx =>
         breadcrumb(
             attrs: topcoat::view::attributes! { class="max-sm:hidden" },
             breadcrumb_list(

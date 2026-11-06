@@ -41,7 +41,7 @@ impl Span {
 /// `body` spanning `span` columns of the grid holding it, or as it is without a span.
 pub(crate) fn spanned<'a>(cx: &'a Cx, span: Option<Span>, body: BoxView<'a>) -> BoxView<'a> {
     match span {
-        Some(span) => view! { cx => <div class=(span.class())>(body)</div> }.boxed(),
+        Some(span) => view! { <div class=(span.class())>(body)</div> }.boxed(),
         None => body,
     }
 }

@@ -9,7 +9,7 @@ use topcoat::{
     asset::AssetConfig,
     context::Cx,
     cookie::RouterBuilderCookieExt,
-    metadata::Metadata,
+    metadata::{Metadata, Robots},
     router::{
         Body, LayoutFn, Methods, PageFn, Path, RouteFn, RouteFuture, RouterBuilder,
         RouterBuilderDirectoryExt, error::redirect,
@@ -326,8 +326,7 @@ impl Panel {
             commit_hooks,
         });
         let prefix_path = route_path(&prefix);
-        builder = builder
-            .layer(topcoat::router::BodyLimit::max(limits.body_bytes).at(prefix_path.clone()));
+        builder = builder.layer(limits.body_cap(prefix_path.clone()));
         builder = builder
             .layer(panel_headers.expect("a policy the header codec rejects fails the mount"));
         // Registered last of the prefix's layers, so it runs first.
@@ -345,7 +344,7 @@ impl Panel {
         // Search engines skip the panel's pages, as the layout's metadata asks.
         builder = builder.layout(
             LayoutFn::new(prefix_path.clone(), layout.unwrap_or(Panel::layout_shell))
-                .with(Metadata::new().robots(|robots| robots.index(false).follow(false))),
+                .with(Metadata::new().robots(Robots::new().index(false).follow(false))),
         );
         // A failed page load shows the error page inside the shell, and a path no route serves
         // reaches the gate to fail there.

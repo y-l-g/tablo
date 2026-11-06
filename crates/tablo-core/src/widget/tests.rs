@@ -10,7 +10,7 @@ struct RecentOrdersWidget;
 
 impl Widget for RecentOrdersWidget {
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => <p>"orders"</p> })
+        Ok(view! { <p>"orders"</p> })
     }
 }
 
@@ -22,7 +22,7 @@ impl Widget for Revenue {
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => <p>"revenue"</p> })
+        Ok(view! { <p>"revenue"</p> })
     }
 }
 

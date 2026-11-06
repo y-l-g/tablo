@@ -65,7 +65,6 @@ pub(super) async fn forgot_response(
     let csrf = crate::csrf::ensure_token(cx);
     let action = forgot_url(cx);
     let form = topcoat::view::view! {
-        cx =>
         <form method="post" action=(action) class="flex flex-col gap-5">
             (crate::csrf::field(cx, &csrf))
             if let Some(alert) = alert {
@@ -122,7 +121,6 @@ pub(super) async fn reset_response(
     let action = reset_url(cx);
     let token = token.to_string();
     let form = topcoat::view::view! {
-        cx =>
         <form method="post" action=(action) class="flex flex-col gap-5">
             (crate::csrf::field(cx, &csrf))
             <input type="hidden" name=(TOKEN_FIELD) value=(token)>
@@ -155,7 +153,6 @@ pub(super) async fn invalid_link(cx: &Cx) -> topcoat::Result<Response> {
     let forgot = forgot_url(cx);
     let link = crate::navigation::runtime_link(cx, &forgot);
     let form = topcoat::view::view! {
-        cx =>
         <div class="flex flex-col gap-5">
             tablo_ui::alert(
                 variant: tablo_ui::AlertVariant::Destructive,

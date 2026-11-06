@@ -96,6 +96,12 @@ fn missing_models(
     }
 }
 
+/// A form route that carries [`MAX_LOGIN_BYTES`] in place of the panel's form cap. The cap is
+/// route context, so it binds this route alone.
+fn capped(route: RouteFn) -> RouteFn {
+    route.with(BodyLimit::max(MAX_LOGIN_BYTES))
+}
+
 /// Mount `realm`'s auth routes under its prefix: sign-in and sign-out while the panel gates, and
 /// the tenant switch when it also [serves tenants](Realm::serves_tenants), then the sign-up, tenant
 /// registration, profile, tenant settings, two-factor, password-reset and email-verification pages
@@ -108,13 +114,16 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
             builder.route(RouteFn::new(http::Method::GET, login_path, external_login))
         } else {
             builder
-                .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(login_path.clone()))
-                .route(RouteFn::new(
+                .route(capped(RouteFn::new(
                     http::Method::GET,
                     login_path.clone(),
                     login_page,
-                ))
-                .route(RouteFn::new(http::Method::POST, login_path, login_post))
+                )))
+                .route(capped(RouteFn::new(
+                    http::Method::POST,
+                    login_path,
+                    login_post,
+                )))
         };
         builder = builder.route(RouteFn::new(
             http::Method::POST,
@@ -132,28 +141,30 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
     if auth.registrar().is_some() {
         let register_path = route_path(&format!("{prefix}/register"));
         builder = builder
-            .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(register_path.clone()))
-            .route(RouteFn::new(
+            .route(capped(RouteFn::new(
                 http::Method::GET,
                 register_path.clone(),
                 register_page,
-            ))
-            .route(RouteFn::new(
+            )))
+            .route(capped(RouteFn::new(
                 http::Method::POST,
                 register_path,
                 register_post,
-            ));
+            )));
     }
     if auth.tenant_registration_page().is_some() {
         let path = route_path(&format!("{prefix}/register-tenant"));
         builder = builder
-            .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(path.clone()))
-            .route(RouteFn::new(
+            .route(capped(RouteFn::new(
                 http::Method::GET,
                 path.clone(),
                 register_tenant_page,
-            ))
-            .route(RouteFn::new(http::Method::POST, path, register_tenant_post));
+            )))
+            .route(capped(RouteFn::new(
+                http::Method::POST,
+                path,
+                register_tenant_post,
+            )));
     }
     if auth.profile_editor().is_some() {
         // The profile page renders in the panel's shell, under the panel's own form cap.
@@ -182,13 +193,16 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
         // The settings page renders in the panel's shell, under the panel's own form cap.
         let settings = route_path(&format!("{prefix}/two-factor"));
         builder = builder
-            .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(challenge.clone()))
-            .route(RouteFn::new(
+            .route(capped(RouteFn::new(
                 http::Method::GET,
                 challenge.clone(),
                 challenge_page,
-            ))
-            .route(RouteFn::new(http::Method::POST, challenge, challenge_post))
+            )))
+            .route(capped(RouteFn::new(
+                http::Method::POST,
+                challenge,
+                challenge_post,
+            )))
             .page(PageFn::new(
                 http::Method::GET,
                 settings.clone(),
@@ -207,17 +221,23 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
         ] {
             let path = route_path(&format!("{prefix}/{path}"));
             builder = builder
-                .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(path.clone()))
-                .route(RouteFn::new(http::Method::GET, path.clone(), page))
-                .route(RouteFn::new(http::Method::POST, path, post));
+                .route(capped(RouteFn::new(http::Method::GET, path.clone(), page)))
+                .route(capped(RouteFn::new(http::Method::POST, path, post)));
         }
     }
     if auth.verification().is_some() {
         let notice = route_path(&format!("{prefix}/verify-email"));
         builder = builder
-            .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(notice.clone()))
-            .route(RouteFn::new(http::Method::GET, notice.clone(), notice_page))
-            .route(RouteFn::new(http::Method::POST, notice, notice_post))
+            .route(capped(RouteFn::new(
+                http::Method::GET,
+                notice.clone(),
+                notice_page,
+            )))
+            .route(capped(RouteFn::new(
+                http::Method::POST,
+                notice,
+                notice_post,
+            )))
             .route(RouteFn::new(
                 http::Method::GET,
                 route_path(&format!("{prefix}/verify-email/confirm")),
@@ -237,9 +257,8 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
         ] {
             let path = route_path(&format!("{prefix}/{path}"));
             builder = builder
-                .layer(BodyLimit::max(MAX_LOGIN_BYTES).at(path.clone()))
-                .route(RouteFn::new(http::Method::GET, path.clone(), page))
-                .route(RouteFn::new(http::Method::POST, path, post));
+                .route(capped(RouteFn::new(http::Method::GET, path.clone(), page)))
+                .route(capped(RouteFn::new(http::Method::POST, path, post)));
         }
     }
     builder

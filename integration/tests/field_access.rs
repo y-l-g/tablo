@@ -185,7 +185,7 @@ impl Page for Dashboard {
     }
 
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
-        Ok(view! { cx => <main>(tablo::widgets::<Self>(cx))</main> })
+        Ok(view! { <main>(tablo::widgets::<Self>(cx))</main> })
     }
 }
 
@@ -207,7 +207,7 @@ impl Page for Broken {
     }
 
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
-        Ok(view! { cx => <main>(tablo::widgets::<Self>(cx))</main> })
+        Ok(view! { <main>(tablo::widgets::<Self>(cx))</main> })
     }
 }
 

@@ -110,7 +110,6 @@ impl Frame<'_> {
         let clear = live_link(cx, cleared, signals);
         Some(
             view! {
-                cx =>
                 <div
                     class="border-b border-border bg-destructive/10 px-4 py-2 text-sm text-destructive"
                     role="alert"
@@ -157,12 +156,11 @@ impl Frame<'_> {
         let deferred = self.deferred_filters;
         // The toolbar form's `change` handler would rerun the list on each deferred control.
         let holds = if deferred {
-            attributes! { cx => @change=$(|e: Event| e.stop_propagation()) }
+            attributes! { @change=$(|e: Event| e.stop_propagation()) }
         } else {
-            attributes! { cx => }
+            attributes! {}
         };
         let trigger = view! {
-            cx =>
             dropdown_menu_trigger(
                 target: &target,
                 attrs: attributes! {
@@ -177,7 +175,6 @@ impl Frame<'_> {
         }
         .boxed();
         let panel = view! {
-            cx =>
             <div
                 id=(menu)
                 popover="auto"

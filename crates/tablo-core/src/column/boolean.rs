@@ -88,7 +88,6 @@ pub(super) fn boolean_cell(cx: &Cx, value: bool, text: String) -> BoxView<'_> {
         (tablo_ui::icons::MINUS, "size-4 text-muted-foreground/60")
     };
     view! {
-        cx =>
         <span class="inline-flex items-center" data-boolean=(value.to_string())>
             icon(data: data, attrs: attributes! { class=(class) aria-hidden="true" })
             <span class="sr-only">(text)</span>

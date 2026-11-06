@@ -1,6 +1,9 @@
 //! `Limits` — the bounds a panel holds each request to.
 
-use topcoat::context::Cx;
+use topcoat::{
+    context::Cx,
+    router::{Body, BodyLimit, IntoPath, LayerFn, LayerFuture, Next},
+};
 
 /// The bounds a panel holds each request to, which
 /// [`Panel::limits`](crate::Panel::limits) sets. Each one keeps a request to a known size: a
@@ -68,6 +71,18 @@ impl Limits {
         self.body_bytes = bytes.max(1);
         self
     }
+}
+
+impl Limits {
+    /// A layer that caps the bodies of the routes under `prefix` at the body limit. The cap is
+    /// the layer's context, so a route's own cap, such as an auth form's, shadows it.
+    pub(crate) fn body_cap(&self, prefix: impl IntoPath) -> LayerFn {
+        LayerFn::new(Some(prefix), pass_through).with(BodyLimit::max(self.body_bytes))
+    }
+}
+
+fn pass_through<'a>(cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
+    next.run(cx, body)
 }
 
 /// The limits of the request's panel, which entering it puts on the context; the defaults

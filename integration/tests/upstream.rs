@@ -11,12 +11,12 @@ struct Note {
     body: String,
 }
 
-/// Toasty does not refuse an update that assigns nothing: its connection worker panics, and the
-/// caller panics on the dropped reply. `RecordForm::into_update` answers `None` when a submission
-/// names no field, so no such update is sent.
+/// Toasty does not refuse an update that assigns nothing: its statement verifier asserts on it
+/// inside the connection worker, which drops the reply, so the caller gets an error rather than
+/// a result. `RecordForm::into_update` answers `None` when a submission names no field, so no
+/// such update is sent.
 #[tokio::test]
-#[should_panic(expected = "RecvError")]
-async fn toasty_panics_on_an_update_with_no_assignment() {
+async fn toasty_errors_on_an_update_with_no_assignment() {
     let mut db = test_db(toasty::models!(Note)).await;
     let mut note = toasty::create!(Note {
         body: "kept".to_string(),
@@ -24,7 +24,10 @@ async fn toasty_panics_on_an_update_with_no_assignment() {
     .exec(&mut db)
     .await
     .expect("seed a note");
-    let _ = note.update().exec(&mut db).await;
+    assert!(
+        note.update().exec(&mut db).await.is_err(),
+        "Toasty refuses no empty update; RecordForm::into_update must keep sending none"
+    );
 }
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns)]

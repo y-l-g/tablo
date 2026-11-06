@@ -314,7 +314,6 @@ impl Field {
             // A `<textarea>` takes its initial value from content, not a `value` attribute.
             let value_owned = value.unwrap_or("").to_string();
             view! {
-                cx =>
                 ui_textarea(
                     attrs: attributes! {
                         id=(id.clone())
@@ -376,7 +375,6 @@ impl Field {
             };
             let list = list_id.clone();
             let input = view! {
-                cx =>
                 ui_input(
                     attrs: attributes! {
                         id=(id.clone())
@@ -442,7 +440,6 @@ fn affixed<'a>(
         input
     } else {
         view! {
-            cx =>
             <div class="flex items-stretch">
                 if let Some((text, id)) = prefix {
                     <span id=(id) class=(format!("{AFFIX} rounded-l-lg border-r-0"))>
@@ -463,7 +460,6 @@ fn affixed<'a>(
         return input;
     };
     view! {
-        cx =>
         (input)
         <datalist id=(id)>
             for value in values {
@@ -478,7 +474,6 @@ fn affixed<'a>(
 /// value: `assets/password.js` toggles it.
 pub(crate) fn password_reveal<'a>(cx: &'a Cx, id: String, input: BoxView<'a>) -> BoxView<'a> {
     view! {
-        cx =>
         <div class="relative">
             (input)
             <button

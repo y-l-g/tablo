@@ -75,7 +75,7 @@ impl<C> Group<C> {
 }
 
 fn group_chrome<'a>(cx: &'a Cx, span: Option<Span>, body: BoxView<'a>) -> BoxView<'a> {
-    spanned(cx, span, view! { cx => ui_field_group((body)) }.boxed())
+    spanned(cx, span, view! { ui_field_group((body)) }.boxed())
 }
 
 impl Group<Schema> {
@@ -177,10 +177,7 @@ fn grid_chrome<'a>(cx: &'a Cx, cols: u8, span: Option<Span>, body: BoxView<'a>) 
         _ => "grid grid-cols-1 gap-4 [--tablo-cols:1] @4xl:grid-cols-12 @4xl:[--tablo-cols:12]",
     };
     // The grid measures the container around it: an element cannot query its own width.
-    let grid = view! {
-        cx =>
-        <div class="@container"><div class=(class)>(body)</div></div>
-    }
+    let grid = view! { <div class="@container"><div class=(class)>(body)</div></div> }
     .boxed();
     spanned(cx, span, grid)
 }
@@ -457,7 +454,6 @@ pub(crate) fn tab_view<'a>(
     let selected = if active { "true" } else { "false" };
     let tabindex = if active { "0" } else { "-1" };
     let trigger = view! {
-        cx =>
         <button
             type="button"
             role="tab"
@@ -489,7 +485,6 @@ pub(crate) fn tab_view<'a>(
     }
     .boxed();
     let panel = view! {
-        cx =>
         <div
             role="tabpanel"
             id=(panel_id)
@@ -511,7 +506,6 @@ fn tabs_chrome<'a>(cx: &'a Cx, tabs: Vec<TabView<'a>>) -> BoxView<'a> {
     let (triggers, panels): (Vec<_>, Vec<_>) =
         tabs.into_iter().map(|tab| (tab.trigger, tab.panel)).unzip();
     view! {
-        cx =>
         <div data-tabs="" class="flex flex-col gap-4">
             <div role="tablist" class=(TAB_LIST)>
                 for trigger in triggers {

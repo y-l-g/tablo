@@ -194,7 +194,6 @@ pub fn chart(cx: &Cx, chart: Chart) -> BoxView<'_> {
     // The card is the data table's containing block, and clips it: an `sr-only` table keeps its
     // columns' minimum width, so taking the page as its containing block, it widens the page.
     view! {
-        cx =>
         <section
             data-chart=(kind.name())
             class="relative flex flex-col gap-4 overflow-hidden rounded-xl border border-border bg-card p-5 text-card-foreground shadow-xs"
@@ -318,7 +317,6 @@ fn plot<'a>(
     let plot = PLOT.to_string();
     let view_box = format!("0 0 {PLOT} {PLOT}");
     view! {
-        cx =>
         <div
             class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2"
             aria-hidden="true"
@@ -385,7 +383,6 @@ fn line<'a>(cx: &'a Cx, axis: &Axis, width: f64, drawn: &Drawn) -> BoxView<'a> {
     });
     let class = drawn.color.text_class();
     view! {
-        cx =>
         <g class=(class)>
             for points in runs {
                 <polyline
@@ -454,7 +451,6 @@ fn bars<'a>(
         .collect();
     let class = drawn.color.text_class();
     view! {
-        cx =>
         <g class=(class)>
             for [x, y, w, h] in rects {
                 <rect x=(x) y=(y) width=(w) height=(h) fill="currentColor" />
@@ -484,7 +480,6 @@ fn data_table<'a>(
         })
         .collect();
     view! {
-        cx =>
         <table class="sr-only" data-chart-data="">
             if let Some(heading) = heading {
                 <caption>(heading)</caption>

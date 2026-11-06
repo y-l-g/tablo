@@ -56,13 +56,13 @@ mod sealed {
 
 impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<T> {
     fn loaded(&self) -> Option<Option<&T>> {
-        (!self.is_unloaded()).then(|| Some(self.get()))
+        self.try_get().map(Some)
     }
 }
 
 impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
     fn loaded(&self) -> Option<Option<&T>> {
-        (!self.is_unloaded()).then(|| self.get().as_ref())
+        self.try_get().map(Option::as_ref)
     }
 }
 
@@ -260,10 +260,8 @@ where
             relation: Declared::of(&relation, ColumnWidth::Grow)
                 .scoped::<S>(restrict_many::<M, S>(relation.read)),
             project: Arc::new(move |cx, row| {
-                let records = read(row);
-                (!records.is_unloaded()).then(|| {
+                read(row).try_get().map(|records| {
                     records
-                        .get()
                         .iter()
                         .filter(|record| shows::<S>(cx, record))
                         .map(|record| S::label(cx, record))
@@ -394,8 +392,9 @@ fn count<M: 'static, T: 'static>(
     shown: fn(&Cx, &T) -> bool,
 ) -> Loaded<M, usize> {
     Arc::new(move |cx, row| {
-        let records = read(row);
-        (!records.is_unloaded()).then(|| records.get().iter().filter(|r| shown(cx, r)).count())
+        read(row)
+            .try_get()
+            .map(|records| records.iter().filter(|r| shown(cx, r)).count())
     })
 }
 

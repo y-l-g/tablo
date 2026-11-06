@@ -258,13 +258,11 @@ pub(crate) fn table_error_view<'a>(
     let title = crate::t!(cx, "tablo-list-failed", label = plural_label);
     let retry_url = retry_url_for_error(state, error, path);
     view! {
-        cx =>
         tablo_ui::error_state(
             title: title,
             detail: crate::t!(cx, "tablo-list-failed-description"),
             action: Some(
                 view! {
-                    cx =>
                     <a (crate::navigation::runtime_link(cx, &retry_url))>
                         (crate::t!(cx, "tablo-list-retry"))
                     </a>
@@ -295,7 +293,6 @@ fn list_header<'a>(
     let outline =
         tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
     view! {
-        cx =>
         tablo_ui::page_header(
             tablo_ui::page_title((title))
             tablo_ui::page_actions(
@@ -442,7 +439,6 @@ fn list_page<'a>(cx: &'a Cx, page: ListPage<'a>) -> BoxView<'a> {
         rows,
     } = page;
     view! {
-        cx =>
         tablo_ui::page(
             (header)
             tablo_ui::page_content(

@@ -78,7 +78,6 @@ impl Frame<'_> {
                     "cursor-pointer hover:bg-foreground/5",
                     Some(aria),
                     view! {
-                        cx =>
                         <a
                             class="inline-flex items-center gap-1 hover:text-foreground"
                             aria-label=(aria_label)
@@ -94,11 +93,10 @@ impl Frame<'_> {
                     .boxed(),
                 )
                 } else {
-                    ("", None, view! { cx => (label.clone()) }.boxed())
+                    ("", None, view! { (label.clone()) }.boxed())
                 };
             heads.push(
                 view! {
-                    cx =>
                     table_head(
                         attrs: attributes! {
                             class=([head_class, fit, align]
@@ -118,12 +116,11 @@ impl Frame<'_> {
         }
         let select_all = with_bulk.then(|| match &links {
             Some((signals, _, keys)) => select_all(cx, signals, keys),
-            None => attributes! { cx => type="checkbox" disabled="" },
+            None => attributes! { type="checkbox" disabled="" },
         });
         if with_actions {
             heads.push(
                 view! {
-                    cx =>
                     table_head(
                         attrs: attributes! { class=(CHROME_CELL_CLASS) },
                         <span class="sr-only">(t!(cx, "tablo-list-actions"))</span>
@@ -133,7 +130,6 @@ impl Frame<'_> {
             );
         }
         Ok(view! {
-            cx =>
             table_header(
                 table_row(
                     if let Some(attrs) = select_all {
@@ -171,7 +167,6 @@ fn select_all(cx: &Cx, signals: &TableSignals, keys: &[String]) -> Attributes {
     // methods below. A token holds no `|`, which the codec percent-encodes.
     let joined = tokens.join("|");
     attributes! {
-        cx =>
         type="checkbox"
         :checked=$({
             let wire = bulk.get();

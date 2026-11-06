@@ -206,7 +206,6 @@ impl RepeaterControl {
         let error_id = format!("{}-error", source.id(&key));
         let described_by = error.is_some().then(|| error_id.clone());
         Ok(view! {
-            cx =>
             field_set(
                 attrs: attributes! {
                     class="ac-field gap-3"
@@ -275,10 +274,9 @@ impl RepeaterControl {
         }
         let controls = schema.render(cx, rendered).await?;
         let row = row.to_string();
-        let action = |id: &'static str, data: Attributes, disabled: bool| {
+        let action = move |id: &'static str, data: Attributes, disabled: bool| {
             let label = crate::t!(cx, id);
             view! {
-                cx =>
                 button(
                     variant: ButtonVariant::Ghost,
                     size: ButtonSize::Sm,
@@ -288,7 +286,6 @@ impl RepeaterControl {
             }
         };
         Ok(view! {
-            cx =>
             <li
                 class="flex flex-col gap-4 rounded-lg border border-border p-4"
                 data-repeater-row=(row)
@@ -297,17 +294,17 @@ impl RepeaterControl {
                 <div class="flex flex-wrap justify-end gap-2">
                     (action(
                         "tablo-repeater-up",
-                        attributes! { cx => data-repeater-up="" },
+                        attributes! { data-repeater-up="" },
                         false,
                     ))
                     (action(
                         "tablo-repeater-down",
-                        attributes! { cx => data-repeater-down="" },
+                        attributes! { data-repeater-down="" },
                         false,
                     ))
                     (action(
                         "tablo-repeater-remove",
-                        attributes! { cx => data-repeater-remove="" },
+                        attributes! { data-repeater-remove="" },
                         !removable,
                     ))
                 </div>

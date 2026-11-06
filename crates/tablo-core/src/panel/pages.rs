@@ -47,7 +47,6 @@ pub(super) fn declared_body(cx: &Cx, page: TypeId) -> BoxView<'_> {
     let filters = filter_bar(cx, page, mounted);
     let grid = super::widgets::page_grid(cx, mounted);
     view! {
-        cx =>
         tablo_ui::page(
             tablo_ui::page_header(
                 tablo_ui::page_title((title))
@@ -128,7 +127,6 @@ fn header_buttons<'a>(cx: &'a Cx, page: TypeId, mounted: &MountedPage) -> BoxVie
 ///
 ///     async fn render(cx: &Cx) -> Result<impl View> {
 ///         Ok(view! {
-///             cx =>
 ///             tablo_ui::page(
 ///                 tablo_ui::page_header(
 ///                     tablo_ui::page_title("Maintenance")

@@ -116,7 +116,6 @@ impl Field {
                 if buttons {
                     let kind = if multiple { "checkbox" } else { "radio" };
                     return view! {
-                        cx =>
                         <label class=(BUTTON) data-choice="">
                             <input
                                 type=(kind)
@@ -133,7 +132,6 @@ impl Field {
                     .boxed();
                 }
                 let attrs = attributes! {
-                    cx =>
                     id=(id)
                     name=(name)
                     value=(value)
@@ -141,7 +139,6 @@ impl Field {
                     required=(radio_required)
                 };
                 view! {
-                    cx =>
                     <label class=(ROW) data-choice="">
                         if multiple {
                             ui_checkbox(attrs: attrs)
@@ -175,7 +172,6 @@ impl Field {
             "flex flex-col"
         };
         Ok(view! {
-            cx =>
             field_set(
                 attrs: attributes! {
                     class=(if error.is_some() {

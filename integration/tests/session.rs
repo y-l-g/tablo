@@ -24,7 +24,7 @@ struct Home;
 
 impl Page for Home {
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => "Dashboard" })
+        Ok(view! { "Dashboard" })
     }
 }
 

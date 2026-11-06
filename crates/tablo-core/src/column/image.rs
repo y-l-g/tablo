@@ -96,7 +96,6 @@ where
         };
         let size = self.size.to_string();
         view! {
-            cx =>
             <img
                 src=(src)
                 alt=""

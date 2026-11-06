@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:1bb770c77662b17b71a1a2c574917b177dcaab9e5d73dae274d59405e9f02ae4 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:d68f9e91742366229dde0fb512b0eea9aa71b05b713dc4dbd9ef2ad7b78dea1f — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     view::{Attributes, Child, View, class, component, view},
 };
 
@@ -33,6 +34,7 @@ use topcoat::{
 /// ```
 #[component]
 pub async fn table(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -56,6 +58,7 @@ pub async fn table(
 /// The heading section of a [`table`], holding the row of column headers.
 #[component]
 pub async fn table_header(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -72,6 +75,7 @@ pub async fn table_header(
 /// The body of a table, containing data rows.
 #[component]
 pub async fn table_body(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -88,6 +92,7 @@ pub async fn table_body(
 /// The closing section of a [`table`], for totals and other summaries.
 #[component]
 pub async fn table_footer(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -107,6 +112,7 @@ pub async fn table_footer(
 /// A table row with a separator and hover styling.
 #[component]
 pub async fn table_row(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -126,6 +132,7 @@ pub async fn table_row(
 /// A column header in a [`table_header`]'s row.
 #[component]
 pub async fn table_head(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -146,6 +153,7 @@ pub async fn table_head(
 /// One cell of a [`table_row`].
 #[component]
 pub async fn table_cell(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -165,6 +173,7 @@ pub async fn table_cell(
 /// A caption describing the table.
 #[component]
 pub async fn table_caption(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {

@@ -55,7 +55,6 @@ impl Frame<'_> {
         let clear_link: Option<BoxView<'a>> = clear_url.map(|url| {
             let attrs = live_link(cx, url, signals);
             view! {
-                cx =>
                 <a
                     class=(EMPTY_LINK_CLASS)
                     data-empty-link=(dom::empty::CLEAR_LINK)
@@ -69,7 +68,6 @@ impl Frame<'_> {
         let first_page_link: Option<BoxView<'a>> = first_page_url.map(|url| {
             let attrs = live_link(cx, url, signals);
             view! {
-                cx =>
                 <a
                     class=(EMPTY_LINK_CLASS)
                     data-empty-link=(dom::empty::FIRST_PAGE_LINK)
@@ -83,7 +81,6 @@ impl Frame<'_> {
         let action: Option<Child<'a>> =
             (clear_link.is_some() || first_page_link.is_some()).then(|| {
                 view! {
-                    cx =>
                     if let Some(link) = clear_link {
                         (link)
                     }
@@ -95,7 +92,6 @@ impl Frame<'_> {
                 .into()
             });
         Ok(view! {
-            cx =>
             table_body(
                 table_row(
                     table_cell(

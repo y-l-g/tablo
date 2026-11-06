@@ -40,7 +40,6 @@ impl Frame<'_> {
         let search_pulse = self.search;
         let filter_pulse = self.filter_menu;
         let content = view! {
-            cx =>
             // The toolbar's one row: the bulk actions stay hidden until a row is selected.
             if search_pulse || filter_pulse {
                 <div class=(BAR_CLASS) aria-hidden="true">

@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:e44da5084ca4425a1e9b094ac698111777d19da637b1bdb016153e58e8741a51 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:472dd4dec80108695926b082212a25c083594c5c849150d7fb3093fd6b1c3cdf — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     view::{Attributes, Child, StaticClass, View, class, component, view},
 };
 
@@ -50,6 +51,7 @@ const AVATAR: StaticClass = class!("relative flex shrink-0 overflow-hidden round
 /// ```
 #[component]
 pub async fn avatar(
+    cx: &Cx,
     /// The dimensions of the circle.
     #[default]
     size: AvatarSize,
@@ -73,6 +75,7 @@ pub async fn avatar(
 /// ratio.
 #[component]
 pub async fn avatar_image(
+    cx: &Cx,
     /// Alternative text for the image.
     ///
     /// Defaults to empty text, suitable when an adjacent name already identifies the
@@ -103,6 +106,7 @@ pub async fn avatar_image(
 /// Pass initials or another small view as children.
 #[component]
 pub async fn avatar_fallback(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {

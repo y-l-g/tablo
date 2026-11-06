@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:c96f34a75f49d24388eb854b864033954060896ae008e76a229ab306299185fd — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:22c01bc78089bfc7e22406af86cfd1e9ba6074f60a169b331dfe3e3882e93912 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     view::{Attributes, StaticClass, View, class, component, view},
 };
 
@@ -27,6 +28,6 @@ const INPUT: StaticClass = class!(
 /// }
 /// ```
 #[component]
-pub async fn input(#[default] mut attrs: Attributes) -> Result<impl View> {
+pub async fn input(cx: &Cx, #[default] mut attrs: Attributes) -> Result<impl View> {
     Ok(view! { <input class=(class!(INPUT, attrs.remove("class"))) (attrs)> })
 }

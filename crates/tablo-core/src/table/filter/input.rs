@@ -108,7 +108,6 @@ impl FilterInput {
         } = self;
         let aria = label.clone();
         let control = view! {
-            cx =>
             tablo_ui::select(
                 attrs: attributes! { name=(param) data-filter-name=(name) aria-label=(aria) },
                 for option in option_views {
@@ -142,7 +141,6 @@ impl FilterInput {
                 let checked = self.value.holds(None, value);
                 let (name, value, text) = (self.param.clone(), value.clone(), text.clone());
                 view! {
-                    cx =>
                     <label class=(CHECKLIST_OPTION_CLASS)>
                         tablo_ui::checkbox(
                             attrs: attributes! { name=(name) value=(value) checked=(checked) }
@@ -165,7 +163,6 @@ impl FilterInput {
             .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
             .collect();
         view! {
-            cx =>
             <div class=(FILTER_LABEL_CLASS) data-filter-name=(name)>
                 <span id=(label_id.clone())>(label)</span>
                 <button
@@ -214,7 +211,6 @@ impl FilterInput {
 /// `control` inside the label element the filter menu lays out.
 fn labelled<'a>(cx: &'a Cx, label: String, control: BoxView<'a>) -> BoxView<'a> {
     view! {
-        cx =>
         <label class=(FILTER_LABEL_CLASS)>
             (label)
             (control)

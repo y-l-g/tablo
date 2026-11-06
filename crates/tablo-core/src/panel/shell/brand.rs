@@ -140,7 +140,6 @@ impl Panel {
                 };
                 let dark_class = format!("{logo_class} hidden dark:block");
                 view! {
-                    cx =>
                     <img
                         src=(light)
                         alt=(alt.clone())
@@ -162,10 +161,7 @@ impl Panel {
             }
             None => {
                 let initial = name.chars().next().map(String::from).unwrap_or_default();
-                view! {
-                    cx =>
-                    <span aria-hidden="true" class=(initial_class)>(initial)</span>
-                }
+                view! { <span aria-hidden="true" class=(initial_class)>(initial)</span> }
                 .boxed()
             }
         }
@@ -176,7 +172,6 @@ impl Panel {
         let (name, logo) = Self::current_brand(cx);
         let mark = Self::brand_mark(cx, &name, logo, BrandSize::Sidebar);
         Ok(view! {
-            cx =>
             <div class="flex min-w-0 items-center gap-2 font-semibold text-foreground">
                 (mark)
                 <span class="truncate md:group-data-[collapsible=icon]/sidebar:hidden">
@@ -192,7 +187,6 @@ impl Panel {
         let (name, logo) = Self::current_brand(cx);
         let mark = Self::brand_mark(cx, &name, logo, BrandSize::Page);
         view! {
-            cx =>
             <div class="flex flex-col items-center gap-3 text-center" data-brand="">
                 (mark)
                 <span class="text-lg font-semibold tracking-tight text-foreground">

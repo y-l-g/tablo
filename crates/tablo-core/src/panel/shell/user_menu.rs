@@ -72,7 +72,6 @@ impl Panel {
                 let data = item.icon.clone();
                 Some(
                     view! {
-                        cx =>
                         <a (link) class=(crate::navigation::MENU_LINK_CLASS)>
                             if let Some(data) = data {
                                 icon(data: data)
@@ -92,7 +91,6 @@ impl Panel {
         let menu_name = name.clone();
         let menu_subtitle = subtitle.clone();
         view! {
-            cx =>
             sidebar_menu(
                 sidebar_menu_item(
                     dropdown_menu(
@@ -181,7 +179,6 @@ impl Panel {
             SidebarMenuButtonSize::Md,
         );
         view! {
-            cx =>
             sidebar_menu(
                 sidebar_menu_item(
                     dropdown_menu(
@@ -227,7 +224,6 @@ impl Panel {
             offered.then(|| {
                 let link = crate::navigation::runtime_link(cx, &url(cx));
                 view! {
-                    cx =>
                     <a
                         (link)
                         class=(crate::navigation::MENU_LINK_CLASS)
@@ -275,7 +271,6 @@ impl Panel {
                 let action = action.clone();
                 let csrf = crate::csrf::field(cx, csrf);
                 view! {
-                    cx =>
                     <form method="post" action=(action)>
                         (csrf)
                         <input
@@ -300,7 +295,6 @@ impl Panel {
             SidebarMenuButtonSize::Md,
         );
         view! {
-            cx =>
             <div
                 class="px-2 pt-2 md:group-data-[collapsible=icon]/sidebar:hidden"
                 data-tenant-switcher=""
@@ -364,7 +358,6 @@ fn theme_choices(cx: &Cx) -> BoxView<'_> {
     .map(|(choice, label, data)| theme_item(cx, choice, theme == choice, label, data))
     .collect();
     view! {
-        cx =>
         <div role="radiogroup" aria-label=(t!(cx, "tablo-shell-theme"))>
             for item in items {
                 (item)
@@ -383,7 +376,6 @@ fn theme_item<'a>(
     data: IconData,
 ) -> BoxView<'a> {
     view! {
-        cx =>
         dropdown_menu_item(
             attrs: attributes! {
                 role="radio"

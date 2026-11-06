@@ -60,7 +60,6 @@ pub trait Page: Sized + Send + Sync + 'static {
     /// impl Page for ReportsPage {
     ///     async fn render(cx: &Cx) -> Result<impl View> {
     ///         Ok(view! {
-    ///             cx =>
     ///             tablo_ui::page(
     ///                 tablo_ui::page_header(tablo_ui::page_title("Reports"))
     ///                 tablo_ui::page_content((tablo_core::widgets::<Self>(cx)) "…")
@@ -228,7 +227,7 @@ impl PageDef {
     ///     }
     ///
     ///     async fn render(cx: &Cx) -> Result<impl View> {
-    ///         Ok(view! { cx => tablo_ui::page(tablo_ui::page_title("Billing")) })
+    ///         Ok(view! { tablo_ui::page(tablo_ui::page_title("Billing")) })
     ///     }
     /// }
     /// ```

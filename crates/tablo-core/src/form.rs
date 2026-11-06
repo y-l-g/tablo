@@ -119,10 +119,9 @@ pub fn write_links<T>(records: &toasty::Deferred<Vec<T>>) -> Option<FormValue>
 where
     T: Model + toasty::stmt::IntoExpr<T>,
 {
-    (!records.is_unloaded()).then(|| {
+    records.try_get().map(|records| {
         FormValue::List(
             records
-                .get()
                 .iter()
                 .map(crate::toasty_compat::pk::pk_text)
                 .collect(),

@@ -75,7 +75,6 @@ pub fn media_file_view<'a>(cx: &'a Cx, asset: &MediaAsset) -> BoxView<'a> {
         let src = tablo::url::file(cx, &asset.path);
         let alt = asset.filename.clone();
         view! {
-            cx =>
             <img
                 src=(src)
                 alt=(alt)
@@ -88,7 +87,6 @@ pub fn media_file_view<'a>(cx: &'a Cx, asset: &MediaAsset) -> BoxView<'a> {
         let href = tablo::url::file(cx, &asset.path);
         let name = asset.filename.clone();
         view! {
-            cx =>
             <a
                 href=(href)
                 data-media-link=""
@@ -122,7 +120,6 @@ impl Page for MediaLibraryPage {
         let csrf_token = csrf::ensure_token(cx);
 
         Ok(view! {
-            cx =>
             tablo::ui::page(
                 tablo::ui::page_header(
                     tablo::ui::page_title("Media library")

@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    context::Cx,
     view::{Attributes, Child, StaticClass, View, class, component, view},
 };
 
@@ -26,7 +27,7 @@ const PAGE_CONTENT: StaticClass = class!("flex flex-col gap-6");
 /// # use tablo_ui::{page, page_actions, page_content, page_description, page_header, page_title};
 /// # use topcoat::{context::Cx, view::{BoxView, ViewExt, view}};
 /// # fn users<'a>(cx: &'a Cx, create_button: BoxView<'a>, table_view: BoxView<'a>) -> BoxView<'a> {
-/// # view! { cx =>
+/// # view! {
 /// page(
 ///     page_header(
 ///         page_title("Users")
@@ -41,6 +42,7 @@ const PAGE_CONTENT: StaticClass = class!("flex flex-col gap-6");
 /// ```
 #[component]
 pub async fn page(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -51,6 +53,7 @@ pub async fn page(
 /// under it, and optional [`page_actions`] at the end of the title's line.
 #[component]
 pub async fn page_header(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -61,6 +64,7 @@ pub async fn page_header(
 
 #[component]
 pub async fn page_title(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -77,6 +81,7 @@ pub async fn page_title(
 
 #[component]
 pub async fn page_description(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -95,6 +100,7 @@ pub async fn page_description(
 /// line in a [`page_header`].
 #[component]
 pub async fn page_actions(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -105,6 +111,7 @@ pub async fn page_actions(
 
 #[component]
 pub async fn page_content(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {

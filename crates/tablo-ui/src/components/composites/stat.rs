@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    context::Cx,
     // Renamed: the tile's `icon` prop takes the name.
     icon::{IconData, icon as icon_view},
     view::{Attributes, StaticClass, View, class, component, view},
@@ -37,7 +38,6 @@ const CHART_PAD: f64 = 2.0;
 /// # use topcoat::{context::Cx, view::{BoxView, ViewExt, view}};
 /// # fn stats(cx: &Cx) -> BoxView<'_> {
 /// view! {
-///     cx =>
 ///     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 ///         stat(
 ///             label: "Posts",
@@ -61,6 +61,7 @@ const CHART_PAD: f64 = 2.0;
 /// ```
 #[component]
 pub async fn stat(
+    cx: &Cx,
     /// What the value counts, e.g. `"Posts"`.
     #[into]
     label: String,

@@ -39,7 +39,6 @@ pub(super) async fn render<'a>(cx: &'a Cx, page: AuthPage<'a>) -> topcoat::Resul
     let brand = host.page_brand(cx);
     let heading = title.clone();
     let body = view! {
-        cx =>
         <main
             class="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6"
         >
@@ -85,7 +84,6 @@ pub(super) fn switch_link<'a>(
     let link = crate::navigation::runtime_link(cx, href);
     let (prompt, label) = (crate::t!(cx, prompt), crate::t!(cx, label));
     view! {
-        cx =>
         (prompt)
         " "
         <a

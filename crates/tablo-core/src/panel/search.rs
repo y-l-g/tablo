@@ -152,7 +152,6 @@ async fn run(cx: &Cx, term: &str, limit: usize) -> Result<Vec<Group>> {
 /// The end of the topbar: the search box, then the notification bell.
 pub(super) fn topbar_end(cx: &Cx) -> BoxView<'_> {
     view! {
-        cx =>
         <div class="ml-auto flex items-center gap-2">
             (topbar_search(cx))
             (crate::notification::topbar_bell(cx))
@@ -179,7 +178,6 @@ fn topbar_search(cx: &Cx) -> BoxView<'_> {
         FORM_ID.to_string(),
     );
     view! {
-        cx =>
         <div class="group/search relative w-40 sm:w-64" data-global-search="">
             // A pause in typing submits the form, which writes the term to the signal; Enter
             // submits it natively instead, which skips the handler and opens the results page.
@@ -283,7 +281,6 @@ async fn render_results(cx: &Cx, prefix: String, term: String) -> Result<BoxView
     let listed = groups.is_some();
     let results = groups_view(cx, groups.unwrap_or_default());
     Ok(view! {
-        cx =>
         // Shown while focus is in the box: a click inside it focuses the panel, which keeps it
         // open until the link it hit navigates.
         <div
@@ -322,7 +319,6 @@ pub(crate) fn search_page(cx: &Cx, _body: Body) -> BoxView<'_> {
         let results = groups_view(cx, groups);
         let path = topcoat::router::request::uri(cx).path().to_string();
         Ok(view! {
-            cx =>
             page(
                 page_header(page_title((t!(cx, "tablo-search"))))
                 <form
@@ -372,7 +368,6 @@ fn groups_view(cx: &Cx, groups: Vec<Group>) -> BoxView<'_> {
                 .map(|hit| hit_view(cx, hit))
                 .collect();
             view! {
-                cx =>
                 <section class="py-1" data-search-group=(group.label.clone())>
                     <h2 class="px-2 py-1.5 text-xs font-medium text-muted-foreground">
                         (group.label)
@@ -386,7 +381,6 @@ fn groups_view(cx: &Cx, groups: Vec<Group>) -> BoxView<'_> {
         })
         .collect();
     view! {
-        cx =>
         for section in sections {
             (section)
         }
@@ -398,7 +392,6 @@ fn groups_view(cx: &Cx, groups: Vec<Group>) -> BoxView<'_> {
 fn hit_view(cx: &Cx, hit: Hit) -> BoxView<'_> {
     let link = runtime_link(cx, &hit.url);
     view! {
-        cx =>
         <a
             (link)
             class="flex flex-col gap-0.5 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-foreground/5 focus-visible:bg-foreground/5"

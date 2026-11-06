@@ -59,7 +59,7 @@ impl Column<Task> for Highlighted {
 
     fn cell<'a>(&self, cx: &'a Cx, row: &Task) -> BoxView<'a> {
         let title = row.title.clone();
-        view! { cx => <mark data-highlight="">(title)</mark> }.boxed()
+        view! { <mark data-highlight="">(title)</mark> }.boxed()
     }
 }
 
@@ -98,7 +98,7 @@ struct Shouty;
 impl Control for Shouty {
     fn render<'a>(&self, cx: &'a Cx, input: ControlInput) -> BoxView<'a> {
         let attrs = input.attributes(cx);
-        view! { cx => <input type="text" data-shouty="" (attrs)> }.boxed()
+        view! { <input type="text" data-shouty="" (attrs)> }.boxed()
     }
 }
 

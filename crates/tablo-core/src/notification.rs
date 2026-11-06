@@ -58,7 +58,6 @@ pub async fn render_notification<'a>(
         .collect();
     let status = status.as_str();
     Ok(view! {
-        cx =>
         toast(
             attrs: attributes! { data-type=(status) (attrs) },
             toast_icon(icon(data: icon_data, attrs: attributes! { class=(icon_class) }))
@@ -157,7 +156,7 @@ async fn render_live_toaster<'a>(
         notification.description(description)
     };
     let mount_id = format!("live-toast-{mount}");
-    render_notification(cx, notification, attributes! { cx => id=(mount_id) }).await
+    render_notification(cx, notification, attributes! { id=(mount_id) }).await
 }
 
 #[cfg(test)]

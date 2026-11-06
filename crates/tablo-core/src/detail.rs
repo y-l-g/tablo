@@ -51,7 +51,7 @@ pub struct Detail<M> {
 /// A column's `entry` under the `data-entry` hook naming the column, which lays out nothing.
 fn entry<'a>(cx: &'a Cx, name: &str, entry: BoxView<'a>) -> BoxView<'a> {
     let name = name.to_string();
-    view! { cx => <div class="contents" data-entry=(name)>(entry)</div> }.boxed()
+    view! { <div class="contents" data-entry=(name)>(entry)</div> }.boxed()
 }
 
 /// One block or column of a [`Detail`].
@@ -319,7 +319,6 @@ impl<M> Detail<M> {
 /// once for each model with a detail page.
 fn stack<'a>(cx: &'a Cx, views: Vec<BoxView<'a>>) -> BoxView<'a> {
     view! {
-        cx =>
         for v in views {
             (v)
         }

@@ -238,7 +238,6 @@ async fn no_access(cx: &Cx) -> topcoat::Result<Response> {
     let csrf = crate::csrf::ensure_token(cx);
     let logout = logout_url(cx);
     let form = view! {
-        cx =>
         <form method="post" action=(logout)>
             (crate::csrf::field(cx, &csrf))
             tablo_ui::button(

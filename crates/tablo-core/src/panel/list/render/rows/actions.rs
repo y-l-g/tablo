@@ -30,7 +30,7 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
         .iter()
         .map(|link| {
             let class = button_variants(ButtonVariant::Ghost, ButtonSize::Sm);
-            let attrs = attributes! { cx => class=(class) };
+            let attrs = attributes! { class=(class) };
             row_link(cx, link, attrs, described.clone())
         })
         .collect();
@@ -39,15 +39,14 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
         .iter()
         .map(|action| {
             let mut attrs = trigger(cx, chrome, action, action.color.button_tone());
-            attrs.extend(attributes! { cx => aria-describedby=(described.clone()) });
+            attrs.extend(attributes! { aria-describedby=(described.clone()) });
             // A disabled button keeps its reason as its title, so the hint is added only to one
             // that is enabled.
             if let Some(hint) = &action.tooltip {
-                attrs.extend(attributes! { cx => title=(hint.clone()) });
+                attrs.extend(attributes! { title=(hint.clone()) });
             }
             let (label, face) = (action.label.clone(), action.icon.clone());
             view! {
-                cx =>
                 button(
                     variant: ButtonVariant::Ghost,
                     size: ButtonSize::Sm,
@@ -65,7 +64,6 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
         let confirm = Some(delete_confirmation(cx, false));
         let mut attrs = write_trigger(cx, &chrome.form, &chrome.signals, action, confirm, false);
         attrs.extend(attributes! {
-            cx =>
             class=(ROW_DELETE_CLASS)
             aria-label=(t!(cx, "tablo-action-delete"))
             aria-describedby=(described.clone())
@@ -75,7 +73,6 @@ pub(super) fn render_actions<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChro
         attrs
     });
     view! {
-        cx =>
         table_cell(
             attrs: attributes! { class=(CHROME_CELL_CLASS) },
             <div class="relative z-10 flex items-center justify-end gap-1">
@@ -133,7 +130,6 @@ fn row_link<'a>(
     };
     let (url, label, face) = (link.url.clone(), link.label.clone(), link.icon.clone());
     view! {
-        cx =>
         <a
             (attrs)
             href=(url)
@@ -178,7 +174,7 @@ fn trigger(cx: &Cx, chrome: &RowChrome, action: &RowButton, class: Option<&str>)
             false,
         ),
     };
-    attrs.extend(attributes! { cx => class=(class) });
+    attrs.extend(attributes! { class=(class) });
     attrs
 }
 
@@ -191,7 +187,6 @@ fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> 
     // Closes the menu as the item runs; a submitting item navigates instead.
     let closes = |attrs: &mut Attributes| {
         attrs.extend(attributes! {
-            cx =>
             popovertarget=(menu.clone())
             popovertargetaction="hide"
             aria-describedby=(described.clone())
@@ -201,7 +196,7 @@ fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> 
         .links
         .iter()
         .map(|link| {
-            let attrs = attributes! { cx => class=(crate::navigation::MENU_LINK_CLASS) };
+            let attrs = attributes! { class=(crate::navigation::MENU_LINK_CLASS) };
             row_link(cx, link, attrs, described.clone())
         })
         .collect();
@@ -213,7 +208,6 @@ fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> 
         }
         let (label, face) = (action.label.clone(), action.icon.clone());
         view! {
-            cx =>
             dropdown_menu_item(
                 attrs: attrs,
                 if let Some(data) = face {
@@ -243,7 +237,6 @@ fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> 
             let described = described.clone();
             items.push(
                 view! {
-                    cx =>
                     <a
                         (link)
                         class=(crate::navigation::MENU_LINK_CLASS)
@@ -264,7 +257,6 @@ fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> 
         let mut attrs = write_trigger(cx, &chrome.form, &chrome.signals, action, confirm, false);
         closes(&mut attrs);
         attrs.extend(attributes! {
-            cx =>
             class="text-destructive"
             aria-label=(t!(cx, "tablo-action-delete"))
             data-row-action=(dom::row::DELETE)
@@ -272,13 +264,12 @@ fn render_action_menu<'a>(cx: &'a Cx, row: &RowView<'a>, chrome: &RowChrome) -> 
         attrs
     });
     if items.is_empty() && delete.is_none() {
-        let empty = attributes! { cx => class=(CHROME_CELL_CLASS) };
-        return view! { cx => table_cell(attrs: empty) }.boxed();
+        let empty = attributes! { class=(CHROME_CELL_CLASS) };
+        return view! { table_cell(attrs: empty) }.boxed();
     }
     let separate = !items.is_empty() && delete.is_some();
     let trigger_class = button_variants(ButtonVariant::Ghost, ButtonSize::Icon);
     view! {
-        cx =>
         table_cell(
             attrs: attributes! { class=(CHROME_CELL_CLASS) },
             <div class="relative z-10 flex justify-end">

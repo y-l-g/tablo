@@ -443,7 +443,6 @@ pub(crate) async fn render_nodes<'a>(
         views.push(node.render(cx, fields, source).await?);
     }
     Ok(view! {
-        cx =>
         for v in views {
             (v)
         }

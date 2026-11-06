@@ -42,7 +42,6 @@ pub(crate) fn bar<'a>(
     let url = url.to_string();
     Some(
         view! {
-            cx =>
             <form
                 method="get"
                 action=(url)
@@ -97,7 +96,6 @@ fn control<'a>(cx: &'a Cx, filter: &PageFilter, held: &PageFilters) -> BoxView<'
                 })
                 .collect();
             view! {
-                cx =>
                 <label class=(field) data-page-filter=(key.clone())>
                     <span class=(caption)>(label)</span>
                     tablo_ui::select(
@@ -121,7 +119,6 @@ fn control<'a>(cx: &'a Cx, filter: &PageFilter, held: &PageFilters) -> BoxView<'
             let from_label = crate::t!(cx, "tablo-page-filter-from", label = label.clone());
             let to_label = crate::t!(cx, "tablo-page-filter-to", label = label.clone());
             view! {
-                cx =>
                 <fieldset class=(field) data-page-filter=(key.clone())>
                     <legend class=(caption)>(label)</legend>
                     <span class="flex items-center gap-2">
