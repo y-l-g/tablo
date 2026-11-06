@@ -29,17 +29,9 @@ tablo = { path = "../../crates/tablo", features = ["sqlite", "testing"] }
 unsafe_code = "deny"
 warnings = "deny"
 
-# Temporary: the same Topcoat and Toasty `main` patches as the workspace; drop them together.
+# Temporary: the same Topcoat `main` patch as the workspace; drop it with the workspace one.
 [patch.crates-io]
 topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-toasty = { git = "https://github.com/tokio-rs/toasty", rev = "ebf1e47ed50e0d1ef8f257eba48b557928b59f9e" }
-toasty-core = { git = "https://github.com/tokio-rs/toasty", rev = "ebf1e47ed50e0d1ef8f257eba48b557928b59f9e" }
-toasty-driver-mysql = { git = "https://github.com/tokio-rs/toasty", rev = "ebf1e47ed50e0d1ef8f257eba48b557928b59f9e" }
-toasty-driver-postgresql = { git = "https://github.com/tokio-rs/toasty", rev = "ebf1e47ed50e0d1ef8f257eba48b557928b59f9e" }
-toasty-driver-sqlite = { git = "https://github.com/tokio-rs/toasty", rev = "ebf1e47ed50e0d1ef8f257eba48b557928b59f9e" }
-toasty-driver-turso = { git = "https://github.com/tokio-rs/toasty", rev = "ebf1e47ed50e0d1ef8f257eba48b557928b59f9e" }
-toasty-macros = { git = "https://github.com/tokio-rs/toasty", rev = "ebf1e47ed50e0d1ef8f257eba48b557928b59f9e" }
-toasty-sql = { git = "https://github.com/tokio-rs/toasty", rev = "ebf1e47ed50e0d1ef8f257eba48b557928b59f9e" }
 topcoat-asset = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
 topcoat-cookie = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
 topcoat-core = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }

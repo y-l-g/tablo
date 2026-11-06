@@ -54,8 +54,9 @@ where
         Box::pin(async move {
             let loaded: Vec<&S::Model> = rows
                 .iter()
-                .filter_map(|row| read(row).try_get())
-                .flat_map(|records| records.iter())
+                .map(read)
+                .filter(|records| !records.is_unloaded())
+                .flat_map(|records| records.get())
                 .collect();
             check::<S>(cx, &loaded, ex).await
         })
