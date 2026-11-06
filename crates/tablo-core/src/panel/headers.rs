@@ -188,8 +188,9 @@ impl Panel {
     ///   data away through an image or a navigation; it stops framing, `<base>` hijacking, forms
     ///   posting off-site and plugins. Inline scripts run: Topcoat streams a page's live regions,
     ///   such as a list's rows, with inline scripts that carry no nonce, so a policy without
-    ///   `'unsafe-inline'` leaves the list loading. `'unsafe-eval'` lets Topcoat's runtime compile
-    ///   its client expressions.
+    ///   `'unsafe-inline'` leaves the list loading on a page load. `'unsafe-eval'` lets Topcoat's
+    ///   runtime compile its client expressions: without it the runtime throws at the page's first
+    ///   binding and does not start. The script that marks a page's panel is inline too.
     /// - Images, fonts and media may come from any `https:` host, so an uploader or a font on a CDN
     ///   keeps working.
     /// - Plugins are off, `<base>` and form targets stay on the origin, and only the panel may
