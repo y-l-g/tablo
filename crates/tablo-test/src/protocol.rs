@@ -83,6 +83,16 @@ pub fn robots(html: &str) -> Option<String> {
     dom::attr_value(&attrs, "content")
 }
 
+/// The text of each script the page carries inline, in document order.
+pub fn inline_scripts(html: &str) -> Vec<String> {
+    dom::tags_where(html, |tag, attrs| {
+        tag == "script" && dom::attr_value(attrs, "src").is_none()
+    })
+    .into_iter()
+    .map(|(_, _, inner)| inner)
+    .collect()
+}
+
 /// The page's heading, as its `[data-page-title]` holds it; `None` when it has none.
 pub fn page_title(html: &str) -> Option<String> {
     let (_, _, inner) = dom::tags_where(html, |_, attrs| {

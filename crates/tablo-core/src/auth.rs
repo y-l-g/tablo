@@ -62,7 +62,7 @@ pub use self::{
 pub(crate) use self::{
     columns::{load_choice, save_choice},
     config::{Auth, AuthConfig},
-    gate::{PanelGate, RuntimeGate, still_signed_in},
+    gate::{PagePanelStamp, PanelGate, RuntimeGate, still_signed_in},
     login::{logout_url, tenant_url},
     mail::AuthMail,
     panel_user::{Authenticator, PanelUser},

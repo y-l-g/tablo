@@ -79,7 +79,8 @@ are refused, `/admin` and `/administration` are not.
 
 Each panel has its own login page, and a session belongs to the panel that signed the user in. A
 user signed in to `/admin` is anonymous on `/portal`, and signing in to `/portal` ends the `/admin`
-session. See [Policy, auth, tenancy](./policy-auth-tenancy.md#authentication).
+session. A page's live updates run as the panel of that page alone, and a link into another panel
+is a full page load. See [Policy, auth, tenancy](./policy-auth-tenancy.md#authentication).
 
 ## URLs
 

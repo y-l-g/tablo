@@ -54,6 +54,16 @@ impl Panel {
             .boxed(),
             None => view! { topcoat::dev::script() }.boxed(),
         };
+        // Runtime navigation keeps the socket, and the socket answers as the panel of the page
+        // that opened it. A script this document has not run makes the browser load the page
+        // instead, so a script of the request's panel alone keeps a socket on its panel's pages.
+        // It says nothing and does nothing: only its text counts. Asked of the request and not of
+        // `panel`, because a page outside the prefix opens a socket of no panel, and has a mark
+        // of its own so that leaving a panel loads the page too.
+        let panel_mark = match current(cx) {
+            Some(panel) => format!("// {}", panel.realm.prefix),
+            None => "// no panel".to_owned(),
+        };
         // The server renders the stored choice on every page: runtime navigation copies
         // `<html>`'s attributes from the next page and runs no script.
         let html_class =
@@ -79,6 +89,7 @@ impl Panel {
                         <link rel="icon" href=(favicon)>
                     }
                     (head)
+                    <script>(panel_mark)</script>
                 </head>
                 <body>(body)</body>
             </html>

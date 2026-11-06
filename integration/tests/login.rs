@@ -326,3 +326,249 @@ async fn revoking_on_a_panel_ends_the_sessions_of_panels_sharing_its_users() {
     let response = router.handle(shard_request(PORTAL_REPORT, &portal)).await;
     assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
 }
+
+/// Names the panel it ran as. No panel declares it, so only the session and the page decide.
+#[topcoat::runtime::shard("/_topcoat/runtime/shards/tablo-it-which-panel")]
+async fn which_panel(cx: &Cx) -> topcoat::Result<impl topcoat::view::View> {
+    guard(cx)?;
+    let panel = tablo::url::panel(cx).unwrap_or_default();
+    Ok(topcoat::view::view! {
+        "ran-as:"
+        (panel)
+    })
+}
+
+const WHICH_PANEL: &str = "/_topcoat/runtime/shards/tablo-it-which-panel";
+
+fn shard_from_page(cookie: &str, page: &str) -> http::Request<Body> {
+    let mut request = shard_request(WHICH_PANEL, cookie);
+    request.headers_mut().insert(
+        http::header::REFERER,
+        format!("https://example.test{page}").parse().unwrap(),
+    );
+    request
+}
+
+/// A page's fetch names its panel in the `Referer`: another panel's session is no session there.
+#[tokio::test]
+async fn a_fetch_from_a_page_runs_only_as_that_pages_panel() {
+    let router = two_panels(TrailingSlash::default()).await;
+    let admin = session_on(&router, "/admin").await;
+
+    let response = router
+        .handle(shard_from_page(&admin, "/admin/users?page=2"))
+        .await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+    let body = tablo::testing::body_string(response).await;
+    assert!(body.contains("ran-as:/admin"), "{body}");
+
+    let response = router
+        .handle(shard_from_page(&admin, "/portal/notes"))
+        .await;
+    assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
+
+    // A page outside every panel names none, and `/portal-archive` is not `/portal`: read as the
+    // portal's, the admin session would answer 401.
+    for page in ["/billing", "/portal-archive/x"] {
+        let response = router.handle(shard_from_page(&admin, page)).await;
+        assert_eq!(response.status(), http::StatusCode::OK, "{page}");
+    }
+}
+
+/// The frames a run started on a socket opened at `page` answers, joined, for up to two seconds,
+/// stopping at the first that carries `until`.
+async fn socket_run(
+    router: Router,
+    page: &str,
+    cookie: &str,
+    headers: serde_json::Value,
+    until: &str,
+) -> String {
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::tungstenite::{Message, client::IntoClientRequest};
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+    let server = tokio::spawn(topcoat::serve_until(listener, router, async {
+        stopped.await.ok();
+    }));
+    let mut request = format!("ws://{addr}{page}").into_client_request().unwrap();
+    request.headers_mut().insert(
+        http::header::SEC_WEBSOCKET_PROTOCOL,
+        http::HeaderValue::from_static("topcoat-runtime"),
+    );
+    request
+        .headers_mut()
+        .insert(http::header::COOKIE, cookie.parse().unwrap());
+    let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
+    let run = serde_json::json!({
+        "run": 1,
+        "method": "POST",
+        "path": WHICH_PANEL,
+        "headers": headers,
+        "body": r#"{"args":[],"signals":{}}"#,
+    });
+    socket.send(Message::text(run.to_string())).await.unwrap();
+    let mut frames = String::new();
+    let read = async {
+        while let Some(Ok(message)) = socket.next().await {
+            if let Message::Text(text) = message {
+                frames.push_str(text.as_str());
+                if frames.contains(until) {
+                    break;
+                }
+            }
+        }
+    };
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(2), read).await;
+    stop.send(()).ok();
+    drop(socket);
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(5), server).await;
+    frames
+}
+
+/// A socket's runs name no page of their own: each keeps the panel the handshake's URL named.
+#[tokio::test]
+async fn a_socket_runs_only_as_the_panel_of_the_page_that_opened_it() {
+    let json = serde_json::json!({ "content-type": "application/json" });
+    let router = two_panels(TrailingSlash::default()).await;
+    let admin = session_on(&router, "/admin").await;
+    let frames = socket_run(router, "/admin/users", &admin, json.clone(), "ran-as:").await;
+    assert!(frames.contains("ran-as:/admin"), "{frames}");
+
+    let router = two_panels(TrailingSlash::default()).await;
+    let admin = session_on(&router, "/admin").await;
+    let frames = socket_run(router, "/portal/notes", &admin, json, "status").await;
+    assert!(frames.contains(r#""status":401"#), "{frames}");
+}
+
+/// The stamp reaches a socket on a router whose app installed the runtime layer itself.
+#[tokio::test]
+async fn a_socket_keeps_its_page_on_an_app_installed_runtime() {
+    use topcoat::runtime::RouterBuilderRuntimeExt;
+    let router = Router::builder()
+        .runtime()
+        .discover()
+        .with(db_with_ada().await)
+        .panel(Panel::new("admin"))
+        .expect("admin builds")
+        .panel(Panel::new("portal"))
+        .expect("portal builds")
+        .build();
+    let admin = session_on(&router, "/admin").await;
+    let json = serde_json::json!({ "content-type": "application/json" });
+    let frames = socket_run(router, "/portal/notes", &admin, json, "status").await;
+    assert!(frames.contains(r#""status":401"#), "{frames}");
+}
+
+/// A runtime layer the app installs after the panels takes the handshake before the stamp, so the
+/// socket's page is unknown: its runs are refused rather than run as whichever session it holds.
+#[tokio::test]
+async fn a_socket_the_stamp_never_saw_runs_nothing() {
+    use topcoat::runtime::RouterBuilderRuntimeExt;
+    let router = Router::builder()
+        .discover()
+        .with(db_with_ada().await)
+        .panel(Panel::new("admin"))
+        .expect("admin builds")
+        .panel(Panel::new("portal"))
+        .expect("portal builds")
+        .runtime()
+        .build();
+    let admin = session_on(&router, "/admin").await;
+    let json = serde_json::json!({ "content-type": "application/json" });
+    let frames = socket_run(router, "/portal/notes", &admin, json, "status").await;
+    assert!(frames.contains(r#""status":500"#), "{frames}");
+}
+
+/// A run cannot rename the socket's panel: Topcoat refuses the header outright.
+#[tokio::test]
+async fn a_run_cannot_name_another_page() {
+    let router = two_panels(TrailingSlash::default()).await;
+    let admin = session_on(&router, "/admin").await;
+    let headers = serde_json::json!({
+        "content-type": "application/json",
+        "x-tablo-page-panel": "/admin",
+    });
+    let frames = socket_run(router, "/portal/notes", &admin, headers, "status").await;
+    assert!(frames.contains(r#""status":400"#), "{frames}");
+}
+
+#[derive(Clone)]
+struct AdminHandle(tablo::PanelHandle);
+
+/// An app's page outside every panel, framed by a panel's document.
+#[topcoat::router::page("/framed-by-the-admin-panel")]
+async fn framed_app_page(cx: &Cx) -> topcoat::Result<impl topcoat::view::View> {
+    let AdminHandle(admin) = topcoat::context::context::<AdminHandle>(cx);
+    admin
+        .document(
+            cx,
+            "Billing",
+            topcoat::view::view! { <main>"billing"</main> },
+        )
+        .await
+}
+
+/// The inline scripts of the document at `path`.
+async fn panel_marks(router: &Router, path: &str, cookie: Option<&str>) -> Vec<String> {
+    let mut request = http::Request::get(path);
+    if let Some(cookie) = cookie {
+        request = request.header(http::header::COOKIE, cookie);
+    }
+    let response = router.handle(request.body(Body::empty()).unwrap()).await;
+    tablo::testing::inline_scripts(&tablo::testing::body_string(response).await)
+}
+
+/// Runtime navigation keeps the socket when the next document's scripts are all loaded, and a
+/// socket answers as the panel of the page that opened it. A panel's documents therefore carry a
+/// script no other panel's do, so that entering a panel is a page load and a new socket.
+#[tokio::test]
+async fn entering_another_panel_is_a_page_load() {
+    let router = two_panels(TrailingSlash::default()).await;
+    let admin = session_on(&router, "/admin").await;
+    let portal = session_on(&router, "/portal").await;
+
+    let admin_login = panel_marks(&router, "/admin/login", None).await;
+    let portal_login = panel_marks(&router, "/portal/login", None).await;
+    assert!(
+        portal_login
+            .iter()
+            .any(|script| !admin_login.contains(script)),
+        "{portal_login:?} against {admin_login:?}",
+    );
+    assert!(
+        admin_login
+            .iter()
+            .any(|script| !portal_login.contains(script)),
+        "{admin_login:?} against {portal_login:?}",
+    );
+
+    // Within a panel a signed-in document agrees with the login page, so navigation stays.
+    let admin_page = panel_marks(&router, "/admin/missing", Some(&admin)).await;
+    assert_eq!(admin_page, admin_login);
+    let portal_page = panel_marks(&router, "/portal/missing", Some(&portal)).await;
+    assert_eq!(portal_page, portal_login);
+}
+
+/// Leaving a panel for an app's page it frames is a page load too: the page has a script of its
+/// own, or the socket would stay and keep answering as the panel.
+#[tokio::test]
+async fn leaving_a_panel_is_a_page_load() {
+    let builder = Router::builder()
+        .discover()
+        .with(db_with_ada().await)
+        .panel(Panel::new("admin"))
+        .expect("admin builds");
+    let admin = builder.panel_handle("admin").expect("mounted above");
+    let router = builder.with(AdminHandle(admin)).build();
+    let session = session_on(&router, "/admin").await;
+
+    let panel_page = panel_marks(&router, "/admin/missing", Some(&session)).await;
+    let app_page = panel_marks(&router, "/framed-by-the-admin-panel", Some(&session)).await;
+    assert!(
+        app_page.iter().any(|script| !panel_page.contains(script)),
+        "{app_page:?} against {panel_page:?}",
+    );
+}

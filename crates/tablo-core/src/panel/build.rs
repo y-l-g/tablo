@@ -28,7 +28,7 @@ use super::{
 };
 use crate::{
     DeclarationError, DeclarationErrorKind, MountError, Site,
-    auth::{AuthHost, PanelGate, Realm, RuntimeGate},
+    auth::{AuthHost, PagePanelStamp, PanelGate, Realm, RuntimeGate},
     bus::NotificationBus,
     declaration::segment_fault,
     naming::route_path,
@@ -535,7 +535,9 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
     if builder.try_context::<PrefetchMode>().is_none() {
         builder = builder.prefetch(PrefetchMode::Never);
     }
-    builder
+    // The last pathless layer runs outermost, so this one sees the socket's handshake unless the
+    // app installs the runtime layer after the panels. `RuntimeGate` refuses those sockets' runs.
+    builder.layer(PagePanelStamp)
 }
 
 /// Redirects the panel root of a panel with no [`home`](Panel::home) page to the first declared
