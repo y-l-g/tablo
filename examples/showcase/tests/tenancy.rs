@@ -5,7 +5,7 @@ use showcase::models::{
 };
 use tablo::{
     TenantId,
-    auth::SESSION_COOKIE,
+    auth::session_cookie,
     testing::{IgnoredFilter, IgnoredReason, find_href_with, ignored_filters, nav_badge, row_keys},
 };
 use topcoat::router::Body;
@@ -302,7 +302,7 @@ async fn x_tenant_id_header_no_longer_grants_a_tenant() {
         .handle(
             http::Request::builder()
                 .uri("/admin/posts")
-                .header(COOKIE, format!("{SESSION_COOKIE}={session}"))
+                .header(COOKIE, format!("{}={session}", session_cookie("admin")))
                 .header("x-tenant-id", DEMO_TENANT.to_string())
                 .body(Body::empty())
                 .unwrap(),

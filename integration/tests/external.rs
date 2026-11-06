@@ -7,7 +7,7 @@ use tablo::{
     Auth, DeclarationErrorKind, EmailVerification, ExternalAuth, GlobalSearch, Membership, NoForm,
     Panel, PanelUser, PasswordAuth, PasswordReset, PasswordSignUp, Resource, ResourceDef,
     RouterBuilderPanelExt, Tenancy, TenantId, TwoFactor,
-    auth::{AdminUser, AuthSession, SESSION_COOKIE},
+    auth::{AdminUser, AuthSession, session_cookie},
     lens,
     testing::{external_sign_out, form_body, refreshes_to, row_keys},
 };
@@ -162,7 +162,11 @@ async fn the_apps_signed_in_user_enters_the_panel() {
     assert_eq!(entered.status(), 303);
     assert_eq!(location(&entered), "/admin/books");
     let cookies = response_cookies(&entered);
-    assert!(cookies.iter().any(|(name, _)| name == SESSION_COOKIE));
+    assert!(
+        cookies
+            .iter()
+            .any(|(name, _)| *name == session_cookie("admin"))
+    );
     assert!(cookies.iter().all(|(name, _)| name != HOST_COOKIE));
     let rows = session_rows(&db).await;
     assert_eq!(rows.len(), 1);
@@ -202,7 +206,7 @@ async fn entering_again_keeps_the_users_session() {
     assert!(
         response_cookies(&again)
             .iter()
-            .all(|(name, _)| name != SESSION_COOKIE)
+            .all(|(name, _)| *name != session_cookie("admin"))
     );
     let rows = session_rows(&db).await;
     assert_eq!(rows.len(), 1);
@@ -223,12 +227,12 @@ async fn a_head_starts_no_session() {
     assert!(
         response_cookies(&probed)
             .iter()
-            .all(|(name, _)| name != SESSION_COOKIE)
+            .all(|(name, _)| *name != session_cookie("admin"))
     );
     assert!(session_rows(&db).await.is_empty());
 }
 
-/// A session belongs to the panel that started it, so the next panel starts its own.
+/// A session belongs to the panel that started it, so the next panel starts its own beside it.
 #[tokio::test]
 async fn another_panel_starts_its_own_session() {
     let db = db().await;
@@ -246,9 +250,13 @@ async fn another_panel_starts_its_own_session() {
     let entered = browser.get("/staff/login").await;
 
     assert_eq!(entered.status(), 303);
-    let rows = session_rows(&db).await;
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].panel, "/staff");
+    let mut panels: Vec<String> = session_rows(&db)
+        .await
+        .into_iter()
+        .map(|row| row.panel)
+        .collect();
+    panels.sort();
+    assert_eq!(panels, ["/admin", "/staff"]);
 }
 
 /// Signing out of the app shuts the panel on its next request, pages and runtime path alike, and
@@ -339,7 +347,7 @@ async fn an_app_user_without_panel_access_is_refused() {
     assert!(
         response_cookies(&refused)
             .iter()
-            .all(|(name, _)| name != SESSION_COOKIE)
+            .all(|(name, _)| *name != session_cookie("admin"))
     );
     assert_eq!(
         external_sign_out(&body_string(refused).await).as_deref(),

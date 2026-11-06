@@ -50,7 +50,8 @@ pub use self::{
     password_reset::{PasswordResetter, RESET_LIFETIME},
     registration::{MIN_PASSWORD_CHARS, new_password_errors},
     session::{
-        AuthSession, SESSION_COOKIE, SESSION_LIFETIME, mint_session, revoke_sessions_for_user,
+        AuthSession, SESSION_COOKIE_PREFIX, SESSION_LIFETIME, mint_session,
+        revoke_sessions_for_user, session_cookie,
     },
     tenant_profile::TenantEditor,
     tenant_registration::TenantRegistrar,

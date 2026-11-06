@@ -6,7 +6,7 @@ use http::header::LOCATION;
 use tablo::{
     Auth, AuthMail, EmailVerification, NoForm, Panel, PasswordAuth, ReadOnly, Resource,
     ResourceDef, RouterBuilderPanelExt, Table, TextColumn,
-    auth::{AdminUser, AuthSession, AuthToken, SESSION_COOKIE, create_admin},
+    auth::{AdminUser, AuthSession, AuthToken, create_admin, session_cookie},
     lens,
     testing::{form_body, session_cookie_value},
 };
@@ -149,7 +149,7 @@ async fn a_new_email_waits_for_its_link_and_the_link_stores_it() {
     let kept = sessions(&db).await;
     assert_eq!(kept.len(), 1, "only the confirming browser stays signed in");
     let renewed = session_cookie_value(&confirmed).expect("the browser gets a new session");
-    let client = TestClient::new(&router).cookie(SESSION_COOKIE, &renewed);
+    let client = TestClient::new(&router).cookie(&session_cookie("admin"), &renewed);
     assert_eq!(client.get("/admin/invoices").await.status(), 200);
     assert_eq!(client.get(&confirm).await.status(), 404);
 }
@@ -256,7 +256,7 @@ async fn a_new_password_keeps_the_change_saved_with_it() {
         .find(|mail| mail.to()[0].address() == "ada@new.example")
         .expect("a mail to the new address");
 
-    let client = TestClient::new(&router).cookie(SESSION_COOKIE, &renewed);
+    let client = TestClient::new(&router).cookie(&session_cookie("admin"), &renewed);
     let confirmed = follow(&client, &link(&to_new)).await;
     assert_eq!(confirmed.headers().get(LOCATION).unwrap(), "/admin");
     assert_eq!(reload(&db, &ada).await.email, "ada@new.example");

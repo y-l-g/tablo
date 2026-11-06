@@ -6,7 +6,7 @@ use std::{collections::BTreeSet, time::Duration};
 use futures_util::{SinkExt, StreamExt};
 use tablo::{
     Auth, DeclarationErrorKind, Notification, Panel, PanelHandle, PanelUser, RouterBuilderPanelExt,
-    auth::{AuthSession, SESSION_COOKIE, mint_session, revoke_sessions_for_user},
+    auth::{AuthSession, mint_session, revoke_sessions_for_user, session_cookie},
     notification::StoredNotification,
     testing::{Bell, TestClient, bell, body_string, refusal},
 };
@@ -419,7 +419,7 @@ async fn an_open_bell_toasts_only_what_arrives() {
     let ada = member(&db, "Ada", &["Acme"]).await;
     let old = send(&admin, &ada, Notification::info("Old")).await;
     let token = mint_session(&mut db.clone(), "admin", &ada).await.unwrap();
-    let client = TestClient::new(&router).cookie(SESSION_COOKIE, &token);
+    let client = TestClient::new(&router).cookie(&session_cookie("admin"), &token);
     client
         .call_procedure(MARK, &format!(r#"["{old}", true]"#))
         .await;
@@ -482,7 +482,9 @@ async fn open_bell(router: Router, token: &str) -> OpenBell {
     );
     headers.insert(
         http::header::COOKIE,
-        format!("{SESSION_COOKIE}={token}").parse().unwrap(),
+        format!("{}={token}", session_cookie("admin"))
+            .parse()
+            .unwrap(),
     );
     let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
     let run = serde_json::json!({

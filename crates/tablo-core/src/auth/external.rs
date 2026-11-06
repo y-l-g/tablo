@@ -41,9 +41,8 @@ use crate::{BoxFuture, DeclarationErrorKind, auth::AuthConfig, error::TabloError
 /// session only while it names the session's user: signing out of the app, or into another
 /// account, takes effect on the panel's next request.
 ///
-/// A browser holds one panel session, on any kind of panel: entering this panel ends a session
-/// held on another, and on two panels behind `ExternalAuth` each page load on the other starts its
-/// session again.
+/// Each panel keeps its session in a cookie of its own, so entering this panel leaves a session
+/// held on another as it was.
 ///
 /// ```rust
 /// use tablo_core::{ExternalAuth, PanelUser, auth::safe_next};
@@ -211,10 +210,10 @@ pub(super) fn external_login(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         if !user.can_access_panel(&panel.prefix) {
             return no_access(cx, external.logout_url(cx)).await;
         }
-        let holds_theirs = session_row(cx)
+        let holds_theirs = session_row(cx, panel)
             .await
             .map_err(infrastructure_failure)?
-            .is_some_and(|row| row.panel == panel.prefix && row.user_id == user.user_id());
+            .is_some_and(|row| row.user_id == user.user_id());
         if !holds_theirs && *method(cx) != http::Method::HEAD {
             if let Err(error) = sweep_expired_sessions(cx).await {
                 tracing::error!(error = %error, "expired-session sweep failed");

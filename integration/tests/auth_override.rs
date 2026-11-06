@@ -4,7 +4,7 @@ use http::header::{COOKIE, LOCATION, SET_COOKIE};
 use tablo::{
     Ability, Auth, Authenticator, Membership, PanelUser, Resource, ResourceDef,
     RouterBuilderPanelExt, Table, Tenancy, TenantId, TextColumn,
-    auth::{self, SESSION_COOKIE, verify_password},
+    auth::{self, session_cookie, verify_password},
     lens, when,
 };
 use toasty::Db;
@@ -272,7 +272,7 @@ async fn login_as(router: &Router, handle: &str) -> String {
     )
     .await;
     assert_eq!(login.status(), 303, "login succeeds for an active member");
-    cookie_value(&login, SESSION_COOKIE).expect("session cookie")
+    cookie_value(&login, &session_cookie("admin")).expect("session cookie")
 }
 
 /// Log in to the panel at `prefix` as `handle`, returning the response.
@@ -313,15 +313,20 @@ async fn one_user_type_gates_each_panel_by_its_prefix() {
 
     let admin = login_to(&router, "/admin", "grace").await;
     assert_eq!(admin.status(), 303, "the admin panel admits Grace");
-    let session = cookie_value(&admin, SESSION_COOKIE).expect("session cookie");
-    let members = get_with_cookies(&router, "/admin/members", &[(SESSION_COOKIE, session)]).await;
+    let session = cookie_value(&admin, &session_cookie("admin")).expect("session cookie");
+    let members = get_with_cookies(
+        &router,
+        "/admin/members",
+        &[(session_cookie("admin").as_str(), session)],
+    )
+    .await;
     assert_eq!(members.status(), 200, "the admin panel serves Grace");
     // Read the streamed page to its end: the next request otherwise waits on it.
     body_string(members).await;
 
     let portal = login_to(&router, "/portal", "grace").await;
     assert_eq!(portal.status(), 403, "the portal refuses Grace at login");
-    assert!(cookie_value(&portal, SESSION_COOKIE).is_none());
+    assert!(cookie_value(&portal, &session_cookie("portal")).is_none());
 
     // A portal session Grace already holds is refused on its next request.
     let grace = Member::filter(Member::fields().handle().eq("grace".to_string()))
@@ -337,7 +342,12 @@ async fn one_user_type_gates_each_panel_by_its_prefix() {
     let session = auth::mint_session(&mut db.clone(), "portal", &grace)
         .await
         .unwrap();
-    let members = get_with_cookies(&router, "/portal/members", &[(SESSION_COOKIE, session)]).await;
+    let members = get_with_cookies(
+        &router,
+        "/portal/members",
+        &[(session_cookie("portal").as_str(), session)],
+    )
+    .await;
     assert_eq!(members.status(), 403, "the portal's gate refuses Grace");
     body_string(members).await;
 
@@ -369,7 +379,7 @@ async fn revoked_panel_access_can_still_log_out() {
     let response = get_with_cookies(
         &router,
         "/admin/members",
-        &[(SESSION_COOKIE, session.clone())],
+        &[(session_cookie("admin").as_str(), session.clone())],
     )
     .await;
     assert_eq!(response.status(), 403, "pages deny the de-permitted user");
@@ -385,7 +395,7 @@ async fn revoked_panel_access_can_still_log_out() {
         &router,
         "/admin/logout",
         &[
-            (SESSION_COOKIE, session.clone()),
+            (session_cookie("admin").as_str(), session.clone()),
             (tablo::csrf::COOKIE_NAME, logout_csrf.clone()),
         ],
         format!("csrf_token={logout_csrf}"),
@@ -406,7 +416,7 @@ async fn revoked_panel_access_can_still_log_out() {
         .get_all(SET_COOKIE)
         .iter()
         .filter_map(|value| value.to_str().ok())
-        .find(|value| value.starts_with(&format!("{SESSION_COOKIE}=")))
+        .find(|value| value.starts_with(&format!("{}=", session_cookie("admin"))))
         .expect("logout clears the session cookie")
         .to_string();
     assert!(
@@ -462,13 +472,13 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
     )
     .await;
     assert_eq!(login.status(), 303, "success stays on the Ok path");
-    let session = cookie_value(&login, SESSION_COOKIE).expect("session cookie");
+    let session = cookie_value(&login, &session_cookie("admin")).expect("session cookie");
 
     // The same request now serves the gated page.
     let response = get_with_cookies(
         &router,
         "/admin/members",
-        &[(SESSION_COOKIE, session.clone())],
+        &[(session_cookie("admin").as_str(), session.clone())],
     )
     .await;
     assert_eq!(response.status(), 200);
@@ -489,7 +499,8 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
                 .header(
                     COOKIE,
                     format!(
-                        "{SESSION_COOKIE}={session}; {}={logout_csrf}",
+                        "{}={session}; {}={logout_csrf}",
+                        session_cookie("admin"),
                         tablo::csrf::COOKIE_NAME
                     ),
                 )
@@ -498,7 +509,12 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
         )
         .await;
     assert_eq!(logout.status(), 303);
-    let response = get_with_cookies(&router, "/admin/members", &[(SESSION_COOKIE, session)]).await;
+    let response = get_with_cookies(
+        &router,
+        "/admin/members",
+        &[(session_cookie("admin").as_str(), session)],
+    )
+    .await;
     assert_eq!(response.status(), 307, "logout must revoke the session");
 }
 
@@ -509,7 +525,7 @@ async fn switch_tenant(router: &Router, session: &str, tenant: Uuid) -> Response
         router,
         "/admin/tenant",
         &[
-            (SESSION_COOKIE, session.to_string()),
+            (session_cookie("admin").as_str(), session.to_string()),
             (tablo::csrf::COOKIE_NAME, csrf.clone()),
         ],
         format!("tenant={tenant}&csrf_token={csrf}"),
@@ -522,7 +538,7 @@ async fn notes(router: &Router, session: &str) -> (http::StatusCode, String) {
     let response = get_with_cookies(
         router,
         "/admin/notes",
-        &[(SESSION_COOKIE, session.to_string())],
+        &[(session_cookie("admin").as_str(), session.to_string())],
     )
     .await;
     (response.status(), body_string(response).await)
@@ -561,7 +577,7 @@ async fn a_panel_without_tenancy_offers_no_tenant_switch() {
     let members = get_with_cookies(
         &router,
         "/admin/members",
-        &[(SESSION_COOKIE, session.clone())],
+        &[(session_cookie("admin").as_str(), session.clone())],
     )
     .await;
     assert_eq!(members.status(), 200);
@@ -590,7 +606,7 @@ async fn a_member_cannot_switch_to_a_tenant_they_do_not_belong_to() {
     let forged = post_form(
         &router,
         "/admin/tenant",
-        &[(SESSION_COOKIE, session.clone())],
+        &[(session_cookie("admin").as_str(), session.clone())],
         format!("tenant={GLOBEX}"),
     )
     .await;
@@ -633,7 +649,7 @@ async fn a_member_without_a_tenant_is_refused_tenant_owned_records() {
     let members = get_with_cookies(
         &router,
         "/admin/members",
-        &[(SESSION_COOKIE, session.clone())],
+        &[(session_cookie("admin").as_str(), session.clone())],
     )
     .await;
     assert_eq!(members.status(), 200, "unscoped resources still answer");
@@ -719,7 +735,10 @@ async fn a_login_that_cannot_end_the_old_session_answers_the_outage_page() {
         "/admin/login",
         &[
             (tablo::csrf::COOKIE_NAME, csrf_cookie),
-            (SESSION_COOKIE, topcoat::session::Token::random().encode()),
+            (
+                session_cookie("admin").as_str(),
+                topcoat::session::Token::random().encode(),
+            ),
         ],
         format!("email=ada&password=opensesame&csrf_token={csrf}"),
     )

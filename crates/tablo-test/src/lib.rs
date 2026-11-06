@@ -28,7 +28,7 @@ pub use protocol::{
 pub use resource::{FieldOf, Reply, ResourceClient, Submission};
 use tablo_core::{
     DeclarationError, MountError, Panel, PanelHandle, PanelUser, Resource, RouterBuilderPanelExt,
-    auth::SESSION_COOKIE,
+    auth::session_cookie,
 };
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
 pub use two_factor::{
@@ -209,7 +209,7 @@ impl<'a> TestClient<'a> {
         let token = tablo_core::auth::mint_session(&mut db.clone(), panel, user)
             .await
             .expect("record the test session");
-        self.cookie(SESSION_COOKIE, &token)
+        self.cookie(&session_cookie(panel), &token)
     }
 
     /// Signs in through the login form of the panel `Panel::new(panel)` mounts, as a browser

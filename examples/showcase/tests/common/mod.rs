@@ -7,7 +7,7 @@ pub use tablo::testing::{
     TestClient, body_string, filter_options, find_href_with, form_body, input_value, mount,
     multipart_body, response_cookies, row_keys, session_cookie_value, set_cookie_header, test_db,
 };
-use tablo::{TenantId, auth::SESSION_COOKIE, testing::rows};
+use tablo::{TenantId, auth::session_cookie, testing::rows};
 use toasty::Db;
 use topcoat::router::{Body, Router};
 
@@ -256,7 +256,10 @@ pub async fn runtime_post(
         .header(http::header::CONTENT_TYPE, "application/json")
         .header(&topcoat::runtime::RUNTIME_HEADER, "true");
     if let Some(session) = session {
-        request = request.header(http::header::COOKIE, format!("{SESSION_COOKIE}={session}"));
+        request = request.header(
+            http::header::COOKIE,
+            format!("{}={session}", session_cookie("admin")),
+        );
     }
     router.handle(request.body(Body::from("{}")).unwrap()).await
 }
