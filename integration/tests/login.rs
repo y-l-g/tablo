@@ -368,8 +368,9 @@ async fn a_fetch_from_a_page_runs_only_as_that_pages_panel() {
         .await;
     assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
 
-    // A page outside every panel names none, and `/administration` is not `/admin`.
-    for page in ["/billing", "/administration/x"] {
+    // A page outside every panel names none, and `/portal-archive` is not `/portal`: read as the
+    // portal's, the admin session would answer 401.
+    for page in ["/billing", "/portal-archive/x"] {
         let response = router.handle(shard_from_page(&admin, page)).await;
         assert_eq!(response.status(), http::StatusCode::OK, "{page}");
     }
@@ -462,6 +463,26 @@ async fn a_socket_keeps_its_page_on_an_app_installed_runtime() {
     assert!(frames.contains(r#""status":401"#), "{frames}");
 }
 
+/// A runtime layer the app installs after the panels takes the handshake before the stamp, so the
+/// socket's page is unknown: its runs are refused rather than run as whichever session it holds.
+#[tokio::test]
+async fn a_socket_the_stamp_never_saw_runs_nothing() {
+    use topcoat::runtime::RouterBuilderRuntimeExt;
+    let router = Router::builder()
+        .discover()
+        .with(db_with_ada().await)
+        .panel(Panel::new("admin"))
+        .expect("admin builds")
+        .panel(Panel::new("portal"))
+        .expect("portal builds")
+        .runtime()
+        .build();
+    let admin = session_on(&router, "/admin").await;
+    let json = serde_json::json!({ "content-type": "application/json" });
+    let frames = socket_run(router, "/portal/notes", &admin, json, "status").await;
+    assert!(frames.contains(r#""status":500"#), "{frames}");
+}
+
 /// A run cannot rename the socket's panel: Topcoat refuses the header outright.
 #[tokio::test]
 async fn a_run_cannot_name_another_page() {
@@ -473,6 +494,22 @@ async fn a_run_cannot_name_another_page() {
     });
     let frames = socket_run(router, "/portal/notes", &admin, headers, "status").await;
     assert!(frames.contains(r#""status":400"#), "{frames}");
+}
+
+#[derive(Clone)]
+struct AdminHandle(tablo::PanelHandle);
+
+/// An app's page outside every panel, framed by a panel's document.
+#[topcoat::router::page("/framed-by-the-admin-panel")]
+async fn framed_app_page(cx: &Cx) -> topcoat::Result<impl topcoat::view::View> {
+    let AdminHandle(admin) = topcoat::context::context::<AdminHandle>(cx);
+    admin
+        .document(
+            cx,
+            "Billing",
+            topcoat::view::view! { <main>"billing"</main> },
+        )
+        .await
 }
 
 /// The inline scripts of the document at `path`.
@@ -514,6 +551,27 @@ async fn entering_another_panel_is_a_page_load() {
     assert_eq!(admin_page, admin_login);
     let portal_page = panel_marks(&router, "/portal/missing", Some(&portal)).await;
     assert_eq!(portal_page, portal_login);
+}
+
+/// Leaving a panel for an app's page it frames is a page load too: the page has a script of its
+/// own, or the socket would stay and keep answering as the panel.
+#[tokio::test]
+async fn leaving_a_panel_is_a_page_load() {
+    let builder = Router::builder()
+        .discover()
+        .with(db_with_ada().await)
+        .panel(Panel::new("admin"))
+        .expect("admin builds");
+    let admin = builder.panel_handle("admin").expect("mounted above");
+    let router = builder.with(AdminHandle(admin)).build();
+    let session = session_on(&router, "/admin").await;
+
+    let panel_page = panel_marks(&router, "/admin/missing", Some(&session)).await;
+    let app_page = panel_marks(&router, "/framed-by-the-admin-panel", Some(&session)).await;
+    assert!(
+        app_page.iter().any(|script| !panel_page.contains(script)),
+        "{app_page:?} against {panel_page:?}",
+    );
 }
 
 /// Both cookies of a browser signed in to `/admin` and `/portal`, with the admin's and the
@@ -599,6 +657,9 @@ async fn a_request_naming_no_panel_runs_only_on_a_session_nothing_disputes() {
     assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
     let response = router.handle(shard_from_page(&both, "/billing")).await;
     assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
+    let json = serde_json::json!({ "content-type": "application/json" });
+    let frames = socket_run(router.clone(), "/billing", &both, json, "status").await;
+    assert!(frames.contains(r#""status":401"#), "{frames}");
 
     // Only the portal declares its report, so the admin's session disputes nothing.
     let response = router.handle(shard_request(PORTAL_REPORT, &both)).await;
@@ -611,6 +672,43 @@ async fn a_request_naming_no_panel_runs_only_on_a_session_nothing_disputes() {
     assert_eq!(response.status(), http::StatusCode::OK);
     let body = tablo::testing::body_string(response).await;
     assert!(body.contains("ran-as:/portal"), "{body}");
+}
+
+/// A session whose user is gone disputes nothing, and the request that finds it deletes it.
+#[tokio::test]
+async fn a_session_of_a_deleted_user_disputes_no_other() {
+    let mut db = db_with_ada().await;
+    create_admin(&mut db, "grace@example.com", "opensesame", "Grace")
+        .await
+        .unwrap();
+    let router = Router::builder()
+        .discover()
+        .with(db.clone())
+        .panel(Panel::new("admin"))
+        .expect("admin builds")
+        .panel(Panel::new("portal"))
+        .expect("portal builds")
+        .build();
+    let admin = session_on(&router, "/admin").await;
+    let login = "email=grace@example.com&password=opensesame";
+    let response = router.handle(login_request("/portal", login)).await;
+    let portal = set_cookie_header(&response, &session_cookie("portal")).unwrap();
+    let portal = portal.split(';').next().unwrap();
+    AdminUser::get_by_email(&mut db, "grace@example.com")
+        .await
+        .unwrap()
+        .delete()
+        .exec(&mut db)
+        .await
+        .unwrap();
+
+    let both = format!("{admin}; {portal}");
+    let response = router.handle(shard_request(WHICH_PANEL, &both)).await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+    let body = tablo::testing::body_string(response).await;
+    assert!(body.contains("ran-as:/admin"), "{body}");
+    let rows = AuthSession::all().exec(&mut db).await.unwrap();
+    assert_eq!(rows.len(), 1);
 }
 
 /// A session serves the panel that issued it, whichever cookie carries its token.

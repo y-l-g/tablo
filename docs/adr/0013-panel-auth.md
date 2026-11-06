@@ -14,9 +14,16 @@ is the explicit opt-out.
   runtime lets no run set. The name picks which of the request's cookies counts, so forging it
   grants nothing. A request naming no panel, such as one from a page outside every panel, runs on
   the one session it holds among the panels declaring the endpoint; holding two, it is anonymous,
-  rather than Tablo guessing. A panel's documents carry
-  an inline script of their own: Topcoat loads a page whose scripts this document has not run, so
-  entering a panel opens a new socket and no socket outlives its panel.
+  rather than Tablo guessing. Tablo's documents carry
+  an inline script of their panel, or of no panel: Topcoat loads a page whose scripts this document
+  has not run, so moving between them opens a new socket. A host's own document carries none, so a
+  link from a panel to one keeps the socket, which still answers as that panel. Runs on a socket
+  Tablo's stamp never saw, because the app installed the runtime layer after the panels, are
+  refused.
+- The panel of a page decides which session a request means; it is no boundary between panels.
+  They share an origin, and cookies at `Path=/`, so a script on one panel's page can send a request
+  as any other panel the browser is signed in to. Keeping the two sessions apart from a script
+  takes a separate origin for each.
 - A session's token rides in Tablo's own cookie, never the router's `SessionConfig`: a router has
   one of those, and a panel writing it would replace a host app's Topcoat session on every login.
 - An app that signs its users in itself keeps doing so through `ExternalAuth`, set by

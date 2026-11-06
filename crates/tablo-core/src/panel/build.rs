@@ -535,8 +535,8 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
     if builder.try_context::<PrefetchMode>().is_none() {
         builder = builder.prefetch(PrefetchMode::Never);
     }
-    // The last pathless layer runs outermost, so this one sees the socket's handshake whoever
-    // installed the runtime layer.
+    // The last pathless layer runs outermost, so this one sees the socket's handshake unless the
+    // app installs the runtime layer after the panels. `RuntimeGate` refuses those sockets' runs.
     builder.layer(PagePanelStamp)
 }
 

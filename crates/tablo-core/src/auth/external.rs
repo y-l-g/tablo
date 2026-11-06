@@ -41,9 +41,8 @@ use crate::{BoxFuture, DeclarationErrorKind, auth::AuthConfig, error::TabloError
 /// session only while it names the session's user: signing out of the app, or into another
 /// account, takes effect on the panel's next request.
 ///
-/// A browser holds one panel session, on any kind of panel: entering this panel ends a session
-/// held on another, and on two panels behind `ExternalAuth` each page load on the other starts its
-/// session again.
+/// Each panel keeps its session in a cookie of its own, so entering this panel leaves a session
+/// held on another as it was.
 ///
 /// ```rust
 /// use tablo_core::{ExternalAuth, PanelUser, auth::safe_next};

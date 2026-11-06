@@ -12,6 +12,7 @@ use topcoat::{
         request::{headers, method, parts, uri},
         response::{IntoResponse, Response, response_headers},
     },
+    runtime::connected_untracked,
     view::{BoxView, ViewExt, attributes, view},
 };
 
@@ -23,7 +24,7 @@ use super::{
     password_reset::{forgot_url, offered as reset_offered, reset_url},
     realm::{Realm, host, hosted, realms},
     registration::{offered, register_url},
-    session::{resolve, session_row, session_user},
+    session::resolve,
     tenant_registration, two_factor, unauthenticated_error, verification,
 };
 use crate::naming::route_path;
@@ -303,6 +304,14 @@ impl Layer for RuntimeGate {
             let Some(host) = host(cx).filter(|_| !realms.is_empty()) else {
                 return next.run(cx, body).await;
             };
+            // A socket with no stamp would run as whichever session its cookies hold.
+            let gated = realms.iter().any(|realm| realm.gates());
+            if gated && connected_untracked(cx) && !headers(cx).contains_key(PAGE_PANEL) {
+                return Err(crate::error::declaration(
+                    "a runtime socket opened outside Tablo's stamp: call `.runtime()` before \
+                     `.panel()`, or leave it to the panel",
+                ));
+            }
             let declaring = host.declaring(cx, uri(cx).path());
             let signed = signed_in(cx, page_panel(cx, &realms), &declaring, &realms).await?;
             // The request runs as the panel `realm` serves; a realm no panel serves answers 404.
@@ -344,8 +353,13 @@ impl Layer for RuntimeGate {
 /// `Referer` on a WebSocket handshake, and a run keeps the handshake's headers but not its URL.
 const PAGE_PANEL: http::HeaderName = http::HeaderName::from_static("x-tablo-page-panel");
 
-/// Stamps a socket handshake to a panel's page with that panel, for [`page_panel`] to read on each
-/// of the socket's runs. It runs around Topcoat's runtime layer, which takes the handshake.
+/// What a socket opened outside every panel is stamped with: no prefix, since a prefix starts with
+/// `/`. A socket with no stamp at all is one [`PagePanelStamp`] never saw.
+const NO_PANEL: http::HeaderValue = http::HeaderValue::from_static("-");
+
+/// Stamps a socket handshake with the panel of its page, for [`page_panel`] to read on each of the
+/// socket's runs. It runs around Topcoat's runtime layer, which takes the handshake; a runtime
+/// layer installed after the panels takes it first, and [`RuntimeGate`] refuses that socket's runs.
 ///
 /// The value only picks which of the request's own session cookies counts, so a forged one reaches
 /// nothing a browser could not reach by opening that panel. A run cannot change it:
@@ -359,15 +373,13 @@ impl Layer for PagePanelStamp {
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
-            let handshake = headers(cx).contains_key(http::header::SEC_WEBSOCKET_PROTOCOL);
-            let realms = realms(cx);
-            let stamp = handshake
-                .then(|| panel_under(&realms, uri(cx).path()))
-                .flatten()
-                .and_then(|realm| http::HeaderValue::from_str(&realm.prefix).ok());
-            let Some(stamp) = stamp else {
+            if !headers(cx).contains_key(http::header::SEC_WEBSOCKET_PROTOCOL) {
                 return next.run(cx, body).await;
-            };
+            }
+            let realms = realms(cx);
+            let stamp = panel_under(&realms, uri(cx).path())
+                .and_then(|realm| http::HeaderValue::from_str(&realm.prefix).ok())
+                .unwrap_or(NO_PANEL);
             let mut stamped = parts(cx).clone();
             stamped.headers.insert(PAGE_PANEL, stamp);
             next.run(&cx.with(stamped), body).await
@@ -421,15 +433,12 @@ async fn signed_in(
         let Some(authenticator) = realm.auth.authenticator() else {
             continue;
         };
-        if let Some(row) = session_row(cx, realm).await? {
+        if let Some(signed) = resolve(cx, realm, authenticator).await? {
             if held.is_some() {
                 return Ok(None);
             }
-            held = Some((row, realm, authenticator));
+            held = Some(signed);
         }
     }
-    match held {
-        Some((row, realm, authenticator)) => session_user(cx, row, realm, authenticator).await,
-        None => Ok(None),
-    }
+    Ok(held)
 }
