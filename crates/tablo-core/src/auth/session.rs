@@ -24,28 +24,65 @@ use crate::{
 /// How long a session stays valid: seven days, fixed.
 pub const SESSION_LIFETIME: Duration = Duration::from_hours(24 * 7);
 
-/// The cookie that carries a panel session's token. Tablo keeps it apart from the router's
+/// What every panel's [`session_cookie`] starts with.
+#[doc(hidden)]
+pub const SESSION_COOKIE_PREFIX: &str = "__Host-tablo_session_";
+
+/// The cookie that carries a session's token on the panel `Panel::new(panel)` mounts; `panel` is
+/// spelled as for [`Panel::new`](crate::Panel::new). Each panel has its own, so a browser stays
+/// signed in to several. Tablo keeps them apart from the router's
 /// [`SessionConfig`](topcoat::session::SessionConfig), so a host app's own Topcoat sessions and a
 /// panel's never replace each other's token.
-pub const SESSION_COOKIE: &str = "__Host-tablo_session";
+#[must_use]
+pub fn session_cookie(panel: &str) -> String {
+    format!(
+        "__Host-{}",
+        store_name(&crate::naming::normalize_prefix(panel))
+    )
+}
 
-/// [`SESSION_COOKIE`] as the store names it: the store adds the `__Host-` prefix.
-fn token_store() -> CookieTokenStore {
-    CookieTokenStore::new().name("tablo_session")
+/// The session cookie's name for `prefix`, as the store takes it: the store adds the `__Host-`
+/// prefix, which fixes `Path=/`, so panels differ by name alone. A byte a cookie name may not hold
+/// becomes `_` and its hex, and so does `_`, so no two prefixes share a name.
+fn store_name(prefix: &str) -> String {
+    use std::fmt::Write as _;
+
+    let mut name = SESSION_COOKIE_PREFIX
+        .trim_start_matches("__Host-")
+        .to_owned();
+    for byte in prefix.trim_start_matches('/').bytes() {
+        if byte.is_ascii_alphanumeric() || byte == b'-' {
+            name.push(char::from(byte));
+        } else {
+            write!(name, "_{byte:02x}").expect("writing to a String cannot fail");
+        }
+    }
+    name
+}
+
+/// The store of `panel`'s [`session_cookie`].
+fn token_store(panel: &Realm) -> CookieTokenStore {
+    CookieTokenStore::new().name(store_name(&panel.prefix))
+}
+
+/// The panel whose route is answering: only a panel's own routes start or end a session.
+fn session_panel(cx: &Cx) -> topcoat::Result<&Arc<Realm>> {
+    current_realm(cx).ok_or_else(|| {
+        crate::error::declaration("a panel session changes only under a panel".to_owned())
+    })
 }
 
 /// Shipped server-side session record: the SHA-256 hash of the client token,
 /// the user it authenticates, the panel that signed the user in, and its
 /// expiry. The raw token is never stored.
 ///
-/// A session rides in [`SESSION_COOKIE`], lasts [`SESSION_LIFETIME`] from login, is replaced on
-/// each login and deleted on logout; each successful login also deletes up to 500 expired
-/// sessions. It belongs to the panel
+/// A session rides in its panel's [`session_cookie`], lasts [`SESSION_LIFETIME`] from login, is
+/// replaced on each login and deleted on logout; each successful login also deletes up to 500
+/// expired sessions. It belongs to the panel
 /// that signed the user in: another panel's gate treats the request as anonymous, and
-/// [`auth::user`](crate::auth::user) answers `None` there. One browser holds one session, so
-/// signing in to a second panel ends the first, entering a panel behind
-/// [`ExternalAuth`](crate::ExternalAuth) included, and renaming a panel's prefix ends the sessions
-/// it issued. Sessions stay valid until they expire unless
+/// [`auth::user`](crate::auth::user) answers `None` there. A browser holds one session on each
+/// panel, so signing in to a second panel leaves the first alone, and renaming a panel's prefix
+/// ends the sessions it issued. Sessions stay valid until they expire unless
 /// [`revoke_sessions_for_user`](crate::auth::revoke_sessions_for_user) ends them.
 ///
 /// The row records the panel's prefix in a non-null `panel` column and the selected tenant in a
@@ -72,10 +109,10 @@ pub struct AuthSession {
     pub created_at: Timestamp,
 }
 
-/// Starts a new session, issuing a fresh token in [`SESSION_COOKIE`].
+/// Starts a new session, issuing a fresh token in the request's panel's [`session_cookie`].
 pub(super) async fn start(cx: &Cx) -> topcoat::Result<session::Session> {
     let token = session::Token::random();
-    token_store()
+    token_store(session_panel(cx)?)
         .write(cx, token.clone(), SESSION_LIFETIME)
         .await?;
     Ok(session::Session {
@@ -86,14 +123,16 @@ pub(super) async fn start(cx: &Cx) -> topcoat::Result<session::Session> {
 
 /// Discards the request's token, returning its hash so the caller can delete the row.
 pub(super) async fn stop(cx: &Cx) -> topcoat::Result<Option<TokenHash>> {
-    let hash = token_hash(cx).await?;
-    token_store().delete(cx).await?;
+    let panel = session_panel(cx)?;
+    let hash = token_hash(cx, panel).await?;
+    token_store(panel).delete(cx).await?;
     Ok(hash)
 }
 
-/// The hash of the token the request presents; `None` when it presents none or a malformed one.
-async fn token_hash(cx: &Cx) -> topcoat::Result<Option<TokenHash>> {
-    let token = token_store().read(cx).await?;
+/// The hash of the token the request presents to `panel`; `None` when it presents none or a
+/// malformed one.
+async fn token_hash(cx: &Cx, panel: &Realm) -> topcoat::Result<Option<TokenHash>> {
+    let token = token_store(panel).read(cx).await?;
     Ok(token.map(|token| token.hash()))
 }
 
@@ -256,7 +295,7 @@ async fn insert(
 }
 
 pub(super) async fn select_tenant(cx: &Cx, tenant: TenantId) -> topcoat::Result<()> {
-    let Some(hash) = token_hash(cx).await? else {
+    let Some(hash) = token_hash(cx, session_panel(cx)?).await? else {
         return Err(topcoat::router::error::forbidden().into());
     };
     let mut db = crate::db::db(cx)?;
@@ -295,7 +334,11 @@ pub(super) async fn start_once(
 ///
 /// The opaque sign-in outage when the database cannot answer; any other failure keeps its mapping.
 pub(super) async fn fresh_session(cx: &Cx) -> topcoat::Result<session::Session> {
-    if let Some(hash) = token_hash(cx).await.map_err(infrastructure_failure)? {
+    let panel = session_panel(cx)?;
+    if let Some(hash) = token_hash(cx, panel)
+        .await
+        .map_err(infrastructure_failure)?
+    {
         delete_session(cx, &hash).await?;
     }
     start(cx).await.map_err(infrastructure_failure)
@@ -392,10 +435,11 @@ pub(super) async fn sweep_expired_sessions(cx: &Cx) -> topcoat::Result<()> {
     Ok(())
 }
 
-/// Returns the request's live session row, purging it when expired and reading
-/// nothing when no session cookie is present.
-pub(super) async fn session_row(cx: &Cx) -> topcoat::Result<Option<AuthSession>> {
-    let Some(hash) = token_hash(cx).await? else {
+/// Returns the live session row the request presents to `panel`, purging it when expired and
+/// reading nothing when `panel`'s cookie is absent. A token moved over from another panel's cookie
+/// finds no row here, since a row serves only the panel that issued it.
+pub(super) async fn session_row(cx: &Cx, panel: &Realm) -> topcoat::Result<Option<AuthSession>> {
+    let Some(hash) = token_hash(cx, panel).await? else {
         return Ok(None);
     };
     let key = token_key(&hash);
@@ -412,7 +456,7 @@ pub(super) async fn session_row(cx: &Cx) -> topcoat::Result<Option<AuthSession>>
         delete_session_row(cx, &row.token_hash).await?;
         return Ok(None);
     }
-    Ok(Some(row))
+    Ok((row.panel == panel.prefix).then_some(row))
 }
 
 /// Resolves `row` to its user, purging the row when the user no longer authenticates.
@@ -446,15 +490,14 @@ pub(super) async fn session_user(
     }
 }
 
-/// Resolves the request's session into `panel`'s user; a session another panel
-/// issued resolves to no one here and stays valid there.
+/// Resolves the request's session on `panel` into its user.
 pub(super) async fn resolve(
     cx: &Cx,
     panel: &Arc<Realm>,
     authenticator: &dyn DynAuthenticator,
 ) -> topcoat::Result<Option<SignedIn>> {
-    match session_row(cx).await? {
-        Some(row) if row.panel == panel.prefix => session_user(cx, row, panel, authenticator).await,
-        _ => Ok(None),
+    match session_row(cx, panel).await? {
+        Some(row) => session_user(cx, row, panel, authenticator).await,
+        None => Ok(None),
     }
 }

@@ -3,7 +3,7 @@ use showcase::models::{
     Author, BLOCKED_TENANT, Category, Comment, DEMO_ADMIN_EMAIL, Post, PostCategory, PostStatus,
     Publication, Seo,
 };
-use tablo::auth::{ColumnPreference, SESSION_COOKIE};
+use tablo::auth::{ColumnPreference, session_cookie};
 use uuid::Uuid;
 
 use crate::common::{
@@ -17,7 +17,7 @@ async fn a_csrf_cookie_and_field_are_both_required() {
     let db = full_db().await;
     let router = router(db.clone());
     let session = mint_session(&db, DEMO_ADMIN_EMAIL).await;
-    let client = TestClient::new(&router).cookie(SESSION_COOKIE, &session);
+    let client = TestClient::new(&router).cookie(&session_cookie("admin"), &session);
     let before = user_count(&db).await;
 
     let resp = client

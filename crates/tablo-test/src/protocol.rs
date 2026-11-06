@@ -43,7 +43,7 @@ pub use search::{SearchGroup, SearchResult, search_box, search_results};
 pub use sections::{Section, sections};
 pub use sidebar::{nav_badge, nav_links};
 pub use summaries::{SummaryFigure, summaries};
-use tablo_core::{Notification, auth::SESSION_COOKIE};
+use tablo_core::{Notification, auth::SESSION_COOKIE_PREFIX};
 pub use tabs::{Tab, tabs};
 use topcoat::router::Body;
 pub use widgets::{
@@ -285,11 +285,11 @@ pub fn set_cookie_header(response: &http::Response<Body>, name: &str) -> Option<
         .map(str::to_string)
 }
 
-/// The session cookie value a response set, if any.
+/// The value of the session cookie a response set, on whichever panel, if any.
 pub fn session_cookie_value(response: &http::Response<Body>) -> Option<String> {
     response_cookies(response)
         .into_iter()
-        .find(|(name, _)| name == SESSION_COOKIE)
+        .find(|(name, _)| name.starts_with(SESSION_COOKIE_PREFIX))
         .map(|(_, value)| value)
 }
 

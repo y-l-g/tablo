@@ -78,8 +78,9 @@ each under its own prefix. A panel's prefix must not overlap another's: `/admin`
 are refused, `/admin` and `/administration` are not.
 
 Each panel has its own login page, and a session belongs to the panel that signed the user in. A
-user signed in to `/admin` is anonymous on `/portal`, and signing in to `/portal` ends the `/admin`
-session. A page's live updates run as the panel of that page alone, and a link into another panel
+user signed in to `/admin` is anonymous on `/portal`, and signing in to `/portal` leaves the
+`/admin` session as it is: each panel has its own cookie, and signing out of one ends only that
+one. A page's live updates run as the panel of that page alone, and a link into another panel
 is a full page load. See [Policy, auth, tenancy](./policy-auth-tenancy.md#authentication).
 
 ## URLs

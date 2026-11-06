@@ -6,7 +6,7 @@ use http::header::LOCATION;
 use showcase::models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, Staff};
 use tablo::{
     RouterBuilderPanelExt,
-    auth::{AuthSession, SESSION_COOKIE},
+    auth::{AuthSession, session_cookie},
 };
 use topcoat::{
     context::Cx,
@@ -92,7 +92,7 @@ async fn login_sets_a_hardened_session_cookie() {
         response.headers().get(http::header::LOCATION).unwrap(),
         "/admin"
     );
-    let cookie = set_cookie_header(&response, SESSION_COOKIE).expect("session cookie");
+    let cookie = set_cookie_header(&response, &session_cookie("admin")).expect("session cookie");
     assert!(cookie.contains("HttpOnly"), "{cookie}");
     assert!(cookie.contains("Secure"), "{cookie}");
     assert!(cookie.contains("SameSite=Lax"), "{cookie}");
@@ -242,7 +242,8 @@ async fn logout_deletes_the_session_and_clears_the_cookie() {
         response.headers().get(http::header::LOCATION).unwrap(),
         "/admin/login"
     );
-    let cleared = set_cookie_header(&response, SESSION_COOKIE).expect("cookie clearing header");
+    let cleared =
+        set_cookie_header(&response, &session_cookie("admin")).expect("cookie clearing header");
     assert!(
         cleared.contains("Max-Age=0") || cleared.contains("Expires=Thu, 01 Jan 1970"),
         "logout must clear the cookie: {cleared}"
@@ -287,7 +288,7 @@ async fn login_rotates_the_session_token() {
     assert_eq!(rows.len(), 1, "the pre-login session is revoked");
 
     // The pre-login token cannot be replayed: the gate redirects to login.
-    let stale = TestClient::new(&router).cookie(SESSION_COOKIE, &first_session);
+    let stale = TestClient::new(&router).cookie(&session_cookie("admin"), &first_session);
     assert_eq!(
         stale.get("/admin/users").await.status(),
         307,
@@ -379,7 +380,7 @@ async fn deactivating_a_user_invalidates_their_live_session() {
         .await
         .unwrap();
 
-    let client = TestClient::new(&router).cookie(SESSION_COOKIE, &session);
+    let client = TestClient::new(&router).cookie(&session_cookie("admin"), &session);
     assert_eq!(
         client.get("/admin/users").await.status(),
         307,

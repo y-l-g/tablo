@@ -304,14 +304,7 @@ impl Layer for RuntimeGate {
                 return next.run(cx, body).await;
             };
             let declaring = host.declaring(cx, uri(cx).path());
-            let signed = if realms.iter().any(|realm| realm.gates()) {
-                signed_in(cx, &realms).await?
-            } else {
-                None
-            };
-            // A page of another panel holds no session here: it may not act through this one.
-            let page = page_panel(cx, &realms);
-            let signed = signed.filter(|signed| page.is_none_or(|p| Arc::ptr_eq(p, &signed.realm)));
+            let signed = signed_in(cx, page_panel(cx, &realms), &declaring, &realms).await?;
             // The request runs as the panel `realm` serves; a realm no panel serves answers 404.
             let enter = |cx: &Cx, realm: &Arc<Realm>| host.enter(cx, realm).ok_or_else(not_found);
             let admitted = match &signed {
@@ -354,8 +347,8 @@ const PAGE_PANEL: http::HeaderName = http::HeaderName::from_static("x-tablo-page
 /// Stamps a socket handshake to a panel's page with that panel, for [`page_panel`] to read on each
 /// of the socket's runs. It runs around Topcoat's runtime layer, which takes the handshake.
 ///
-/// The value only picks among the sessions the request's own cookies prove, so a forged one
-/// reaches nothing a browser could not reach by opening that panel. A run cannot change it:
+/// The value only picks which of the request's own session cookies counts, so a forged one reaches
+/// nothing a browser could not reach by opening that panel. A run cannot change it:
 /// Topcoat refuses a run that sets any header but its own.
 pub(crate) struct PagePanelStamp;
 
@@ -409,17 +402,34 @@ fn page_panel<'r>(cx: &Cx, realms: &'r [Arc<Realm>]) -> Option<&'r Arc<Realm>> {
     panel_under(realms, referer.path())
 }
 
-/// The user the request's session signed in, through the auth of the realm that issued it.
-async fn signed_in(cx: &Cx, realms: &[Arc<Realm>]) -> topcoat::Result<Option<SignedIn>> {
-    let Some(row) = session_row(cx).await? else {
-        return Ok(None);
+/// The user the request runs as: the session of the page's panel, else of the panels declaring the
+/// endpoint, else of any panel. A request that names no panel and holds sessions on several is
+/// signed in on none: nothing says which one it meant.
+async fn signed_in(
+    cx: &Cx,
+    page: Option<&Arc<Realm>>,
+    declaring: &[Arc<Realm>],
+    realms: &[Arc<Realm>],
+) -> topcoat::Result<Option<SignedIn>> {
+    let candidates = match page {
+        Some(page) => std::slice::from_ref(page),
+        None if declaring.is_empty() => realms,
+        None => declaring,
     };
-    match realms
-        .iter()
-        .find(|realm| realm.prefix == row.panel)
-        .and_then(|realm| Some((realm, realm.auth.authenticator()?)))
-    {
-        Some((realm, authenticator)) => session_user(cx, row, realm, authenticator).await,
+    let mut held = None;
+    for realm in candidates {
+        let Some(authenticator) = realm.auth.authenticator() else {
+            continue;
+        };
+        if let Some(row) = session_row(cx, realm).await? {
+            if held.is_some() {
+                return Ok(None);
+            }
+            held = Some((row, realm, authenticator));
+        }
+    }
+    match held {
+        Some((row, realm, authenticator)) => session_user(cx, row, realm, authenticator).await,
         None => Ok(None),
     }
 }

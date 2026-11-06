@@ -5,7 +5,7 @@ use http::header::LOCATION;
 use tablo::{
     Auth, AuthMail, AuthMailFault, DeclarationErrorKind, LoginThrottle, Panel,
     RouterBuilderPanelExt, TwoFactor,
-    auth::{AdminUser, AuthFactor, AuthSession, AuthToken, SESSION_COOKIE, create_admin},
+    auth::{AdminUser, AuthFactor, AuthSession, AuthToken, create_admin, session_cookie},
     testing::{
         TestClient, body_string, form_body, recovery_codes, refusal, session_cookie_value,
         two_factor_state,
@@ -113,7 +113,7 @@ async fn enrol_with_codes<'r>(
     let codes = recovery_codes(&body_string(confirmed).await);
     assert_eq!(codes.len(), 8);
     (
-        TestClient::new(router).cookie(SESSION_COOKIE, &session),
+        TestClient::new(router).cookie(&session_cookie("admin"), &session),
         codes,
     )
 }

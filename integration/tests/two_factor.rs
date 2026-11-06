@@ -7,7 +7,7 @@ use tablo::{
     Auth, DeclarationErrorKind, LoginThrottle, NoForm, Panel, ReadOnly, Resource, ResourceDef,
     RouterBuilderPanelExt, Table, TextColumn, TwoFactor, TwoFactorFault,
     auth::{
-        AdminUser, AuthFactor, AuthSession, AuthToken, FactorKind, SESSION_COOKIE, create_admin,
+        AdminUser, AuthFactor, AuthSession, AuthToken, FactorKind, create_admin, session_cookie,
     },
     lens,
     testing::{
@@ -134,7 +134,7 @@ async fn enrol<'r>(
         secret,
         setup_code,
         codes,
-        TestClient::new(router).cookie(SESSION_COOKIE, &session),
+        TestClient::new(router).cookie(&session_cookie("admin"), &session),
     )
 }
 
@@ -193,7 +193,7 @@ async fn an_enrolled_account_signs_in_with_its_code_after_its_password() {
         "/admin/invoices"
     );
     let session = session_cookie_value(&signed_in).expect("the code opens a session");
-    let client = TestClient::new(&router).cookie(SESSION_COOKIE, &session);
+    let client = TestClient::new(&router).cookie(&session_cookie("admin"), &session);
     assert_eq!(client.get("/admin/invoices").await.status(), 200);
     assert_eq!(
         challenged.get(CHALLENGE).await.status(),

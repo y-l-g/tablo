@@ -21,7 +21,7 @@ needs from the app and the two ways to connect their sign-ins.
 
 ## Mounting beside the app's sessions
 
-The panel keeps its sessions in its own `__Host-tablo_session` cookie. The router's
+The panel keeps its sessions in its own `__Host-tablo_session_{prefix}` cookie. The router's
 `SessionConfig` stays the app's, so a sign-in, a sign-out or a session lifetime on one side never
 touches the other:
 
@@ -76,8 +76,12 @@ on any origin. Point that at a route that ends the app's session, an SSO provide
 included, or at a page of the app's that offers to. While the app's session lives, the next visit
 to the panel signs the user in again.
 
-A browser holds one panel session across every panel on the router, so entering this panel ends
-a session held on another.
+A browser holds one session on each panel, so entering this panel leaves a session held on another
+as it is.
+
+An app page outside every panel that calls a panel's shard names no panel. It runs on the session
+the browser holds; with sessions on several panels it runs as anonymous, unless only one of them
+declares the shard.
 
 The app owns the account, so mounting refuses `Auth::registration`, `Auth::password_reset`,
 `Auth::email_verification` and `Auth::two_factor` beside `Auth::external`. The panel's tenant menu,

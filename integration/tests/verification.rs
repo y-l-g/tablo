@@ -9,7 +9,7 @@ use tablo::{
     Auth, AuthMail, AuthMailFault, DeclarationErrorKind, EmailVerification, LoginThrottle, NoForm,
     NotificationStatus, Panel, PasswordAuth, PasswordSignUp, ReadOnly, Resource, ResourceDef,
     RouterBuilderPanelExt, Table, TextColumn, VerificationFault,
-    auth::{AdminUser, AuthSession, AuthToken, SESSION_COOKIE, create_admin},
+    auth::{AdminUser, AuthSession, AuthToken, create_admin, session_cookie},
     lens,
     testing::{form_body, session_cookie_value},
 };
@@ -127,7 +127,7 @@ async fn a_sign_up_reaches_the_panel_once_its_link_verifies_the_address() {
     let signed_up = sign_up(&router, "ada@example.com").await;
     assert_eq!(signed_up.headers().get(LOCATION).unwrap(), "/admin");
     let session = session_cookie_value(&signed_up).expect("the sign-up starts a session");
-    let client = TestClient::new(&router).cookie(SESSION_COOKIE, &session);
+    let client = TestClient::new(&router).cookie(&session_cookie("admin"), &session);
 
     let page = client.get("/admin/tickets").await;
     assert_eq!(page.status(), 307);

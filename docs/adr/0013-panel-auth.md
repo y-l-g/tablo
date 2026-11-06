@@ -6,12 +6,15 @@ type parameter; the user travels erased and `auth::user::<U>` reads it back. `Au
 is the explicit opt-out.
 
 - Sessions are server-side rows keyed by token hash, rotated on login, revocable per user, and
-  bound to the panel that issued them. A shard or procedure serves outside every prefix, so a
+  bound to the panel that issued them. Each panel has its own cookie, named from its prefix since
+  `__Host-` fixes `Path=/`, so a browser stays signed in to several panels. A shard or procedure serves outside every prefix, so a
   panel declares the ones its pages use, and a request to one runs as that panel.
 - A runtime request also runs only as the panel of the page that sent it. A fetch names its page
   in the `Referer`; a socket's runs carry a header stamped from the handshake's URL, which the
-  runtime lets no run set. The name picks among the sessions the cookies prove, so forging it
-  grants nothing, and a request naming no panel keeps the session's own. A panel's documents carry
+  runtime lets no run set. The name picks which of the request's cookies counts, so forging it
+  grants nothing. A request naming no panel, such as one from a page outside every panel, runs on
+  the one session it holds among the panels declaring the endpoint; holding two, it is anonymous,
+  rather than Tablo guessing. A panel's documents carry
   an inline script of their own: Topcoat loads a page whose scripts this document has not run, so
   entering a panel opens a new socket and no socket outlives its panel.
 - A session's token rides in Tablo's own cookie, never the router's `SessionConfig`: a router has
@@ -51,6 +54,9 @@ is the explicit opt-out.
   token would be the app's, and the two sign-ins would still share one cookie.
 - `ExternalAuth` with no session row, the app's session alone signing a request in: the tenant
   switch would need a tenant cookie, and each gate a second path with no row behind it.
+- One cookie for every panel: a browser held one session, so signing in to a panel ended the last.
+- Telling panels apart by cookie path: `__Host-` requires `Path=/`, and the runtime serves outside
+  every prefix, so a path-scoped cookie would not reach it.
 - A `sign_in` function an app's route calls after its own login: every app would write the same
   route, and the panel would keep a session after the app's ended unless the app revoked it.
 - `Auth::disabled()` with a layer of the app's over the prefix: the runtime path stays open.

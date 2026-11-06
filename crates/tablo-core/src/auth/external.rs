@@ -211,10 +211,10 @@ pub(super) fn external_login(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         if !user.can_access_panel(&panel.prefix) {
             return no_access(cx, external.logout_url(cx)).await;
         }
-        let holds_theirs = session_row(cx)
+        let holds_theirs = session_row(cx, panel)
             .await
             .map_err(infrastructure_failure)?
-            .is_some_and(|row| row.panel == panel.prefix && row.user_id == user.user_id());
+            .is_some_and(|row| row.user_id == user.user_id());
         if !holds_theirs && *method(cx) != http::Method::HEAD {
             if let Err(error) = sweep_expired_sessions(cx).await {
                 tracing::error!(error = %error, "expired-session sweep failed");

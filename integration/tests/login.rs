@@ -4,12 +4,13 @@
 use jiff::Timestamp;
 use tablo::{
     Auth, LoginThrottle, Panel, PanelUser, RouterBuilderPanelExt,
-    auth::{AdminUser, AuthSession, SESSION_COOKIE, create_admin, guard, require_user},
+    auth::{AdminUser, AuthSession, create_admin, guard, require_user, session_cookie},
 };
 use toasty::Db;
 use topcoat::{
     context::Cx,
     router::{Body, RemoteAddr, Router, RouterBuilderDiscoverExt, TrailingSlash},
+    session::Token,
 };
 use uuid::Uuid;
 
@@ -116,13 +117,13 @@ async fn an_oversized_login_post_is_refused() {
     let oversized = format!("email={}&password=opensesame", "a".repeat(1024 * 1024));
     let response = router.handle(login_request("/admin", &oversized)).await;
     assert_eq!(response.status(), http::StatusCode::PAYLOAD_TOO_LARGE);
-    assert!(set_cookie_header(&response, SESSION_COOKIE).is_none());
+    assert!(set_cookie_header(&response, &session_cookie("admin")).is_none());
 
     let response = router
         .handle(login_request("/admin", &ada_with("opensesame")))
         .await;
     assert_eq!(response.status(), http::StatusCode::SEE_OTHER);
-    assert!(set_cookie_header(&response, SESSION_COOKIE).is_some());
+    assert!(set_cookie_header(&response, &session_cookie("admin")).is_some());
 }
 
 /// A login sweeps the expired sessions, whoever owns them, and leaves the live ones.
@@ -255,7 +256,7 @@ async fn session_on(router: &Router, prefix: &str) -> String {
         http::StatusCode::SEE_OTHER,
         "{prefix} signs in"
     );
-    let cookie = set_cookie_header(&response, SESSION_COOKIE).expect("a session cookie");
+    let cookie = set_cookie_header(&response, &session_cookie(prefix)).expect("a session cookie");
     cookie.split(';').next().unwrap().to_string()
 }
 
@@ -513,4 +514,137 @@ async fn entering_another_panel_is_a_page_load() {
     assert_eq!(admin_page, admin_login);
     let portal_page = panel_marks(&router, "/portal/missing", Some(&portal)).await;
     assert_eq!(portal_page, portal_login);
+}
+
+/// Both cookies of a browser signed in to `/admin` and `/portal`, with the admin's and the
+/// portal's `name=value` apart.
+async fn signed_in_on_both(router: &Router) -> (String, String) {
+    let admin = session_on(router, "/admin").await;
+    let portal = session_on(router, "/portal").await;
+    (admin, portal)
+}
+
+/// Each panel has its own cookie, so a second sign-in replaces nothing and each page runs as its
+/// panel.
+#[tokio::test]
+async fn a_browser_stays_signed_in_on_each_panel() {
+    let router = two_panels(TrailingSlash::default()).await;
+    let (admin, portal) = signed_in_on_both(&router).await;
+    let both = format!("{admin}; {portal}");
+
+    for prefix in ["/admin", "/portal"] {
+        let response = router
+            .handle(shard_from_page(&both, &format!("{prefix}/notes")))
+            .await;
+        assert_eq!(response.status(), http::StatusCode::OK, "{prefix}");
+        let body = tablo::testing::body_string(response).await;
+        assert!(body.contains(&format!("ran-as:{prefix}")), "{body}");
+
+        let frames = socket_run(
+            router.clone(),
+            &format!("{prefix}/notes"),
+            &both,
+            serde_json::json!({ "content-type": "application/json" }),
+            "ran-as:",
+        )
+        .await;
+        assert!(frames.contains(&format!("ran-as:{prefix}")), "{frames}");
+    }
+}
+
+/// Signing out of a panel ends that panel's session alone.
+#[tokio::test]
+async fn signing_out_of_a_panel_leaves_the_others_session() {
+    let router = two_panels(TrailingSlash::default()).await;
+    let (admin, portal) = signed_in_on_both(&router).await;
+    let csrf = Uuid::new_v4().to_string();
+
+    let logout = router
+        .handle(
+            http::Request::post("/admin/logout")
+                .header(
+                    http::header::CONTENT_TYPE,
+                    "application/x-www-form-urlencoded",
+                )
+                .header(
+                    http::header::COOKIE,
+                    format!("{admin}; {portal}; {}={csrf}", tablo::csrf::COOKIE_NAME),
+                )
+                .body(Body::from(format!("csrf_token={csrf}")))
+                .unwrap(),
+        )
+        .await;
+    assert_eq!(logout.status(), http::StatusCode::SEE_OTHER);
+    assert!(set_cookie_header(&logout, &session_cookie("portal")).is_none());
+
+    let both = format!("{admin}; {portal}");
+    let response = router.handle(shard_from_page(&both, "/admin/notes")).await;
+    assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
+    let response = router.handle(shard_from_page(&both, "/portal/notes")).await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+}
+
+/// A request naming no panel may mean any session it holds, so holding two it runs as neither;
+/// one the endpoint's declaration or a dead cookie settles still runs.
+#[tokio::test]
+async fn a_request_naming_no_panel_runs_only_on_a_session_nothing_disputes() {
+    let router = two_panels(TrailingSlash::default()).await;
+    let (admin, portal) = signed_in_on_both(&router).await;
+    let both = format!("{admin}; {portal}");
+
+    let response = router.handle(shard_request(WHICH_PANEL, &admin)).await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+
+    let response = router.handle(shard_request(WHICH_PANEL, &both)).await;
+    assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
+    let response = router.handle(shard_from_page(&both, "/billing")).await;
+    assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
+
+    // Only the portal declares its report, so the admin's session disputes nothing.
+    let response = router.handle(shard_request(PORTAL_REPORT, &both)).await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+
+    // A cookie whose session is gone proves nothing.
+    let name = session_cookie("admin");
+    let dead = format!("{name}={}; {portal}", Token::random().encode());
+    let response = router.handle(shard_request(WHICH_PANEL, &dead)).await;
+    assert_eq!(response.status(), http::StatusCode::OK);
+    let body = tablo::testing::body_string(response).await;
+    assert!(body.contains("ran-as:/portal"), "{body}");
+}
+
+/// A session serves the panel that issued it, whichever cookie carries its token.
+#[tokio::test]
+async fn a_token_moved_to_another_panels_cookie_signs_in_no_one() {
+    let router = two_panels(TrailingSlash::default()).await;
+    let admin = session_on(&router, "/admin").await;
+    let (_, token) = admin.split_once('=').unwrap();
+    let moved = format!("{}={token}", session_cookie("portal"));
+
+    let response = router
+        .handle(shard_from_page(&moved, "/portal/notes"))
+        .await;
+    assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
+    let response = router.handle(shard_request(WHICH_PANEL, &moved)).await;
+    assert_eq!(response.status(), http::StatusCode::UNAUTHORIZED);
+}
+
+/// A panel's cookie name is a cookie name, and no two prefixes share one.
+#[test]
+fn every_prefix_has_a_cookie_of_its_own() {
+    let names: Vec<String> = ["admin", "/admin/", "/a/b", "/a_2fb", "/a-b", "/a_b", "/a.b"]
+        .into_iter()
+        .map(session_cookie)
+        .collect();
+    assert_eq!(names[0], "__Host-tablo_session_admin");
+    assert_eq!(names[0], names[1], "spelled as for `Panel::new`");
+    let distinct: std::collections::BTreeSet<&String> = names.iter().collect();
+    assert_eq!(distinct.len(), names.len() - 1, "{names:?}");
+    for name in &names {
+        assert!(
+            name.bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"-_".contains(&byte)),
+            "{name}",
+        );
+    }
 }
