@@ -161,8 +161,7 @@ impl Panel {
             }
             None => {
                 let initial = name.chars().next().map(String::from).unwrap_or_default();
-                view! { <span aria-hidden="true" class=(initial_class)>(initial)</span> }
-                .boxed()
+                view! { <span aria-hidden="true" class=(initial_class)>(initial)</span> }.boxed()
             }
         }
     }

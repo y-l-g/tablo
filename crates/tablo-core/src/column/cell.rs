@@ -185,8 +185,7 @@ pub(crate) fn icon_view(cx: &Cx, data: IconData, color: Option<Color>) -> BoxVie
         Some(color) => format!("size-4 shrink-0 {}", color.text_class()),
         None => "size-4 shrink-0".to_string(),
     };
-    view! { icon(data: data, attrs: attributes! { class=(class) aria-hidden="true" }) }
-    .boxed()
+    view! { icon(data: data, attrs: attributes! { class=(class) aria-hidden="true" }) }.boxed()
 }
 
 /// `text` as an outline badge, led by its icon, or else by a dot in `color` when it has one.

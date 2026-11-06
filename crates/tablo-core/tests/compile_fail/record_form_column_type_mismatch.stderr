@@ -40,18 +40,18 @@ error[E0277]: the trait bound `i32: IntoExpr<i64>` is not satisfied
    |
 help: the trait `IntoExpr<i64>` is not implemented for `i32`
       but trait `IntoExpr<i32>` is implemented for it
-  --> $CARGO/toasty-$VERSION/src/stmt/into_expr.rs
+  --> /home/runner/.cargo/git/checkouts/toasty-9289bba937c87560/ebf1e47/crates/toasty/src/stmt/into_expr.rs:65:13
    |
-   |               impl IntoExpr<$t> for $t {
+65 |               impl IntoExpr<$t> for $t {
    |               ^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-   | / impl_into_expr_for_copy! {
-   | |     Bool(bool);
-   | |     I8(i8);
-   | |     I16(i16);
+80 | / impl_into_expr_for_copy! {
+81 | |     Bool(bool);
+82 | |     I8(i8);
+83 | |     I16(i16);
 ...  |
-   | |     Uuid(uuid::Uuid);
-   | | }
+92 | |     Uuid(uuid::Uuid);
+93 | | }
    | |_- in this macro invocation
    = help: for that trait implementation, expected `i32`, found `i64`
 note: required by a bound in `UserCreate::age`
@@ -65,35 +65,35 @@ note: required by a bound in `UserCreate::age`
    = note: this error originates in the macro `impl_into_expr_for_copy` which comes from the expansion of the derive macro `toasty::Model` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `i32: Assign<i64>` is not satisfied
-  --> tests/compile_fail/record_form_column_type_mismatch.rs:10:10
-   |
-10 | #[derive(tablo_core::RecordForm)]
-   |          ^^^^^^^^^^^^^^^^^^^^^^ the trait `Assign<i64>` is not implemented for `i32`
-   |
+   --> tests/compile_fail/record_form_column_type_mismatch.rs:10:10
+    |
+ 10 | #[derive(tablo_core::RecordForm)]
+    |          ^^^^^^^^^^^^^^^^^^^^^^ the trait `Assign<i64>` is not implemented for `i32`
+    |
 help: the trait `Assign<i64>` is not implemented for `i32`
       but trait `Assign<i32>` is implemented for it
-  --> $CARGO/toasty-$VERSION/src/stmt/assignment.rs
-   |
-   |           impl super::assignment::Assign<$target> for $source {
-   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-  ::: $CARGO/toasty-$VERSION/src/stmt/into_expr.rs
-   |
-   | / impl_into_expr_for_copy! {
-   | |     Bool(bool);
-   | |     I8(i8);
-   | |     I16(i16);
-...  |
-   | |     Uuid(uuid::Uuid);
-   | | }
-   | |_- in this macro invocation
-   = help: for that trait implementation, expected `i32`, found `i64`
+   --> /home/runner/.cargo/git/checkouts/toasty-9289bba937c87560/ebf1e47/crates/toasty/src/stmt/assignment.rs:107:9
+    |
+107 |           impl super::assignment::Assign<$target> for $source {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: /home/runner/.cargo/git/checkouts/toasty-9289bba937c87560/ebf1e47/crates/toasty/src/stmt/into_expr.rs:80:1
+    |
+ 80 | / impl_into_expr_for_copy! {
+ 81 | |     Bool(bool);
+ 82 | |     I8(i8);
+ 83 | |     I16(i16);
+...   |
+ 92 | |     Uuid(uuid::Uuid);
+ 93 | | }
+    | |_- in this macro invocation
+    = help: for that trait implementation, expected `i32`, found `i64`
 note: required by a bound in `UserUpdate::<__toasty_T>::set_age`
-  --> tests/compile_fail/record_form_column_type_mismatch.rs:1:24
-   |
- 1 | #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-   |                        ^^^^^^^^^^^^^ required by this bound in `UserUpdate::<__toasty_T>::set_age`
+   --> tests/compile_fail/record_form_column_type_mismatch.rs:1:24
+    |
+  1 | #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    |                        ^^^^^^^^^^^^^ required by this bound in `UserUpdate::<__toasty_T>::set_age`
 ...
- 7 |     age: i64,
-   |     --- required by a bound in this associated function
-   = note: this error originates in the derive macro `tablo_core::RecordForm` which comes from the expansion of the derive macro `toasty::Model` (in Nightly builds, run with -Z macro-backtrace for more info)
+  7 |     age: i64,
+    |     --- required by a bound in this associated function
+    = note: this error originates in the derive macro `tablo_core::RecordForm` which comes from the expansion of the derive macro `toasty::Model` (in Nightly builds, run with -Z macro-backtrace for more info)

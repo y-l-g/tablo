@@ -177,8 +177,7 @@ fn grid_chrome<'a>(cx: &'a Cx, cols: u8, span: Option<Span>, body: BoxView<'a>) 
         _ => "grid grid-cols-1 gap-4 [--tablo-cols:1] @4xl:grid-cols-12 @4xl:[--tablo-cols:12]",
     };
     // The grid measures the container around it: an element cannot query its own width.
-    let grid = view! { <div class="@container"><div class=(class)>(body)</div></div> }
-    .boxed();
+    let grid = view! { <div class="@container"><div class=(class)>(body)</div></div> }.boxed();
     spanned(cx, span, grid)
 }
 
