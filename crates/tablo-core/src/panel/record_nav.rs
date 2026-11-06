@@ -88,7 +88,6 @@ pub(crate) fn render_record_navigation(cx: &Cx, links: Vec<RecordNavLink>) -> Bo
         return ().boxed();
     }
     view! {
-        cx =>
         <nav
             aria-label=(t!(cx, "tablo-record-navigation"))
             class="overflow-x-auto border-b border-border pb-px"

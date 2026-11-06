@@ -52,7 +52,7 @@ pub fn field<'a>(cx: &'a Cx, token: &str) -> topcoat::view::BoxView<'a> {
     use topcoat::view::ViewExt;
 
     let token = token.to_string();
-    topcoat::view::view! { cx => <input type="hidden" name=(FIELD_NAME) value=(token)> }.boxed()
+    topcoat::view::view! { <input type="hidden" name=(FIELD_NAME) value=(token)> }.boxed()
 }
 
 /// Verifies the token a POST `submitted` under [`FIELD_NAME`] matches the cookie with a

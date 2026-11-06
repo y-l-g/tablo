@@ -296,12 +296,10 @@ pub(crate) async fn render_form_page<'a>(
     for (name, path) in carried {
         let control = format!("keep_{name}");
         let path = crate::upload::carry::seal(cx, name, path);
-        carried_fields
-            .push(view! { cx => <input type="hidden" name=(control) value=(path)> }.boxed());
+        carried_fields.push(view! { <input type="hidden" name=(control) value=(path)> }.boxed());
     }
     for (name, value) in hidden {
-        carried_fields
-            .push(view! { cx => <input type="hidden" name=(name) value=(value)> }.boxed());
+        carried_fields.push(view! { <input type="hidden" name=(name) value=(value)> }.boxed());
     }
     let submit_variant = if destructive {
         tablo_ui::ButtonVariant::Destructive
@@ -310,7 +308,6 @@ pub(crate) async fn render_form_page<'a>(
     };
     let footer = if picking { PICK_FOOTER } else { FOOTER };
     let form = view! {
-        cx =>
         <form
             method="post"
             action=(action)
@@ -397,7 +394,6 @@ pub(crate) async fn render_form_page<'a>(
         return Ok(form);
     }
     Ok(view! {
-        cx =>
         tablo_ui::page(
             tablo_ui::page_header(
                 tablo_ui::page_title((title.clone()))

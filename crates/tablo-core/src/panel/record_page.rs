@@ -110,7 +110,6 @@ fn record_page<'a>(cx: &'a Cx, header: RecordHeader, body: BoxView<'a>) -> BoxVi
     let outline =
         tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
     view! {
-        cx =>
         tablo_ui::page(
             tablo_ui::page_header(
                 tablo_ui::page_title((title))

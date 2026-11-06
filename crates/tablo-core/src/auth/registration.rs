@@ -494,7 +494,6 @@ async fn render_page<'a>(
     let login = with_next(login_url(cx), &next);
     let fields = schema.render(cx, Source::form(values, errors)).await?;
     let form = topcoat::view::view! {
-        cx =>
         <form method="post" action=(action) class="flex flex-col gap-5">
             (crate::csrf::field(cx, &csrf))
             <input type="hidden" name=(NEXT_FIELD) value=(next)>

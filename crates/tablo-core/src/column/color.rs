@@ -58,7 +58,6 @@ where
         }
         let swatch = format!("background-color: {value}");
         view! {
-            cx =>
             <span class="inline-flex items-center gap-2">
                 <span
                     class="size-4 shrink-0 rounded-sm ring-1 ring-foreground/15 ring-inset"

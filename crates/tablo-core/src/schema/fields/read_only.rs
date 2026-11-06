@@ -12,7 +12,6 @@ use crate::Text;
 pub(crate) fn read_only<'a>(cx: &'a Cx, label: &Text, value: BoxView<'a>) -> BoxView<'a> {
     let label = label.clone();
     view! {
-        cx =>
         ui_field(
             attrs: attributes! { class="ac-field" },
             ui_field_content(
@@ -32,8 +31,8 @@ pub(crate) fn read_only<'a>(cx: &'a Cx, label: &Text, value: BoxView<'a>) -> Box
 /// A record's value as read-only text: a blank value reads as a muted dash.
 pub(crate) fn value_cell<'a>(cx: &'a Cx, text: &str) -> BoxView<'a> {
     if text.trim().is_empty() {
-        return view! { cx => <span class="text-muted-foreground">"—"</span> }.boxed();
+        return view! { <span class="text-muted-foreground">"—"</span> }.boxed();
     }
     let text = text.to_string();
-    view! { cx => (text) }.boxed()
+    view! { (text) }.boxed()
 }

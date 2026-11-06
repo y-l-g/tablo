@@ -175,7 +175,6 @@ impl Frame<'_> {
                     .render_empty_cell(cx, &state, "", with_actions, false, &signals)
                     .await?;
                 return Ok(view! {
-                    cx =>
                     table(
                         (head)
                         (empty)
@@ -185,7 +184,6 @@ impl Frame<'_> {
             }
             let rows = render_rows(cx, rows, &self.row_chrome(&state, &signals, false));
             Ok(view! {
-                cx =>
                 table(
                     (head)
                     table_body(
@@ -291,7 +289,6 @@ impl Frame<'_> {
                 .render_empty_cell(cx, state, path, with_actions, with_bulk, signals)
                 .await?;
             view! {
-                cx =>
                 // Alone in a box, the registry table draws no border: the bars beside it draw theirs.
                 <div>
                     table(
@@ -306,7 +303,6 @@ impl Frame<'_> {
             pager_views.extend(pager);
             let rows = render_rows(cx, row_data, &self.row_chrome(state, signals, with_bulk));
             view! {
-                cx =>
                 <div>
                     table(
                         (head)
@@ -323,7 +319,6 @@ impl Frame<'_> {
         };
 
         let content = view! {
-            cx =>
             if let Some(tabs) = tabs {
                 (tabs)
             }
@@ -353,7 +348,6 @@ fn render_summaries(cx: &Cx, summaries: Vec<(String, u64)>) -> Option<BoxView<'_
     }
     Some(
         view! {
-            cx =>
             <dl
                 class="flex flex-wrap gap-x-6 gap-y-1 border-t border-border px-4 py-3 text-sm sm:px-6"
                 data-table-summaries=""
@@ -377,5 +371,5 @@ fn render_summaries(cx: &Cx, summaries: Vec<(String, u64)>) -> Option<BoxView<'_
 /// Render the table's card, shared by the loaded table and its skeleton.
 pub(super) fn table_frame<'a>(cx: &'a Cx, busy: bool, content: BoxView<'a>) -> BoxView<'a> {
     let busy = busy.then_some("true");
-    view! { cx => <div class=(TABLE_CARD_CLASS) aria-busy=(busy)>(content)</div> }.boxed()
+    view! { <div class=(TABLE_CARD_CLASS) aria-busy=(busy)>(content)</div> }.boxed()
 }

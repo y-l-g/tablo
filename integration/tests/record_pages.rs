@@ -86,7 +86,7 @@ impl RecordPage<NoteResource> for SecretPage {
         } else {
             String::new()
         };
-        Ok(view! { cx => <p>(secret)</p> })
+        Ok(view! { <p>(secret)</p> })
     }
 }
 

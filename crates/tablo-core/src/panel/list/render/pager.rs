@@ -115,7 +115,7 @@ impl Frame<'_> {
         let link = |target: u32| live_link(cx, state.with_page(path, target), signals);
         let step = |target: u32, rel: &'static str| {
             let mut attrs = link(target);
-            attrs.extend(attributes! { cx => rel=(rel) });
+            attrs.extend(attributes! { rel=(rel) });
             attrs
         };
         let nav = more_than_a_page.then(|| {
@@ -139,7 +139,6 @@ impl Frame<'_> {
                         let attrs = link(n);
                         let label = n.to_string();
                         view! {
-                            cx =>
                             pagination_item(
                                 attrs: attributes! { class="max-sm:hidden" },
                                 pagination_link(active: n == page, attrs: attrs, (label))
@@ -148,7 +147,6 @@ impl Frame<'_> {
                         .boxed()
                     }
                     None => view! {
-                        cx =>
                         pagination_item(
                             attrs: attributes! { class="max-sm:hidden" },
                             pagination_ellipsis()
@@ -158,7 +156,6 @@ impl Frame<'_> {
                 })
                 .collect();
             view! {
-                cx =>
                 // A size container: its width must come from the bar, never its links.
                 pagination(
                     attrs: attributes! { class="sm:flex-1 sm:justify-end" },
@@ -185,7 +182,6 @@ impl Frame<'_> {
         });
         Some(
             view! {
-                cx =>
                 <div class=(BAR_CLASS) data-pager="">
                     <p class="shrink-0 text-sm text-muted-foreground tabular-nums">
                         (summary)
@@ -224,7 +220,6 @@ impl Frame<'_> {
         let (on_change, on_submit) = (rerun_with(signals, &form), rerun_with(signals, &form));
         let action = path.to_string();
         view! {
-            cx =>
             <form
                 id=(form)
                 method="get"
@@ -275,14 +270,13 @@ fn render_cursored<'a>(
     }
     let step = |href: String, rel: &'static str| {
         let mut attrs = live_link(cx, href, signals);
-        attrs.extend(attributes! { cx => rel=(rel) });
+        attrs.extend(attributes! { rel=(rel) });
         attrs
     };
     let previous = prev_href.map_or_else(|| disabled(cx), |href| step(href, "prev"));
     let next = next_href.map_or_else(|| disabled(cx), |href| step(href, "next"));
     Some(
         view! {
-            cx =>
             <div class=(BAR_CLASS) data-pager="">
                 pagination(
                     attrs: attributes! { class="sm:justify-end" },
@@ -309,7 +303,7 @@ fn render_cursored<'a>(
 
 /// The attributes of a Previous or Next link with nowhere to go: no `href`, so it is no link.
 fn disabled(cx: &Cx) -> Attributes {
-    attributes! { cx => aria-disabled="true" class=(DISABLED_CLASS) }
+    attributes! { aria-disabled="true" class=(DISABLED_CLASS) }
 }
 
 #[cfg(test)]

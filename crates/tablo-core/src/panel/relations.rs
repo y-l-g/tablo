@@ -292,7 +292,6 @@ fn relation_section<'a>(
 ) -> BoxView<'a> {
     let create_label = crate::t!(cx, "tablo-relation-new", label = child_label);
     view! {
-        cx =>
         <section class="flex flex-col gap-3" data-relation=(key)>
             <div class="flex items-center justify-between gap-4">
                 <h2 class="text-lg font-semibold tracking-tight text-foreground">

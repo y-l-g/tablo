@@ -75,7 +75,6 @@ async fn render_bell(cx: &Cx) -> Result<BoxView<'_>> {
         return Ok(().boxed());
     };
     Ok(view! {
-        cx =>
         <div class="relative">
             button(
                 variant: ButtonVariant::Ghost,
@@ -136,7 +135,7 @@ pub(crate) fn topbar_bell(cx: &Cx) -> BoxView<'_> {
     if bell_inbox(cx).is_none() {
         return ().boxed();
     }
-    view! { cx => notification_bell() }.boxed()
+    view! { notification_bell() }.boxed()
 }
 
 /// The signed-in user's inbox when the request's panel shows a bell.
@@ -194,7 +193,6 @@ async fn next_change(cx: &Cx, wakes: &mut Subscription) -> Result<bool> {
 /// page is open.
 fn unread_badge(cx: &Cx, inbox: Inbox, mut wakes: Subscription, initial: Snapshot) -> BoxView<'_> {
     live! {
-        cx =>
         let db = crate::db::db(cx)?;
         // When the newest row the page already showed was sent: only a later one toasts, so
         // marking an older one unread does not.
@@ -234,13 +232,11 @@ async fn badge_view(
     let toast = match arrival {
         Some(row) => {
             let id = format!("tablo-arrival-{}", row.id);
-            super::render_notification(cx, row.notification.0, attributes! { cx => id=(id) })
-                .await?
+            super::render_notification(cx, row.notification.0, attributes! { id=(id) }).await?
         }
         None => ().boxed(),
     };
     Ok(view! {
-        cx =>
         if unread > 0 {
             <span
                 class="pointer-events-none absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium leading-none text-primary-foreground tabular-nums"
@@ -267,7 +263,6 @@ fn notification_list(
     shown: Signal<usize>,
 ) -> BoxView<'_> {
     live! {
-        cx =>
         let mut snapshot = initial;
         loop {
             let Snapshot { unread, rows, more, .. } = snapshot;
@@ -291,7 +286,6 @@ async fn list_view(
 ) -> Result<BoxView<'_>> {
     if rows.is_empty() {
         return Ok(view! {
-            cx =>
             empty_state(
                 title: t!(cx, "tablo-notifications-none"),
                 detail: t!(cx, "tablo-notifications-caught-up")
@@ -305,7 +299,6 @@ async fn list_view(
         items.push(item_view(cx, row, now).await?);
     }
     Ok(view! {
-        cx =>
         <div class="flex items-center justify-between gap-2 text-sm">
             <span class="text-muted-foreground" data-unread-count=(unread.to_string())>
                 (t!(cx, "tablo-notifications-unread", count = unread))
@@ -393,7 +386,6 @@ async fn item_view(cx: &Cx, row: StoredNotification, now: Timestamp) -> Result<B
     let toggle_id = id.clone();
     let remove_id = id.clone();
     Ok(view! {
-        cx =>
         <li
             id=(format!("tablo-notification-{id}"))
             class=(format!("flex gap-3 rounded-lg border p-3 text-sm {surface}"))

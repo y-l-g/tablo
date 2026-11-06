@@ -125,7 +125,6 @@ pub(crate) fn error_page(cx: &Cx, _body: Body) -> BoxView<'_> {
     let button =
         tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
     view! {
-        cx =>
         (error.status())
         tablo_ui::page(
             attrs: topcoat::view::attributes! { class="flex-1 justify-center" },

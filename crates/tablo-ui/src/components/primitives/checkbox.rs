@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:fb7cb8f77818fe9a76f62b0f705494a5e5a000de9b6a49d05cca973b028abf2d — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:69af446eecbee0234f39ef1dfcde2d72b7ba89f13ad3b96506f9ef5dc40d0184 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     icon::{icon, iconify::iconify_icon},
     view::{Attributes, StaticClass, View, attributes, class, component, view},
 };
@@ -31,7 +32,7 @@ const CHECKBOX: StaticClass = class!(
 /// }
 /// ```
 #[component]
-pub async fn checkbox(#[default] mut attrs: Attributes) -> Result<impl View> {
+pub async fn checkbox(cx: &Cx, #[default] mut attrs: Attributes) -> Result<impl View> {
     // The checkmark cannot be drawn by the `<input>` itself, which renders no
     // children or pseudo-elements: it is a sibling icon overlaid on the
     // control, revealed by the input's `peer` state while checked.

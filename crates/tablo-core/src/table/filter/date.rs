@@ -260,30 +260,32 @@ where
         // hold — an exact time, or a day spelled with one — stays in a text input, which submits
         // it back unharmed, where a date input would drop it and the rerun would widen the bound
         // to its day.
-        let bound =
-            |value: String, name: String, aria: String, filter: Option<String>| -> BoxView<'a> {
-                let kind = if value.is_empty()
-                    || (value.len() == 10 && value.parse::<jiff::civil::Date>().is_ok())
-                {
-                    "date"
-                } else {
-                    "text"
-                };
-                view! {
-                    cx =>
-                    tablo_ui::input(
-                        attrs: attributes! {
-                            type=(kind)
-                            name=(name)
-                            value=(value)
-                            aria-label=(aria)
-                            class="min-w-0 flex-1"
-                            data-filter-name=(filter)
-                        }
-                    )
-                }
-                .boxed()
+        let bound = move |value: String,
+                          name: String,
+                          aria: String,
+                          filter: Option<String>|
+              -> BoxView<'a> {
+            let kind = if value.is_empty()
+                || (value.len() == 10 && value.parse::<jiff::civil::Date>().is_ok())
+            {
+                "date"
+            } else {
+                "text"
             };
+            view! {
+                tablo_ui::input(
+                    attrs: attributes! {
+                        type=(kind)
+                        name=(name)
+                        value=(value)
+                        aria-label=(aria)
+                        class="min-w-0 flex-1"
+                        data-filter-name=(filter)
+                    }
+                )
+            }
+            .boxed()
+        };
         let name = input.name().to_string();
         let aria = input.label().to_string();
         let held = input.value();
@@ -299,7 +301,6 @@ where
             };
             let (from_param, to_param) = (input.part_param("from"), input.part_param("to"));
             view! {
-                cx =>
                 <span class="flex items-center gap-2" data-filter-name=(name)>
                     (bound(from, from_param, format!("{aria} from"), None))
                     <span aria-hidden="true">"–"</span>

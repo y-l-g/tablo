@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:7ba5a7628128e1811e960884bd56da34f754c1d516230b4442dfbc1cb97e73e9 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:ba4ee980966fb66d3f549f26a27a269b1ad85b5e3c39fd9ed047aadfaae5d9bf — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     view::{Attributes, PromotedStr, StaticClass, View, class, component, view},
 };
 
@@ -61,6 +62,7 @@ const SEPARATOR: StaticClass = class!("shrink-0 border-0 bg-border");
 /// ```
 #[component]
 pub async fn separator(
+    cx: &Cx,
     /// The direction the rule runs in.
     #[default]
     orientation: SeparatorOrientation,

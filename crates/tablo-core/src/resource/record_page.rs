@@ -43,7 +43,7 @@ use crate::{
 ///
 /// impl RecordPage<OrderResource> for OrderHistoryPage {
 ///     async fn render(cx: &Cx, order: Order) -> Result<impl View> {
-///         Ok(view! { cx => <p>"Order " (order.number)</p> })
+///         Ok(view! { <p>"Order " (order.number)</p> })
 ///     }
 /// }
 /// ```

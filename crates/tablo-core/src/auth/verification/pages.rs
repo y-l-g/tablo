@@ -26,7 +26,6 @@ pub(super) async fn notice(cx: &Cx, email: &str) -> topcoat::Result<Response> {
         .then(|| crate::flash::take_notification(cx))
         .flatten();
     let form = view! {
-        cx =>
         <div class="flex flex-col gap-3">
             if let Some(sent) = sent {
                 tablo_ui::alert(
@@ -79,7 +78,6 @@ pub(in crate::auth) async fn invalid_link(cx: &Cx) -> topcoat::Result<Response> 
     let login = login_url(cx);
     let link = crate::navigation::runtime_link(cx, &login);
     let form = view! {
-        cx =>
         <div class="flex flex-col gap-5">
             tablo_ui::alert(
                 variant: tablo_ui::AlertVariant::Destructive,

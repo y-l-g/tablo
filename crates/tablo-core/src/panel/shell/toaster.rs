@@ -31,7 +31,6 @@ impl Panel {
             serial: toast_serial,
         } = live_toast(cx);
         Ok(view! {
-            cx =>
             tablo_ui::toaster(
                 label: crate::t!(cx, "tablo-notifications"),
                 (notification_view)

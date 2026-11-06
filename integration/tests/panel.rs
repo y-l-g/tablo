@@ -82,7 +82,7 @@ impl Page for UrlsPage {
             show(tablo::url::resource::<NoteResource>(cx)),
             show(tablo::url::page::<UrlsPage>(cx)),
         );
-        Ok(view! { cx => <p data-urls="">(line)</p> })
+        Ok(view! { <p data-urls="">(line)</p> })
     }
 }
 
@@ -279,11 +279,11 @@ async fn a_session_belongs_to_the_panel_that_signed_it_in() {
 }
 
 fn bare_layout<'a>(cx: &'a Cx, slot: Slot<'a>) -> BoxView<'a> {
-    view! { cx => <div data-bare-layout="">(slot)</div> }.boxed()
+    view! { <div data-bare-layout="">(slot)</div> }.boxed()
 }
 
 fn wrapped_layout<'a>(cx: &'a Cx, slot: Slot<'a>) -> BoxView<'a> {
-    let page = view! { cx => <div data-app-frame="">(slot)</div> }.boxed();
+    let page = view! { <div data-app-frame="">(slot)</div> }.boxed();
     Panel::layout_shell(cx, page.into())
 }
 

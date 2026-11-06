@@ -1,5 +1,6 @@
 use topcoat::{
     Result,
+    context::Cx,
     icon::{icon, iconify::iconify_icon},
     view::{Attributes, Child, StaticClass, View, class, component, view},
 };
@@ -22,8 +23,8 @@ const ERROR_STATE_ACTION: StaticClass = class!("text-sm font-medium text-primary
 /// # use tablo_ui::error_state;
 /// # use topcoat::{Result, context::Cx, view::{BoxView, ViewExt, view}};
 /// # fn failed<'a>(cx: &'a Cx, list_url: &'a str) -> Result<BoxView<'a>> {
-/// let action = view! { cx => <a href=(list_url)>"Retry"</a> }.boxed();
-/// Ok(view! { cx =>
+/// let action = view! { <a href=(list_url)>"Retry"</a> }.boxed();
+/// Ok(view! {
 ///     error_state(
 ///         title: "Couldn't load Users",
 ///         detail: "Something went wrong while loading the records.",
@@ -35,6 +36,7 @@ const ERROR_STATE_ACTION: StaticClass = class!("text-sm font-medium text-primary
 /// ```
 #[component]
 pub async fn error_state(
+    cx: &Cx,
     /// Short heading naming what failed, e.g. `"Couldn't load Users"`.
     #[into]
     title: String,

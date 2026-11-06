@@ -551,7 +551,7 @@ fn render<C: Resource>(cx: &Cx, shown: Shown) -> BoxView<'_> {
         let unseen = errors.iter().any(|error| mask.hides(&error.key));
         let version = version.filter(|_| editing).map(|version| {
             let name = format!("{key}.{VERSION_FIELD}");
-            view! { cx => <input type="hidden" name=(name) value=(version.to_string())> }
+            view! { <input type="hidden" name=(name) value=(version.to_string())> }
         });
         let values = mask.shown(&values.unwrap_or_else(|| child.form.defaults()));
         let source = Source::form(&values, &errors)
@@ -561,7 +561,6 @@ fn render<C: Resource>(cx: &Cx, shown: Shown) -> BoxView<'_> {
             .posting_under(format!("{key}."));
         let body = child.form.render(cx, source).await?;
         Ok(view! {
-            cx =>
             <div class="contents" data-related-form=(key)>
                 if unseen {
                     tablo_ui::alert(

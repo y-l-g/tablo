@@ -96,7 +96,6 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
     let outline =
         tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
     view! {
-        cx =>
         tablo_ui::page(
             tablo_ui::page_header(
                 tablo_ui::page_title((title))

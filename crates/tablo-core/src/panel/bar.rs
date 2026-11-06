@@ -220,7 +220,6 @@ impl ActionBar {
             })
             .collect();
         view! {
-            cx =>
             for control in controls {
                 (control)
             }
@@ -260,7 +259,6 @@ impl ActionButton {
         let tone = color.button_tone();
         let confirm_label = label.clone();
         let face = view! {
-            cx =>
             if let Some(data) = face_icon {
                 icon(data: data)
             }
@@ -277,7 +275,6 @@ impl ActionButton {
         .boxed();
         if let Some((name, reason)) = disabled {
             return view! {
-                cx =>
                 button(
                     variant: variant,
                     size: ButtonSize::Md,
@@ -303,13 +300,12 @@ impl ActionButton {
             }
             .render(cx, Posts::To(url.clone()));
             return view! {
-                cx =>
                 button(
                     variant: variant,
                     size: ButtonSize::Md,
                     attrs: {
                         let mut attrs = open_dialog(cx, &id, None);
-                        attrs.extend(attributes! { cx => class=(tone) });
+                        attrs.extend(attributes! { class=(tone) });
                         attrs
                     },
                     (face)
@@ -320,7 +316,6 @@ impl ActionButton {
         }
         let Some(title) = confirm else {
             return view! {
-                cx =>
                 <form method="post" action=(url) class="contents">
                     (token)
                     button(
@@ -337,7 +332,6 @@ impl ActionButton {
         let description_id = format!("{id}-description");
         let dialog = id.clone();
         view! {
-            cx =>
             button(
                 variant: variant,
                 size: ButtonSize::Md,
@@ -408,7 +402,6 @@ pub(crate) fn disabled_trigger(
         |tone| format!("cursor-not-allowed opacity-50 {tone}"),
     );
     attributes! {
-        cx =>
         type="button"
         aria-disabled="true"
         title=(reason.to_string())

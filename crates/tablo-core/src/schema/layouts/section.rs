@@ -196,7 +196,6 @@ fn panel<'a>(cx: &'a Cx, look: &Look, body: Option<BoxView<'a>>, errored: bool) 
     let description = look.description.clone();
     match body {
         Some(body) if look.aside => view! {
-            cx =>
             <div
                 class=(class!("grid gap-x-8 gap-y-4 md:grid-cols-3", extra.clone()))
                 data-section=""
@@ -219,7 +218,6 @@ fn panel<'a>(cx: &'a Cx, look: &Look, body: Option<BoxView<'a>>, errored: bool) 
         Some(body) if look.collapse != Collapse::Never => {
             let open = look.collapse == Collapse::Open || errored;
             view! {
-                cx =>
                 <details
                     class=(class!(PANEL, extra.clone()))
                     data-section=""
@@ -249,7 +247,6 @@ fn panel<'a>(cx: &'a Cx, look: &Look, body: Option<BoxView<'a>>, errored: bool) 
             .boxed()
         }
         body => view! {
-            cx =>
             <div class=(class!(PANEL, extra.clone())) data-section="">
                 card_header(
                     attrs: attributes! { class="py-4" data-section-title="" },
@@ -277,7 +274,6 @@ fn flat<'a>(cx: &'a Cx, look: &Look, span: Option<Span>, body: Option<BoxView<'a
     let heading = heading(cx, look);
     let description = look.description.clone();
     let view = view! {
-        cx =>
         <div class=(class!(FLAT, extra)) data-section="">
             <div data-section-title="">(heading)</div>
             if let Some(description) = description {
@@ -311,7 +307,6 @@ fn heading<'a>(cx: &'a Cx, look: &Look) -> BoxView<'a> {
     let title = look.title.clone();
     match look.icon.clone() {
         Some(data) => view! {
-            cx =>
             <div class="flex items-center gap-2">
                 icon(
                     data: data,
@@ -321,7 +316,7 @@ fn heading<'a>(cx: &'a Cx, look: &Look) -> BoxView<'a> {
             </div>
         }
         .boxed(),
-        None => view! { cx => card_title((title)) }.boxed(),
+        None => view! { card_title((title)) }.boxed(),
     }
 }
 

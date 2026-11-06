@@ -65,14 +65,13 @@ fn grid<'a>(cx: &'a Cx, columns: u8, cells: Vec<(&MountedWidget, BoxView<'a>)>) 
         .map(|(widget, body)| {
             let name = widget.name.clone();
             let class = span_class(widget.span, columns);
-            view! { cx => <div data-widget=(name) class=(class)>(body)</div> }.boxed()
+            view! { <div data-widget=(name) class=(class)>(body)</div> }.boxed()
         })
         .collect();
     if cells.is_empty() {
         return ().boxed();
     }
     view! {
-        cx =>
         <div data-widgets="" class=(grid_class(columns))>
             for cell in cells {
                 (cell)
@@ -133,7 +132,6 @@ pub fn stats(cx: &Cx, stats: impl IntoIterator<Item = Stat>) -> BoxView<'_> {
     };
     let tiles: Vec<BoxView<'_>> = stats.into_iter().map(|stat| tile(cx, stat)).collect();
     view! {
-        cx =>
         <div data-stats="" class="@container">
             <div class=(class)>
                 for tile in tiles {
@@ -172,14 +170,13 @@ fn tile(cx: &Cx, stat: Stat) -> BoxView<'_> {
         ),
         None => (None, String::new()),
     };
-    let mut attrs = topcoat::view::attributes! { cx => data-stat="" };
+    let mut attrs = topcoat::view::attributes! { data-stat="" };
     if let Some(href) = &href {
         let mut link = runtime_link(cx, href);
         link.remove("href");
         attrs.extend(link);
     }
     view! {
-        cx =>
         tablo_ui::stat(
             label: label.localize(cx),
             value: value,
@@ -332,7 +329,6 @@ pub async fn record_table<R: Resource>(
     let view_all = crate::t!(cx, "tablo-record-table-view-all");
     let slug = resource.slug.clone();
     Ok(view! {
-        cx =>
         <section
             data-record-table=(slug)
             class="relative overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs"

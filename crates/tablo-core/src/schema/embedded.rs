@@ -378,7 +378,6 @@ impl Embedded {
                             let (shown, enabled) = (variant.clone(), variant.clone());
                             let named = value.clone();
                             view! {
-                                cx =>
                                 <fieldset
                                     class="contents"
                                     :disabled=$(enabled.get() != named)
@@ -396,7 +395,6 @@ impl Embedded {
                         })
                         .collect();
                     Ok(view! {
-                        cx =>
                         <div
                             class="contents"
                             @change=$(|e: Event| chosen.set(e.target.value))
@@ -434,7 +432,6 @@ impl Embedded {
             })
             .collect();
         view! {
-            cx =>
             for v in views {
                 (v)
             }
@@ -510,7 +507,6 @@ async fn render_members<'a>(
         }
     }
     Ok(view! {
-        cx =>
         for v in views {
             (v)
         }

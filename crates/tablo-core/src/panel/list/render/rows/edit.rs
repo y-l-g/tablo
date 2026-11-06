@@ -28,7 +28,6 @@ pub(super) fn cell_form<'a>(cx: &'a Cx, form: CellForm<'a>) -> BoxView<'a> {
     let id = form.id.clone();
     let on_change = form.saves_on_change.then_some("");
     view! {
-        cx =>
         <form
             id=(form.id)
             method="post"

@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:47c33b40d0a966b88a113ad13b6c17d9c3f104128b45b7fea297eb2a0b9c5f9c — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:e92db3e117e52149a1410956293c90544ac8679341427f8f27f6de95a90f73c6 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     view::{Attributes, Child, StaticClass, View, class, component, view},
 };
 
@@ -52,6 +53,7 @@ const BASE: StaticClass = class!(
 /// ```
 #[component]
 pub async fn alert(
+    cx: &Cx,
     /// The visual style of the notice.
     #[default]
     variant: AlertVariant,
@@ -76,6 +78,7 @@ pub async fn alert(
 /// The heading of an alert.
 #[component]
 pub async fn alert_title(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -95,6 +98,7 @@ pub async fn alert_title(
 /// Text that explains the alert and any action the reader should take.
 #[component]
 pub async fn alert_description(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {

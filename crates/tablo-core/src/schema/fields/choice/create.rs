@@ -24,7 +24,6 @@ pub(super) fn with_create_link<'a>(
     let select = select.to_string();
     let title = crate::t!(cx, "tablo-field-create-option-title", label = label);
     view! {
-        cx =>
         <div class="flex items-start gap-2">
             <div class="flex min-w-0 flex-1 flex-col gap-2">(control)</div>
             <a

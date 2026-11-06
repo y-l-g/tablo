@@ -98,7 +98,7 @@ pub fn panel_urls(cx: &Cx) {
 
 // ANCHOR: panel-custom-layout
 pub fn admin_layout<'a>(cx: &'a Cx, slot: Slot<'a>) -> BoxView<'a> {
-    let page = view! { cx => <div class="acme-admin">(slot)</div> }.boxed();
+    let page = view! { <div class="acme-admin">(slot)</div> }.boxed();
     Panel::layout_shell(cx, page.into())
 }
 
@@ -127,7 +127,6 @@ pub struct ExportsPage;
 impl Page for ExportsPage {
     async fn render(cx: &Cx) -> Result<impl View> {
         Ok(view! {
-            cx =>
             tablo::ui::page(
                 tablo::ui::page_header(tablo::ui::page_title("Exports"))
                 tablo::ui::page_content(tablo::ui::card(tablo::ui::card_content("…")))
@@ -231,7 +230,7 @@ pub struct Dashboard;
 
 impl Page for Dashboard {
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => "Dashboard" })
+        Ok(view! { "Dashboard" })
     }
 }
 
@@ -239,7 +238,7 @@ pub struct MediaLibraryPage;
 
 impl Page for MediaLibraryPage {
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => "Media library" })
+        Ok(view! { "Media library" })
     }
 }
 // ANCHOR_END: panel-public-page
@@ -264,7 +263,7 @@ pub async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
 }
 
 #[page("/blog")]
-pub async fn blog() -> Result<impl View> {
+pub async fn blog(cx: &Cx) -> Result<impl View> {
     Ok(view! { "Posts" })
 }
 // ANCHOR_END: panel-blog

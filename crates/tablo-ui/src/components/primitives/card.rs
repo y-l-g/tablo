@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:9c753a11ad86ad31db0c1a06584d9b1814ee1326c1e862295d508f0a7baee95d — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:e08d76f7aef2db99246f144b904419db5aacd5712af8112b611f11454203b621 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     view::{Attributes, Child, StaticClass, View, class, component, view},
 };
 
@@ -38,6 +39,7 @@ const CARD: StaticClass = class!(
 /// ```
 #[component]
 pub async fn card(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -48,6 +50,7 @@ pub async fn card(
 /// optional [`card_description`].
 #[component]
 pub async fn card_header(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -64,6 +67,7 @@ pub async fn card_header(
 /// The heading of a [`card`], rendered as an `<h3>`.
 #[component]
 pub async fn card_title(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -80,6 +84,7 @@ pub async fn card_title(
 /// The supporting text under a [`card_title`].
 #[component]
 pub async fn card_description(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -96,6 +101,7 @@ pub async fn card_description(
 /// The main body of a [`card`].
 #[component]
 pub async fn card_content(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -105,6 +111,7 @@ pub async fn card_content(
 /// The closing section of a [`card`], a horizontal row for actions.
 #[component]
 pub async fn card_footer(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {

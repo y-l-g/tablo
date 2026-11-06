@@ -53,7 +53,6 @@ pub(super) fn render_tabs<'a>(
         .collect();
     Some(
         view! {
-            cx =>
             <nav
                 aria-label=(t!(cx, "tablo-list-tabs"))
                 class="overflow-x-auto border-b border-border px-4 pb-px sm:px-6"

@@ -42,7 +42,6 @@ impl RecordPage<PostResource> for SearchPreviewPage {
 
     async fn render(cx: &Cx, post: Post) -> Result<impl View> {
         Ok(view! {
-            cx =>
             <p class="text-lg text-primary">(post.seo.title)</p>
             <p class="text-sm text-muted-foreground">(post.seo.description)</p>
         })

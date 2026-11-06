@@ -46,7 +46,6 @@ fn tile_class(image: bool) -> &'static str {
 /// The icon standing for a file with no thumbnail.
 fn file_icon<'a>(cx: &'a Cx, class: &'static str) -> BoxView<'a> {
     view! {
-        cx =>
         icon(
             data: tablo_ui::icons::FILE_TEXT,
             attrs: attributes! { class=(class) aria-hidden="true" }
@@ -90,7 +89,6 @@ impl<'a> StoredTile<'a> {
         let title = path.clone();
         let name: BoxView<'a> = match href {
             Some(href) => view! {
-                cx =>
                 <a
                     class="block truncate font-medium hover:underline"
                     href=(href)
@@ -100,13 +98,10 @@ impl<'a> StoredTile<'a> {
                 </a>
             }
             .boxed(),
-            None => {
-                view! { cx => <span class="block font-medium break-all">(title)</span> }.boxed()
-            }
+            None => view! { <span class="block font-medium break-all">(title)</span> }.boxed(),
         };
         let grip = movable.then(|| {
             view! {
-                cx =>
                 <span
                     class="flex shrink-0 cursor-grab touch-none opacity-70"
                     aria-hidden="true"
@@ -123,7 +118,6 @@ impl<'a> StoredTile<'a> {
             // The name in the header says what the image is.
             let media: BoxView<'a> = match thumbnail {
                 Some(src) => view! {
-                    cx =>
                     <img
                         class="absolute inset-0 size-full object-cover group-has-[[data-file-clear]:checked]/tile:grayscale"
                         src=(src)
@@ -134,7 +128,6 @@ impl<'a> StoredTile<'a> {
                 }
                 .boxed(),
                 None => view! {
-                    cx =>
                     <div
                         class="absolute inset-0 flex items-center justify-center text-muted-foreground"
                     >
@@ -144,7 +137,6 @@ impl<'a> StoredTile<'a> {
                 .boxed(),
             };
             view! {
-                cx =>
                 (media)
                 <div
                     class="absolute inset-x-0 top-0 flex items-start gap-2 bg-linear-to-b from-black/70 to-transparent p-2 pb-8 text-xs text-white"
@@ -173,7 +165,6 @@ impl<'a> StoredTile<'a> {
             .boxed()
         } else {
             view! {
-                cx =>
                 if let Some(remove) = remove {
                     (remove)
                 }
@@ -201,7 +192,6 @@ impl<'a> StoredTile<'a> {
         let item = keep.as_ref().map(|_| path.clone());
         let keep = keep.map(|keep| (keep, path.clone()));
         view! {
-            cx =>
             <div
                 class=(class)
                 role=(item.is_some().then_some("listitem"))
@@ -233,7 +223,6 @@ pub(super) fn remove_toggle<'a>(
 ) -> BoxView<'a> {
     let label = crate::t!(cx, label);
     view! {
-        cx =>
         <label class=(round_button(image)) title=(label.clone())>
             <input
                 class="peer sr-only"
@@ -278,7 +267,6 @@ pub(super) fn move_button<'a>(cx: &'a Cx, up: bool, described: String, image: bo
         (false, false) => tablo_ui::icons::ARROW_DOWN,
     };
     view! {
-        cx =>
         <button
             class=(round_button(image))
             type="button"
@@ -302,7 +290,6 @@ pub(super) fn move_button<'a>(cx: &'a Cx, up: bool, described: String, image: bo
 fn picked_tile<'a>(cx: &'a Cx, image: bool) -> BoxView<'a> {
     let label = crate::t!(cx, "tablo-files-remove");
     let unpick = view! {
-        cx =>
         <button
             class=(round_button(image))
             type="button"
@@ -318,7 +305,6 @@ fn picked_tile<'a>(cx: &'a Cx, image: bool) -> BoxView<'a> {
     };
     if image {
         view! {
-            cx =>
             <div class=(tile_class(true)) role="listitem" data-file-tile="">
                 <div
                     class="absolute inset-0 flex items-center justify-center text-muted-foreground"
@@ -345,7 +331,6 @@ fn picked_tile<'a>(cx: &'a Cx, image: bool) -> BoxView<'a> {
         .boxed()
     } else {
         view! {
-            cx =>
             <div class=(tile_class(false)) role="listitem" data-file-tile="">
                 (unpick)
                 (file_icon(cx, "size-4 shrink-0 text-muted-foreground"))
@@ -380,7 +365,6 @@ pub(super) fn upload_panel<'a>(
     hint: Option<BoxView<'a>>,
 ) -> BoxView<'a> {
     view! {
-        cx =>
         <div
             class="@container flex flex-col gap-2 rounded-lg border border-border bg-background p-2 shadow-xs transition-colors has-[:disabled]:bg-muted/40 has-[[aria-invalid=true]]:border-destructive data-[dragging]:border-primary data-[dragging]:bg-primary/5"
             data-file-drop=""

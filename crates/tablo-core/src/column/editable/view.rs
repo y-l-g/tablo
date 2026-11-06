@@ -9,11 +9,9 @@ use topcoat::{context::Cx, view::*};
 pub(super) fn toggle<'a>(cx: &'a Cx, name: &str, label: String, checked: bool) -> BoxView<'a> {
     let name = name.to_string();
     view! {
-        cx =>
         <input type="hidden" name=(name.clone()) value="false">
         ui_switch(
             attrs: attributes! {
-                cx =>
                 name=(name)
                 value="true"
                 checked=(checked)
@@ -34,9 +32,8 @@ pub(super) fn select<'a>(
 ) -> BoxView<'a> {
     let name = name.to_string();
     view! {
-        cx =>
         ui_select(
-            attrs: attributes! { cx => name=(name) aria-label=(label) class="min-w-32" },
+            attrs: attributes! { name=(name) aria-label=(label) class="min-w-32" },
             for (value, text) in options {
                 <option value=(value.clone()) selected=(value == selected)>
                     (text)
@@ -61,10 +58,8 @@ pub(super) struct TextInput<'n> {
 pub(super) fn text_input<'a>(cx: &'a Cx, input: TextInput<'_>) -> BoxView<'a> {
     let name = input.name.to_string();
     view! {
-        cx =>
         ui_input(
             attrs: attributes! {
-                cx =>
                 type=(input.input_type)
                 name=(name)
                 value=(input.value)

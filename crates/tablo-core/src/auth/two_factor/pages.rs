@@ -44,7 +44,6 @@ pub(super) async fn challenge(
     let next = next.to_string();
     let login = login_url(cx);
     let form = view! {
-        cx =>
         <form
             method="post"
             action=(action)
@@ -118,7 +117,6 @@ pub(super) async fn challenge(
 fn code_field<'a>(cx: &'a Cx, label: &'static str, help: &'static str) -> BoxView<'a> {
     let (label, help) = (t!(cx, label), t!(cx, help));
     view! {
-        cx =>
         tablo_ui::field(
             tablo_ui::field_label(attrs: attributes! { for="two-factor-code" }, (label))
             tablo_ui::input(
@@ -141,7 +139,6 @@ fn code_field<'a>(cx: &'a Cx, label: &'static str, help: &'static str) -> BoxVie
 /// The current password a set-up asks for.
 fn password_field(cx: &Cx) -> BoxView<'_> {
     view! {
-        cx =>
         tablo_ui::field(
             tablo_ui::field_label(
                 attrs: attributes! { for="two-factor-password" },
@@ -200,7 +197,6 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
     let intent = move |value: &'static str, label: &'static str, variant| {
         let label = t!(cx, label);
         view! {
-            cx =>
             tablo_ui::button(
                 variant: variant,
                 attrs: attributes! { type="submit" name=(INTENT_FIELD) value=(value) },
@@ -212,7 +208,6 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
     let refusal = move |refused: bool| {
         let invalid = t!(cx, "tablo-two-factor-invalid");
         view! {
-            cx =>
             if refused {
                 tablo_ui::alert(
                     variant: tablo_ui::AlertVariant::Destructive,
@@ -226,7 +221,6 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
     // Mails a code; it skips the code field's `required`, which it does not read.
     let send = move || {
         view! {
-            cx =>
             tablo_ui::button(
                 variant: tablo_ui::ButtonVariant::Outline,
                 attrs: attributes! {
@@ -242,7 +236,6 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
     };
     let body = match settings {
         Settings::Off { email, refused } => view! {
-            cx =>
             <p class="text-sm text-muted-foreground">
                 (t!(cx, "tablo-two-factor-off"))
             </p>
@@ -281,7 +274,6 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
         }
         .boxed(),
         Settings::Email { address, refused } => view! {
-            cx =>
             <p class="text-sm text-muted-foreground">
                 (t!(cx, "tablo-two-factor-email-setup", address = address))
             </p>
@@ -311,7 +303,6 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
             secret,
             refused,
         } => view! {
-            cx =>
             <p class="text-sm text-muted-foreground">
                 (t!(cx, "tablo-two-factor-scan"))
             </p>
@@ -361,7 +352,6 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
             };
             let mailed = matches!(method, Method::Email(_));
             view! {
-                cx =>
                 <p class="text-sm text-muted-foreground">(status)</p>
                 <form
                     method="post"
@@ -392,7 +382,6 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
             .boxed()
         }
         Settings::Codes { codes, first } => view! {
-            cx =>
             if first {
                 tablo_ui::alert(
                     variant: tablo_ui::AlertVariant::Neutral,
@@ -424,7 +413,6 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
         .boxed(),
     };
     Ok(view! {
-        cx =>
         tablo_ui::page(
             tablo_ui::page_header(
                 tablo_ui::page_title((t!(cx, "tablo-shell-two-factor")))
@@ -453,7 +441,6 @@ fn qr_code<'a>(cx: &'a Cx, uri: &str) -> BoxView<'a> {
     let size = width + 2 * QUIET;
     let view_box = format!("0 0 {size} {size}");
     view! {
-        cx =>
         <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox=(view_box)

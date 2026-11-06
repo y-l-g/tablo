@@ -305,7 +305,6 @@ async fn render_login_page<'a>(
         cx,
         "password".to_string(),
         topcoat::view::view! {
-            cx =>
             tablo_ui::input(
                 attrs: topcoat::view::attributes! {
                     id="password"
@@ -319,7 +318,6 @@ async fn render_login_page<'a>(
         .boxed(),
     );
     let form = topcoat::view::view! {
-        cx =>
         <form method="post" action=(action) class="flex flex-col gap-5">
             (crate::csrf::field(cx, &csrf))
             <input type="hidden" name=(NEXT_FIELD) value=(next)>

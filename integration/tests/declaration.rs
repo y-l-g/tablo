@@ -212,7 +212,7 @@ struct Dashboard;
 
 impl Page for Dashboard {
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => "home" })
+        Ok(view! { "home" })
     }
 }
 
@@ -220,7 +220,7 @@ struct Reports;
 
 impl Page for Reports {
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => "reports" })
+        Ok(view! { "reports" })
     }
 }
 
@@ -233,7 +233,7 @@ impl Page for ItemsPage {
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => "items" })
+        Ok(view! { "items" })
     }
 }
 
@@ -246,7 +246,7 @@ impl Page for NestedPage {
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => "nested" })
+        Ok(view! { "nested" })
     }
 }
 
@@ -261,7 +261,7 @@ macro_rules! record_page {
             }
 
             async fn render(cx: &Cx, _item: Item) -> Result<impl View> {
-                Ok(view! { cx => "page" })
+                Ok(view! { "page" })
             }
         }
     };
@@ -321,7 +321,7 @@ impl RecordPage<Tabbed> for KidsPage {
     }
 
     async fn render(cx: &Cx, _parent: Parent) -> Result<impl View> {
-        Ok(view! { cx => "kids" })
+        Ok(view! { "kids" })
     }
 }
 
@@ -368,7 +368,7 @@ struct LoginPage;
 
 impl Page for LoginPage {
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => "login" })
+        Ok(view! { "login" })
     }
 }
 

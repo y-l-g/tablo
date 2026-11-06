@@ -24,7 +24,6 @@ impl RecordPage<PostResource> for PostPreviewPage {
     async fn render(cx: &Cx, post: Post) -> Result<impl View> {
         let minutes = read_minutes(word_count(&tablo::rich_text::text(&post.body)));
         Ok(view! {
-            cx =>
             <article class="flex max-w-3xl flex-col gap-4 leading-7">
                 <h2 class="text-2xl font-semibold tracking-tight">(post.title)</h2>
                 <p class="text-sm text-muted-foreground">

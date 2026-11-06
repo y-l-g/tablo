@@ -344,7 +344,6 @@ impl Page for OpsPage {
 
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
         Ok(view! {
-            cx =>
             tablo::ui::page(
                 tablo::ui::page_header(
                     tablo::ui::page_title("Ops")
@@ -364,7 +363,7 @@ impl Page for LockedPage {
     }
 
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
-        Ok(view! { cx => tablo::ui::page(tablo::ui::page_title("Locked")) })
+        Ok(view! { tablo::ui::page(tablo::ui::page_title("Locked")) })
     }
 }
 
@@ -373,7 +372,7 @@ struct PlainPage;
 
 impl Page for PlainPage {
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
-        Ok(view! { cx => tablo::ui::page(tablo::ui::page_title("Plain")) })
+        Ok(view! { tablo::ui::page(tablo::ui::page_title("Plain")) })
     }
 }
 
@@ -908,7 +907,7 @@ impl Page for TwicePage {
     }
 
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
-        Ok(view! { cx => tablo::ui::page(tablo::ui::page_title("Twice")) })
+        Ok(view! { tablo::ui::page(tablo::ui::page_title("Twice")) })
     }
 }
 

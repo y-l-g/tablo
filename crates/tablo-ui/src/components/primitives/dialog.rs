@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:97494bc086959953eff0e1a28ba72be8268cd4c38d83b50259c13788a3931e3c — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:bbcce6b5cd511ed60d1de887f90b099c01aaa3c9c38fa87bfa6337614a737c32 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     runtime::Expr,
     view::{Attributes, Child, StaticClass, View, class, component, view},
 };
@@ -60,6 +61,7 @@ const FADE: StaticClass = class!(
 /// ```
 #[component]
 pub async fn dialog(
+    cx: &Cx,
     /// Whether the dialog shows.
     #[into]
     open: Expr<bool>,
@@ -101,6 +103,7 @@ const MOTION: StaticClass = class!(
 /// specific class such as `[&]:max-w-xl` in `attrs`, or edit the component's classes.
 #[component]
 pub async fn dialog_content(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -115,6 +118,7 @@ pub async fn dialog_content(
 /// and an optional [`dialog_description`].
 #[component]
 pub async fn dialog_header(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -128,6 +132,7 @@ pub async fn dialog_header(
 /// The heading of a [`dialog`], rendered as an `<h2>`.
 #[component]
 pub async fn dialog_title(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -144,6 +149,7 @@ pub async fn dialog_title(
 /// Text that explains the dialog's purpose or requested action.
 #[component]
 pub async fn dialog_description(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -161,6 +167,7 @@ pub async fn dialog_description(
 /// fit.
 #[component]
 pub async fn dialog_footer(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {

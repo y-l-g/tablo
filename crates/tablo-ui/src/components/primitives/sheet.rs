@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:d8774dc8c3b3276a2b57cf287b6f2e4310d59f63aa9ee006816c47c7154a2841 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:4b0b2d15a788678e00f531579c15bf103270e3b337d1aa8a3e0a3d2c9cdf1d8f — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     runtime::Expr,
     view::{Attributes, Child, StaticClass, View, class, component, view},
 };
@@ -45,6 +46,7 @@ const FADE: StaticClass = class!(
 /// ```
 #[component]
 pub async fn sheet(
+    cx: &Cx,
     /// Whether the sheet shows.
     #[into]
     open: Expr<bool>,
@@ -130,6 +132,7 @@ const CONTENT: StaticClass = class!(
 /// dimensions.
 #[component]
 pub async fn sheet_content(
+    cx: &Cx,
     /// The edge the panel lies against.
     #[default]
     side: SheetSide,

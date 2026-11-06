@@ -366,7 +366,6 @@ async fn page_response(
     let first = signed.user.tenants().is_empty();
     let logout = logout_url(cx);
     let form = view! {
-        cx =>
         <div class="flex flex-col gap-3">
             <form method="post" action=(action) class="flex flex-col gap-5">
                 (crate::csrf::field(cx, &csrf))

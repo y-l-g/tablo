@@ -294,7 +294,6 @@ async fn link_page(
     let action = topcoat::router::request::uri(cx).path().to_string();
     let token = token_from_query(cx);
     let form = view! {
-        cx =>
         <form method="post" action=(action) data-email-change="">
             (crate::csrf::field(cx, &csrf))
             <input type="hidden" name=(TOKEN_FIELD) value=(token)>

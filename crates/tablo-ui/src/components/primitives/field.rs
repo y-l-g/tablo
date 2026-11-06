@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:068bd99ee2bc265d4d1afeae789153b3273ec3d5a8a380af7e2cde9b28d4c66c — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:96793d367b56bf2c314572104207c890174db4a7fed621769bf4b2cbe7b13802 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     view::{Attributes, Child, StaticClass, View, attributes, class, component, view},
 };
 
@@ -62,6 +63,7 @@ impl FieldLegendVariant {
 /// as with the other field components.
 #[component]
 pub async fn field_set(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -78,6 +80,7 @@ pub async fn field_set(
 /// The accessible heading of a [`field_set`]. Place it first in the set.
 #[component]
 pub async fn field_legend(
+    cx: &Cx,
     #[default] variant: FieldLegendVariant,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
@@ -95,6 +98,7 @@ pub async fn field_legend(
 /// A stack of fields, with a container for responsive field layouts.
 #[component]
 pub async fn field_group(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -122,6 +126,7 @@ pub async fn field_group(
 /// Attributes are forwarded to the wrapper and classes are appended.
 #[component]
 pub async fn field(
+    cx: &Cx,
     #[default] orientation: FieldOrientation,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
@@ -145,6 +150,7 @@ pub async fn field(
 /// A flexible column grouping a field's label, control, or supporting text.
 #[component]
 pub async fn field_content(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -163,6 +169,7 @@ pub async fn field_content(
 /// Pass `for` to associate the label with a control's `id`.
 #[component]
 pub async fn field_label(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -186,6 +193,7 @@ pub async fn field_label(
 /// Label-sized text that does not label a control. Use [`field_label`] for that.
 #[component]
 pub async fn field_title(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -202,6 +210,7 @@ pub async fn field_title(
 /// Supporting text. Give it an `id` referenced by the control's `aria-describedby`.
 #[component]
 pub async fn field_description(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -221,6 +230,7 @@ pub async fn field_description(
 /// A decorative divider with optional text between sections of a form.
 #[component]
 pub async fn field_separator(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -244,6 +254,7 @@ pub async fn field_separator(
 /// Child content can be a message or a list of messages.
 #[component]
 pub async fn field_error(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {

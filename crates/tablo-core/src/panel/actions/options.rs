@@ -119,7 +119,6 @@ async fn search_options(cx: &Cx, form: &Schema) -> topcoat::Result<http::Respons
                 .map(|(value, label)| option_view(cx, value, label, false))
                 .collect();
             let html = view! {
-                cx =>
                 for option in options {
                     (option)
                 }
@@ -149,7 +148,7 @@ async fn search_options(cx: &Cx, form: &Schema) -> topcoat::Result<http::Respons
         // The header tells a dependent choice's script to search the server from now on.
         Err(OptionLoadError::Overflow) => {
             let hint = crate::t!(cx, "tablo-field-too-many-results");
-            let html = view! { cx => <option value="" disabled="">(hint)</option> }
+            let html = view! { <option value="" disabled="">(hint)</option> }
                 .single()
                 .await?
                 .render(cx);

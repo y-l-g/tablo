@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:ce9a0c7be3ac7187f0935c193bec82f8587953c8a85fdbaf29c08d9593365c36 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:226d9269f1d87bdf43cbddbcea450eb2a11944032dc307c656f8bf806a3d5932 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     view::{Attributes, StaticClass, View, class, component, view},
 };
 
@@ -35,7 +36,7 @@ const THUMB: StaticClass = class!(
 /// }
 /// ```
 #[component]
-pub async fn switch(#[default] mut attrs: Attributes) -> Result<impl View> {
+pub async fn switch(cx: &Cx, #[default] mut attrs: Attributes) -> Result<impl View> {
     // The thumb cannot be drawn by the `<input>` itself, which renders no
     // children or pseudo-elements: it is a sibling overlaid on the track,
     // slid to the far end by the input's `peer` state while checked.

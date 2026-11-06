@@ -102,7 +102,6 @@ where
                     .map(|field| field.display(cx, values.text(field.name()).unwrap_or_default()))
                     .collect();
                 view! {
-                    cx =>
                     <li class="flex flex-col gap-3 rounded-lg border border-border p-4">
                         for field in fields {
                             (field)
@@ -116,7 +115,6 @@ where
             cx,
             &label,
             view! {
-                cx =>
                 <ol class="flex flex-col gap-3 whitespace-normal">
                     for item in items {
                         (item)

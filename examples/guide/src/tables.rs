@@ -181,7 +181,7 @@ impl Column<User> for Initials {
 
     fn cell<'a>(&self, cx: &'a Cx, u: &User) -> BoxView<'a> {
         let text = self.text(cx, u);
-        view! { cx => <span class="font-mono">(text)</span> }.boxed()
+        view! { <span class="font-mono">(text)</span> }.boxed()
     }
 }
 // ANCHOR_END: table-custom-column

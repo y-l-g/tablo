@@ -63,7 +63,6 @@ impl Field {
                         move_button(cx, false, name_id.clone(), image),
                     );
                     view! {
-                        cx =>
                         (up)
                         (down)
                     }
@@ -89,7 +88,6 @@ impl Field {
         let accept = file.accept();
         let list_name = name.clone();
         let stored = view! {
-            cx =>
             <div class="contents" role="list" data-file-list=(list_name)>
                 for tile in tiles {
                     (tile)
@@ -98,7 +96,6 @@ impl Field {
         }
         .boxed();
         let input = view! {
-            cx =>
             <input
                 class=(INPUT_CLASS)
                 id=(id)
@@ -114,7 +111,6 @@ impl Field {
         .boxed();
         let hint = editable.then(|| {
             view! {
-                cx =>
                 <div class="sr-only" id=(hint_id)>
                     (crate::t!(cx, "tablo-files-add"))
                 </div>

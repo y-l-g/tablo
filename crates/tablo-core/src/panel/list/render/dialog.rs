@@ -70,7 +70,6 @@ impl Frame<'_> {
         let count = selection.size(cx);
         Some(
             view! {
-                cx =>
                 alert_dialog(
                     open: false,
                     attrs: attributes! {
@@ -178,7 +177,7 @@ pub(super) fn input_trigger(
     action: String,
     bulk: bool,
 ) -> Attributes {
-    let mut attrs = attributes! { cx => formaction=(action.clone()) };
+    let mut attrs = attributes! { formaction=(action.clone()) };
     let target = signals.inputs[name].clone();
     attrs.extend(open_dialog(
         cx,
@@ -202,12 +201,7 @@ pub(super) fn write_trigger(
     bulk: bool,
 ) -> Attributes {
     let Some((title, label)) = confirm else {
-        return attributes! {
-            cx =>
-            type="submit"
-            form=(form.to_string())
-            formaction=(action)
-        };
+        return attributes! { type="submit" form=(form.to_string()) formaction=(action) };
     };
     let ConfirmSignals {
         action: target,
@@ -217,7 +211,6 @@ pub(super) fn write_trigger(
     } = signals.confirm.clone();
     let form = form.to_owned();
     attributes! {
-        cx =>
         type="button"
         formaction=(action.clone())
         @click=$(|_e: Event| {

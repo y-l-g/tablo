@@ -57,7 +57,7 @@ struct Dashboard;
 
 impl Page for Dashboard {
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => <h1>"Welcome home"</h1> })
+        Ok(view! { <h1>"Welcome home"</h1> })
     }
 }
 
@@ -69,7 +69,7 @@ impl Page for ReportsPage {
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => <h1>"Quarterly reports"</h1> })
+        Ok(view! { <h1>"Quarterly reports"</h1> })
     }
 }
 
@@ -82,7 +82,7 @@ impl Page for SecretPage {
     }
 
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => <h1>"Secret"</h1> })
+        Ok(view! { <h1>"Secret"</h1> })
     }
 }
 
@@ -96,7 +96,7 @@ impl Page for Probe {
             tablo::can_open::<ReportsPage>(cx),
             tablo::can_open::<SecretPage>(cx),
         );
-        Ok(view! { cx => <p>(answers)</p> })
+        Ok(view! { <p>(answers)</p> })
     }
 }
 
@@ -251,7 +251,7 @@ struct Greeting;
 
 impl Widget for Greeting {
     async fn render(cx: &Cx) -> Result<impl View> {
-        Ok(view! { cx => <p>"Hello"</p> })
+        Ok(view! { <p>"Hello"</p> })
     }
 }
 

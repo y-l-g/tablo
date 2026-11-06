@@ -38,13 +38,10 @@ pub(super) fn hidden_state_inputs<'a>(
     let fields: Vec<BoxView<'a>> = inputs
         .into_iter()
         .filter_map(|(name, value)| {
-            value.map(|value| {
-                view! { cx => <input type="hidden" name=(name) value=(value)> }.boxed()
-            })
+            value.map(|value| view! { <input type="hidden" name=(name) value=(value)> }.boxed())
         })
         .collect();
     view! {
-        cx =>
         for field in fields {
             (field)
         }
@@ -127,7 +124,6 @@ impl Frame<'_> {
             let value = state.search.clone().unwrap_or_default();
             let form = form.clone();
             view! {
-                cx =>
                 <div class=(SEARCH_FIELD_CLASS)>
                     icon(
                         data: tablo_ui::icons::SEARCH,
@@ -158,7 +154,6 @@ impl Frame<'_> {
         let (on_change, on_submit) = (rerun_with(signals, &form), rerun_with(signals, &form));
         let action = path.to_string();
         Ok(view! {
-            cx =>
             <form
                 id=(form)
                 method="get"
@@ -222,7 +217,6 @@ impl Frame<'_> {
             .collect();
         let none = active.is_none();
         view! {
-            cx =>
             <label for=(select_id.clone()) class="sr-only">
                 (t!(cx, "tablo-list-group-by"))
             </label>
@@ -259,7 +253,6 @@ impl Frame<'_> {
                 let checked = column.shown.then_some("");
                 let form = form.clone();
                 view! {
-                    cx =>
                     <label
                         class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-foreground/5"
                     >
@@ -280,7 +273,6 @@ impl Frame<'_> {
         let trigger = button_variants(ButtonVariant::Outline, ButtonSize::Md);
         let (reset_form, apply_form) = (form.clone(), form.clone());
         let menu_view = view! {
-            cx =>
             dropdown_menu(
                 dropdown_menu_trigger(
                     target: &menu,
@@ -328,7 +320,6 @@ impl Frame<'_> {
         let action = self.action_url(picker.url.to_string());
         let csrf = crate::csrf::current_token(cx);
         let form_view = view! {
-            cx =>
             <form id=(form) method="post" action=(action)>
                 (crate::csrf::field(cx, &csrf))
             </form>
@@ -369,10 +360,9 @@ impl Frame<'_> {
                 };
                 let bulk = signals.bulk.clone();
                 let tone = action.color.button_tone();
-                attrs.extend(attributes! { cx => class=(tone) :disabled=$(bulk.get().is_empty()) });
+                attrs.extend(attributes! { class=(tone) :disabled=$(bulk.get().is_empty()) });
                 let (label, face) = (action.label.to_string(), action.icon.clone());
                 view! {
-                    cx =>
                     button(
                         variant: ButtonVariant::Outline,
                         size: ButtonSize::Md,
@@ -391,10 +381,9 @@ impl Frame<'_> {
             let confirm = Some(delete_confirmation(cx, true));
             let mut attrs = write_trigger(cx, &form, signals, url, confirm, true);
             let bulk = signals.bulk.clone();
-            attrs.extend(attributes! { cx => :disabled=$(bulk.get().is_empty()) });
+            attrs.extend(attributes! { :disabled=$(bulk.get().is_empty()) });
             buttons.push(
                 view! {
-                    cx =>
                     button(
                         variant: ButtonVariant::Outline,
                         size: ButtonSize::Md,
@@ -415,7 +404,6 @@ impl Frame<'_> {
         let select_matching = (self.select_matching && spans_pages).then(|| {
             let (shown, all) = (signals.all.clone(), signals.all.clone());
             view! {
-                cx =>
                 button(
                     variant: ButtonVariant::Ghost,
                     size: ButtonSize::Md,
@@ -431,7 +419,6 @@ impl Frame<'_> {
             .boxed()
         });
         view! {
-            cx =>
             <div class="flex items-center gap-2" :hidden=$(selection.get().is_empty())>
                 <span class="px-1 text-sm text-muted-foreground tabular-nums">
                     <span :hidden=$(counted.get())>

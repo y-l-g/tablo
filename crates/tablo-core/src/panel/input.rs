@@ -100,7 +100,6 @@ impl InputDialog {
             // starts blank. Each control then announces a `change`, so a condition follows its
             // blank value.
             let attrs = attributes! {
-                cx =>
                 id=(id)
                 aria-labelledby=(title_id.clone())
                 aria-describedby=(described)
@@ -119,12 +118,12 @@ impl InputDialog {
                 })
             };
             let (action, selection, count) = match posts {
-                Posts::To(url) => (attributes! { cx => action=(url) }, None, None),
+                Posts::To(url) => (attributes! { action=(url) }, None, None),
                 Posts::Table { target, selection } => {
                     let TableTarget { action, bulk } = target;
                     let count = selection.size(cx);
                     (
-                        attributes! { cx => :action=$(action.get()) },
+                        attributes! { :action=$(action.get()) },
                         Some(selection),
                         Some((bulk, count)),
                     )
@@ -135,12 +134,11 @@ impl InputDialog {
             let description = match &count {
                 Some((bulk, _)) if !confirm => {
                     let bulk = bulk.clone();
-                    attributes! { cx => id=(description_id) :hidden=$(!bulk.get()) }
+                    attributes! { id=(description_id) :hidden=$(!bulk.get()) }
                 }
-                _ => attributes! { cx => id=(description_id) },
+                _ => attributes! { id=(description_id) },
             };
             Ok(view! {
-                cx =>
                 dialog(
                     open: false,
                     attrs: attrs,
@@ -226,7 +224,6 @@ impl Selection {
     pub(crate) fn inputs<'a>(&self, cx: &'a Cx) -> BoxView<'a> {
         let (keys, all, query) = (self.keys.clone(), self.all.clone(), self.query.clone());
         view! {
-            cx =>
             <input type="hidden" name="ids" :value=$(keys.get())>
             <input
                 type="hidden"
@@ -244,7 +241,6 @@ impl Selection {
         let (counted, all) = (self.all.clone(), self.all.clone());
         let count = selected_count(cx, self.keys.clone());
         view! {
-            cx =>
             <span :hidden=$(counted.get())>(count)</span>
             <span :hidden=$(!all.get())>
                 (crate::t!(cx, "tablo-list-all-matching"))
@@ -266,7 +262,7 @@ pub(crate) fn selected_count(cx: &Cx, selection: Signal<String>) -> BoxView<'_> 
                 .to_string()
         )
     });
-    view! { cx => (count) }.boxed()
+    view! { (count) }.boxed()
 }
 
 /// A trigger's attributes: it opens the dialog `id`, after pointing a table's dialog at `url`
@@ -278,20 +274,17 @@ pub(crate) fn open_dialog(
 ) -> Attributes {
     let dialog_id = id.to_string();
     let mut attrs = attributes! {
-        cx =>
         type="button"
         aria-haspopup="dialog"
         aria-controls=(dialog_id.clone())
     };
     attrs.extend(match table {
         None => attributes! {
-            cx =>
             @click=$(|_e: Event| {
                 raw!("document.getElementById(String(${dialog_id})).showModal()", ());
             })
         },
         Some((TableTarget { action, bulk }, url, on_selection)) => attributes! {
-            cx =>
             @click=$(|_e: Event| {
                 bulk.set(on_selection);
                 action.set(url.clone());

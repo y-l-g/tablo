@@ -61,7 +61,6 @@ pub(super) fn render_import_page<'a>(
     let failed = (!failures.is_empty())
         .then(|| crate::t!(cx, "tablo-import-refused", count = failures.len()));
     view! {
-        cx =>
         tablo_ui::page(
             tablo_ui::page_header(
                 tablo_ui::page_title((title))

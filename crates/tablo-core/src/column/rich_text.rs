@@ -109,7 +109,7 @@ fn entry<'a>(cx: &'a Cx, label: &crate::Text, html: String) -> BoxView<'a> {
     } else {
         // `clean` kept only the elements and attributes a tool produces.
         let html = Unescaped::new_unchecked(html);
-        view! { cx => <div class=(PROSE) data-rich-text-value="">(html)</div> }.boxed()
+        view! { <div class=(PROSE) data-rich-text-value="">(html)</div> }.boxed()
     };
     crate::schema::read_only(cx, label, value)
 }

@@ -170,7 +170,7 @@ impl Field {
                 movable: false,
             }
             .render(cx);
-            view! { cx => <div class="contents">(tile)</div> }.boxed()
+            view! { <div class="contents">(tile)</div> }.boxed()
         });
         let aria_invalid = chrome.aria_invalid();
         let accept = file.accept();
@@ -182,7 +182,6 @@ impl Field {
         .flatten()
         .reduce(|ids, id| format!("{ids} {id}"));
         let input = view! {
-            cx =>
             <input
                 class=(INPUT_CLASS)
                 id=(id)
@@ -199,7 +198,6 @@ impl Field {
         .boxed();
         let hint = (is_edit && !disabled).then(|| {
             view! {
-                cx =>
                 <div class="sr-only" id=(hint_id)>
                     (crate::t!(cx, "tablo-file-keep"))
                 </div>
@@ -266,7 +264,6 @@ pub(crate) fn stored_upload<'a>(cx: &'a Cx, value: &str) -> BoxView<'a> {
     // A value that is not a safe URL is not a link.
     if !is_linkable(&path) {
         return view! {
-            cx =>
             <div
                 class="text-sm text-foreground font-mono break-all whitespace-pre-wrap"
             >
@@ -277,7 +274,6 @@ pub(crate) fn stored_upload<'a>(cx: &'a Cx, value: &str) -> BoxView<'a> {
     }
     let href = file_href(cx, &path);
     view! {
-        cx =>
         <a
             class="text-sm font-mono break-all whitespace-pre-wrap underline"
             href=(href)

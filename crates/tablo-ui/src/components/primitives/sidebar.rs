@@ -1,6 +1,7 @@
-// SYNC: topcoat-ui-registry@0.11.0 sha256:4e33fba2dea60d985c73b716e28532bef15d9a7511ea9e80335a3b976e29cd38 — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.11.0 sha256:0e54c2c80d6092e01f67d53f41dac2d73f90d0478b144612c5fc45cba86df79e — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
+    context::Cx,
     icon::{icon, iconify::iconify_icon},
     runtime::Expr,
     view::{Attributes, Child, Class, StaticClass, View, attributes, class, component, view},
@@ -95,6 +96,7 @@ impl SidebarCollapsible {
 /// [`sidebar`] and event handlers to [`sidebar_trigger`] and [`sidebar_rail`].
 #[component]
 pub async fn sidebar_provider(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -140,6 +142,7 @@ const PANEL_THEME: StaticClass = class!(
 /// visual overlay; focus trapping requires additional application scripting.
 #[component]
 pub async fn sidebar(
+    cx: &Cx,
     #[into]
     #[default(true.into())]
     open: Expr<bool>,
@@ -218,6 +221,7 @@ pub async fn sidebar(
 /// desktop and mobile expressions and handlers.
 #[component]
 pub async fn sidebar_trigger(
+    cx: &Cx,
     #[into]
     #[default(true.into())]
     open: Expr<bool>,
@@ -244,6 +248,7 @@ pub async fn sidebar_trigger(
 /// Pass its signal update as an `@click` attribute.
 #[component]
 pub async fn sidebar_rail(
+    cx: &Cx,
     #[into]
     #[default(true.into())]
     open: Expr<bool>,
@@ -271,6 +276,7 @@ pub async fn sidebar_rail(
 /// and bottom border match the sidebar header without extra classes.
 #[component]
 pub async fn sidebar_inset(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -294,6 +300,7 @@ pub async fn sidebar_inset(
 /// Inside [`sidebar_inset`], it lays out its children as a sticky toolbar.
 #[component]
 pub async fn sidebar_header(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -314,6 +321,7 @@ pub async fn sidebar_header(
 /// The fixed footer below the sidebar's scrolling content.
 #[component]
 pub async fn sidebar_footer(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -331,6 +339,7 @@ pub async fn sidebar_footer(
 /// The scrollable region between the header and footer.
 #[component]
 pub async fn sidebar_content(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -351,6 +360,7 @@ pub async fn sidebar_content(
 /// A section containing a label, an optional action and related menu items.
 #[component]
 pub async fn sidebar_group(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -371,6 +381,7 @@ pub async fn sidebar_group(
 /// A group's caption, hidden when the desktop sidebar collapses to icons.
 #[component]
 pub async fn sidebar_group_label(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -396,6 +407,7 @@ const ACTION: StaticClass = class!(
 /// An icon button beside the group label. Give it an accessible label.
 #[component]
 pub async fn sidebar_group_action(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -414,6 +426,7 @@ pub async fn sidebar_group_action(
 /// The body of a sidebar group.
 #[component]
 pub async fn sidebar_group_content(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -431,6 +444,7 @@ pub async fn sidebar_group_content(
 /// A list of sidebar menu items.
 #[component]
 pub async fn sidebar_menu(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -448,6 +462,7 @@ pub async fn sidebar_menu(
 /// One menu row containing a button or link and optional actions or submenus.
 #[component]
 pub async fn sidebar_menu_item(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -464,7 +479,7 @@ pub async fn sidebar_menu_item(
 
 /// A text input styled for a sidebar header or group.
 #[component]
-pub async fn sidebar_input(#[default] mut attrs: Attributes) -> Result<impl View> {
+pub async fn sidebar_input(cx: &Cx, #[default] mut attrs: Attributes) -> Result<impl View> {
     Ok(view! {
         input(
             attrs: attributes! {
@@ -481,7 +496,7 @@ pub async fn sidebar_input(#[default] mut attrs: Attributes) -> Result<impl View
 
 /// A rule between sidebar sections.
 #[component]
-pub async fn sidebar_separator(#[default] attrs: Attributes) -> Result<impl View> {
+pub async fn sidebar_separator(cx: &Cx, #[default] attrs: Attributes) -> Result<impl View> {
     Ok(view! { separator(attrs: attributes! { data-sidebar="separator" (attrs) }) })
 }
 
@@ -546,6 +561,7 @@ pub fn sidebar_menu_button_variants(
 /// runtime expression. Event handlers and other attributes are forwarded.
 #[component]
 pub async fn sidebar_menu_button(
+    cx: &Cx,
     #[default] variant: SidebarMenuButtonVariant,
     #[default] size: SidebarMenuButtonSize,
     #[into]
@@ -580,6 +596,7 @@ pub async fn sidebar_menu_button(
 /// An independent action beside a menu button. Give it an accessible label.
 #[component]
 pub async fn sidebar_menu_action(
+    cx: &Cx,
     #[default] show_on_hover: bool,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
@@ -604,6 +621,7 @@ pub async fn sidebar_menu_action(
 /// A count or status beside a menu button.
 #[component]
 pub async fn sidebar_menu_badge(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -624,6 +642,7 @@ pub async fn sidebar_menu_badge(
 /// A placeholder matching a menu row, optionally including an icon.
 #[component]
 pub async fn sidebar_menu_skeleton(
+    cx: &Cx,
     #[default] show_icon: bool,
     #[default] mut attrs: Attributes,
 ) -> Result<impl View> {
@@ -652,6 +671,7 @@ pub async fn sidebar_menu_skeleton(
 /// A nested menu, hidden when the sidebar collapses to icons.
 #[component]
 pub async fn sidebar_menu_sub(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -672,6 +692,7 @@ pub async fn sidebar_menu_sub(
 /// One row of a nested sidebar menu.
 #[component]
 pub async fn sidebar_menu_sub_item(
+    cx: &Cx,
     #[default] mut attrs: Attributes,
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
@@ -689,6 +710,7 @@ pub async fn sidebar_menu_sub_item(
 /// A nested menu link. Pass its destination through the `href` attribute.
 #[component]
 pub async fn sidebar_menu_sub_button(
+    cx: &Cx,
     #[into]
     #[default(false.into())]
     active: Expr<bool>,

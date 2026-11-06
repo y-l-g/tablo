@@ -109,7 +109,6 @@ fn render_group_header<'a>(
     );
     let (expanded_token, toggle_token) = (token.clone(), token);
     view! {
-        cx =>
         table_row(
             attrs: attributes! { id=(id) data-group=(label.clone()) },
             table_cell(
@@ -177,7 +176,6 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
             let token = bulk_token(&row.key);
             let value = row.key.clone();
             view! {
-                cx =>
                 table_cell(
                     attrs: attributes! { class=(CHROME_CELL_CLASS) },
                     <input
@@ -212,7 +210,7 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
             }
             .boxed()
         } else {
-            view! { cx => table_cell(attrs: attributes! { class=(CHROME_CELL_CLASS) }) }.boxed()
+            view! { table_cell(attrs: attributes! { class=(CHROME_CELL_CLASS) }) }.boxed()
         }
     });
     // The whole row opens its record: an empty link in the first cell stretches over the row, and
@@ -239,16 +237,10 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
     let actions = chrome
         .with_actions
         .then(|| actions::render_actions(cx, &row, chrome));
-    let mut row_attrs = attributes! {
-        cx =>
-        id=(dom_id)
-        class=(row_class)
-        data-row-color=(tint)
-    };
+    let mut row_attrs = attributes! { id=(dom_id) class=(row_class) data-row-color=(tint) };
     if let Some(group) = &row.group {
         let (collapsed, token) = (chrome.signals.collapsed.clone(), group.token.clone());
         row_attrs.extend(attributes! {
-            cx =>
             :hidden=$({
                 let wire = collapsed.get();
                 raw!(
@@ -259,7 +251,6 @@ fn render_row<'a>(cx: &'a Cx, mut row: RowView<'a>, chrome: &RowChrome) -> BoxVi
         });
     }
     view! {
-        cx =>
         if let Some(header) = header {
             (header)
         }
@@ -298,7 +289,6 @@ const RECORD_ROW_CLASS: &str = "relative [&_:is(a,button,input:not([role=switch]
 fn with_record_link<'a>(cx: &'a Cx, url: &str, cell: BoxView<'a>) -> BoxView<'a> {
     let link = crate::navigation::runtime_link(cx, url);
     view! {
-        cx =>
         <a
             (link)
             class="absolute inset-0"

@@ -81,7 +81,7 @@ pub(crate) fn option_view<'a>(
     label: String,
     selected: bool,
 ) -> BoxView<'a> {
-    view! { cx => <option value=(value) selected=(selected)>(label)</option> }.boxed()
+    view! { <option value=(value) selected=(selected)>(label)</option> }.boxed()
 }
 
 impl ChoiceControl {
@@ -431,7 +431,6 @@ impl Field {
         let described_by = chrome.described_by();
         let select_id = id.clone();
         let control = view! {
-            cx =>
             if searchable {
                 <div class="relative" data-options-combobox="">
                     ui_input(
@@ -497,7 +496,6 @@ impl Field {
             &self.label(),
             required,
             attributes! {
-                cx =>
                 data-select-filterable=""
                 data-options-field=(options_field)
                 data-options-url=(options_url)

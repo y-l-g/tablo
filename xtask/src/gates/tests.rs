@@ -169,10 +169,9 @@ fn pins_match_ci() {
         )),
         "ci.yml's fmt job installs the pinned nightly"
     );
-    let topcoat = installed_version(TOPCOAT_INSTALL);
     assert!(
-        ci.contains(topcoat),
-        "ci.yml installs the pinned topcoat CLI {topcoat}"
+        ci.contains(TOPCOAT_INSTALL),
+        "ci.yml installs the pinned topcoat CLI with `{TOPCOAT_INSTALL}`"
     );
     let mdbook = installed_version(MDBOOK_INSTALL);
     for (name, workflow) in [("ci.yml", &ci), ("docs.yml", &docs)] {
