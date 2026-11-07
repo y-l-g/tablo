@@ -124,6 +124,23 @@ A `Text` also renders in a `view!` as it is, read in the view's locale. The auth
 link, a verification link and a sign-in code, are written in their recipient's
 `PanelUser::locale`, else in the locale of the request that sends them.
 
+## Numbers and amounts
+
+A `.numeric(..)` or `.money(..)` column, a chart and a stat spell numbers with three messages of
+the request's catalog: `tablo-number-group`, the thousands separator, `tablo-number-decimal`, the
+decimal mark, and `tablo-money`, which places the sign, the symbol and the amount. English reads
+`-$1,234.50`, French `-1 234,50 $`. A catalog for another locale spells its own:
+
+```ftl
+tablo-number-group = .
+tablo-number-decimal = ,
+tablo-money = { $sign }{ $amount }{ "\u00A0" }{ $symbol }
+```
+
+Fluent trims a message's outer spaces, so a space separator is a quoted literal:
+`{ "\u202F" }`. A currency whose symbol keeps one side in every locale says so with
+`Currency::symbol_before()` or `Currency::symbol_after()`.
+
 ## The user's locale
 
 `PanelUser::locale` names the locale a user reads the panel in, such as one they pick on their

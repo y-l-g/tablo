@@ -120,8 +120,9 @@ cannot turn into a script. A closure over the row may read any field: on a resou
 `.row_color_reading(..)` for the row color and `RowLink::reading(..)` for a row link, as a
 `.description(..)` does.
 
-The export writes the formatted value: `$1,234.50`, not `123450`. Money uses `,` and `.` as
-separators; a locale's own spelling is a `.format(..)`. Over a [decimal column](./forms.md#typed-values),
+The export writes the formatted value: `$1,234.50`, not `123450`. Numbers and money read in the
+request's locale, `1 234,50 $` in French: [Translations](./translations.md#numbers-and-amounts)
+says how a catalog spells them. Over a [decimal column](./forms.md#typed-values),
 `.numeric(..)` and `.money(..)` spell the stored digits without passing through a float.
 
 ### Editing in a cell

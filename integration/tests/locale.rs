@@ -5,8 +5,9 @@
 
 use http::header::VARY;
 use tablo::{
-    Allow, Auth, AuthMail, Authenticator, DeclarationErrorKind, LocaleFault, Panel, PanelUser,
-    PasswordReset, Resource, ResourceDef, RouterBuilderPanelExt, SelectFilter, Table, TextColumn,
+    Allow, Auth, AuthMail, Authenticator, Currency, DeclarationErrorKind, LocaleFault, Panel,
+    PanelUser, PasswordReset, Resource, ResourceDef, RouterBuilderPanelExt, SelectFilter, Table,
+    TextColumn,
     auth::{AuthSession, AuthToken, PasswordResetter},
     lens,
     testing::{
@@ -64,6 +65,32 @@ impl Resource for BookResource {
             ))
             .filters(SelectFilter::of(lens!(Book.genre))),
         )
+    }
+}
+
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct Invoice {
+    #[key]
+    #[auto]
+    id: Uuid,
+    total_cents: i64,
+    weight: f64,
+}
+
+struct InvoiceResource;
+
+impl Resource for InvoiceResource {
+    type Model = Invoice;
+    type Form = tablo::NoForm<Invoice>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("invoices")
+            .policy(Allow)
+            .table(Table::new((
+                TextColumn::new(lens!(Invoice.total_cents)).money(Currency::EUR.minor_units()),
+                TextColumn::new(lens!(Invoice.weight)).numeric(1),
+            )))
     }
 }
 
@@ -147,7 +174,14 @@ impl PasswordResetter for ReaderAuth {
 }
 
 async fn db() -> Db {
-    test_db(toasty::models!(Book, Reader, AuthSession, AuthToken)).await
+    test_db(toasty::models!(
+        Book,
+        Invoice,
+        Reader,
+        AuthSession,
+        AuthToken
+    ))
+    .await
 }
 
 /// A reader named `name`, reading in `locale`.
@@ -526,4 +560,65 @@ async fn an_options_label_reads_the_requests_locale() {
             "{language}: the select reads {novel}: {form}"
         );
     }
+}
+
+/// A number and an amount read in the reader's locale: its separators, and its side for the
+/// symbol unless the currency fixes it.
+#[tokio::test]
+async fn numbers_and_amounts_read_in_the_readers_locale() {
+    let db = db().await;
+    toasty::create!(Invoice {
+        total_cents: -123_456_789,
+        weight: 1234.56,
+    })
+    .exec(&mut db.clone())
+    .await
+    .unwrap();
+    let router = mount(
+        db.clone(),
+        panel(Auth::disabled()).resource::<InvoiceResource>(),
+    )
+    .expect("panel builds");
+    let cells = |html: &str| {
+        let row = rows(html).remove(0);
+        row.cells
+            .into_iter()
+            .filter(|cell| !cell.trim().is_empty())
+            .collect::<Vec<_>>()
+    };
+    let english = TestClient::new(&router).language("en");
+    let html = body_string(english.get("/admin/invoices").await).await;
+    assert_eq!(cells(&html), ["-€1,234,567.89", "1,234.6"]);
+    let french = TestClient::new(&router).language("fr");
+    let html = body_string(french.get("/admin/invoices").await).await;
+    assert_eq!(
+        cells(&html),
+        ["-1\u{202f}234\u{202f}567,89\u{a0}€", "1\u{202f}234,6"]
+    );
+}
+
+/// The pager groups its counts as the reader's locale does, as the cells do.
+#[tokio::test]
+async fn the_pagers_counts_read_in_the_readers_locale() {
+    let db = db().await;
+    for _ in 0..1_000 {
+        toasty::create!(Invoice {
+            total_cents: 1,
+            weight: 1.0,
+        })
+        .exec(&mut db.clone())
+        .await
+        .unwrap();
+    }
+    let router = mount(
+        db.clone(),
+        panel(Auth::disabled()).resource::<InvoiceResource>(),
+    )
+    .expect("panel builds");
+    let english = TestClient::new(&router).language("en");
+    let html = body_string(english.get("/admin/invoices").await).await;
+    assert!(html.contains("of 1,000"), "{html}");
+    let french = TestClient::new(&router).language("fr");
+    let html = body_string(french.get("/admin/invoices").await).await;
+    assert!(html.contains("sur 1\u{202f}000"), "the French pager groups");
 }

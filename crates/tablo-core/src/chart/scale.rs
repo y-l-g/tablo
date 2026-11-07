@@ -1,6 +1,6 @@
 //! A chart's value axis: the range it spans and the round values it marks.
 
-use crate::display::{Number, format_number};
+use crate::display::{Number, NumberFormat};
 
 /// About how many steps the axis divides its range into.
 const STEPS: f64 = 4.0;
@@ -79,8 +79,8 @@ impl Axis {
     }
 
     /// A tick's label, with as many decimals as the step needs.
-    pub(super) fn format(&self, tick: f64) -> String {
-        format_number(Number::Float(tick), self.decimals)
+    pub(super) fn format(&self, tick: f64, numbers: &NumberFormat) -> String {
+        numbers.spell(Number::Float(tick), self.decimals)
     }
 }
 

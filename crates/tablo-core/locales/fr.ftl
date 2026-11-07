@@ -57,6 +57,10 @@ tablo-action-delete = Supprimer
 tablo-yes = Oui
 tablo-no = Non
 
+tablo-number-group = { "\u202F" }
+tablo-number-decimal = ,
+tablo-money = { $sign }{ $amount }{ "\u00A0" }{ $symbol }
+
 ## Lists
 
 tablo-list-search = Rechercher dans le tableau

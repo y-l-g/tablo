@@ -140,7 +140,7 @@ type ColorFn<T> = ReadFn<T, Option<Color>>;
 type RowFn<M, V> = ReadFn<M, V>;
 
 /// A column's spelling of its value, which may read the rest of the row.
-type FormatFn<M, T> = Arc<dyn Fn(&M, &T) -> Text + Send + Sync>;
+type FormatFn<M, T> = Arc<dyn Fn(&Cx, &M, &T) -> Text + Send + Sync>;
 
 /// The escape character a search or filter pattern declares to `LIKE`.
 pub(crate) const LIKE_ESCAPE: char = '\\';
@@ -188,7 +188,7 @@ where
         Self {
             base: ColumnBase::new(lens.path(), ColumnWidth::Grow),
             lens,
-            format: Arc::new(|_, value: &T| value.to_label()),
+            format: Arc::new(|_, _, value: &T| value.to_label()),
             search: None,
             sortable: false,
             color: Arc::new(T::color),
@@ -216,7 +216,7 @@ where
         mut self,
         format: impl Fn(&T) -> L + Send + Sync + 'static,
     ) -> Self {
-        self.format = Arc::new(move |_, value| format(value).into());
+        self.format = Arc::new(move |_, _, value| format(value).into());
         self
     }
 
@@ -327,29 +327,30 @@ where
     T: Numeric + 'static,
 {
     /// Spell the value as a number with `decimals` digits after the point and its thousands
-    /// grouped, `12,345.60`, aligned to the end with equal-width digits.
+    /// grouped in the request's locale, `12,345.60` in English and `12 345,60` in French, aligned
+    /// to the end with equal-width digits.
     pub fn numeric(mut self, decimals: u8) -> Self {
-        self.format = Arc::new(move |_, value: &T| {
+        self.format = Arc::new(move |cx, _, value: &T| {
             value
                 .number()
-                .map(|number| crate::display::format_number(number, decimals))
+                .map(|number| crate::display::NumberFormat::of(cx).spell(number, decimals))
                 .unwrap_or_default()
                 .into()
         });
         self.amount()
     }
 
-    /// Spell the value as an amount of `currency`, `$1,234.50`, aligned to the end with
-    /// equal-width digits.
+    /// Spell the value as an amount of `currency` in the request's locale, `$1,234.50` in English
+    /// and `1 234,50 $` in French, aligned to the end with equal-width digits.
     pub fn money(mut self, currency: Currency) -> Self {
-        self.format = Arc::new(move |_, value: &T| currency.format(value).into());
+        self.format = Arc::new(move |cx, _, value: &T| currency.format_in(cx, value).into());
         self.amount()
     }
 
     /// Spell the value as an amount of the currency `currency(row)` names, such as an order's
     /// own, aligned as [`money`](Self::money) aligns it.
     pub fn money_by(mut self, currency: impl Fn(&M) -> Currency + Send + Sync + 'static) -> Self {
-        self.format = Arc::new(move |row, value: &T| currency(row).format(value).into());
+        self.format = Arc::new(move |cx, row, value: &T| currency(row).format_in(cx, value).into());
         self.reads_row = true;
         self.amount()
     }
@@ -395,12 +396,12 @@ where
     }
 
     fn text(&self, cx: &Cx, row: &M) -> String {
-        (self.format)(row, self.lens.read(row)).localize(cx)
+        (self.format)(cx, row, self.lens.read(row)).localize(cx)
     }
 
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
         let value = self.lens.read(row);
-        let text = (self.format)(row, value).localize(cx);
+        let text = (self.format)(cx, row, value).localize(cx);
         let color = (!text.trim().is_empty())
             .then(|| (self.color)(value))
             .flatten();
