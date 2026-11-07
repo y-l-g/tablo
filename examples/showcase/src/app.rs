@@ -480,7 +480,6 @@ pub fn admin_panel() -> Panel {
                 .email_verification(EmailVerification::new(StaffAuth)),
         )
         .brand(Brand::new("Tablo Blog").logo(LOGO).favicon(LOGO))
-        // A stripe and a badge on every page, so a demo is never mistaken for production.
         .environment(Environment::new("Demo").color(Color::Info))
         .home::<Dashboard>()
         .resource::<UserResource>()
