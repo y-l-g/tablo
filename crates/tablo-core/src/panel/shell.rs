@@ -417,6 +417,7 @@ mod area;
 mod brand;
 mod breadcrumbs;
 mod document;
+mod environment;
 mod language;
 pub(super) mod sidebar;
 mod theme;
@@ -424,7 +425,8 @@ mod toaster;
 mod user_menu;
 
 pub(in crate::panel) use area::area_entries;
-pub use brand::Brand;
+pub use brand::{Brand, Radius};
+pub use environment::Environment;
 pub(crate) use language::{LANGUAGE_SEGMENT, language_post};
 use theme::{SIDEBAR_COOKIE, Theme};
 

@@ -75,6 +75,18 @@ impl Color {
         }
     }
 
+    /// The class of a surface filled with this color, such as an environment's stripe.
+    pub(crate) const fn fill_class(self) -> &'static str {
+        match self {
+            Self::Gray => "bg-muted-foreground",
+            Self::Primary => "bg-primary",
+            Self::Success => "bg-success",
+            Self::Warning => "bg-warning",
+            Self::Danger => "bg-destructive",
+            Self::Info => "bg-info",
+        }
+    }
+
     /// The class of a table row tinted in this color.
     pub(crate) const fn row_class(self) -> &'static str {
         match self {

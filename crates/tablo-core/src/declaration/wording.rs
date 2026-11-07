@@ -45,6 +45,11 @@ impl fmt::Display for DeclarationErrorKind {
                  register: build the Db from `tablo::models!(…)`, or add `AuditEntry` to \
                  `toasty::models!(…)`",
             ),
+            Self::BrandColor { value } => write!(
+                f,
+                "the brand color `{value}` is no CSS color: spell it `#4f46e5` or \
+                 `oklch(0.55 0.2 260)`",
+            ),
             Self::ExternalAuthFeature { feature } => write!(
                 f,
                 "`Auth::external` leaves credentials to the host app: drop `{feature}`",

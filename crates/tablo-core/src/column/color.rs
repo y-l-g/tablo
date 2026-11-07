@@ -81,7 +81,7 @@ where
 
 /// Whether `value` is a hex color or a color function of plain arguments, safe inside a `style`
 /// attribute: nothing in it can end the declaration or open another.
-pub(super) fn is_css_color(value: &str) -> bool {
+pub(crate) fn is_css_color(value: &str) -> bool {
     if let Some(hex) = value.strip_prefix('#') {
         return matches!(hex.len(), 3 | 4 | 6 | 8) && hex.bytes().all(|b| b.is_ascii_hexdigit());
     }

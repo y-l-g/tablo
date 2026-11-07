@@ -37,6 +37,14 @@ pub enum DeclarationErrorKind {
     ///
     /// Build the `Db` from `tablo::models!(..)`, or add `AuditEntry` to `toasty::models!(..)`.
     MissingAuditModel,
+    /// A `Brand` color that is no hex color or plain color function, which the panel's stylesheet
+    /// would carry as it is.
+    ///
+    /// Spell it `#4f46e5` or `oklch(0.55 0.2 260)`.
+    BrandColor {
+        /// The refused value.
+        value: String,
+    },
     /// `Auth::external` beside a feature that needs Tablo to own the account's credentials.
     ///
     /// Drop the feature: the host app signs its users in, and keeps their credentials.

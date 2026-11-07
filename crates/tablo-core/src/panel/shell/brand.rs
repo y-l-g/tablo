@@ -21,6 +21,45 @@ pub struct Brand {
     /// Optional favicon URL (e.g. `"/favicon.svg"`), the `<link rel="icon">` of every page the
     /// panel renders, its sign-in pages included.
     pub favicon: Option<String>,
+    /// The primary color, light then dark, and the text on it.
+    palette: Palette,
+    radius: Option<Radius>,
+}
+
+/// A [`Brand`]'s colors over the shipped theme's primary tokens.
+#[derive(Debug, Clone, Default)]
+struct Palette {
+    color: Option<String>,
+    dark_color: Option<String>,
+    on_color: Option<String>,
+}
+
+/// How round a [`Brand`]'s controls, cards and badges are, over the shipped `0.5rem`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Radius {
+    /// Square corners.
+    None,
+    /// `0.25rem`.
+    Small,
+    /// `0.5rem`, the shipped theme's.
+    Medium,
+    /// `0.75rem`.
+    Large,
+    /// `1rem`.
+    ExtraLarge,
+}
+
+impl Radius {
+    const fn css(self) -> &'static str {
+        match self {
+            Self::None => "0rem",
+            Self::Small => "0.25rem",
+            Self::Medium => "0.5rem",
+            Self::Large => "0.75rem",
+            Self::ExtraLarge => "1rem",
+        }
+    }
 }
 
 impl Brand {
@@ -32,7 +71,91 @@ impl Brand {
             logo: None,
             dark_logo: None,
             favicon: None,
+            palette: Palette::default(),
+            radius: None,
         }
+    }
+
+    /// Paint the panel's primary color, its buttons, links, focus rings and brand mark, in
+    /// `color`: a hex color or a color function such as `oklch(0.55 0.2 260)`. It paints the dark
+    /// theme too, unless [`dark_color`](Self::dark_color) says otherwise. Mounting the panel
+    /// refuses any other spelling, which the page's stylesheet would carry as it is.
+    pub fn color(mut self, color: impl Into<String>) -> Self {
+        self.palette.color = Some(color.into().trim().to_string());
+        self
+    }
+
+    /// Paint the primary color in `color` while the page renders dark, such as a lighter shade
+    /// of [`color`](Self::color) for a dark background.
+    pub fn dark_color(mut self, color: impl Into<String>) -> Self {
+        self.palette.dark_color = Some(color.into().trim().to_string());
+        self
+    }
+
+    /// Paint the text on the primary color in `color`, over the shipped near-white: a dark
+    /// color for a light [`color`](Self::color), such as yellow.
+    pub fn on_color(mut self, color: impl Into<String>) -> Self {
+        self.palette.on_color = Some(color.into().trim().to_string());
+        self
+    }
+
+    /// Round the panel's corners to `radius`.
+    pub fn radius(mut self, radius: Radius) -> Self {
+        self.radius = Some(radius);
+        self
+    }
+
+    /// The colors mounting refuses: each that is no CSS color.
+    pub(crate) fn declaration_errors(&self) -> Vec<crate::DeclarationErrorKind> {
+        let Palette {
+            color,
+            dark_color,
+            on_color,
+        } = &self.palette;
+        [color, dark_color, on_color]
+            .into_iter()
+            .flatten()
+            .filter(|value| !crate::column::is_css_color(value))
+            .map(|value| crate::DeclarationErrorKind::BrandColor {
+                value: value.clone(),
+            })
+            .collect()
+    }
+
+    /// The style sheet that lays the brand's colors and radius over the shipped theme; `None`
+    /// when it sets neither, or a color mounting would refuse.
+    pub(crate) fn style(&self) -> Option<String> {
+        if !self.declaration_errors().is_empty() {
+            return None;
+        }
+        let Palette {
+            color,
+            dark_color,
+            on_color,
+        } = &self.palette;
+        let tokens = |primary: Option<&String>| {
+            let mut tokens = String::new();
+            if let Some(primary) = primary {
+                tokens.push_str(&format!("--primary:{primary};--ring:{primary};"));
+            }
+            if let Some(on) = on_color {
+                tokens.push_str(&format!("--primary-foreground:{on};"));
+            }
+            tokens
+        };
+        let mut light = tokens(color.as_ref());
+        if let Some(radius) = self.radius {
+            light.push_str(&format!("--radius:{};", radius.css()));
+        }
+        let dark = tokens(dark_color.as_ref().or(color.as_ref()));
+        let mut style = String::new();
+        if !light.is_empty() {
+            style.push_str(&format!(":root{{{light}}}"));
+        }
+        if !dark.is_empty() {
+            style.push_str(&format!(":root.dark{{{dark}}}"));
+        }
+        (!style.is_empty()).then_some(style)
     }
 
     /// Attach a logo URL (blank values are ignored so an empty

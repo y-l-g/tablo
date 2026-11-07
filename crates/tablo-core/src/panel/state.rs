@@ -102,6 +102,8 @@ pub(crate) struct PanelState {
     pub(crate) areas: Vec<AreaNav>,
     pub(crate) brand: Option<Brand>,
     pub(crate) dark_mode: bool,
+    /// The deployment the panel runs in, which every page names.
+    pub(crate) environment: Option<super::Environment>,
     pub(crate) shell_assets: Option<ShellAssets>,
     /// Each registered resource's relation table, by resource type.
     pub(crate) children: HashMap<TypeId, Child>,

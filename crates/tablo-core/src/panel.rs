@@ -43,7 +43,7 @@ pub use self::{
     list::{WiredTable, list_query, wired_table},
     page_filters::page_filters,
     pages::page_filter_bar,
-    shell::Brand,
+    shell::{Brand, Environment, Radius},
     widgets::{record_table, stats, widgets},
 };
 pub(crate) use self::{bar::header_bar, pages::current_page};
@@ -116,6 +116,8 @@ pub struct Panel {
     brand: Option<Brand>,
     /// Whether [`Self::dark_by_default`] starts a visitor who has not chosen a theme dark.
     dark_mode: bool,
+    /// The deployment [`Self::environment`] names on every page.
+    environment: Option<Environment>,
     /// Frames the panel's pages; `None` renders the shipped shell.
     layout: Option<LayoutRenderFn>,
     /// The resources and pages, in registration order.
@@ -166,6 +168,7 @@ impl Panel {
             shell_assets: None,
             brand: None,
             dark_mode: false,
+            environment: None,
             layout: None,
             registrations: Vec::new(),
             content_security_policy: headers::Policy::Default,
@@ -318,6 +321,12 @@ impl Panel {
     /// Sets branding for the shell (sidebar header and the topbar below `md`) and for the sign-in
     /// and sign-up pages, above their card.
     pub fn brand(mut self, brand: Brand) -> Self {
+        self.configuration_errors.extend(
+            brand
+                .declaration_errors()
+                .into_iter()
+                .map(DeclarationError::panel),
+        );
         self.brand = Some(brand);
         self
     }
