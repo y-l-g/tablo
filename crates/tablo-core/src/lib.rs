@@ -82,7 +82,10 @@ pub mod __macro {
             tree::Retype,
             write_items,
         },
-        table::{ModelColumns, Table, model::pick},
+        table::{
+            ModelColumns, Table,
+            model::{Reference, pick},
+        },
         toasty_compat::VariantId,
         values::write_list,
     };

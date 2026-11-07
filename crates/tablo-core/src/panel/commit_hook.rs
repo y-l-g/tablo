@@ -103,12 +103,13 @@ impl ChangedRecord {
     /// The fields the write changed on this record, each with its value before and after it.
     ///
     /// They are the fields the model's [`ModelColumns::table`] lists, each spelled as that column
-    /// spells it in an export, in the request's locale: a field marked `#[columns(skip)]`, such
-    /// as a password hash, never appears. A create names each field it filled, an update's
-    /// `after` record each field whose spelling changed, and a delete's or a force delete's
-    /// records each field they held. The other records name none: a restore, an action, an
-    /// attach and a detach write what the model's columns do not say, and an update's `before`
-    /// record leaves the change to its `after`.
+    /// spells it in an export, in the request's locale, then its foreign keys and
+    /// [`TenantId`](crate::TenantId) fields, which the table leaves out, spelled as the database
+    /// stores them: a field marked `#[columns(skip)]`, such as a password hash, never appears. A
+    /// create names each field it filled, an update's `after` record each field whose spelling
+    /// changed, and a delete's or a force delete's records each field they held. The other
+    /// records name none: a restore, an action, an attach and a detach write what the model's
+    /// columns do not say, and an update's `before` record leaves the change to its `after`.
     pub fn fields(&self) -> &[ChangedField] {
         &self.fields
     }
@@ -146,14 +147,15 @@ impl ChangedField {
     }
 }
 
-/// The fields `before` and `after` spell differently, by the columns of `M`'s default table; a
-/// record that is absent spells every field empty.
+/// The fields `before` and `after` spell differently, by the columns of `M`'s default table and
+/// its [`references`](ModelColumns::references); a record that is absent spells every field empty.
 fn changed_fields<M: ModelColumns>(
     cx: &Cx,
     before: Option<&M>,
     after: Option<&M>,
 ) -> Vec<ChangedField> {
     let table = M::table();
+    let (before_record, after_record) = (before, after);
     let spell = |record: Option<&M>| record.map(|record| table.spell(cx, record));
     let (before, after) = (spell(before), spell(after));
     let columns = after.as_ref().or(before.as_ref()).map_or(0, Vec::len);
@@ -163,7 +165,7 @@ fn changed_fields<M: ModelColumns>(
             .map(|spelled| spelled[index].2.clone())
             .filter(|text| !text.is_empty())
     };
-    (0..columns)
+    let mut changed: Vec<ChangedField> = (0..columns)
         .filter_map(|index| {
             let (was, is) = (held(&before, index), held(&after, index));
             let (name, label, _) = after.as_ref().or(before.as_ref())?[index].clone();
@@ -174,7 +176,27 @@ fn changed_fields<M: ModelColumns>(
                 after: is,
             })
         })
-        .collect()
+        .collect();
+    let references = |record: Option<&M>| record.map(ModelColumns::references);
+    let (was, is) = (references(before_record), references(after_record));
+    let names = is.as_ref().or(was.as_ref()).cloned().unwrap_or_default();
+    for (index, (name, _)) in names.into_iter().enumerate() {
+        let held = |spelled: &Option<Vec<(&str, Option<String>)>>| {
+            spelled
+                .as_ref()
+                .and_then(|spelled| spelled[index].1.clone())
+        };
+        let (before, after) = (held(&was), held(&is));
+        if before != after && changed.iter().all(|field| field.name != name) {
+            changed.push(ChangedField {
+                name: name.to_owned(),
+                label: Text::field(name),
+                before,
+                after,
+            });
+        }
+    }
+    changed
 }
 
 /// `change` with each record named by its key and URL, and the fields the write changed on it.
@@ -266,3 +288,6 @@ fn run<'a>(
         Ok(())
     })
 }
+
+#[cfg(test)]
+mod tests;

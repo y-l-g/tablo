@@ -225,7 +225,9 @@ of a `before_commit` on each resource, so a resource added later cannot be left 
 the same transaction, after the resource's own hook, and receives a
 [`PanelChange`](https://y-l.fr/tablo/nightly/api/tablo/struct.PanelChange.html): the resource's
 slug and label, and the `Change` with each record named by its key, its URL and the fields the
-write changed, each spelled before and after it as the model's default table spells it:
+write changed, each spelled before and after it as the model's default table spells it. Its
+foreign keys and `TenantId` fields, which that table leaves out, are spelled as stored, so moving a
+record to another owner or tenant shows:
 
 ```rust,ignore
 impl CommitHook for Audit {
