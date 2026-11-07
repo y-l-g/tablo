@@ -147,8 +147,6 @@ pub struct Panel {
     limits: crate::Limits,
     /// The hooks every write of the panel runs before it commits, in registration order.
     commit_hooks: Vec<commit_hook::CommitHookFn>,
-    /// Whether [`Self::audit_log`] keeps the panel's writes, whose table the `Db` then registers.
-    audit_log: bool,
 }
 
 impl Panel {
@@ -184,7 +182,6 @@ impl Panel {
             global_search: true,
             limits: crate::Limits::default(),
             commit_hooks: Vec::new(),
-            audit_log: false,
         }
     }
 

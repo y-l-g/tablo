@@ -40,6 +40,37 @@ impl Resource for AuditLog {
             .detail(columns::detail())
             .query(scope)
     }
+
+    // The log keeps what happened: even registered by hand, past [`Panel::audit_log`]'s policy,
+    // its pages delete nothing.
+    async fn delete_record(
+        _cx: &Cx,
+        _record: &AuditEntry,
+        _ex: &mut dyn Executor,
+    ) -> std::result::Result<(), crate::WriteError> {
+        Err(immutable())
+    }
+
+    async fn restore_record(
+        _cx: &Cx,
+        _record: &AuditEntry,
+        _ex: &mut dyn Executor,
+    ) -> std::result::Result<(), crate::WriteError> {
+        Err(immutable())
+    }
+
+    async fn force_delete_record(
+        _cx: &Cx,
+        _record: &AuditEntry,
+        _ex: &mut dyn Executor,
+    ) -> std::result::Result<(), crate::WriteError> {
+        Err(immutable())
+    }
+}
+
+/// The refusal of every write through the log's pages.
+fn immutable() -> crate::WriteError {
+    crate::WriteError::declined(Text::message("tablo-audit-immutable"))
 }
 
 /// The entries `cx` may read: its panel's, for the tenant it acts for, about the resources it
@@ -131,7 +162,6 @@ impl Panel {
         mut self,
         customize: impl FnOnce(ResourceDef<AuditLog>) -> ResourceDef<AuditLog> + Send + 'static,
     ) -> Self {
-        self.audit_log = true;
         self.commit_hooks
             .push(|cx, change, ex| Box::pin(store(cx, change, ex)));
         self.resource_with::<AuditLog>(move |def| {
@@ -229,13 +259,14 @@ impl AuditEvent {
     }
 }
 
-/// The mount's refusal of a panel keeping an audit log, `audit_log`, over a `db` that does not
-/// register [`AuditEntry`].
+/// The mount's refusal of a panel whose registrations, by the URLs they serve at, include the
+/// [`AuditLog`], over a `db` that does not register [`AuditEntry`].
 pub(super) fn declaration_error(
     db: &toasty::Db,
-    audit_log: bool,
+    urls: &std::collections::HashMap<std::any::TypeId, String>,
 ) -> Option<crate::DeclarationError> {
-    (audit_log && !crate::toasty_compat::model::AppSchema::of_db(db).registers("AuditEntry"))
+    let kept = urls.contains_key(&std::any::TypeId::of::<AuditLog>());
+    (kept && !crate::toasty_compat::model::AppSchema::of_db(db).registers("AuditEntry"))
         .then(|| crate::DeclarationError::panel(crate::DeclarationErrorKind::MissingAuditModel))
 }
 

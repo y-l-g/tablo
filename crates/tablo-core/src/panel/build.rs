@@ -194,7 +194,6 @@ impl Panel {
             global_search,
             limits,
             commit_hooks,
-            audit_log,
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
         let serves_tenants = serves_tenants(&auth, &mounts);
@@ -227,7 +226,7 @@ impl Panel {
                     .into_iter()
                     .map(DeclarationError::panel),
                 );
-                errors.extend(super::audit::declaration_error(db, audit_log));
+                errors.extend(super::audit::declaration_error(db, &registry.urls));
             }
             None => errors.push(DeclarationError::panel(DeclarationErrorKind::MissingDb)),
         }

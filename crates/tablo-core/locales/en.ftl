@@ -455,6 +455,7 @@ tablo-audit-force-delete = Deleted permanently
 tablo-audit-attach = Linked
 tablo-audit-detach = Unlinked
 tablo-audit-action = Ran { $name }
+tablo-audit-immutable = The audit log cannot be changed.
 
 ## Sign-in
 

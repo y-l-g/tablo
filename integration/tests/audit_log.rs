@@ -344,3 +344,20 @@ async fn the_mount_refuses_a_log_whose_table_the_db_lacks() {
         "{errors:?}"
     );
 }
+
+/// Registered by hand with an allowing policy, past `audit_log`, the log still deletes nothing.
+#[tokio::test]
+async fn the_log_registered_by_hand_still_deletes_nothing() {
+    let db = db().await;
+    let (router, handle) = mount_with_handle(
+        db.clone(),
+        panel().resource_with::<AuditLog>(|log| log.policy(Allow)),
+    )
+    .expect("panel builds");
+    seed(&db, "/admin", None, Vec::new()).await;
+    let entry = entries(&db).await.remove(0);
+    let client = TestClient::new(&router).panel(&handle);
+    let response = client.resource::<AuditLog>().delete(&entry).submit().await;
+    assert_ne!(response.status(), 500);
+    assert_eq!(entries(&db).await.len(), 1, "the entry stays");
+}

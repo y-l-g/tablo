@@ -444,6 +444,7 @@ tablo-audit-force-delete = Supprimé définitivement
 tablo-audit-attach = Lié
 tablo-audit-detach = Délié
 tablo-audit-action = { $name } exécutée
+tablo-audit-immutable = Le journal d'audit ne peut pas être modifié.
 
 ## Sign-in
 
