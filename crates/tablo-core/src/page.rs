@@ -402,6 +402,16 @@ impl MountedPage {
         (self.access)(cx)
     }
 
+    /// The page behind `access` in place of its def's: an auth page placed in an area, which
+    /// declares none, opens to whom auth offers it.
+    pub(crate) fn with_access(
+        mut self,
+        access: impl Fn(&Cx) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        self.access = Arc::new(access);
+        self
+    }
+
     /// The page's access check, shared with its sidebar entry.
     pub(crate) fn access(&self) -> Arc<AccessFn> {
         Arc::clone(&self.access)

@@ -519,7 +519,7 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, routes: Opti
 }
 
 /// The route of the actions under a list or page `url`: `{url}/-/actions/{action}`.
-fn list_actions_route(url: &str) -> String {
+pub(super) fn list_actions_route(url: &str) -> String {
     format!(
         "{}/{ACTION_ROUTE_PARAM}",
         list_route(url, ACTIONS_ROUTE_SEGMENT)

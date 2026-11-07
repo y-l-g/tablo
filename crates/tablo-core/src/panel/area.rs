@@ -220,9 +220,12 @@ impl AreaGroup {
 
     /// Moves the profile page into the group as [`profile`](Self::profile) does, with `customize`
     /// adjusting its def: its [`slug`](PageDef::slug), [`label`](PageDef::label),
-    /// [`icon`](PageDef::icon) and [`navigation_order`](PageDef::navigation_order). The page
-    /// renders its own form, so mounting refuses a def that declares widgets, filters, an
-    /// access check or header actions.
+    /// [`icon`](PageDef::icon), [`navigation_order`](PageDef::navigation_order) and
+    /// [`header_action`](PageDef::header_action)s, which render in the form's header and serve
+    /// at `{url}/-/actions/{NAME}` as a page's do: deleting the account belongs there.
+    ///
+    /// Auth renders the page's form and decides who opens it, so mounting refuses a def that
+    /// declares widgets, filters or an access check.
     #[must_use]
     pub fn profile_with(self, customize: impl FnOnce(PageDef) -> PageDef + Send + 'static) -> Self {
         self.auth_page(AuthPage::Profile, customize)
@@ -236,7 +239,9 @@ impl AreaGroup {
     }
 
     /// Moves the two-factor settings page into the group as [`two_factor`](Self::two_factor)
-    /// does, with `customize` adjusting its def as [`profile_with`](Self::profile_with) reads it.
+    /// does, with `customize` adjusting its def as [`profile_with`](Self::profile_with) reads it,
+    /// but for header actions, which mounting refuses: the page renders no form header to hold
+    /// them.
     #[must_use]
     pub fn two_factor_with(
         self,
@@ -254,7 +259,8 @@ impl AreaGroup {
     }
 
     /// Moves the tenant settings page into the group as [`tenant_profile`](Self::tenant_profile)
-    /// does, with `customize` adjusting its def as [`profile_with`](Self::profile_with) reads it.
+    /// does, with `customize` adjusting its def as [`profile_with`](Self::profile_with) reads it:
+    /// deleting the tenant is a header action of it.
     #[must_use]
     pub fn tenant_profile_with(
         self,

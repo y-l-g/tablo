@@ -79,7 +79,8 @@ impl Host for PanelHost {
             values,
             errors,
         } = page;
-        let mut chrome = FormChrome::settings(cx, title, panel_prefix(cx));
+        let mut chrome = FormChrome::settings(cx, title, panel_prefix(cx))
+            .with_actions(super::pages::current_header_bar(cx));
         if let Some((name, value)) = hidden {
             chrome = chrome.with_hidden(name, value);
         }

@@ -1,17 +1,17 @@
 //! Areas: the resources and pages an area mounts under its URL, the sidebar it shows in place of
-//! the panel's, the redirect at its root, the pages auth serves that it holds, and the mistakes
-//! mounting refuses.
+//! the panel's, the redirect at its root, the pages auth serves that it holds and their header
+//! actions, and the mistakes mounting refuses.
 
 use http::header::LOCATION;
 use tablo::{
-    Area, AreaFault, Auth, DeclarationErrorKind, FieldErrors, FormInput, Membership, NoForm, Page,
-    PageDef, PasswordAuth, ReadOnly, Resource, ResourceDef, RouterBuilderPanelExt, Table,
-    TextColumn,
+    Area, AreaFault, Auth, DeclarationErrorKind, FieldErrors, FormInput, HeaderAction, Membership,
+    NoForm, Outcome, Page, PageDef, PasswordAuth, ReadOnly, Resource, ResourceDef,
+    RouterBuilderPanelExt, Table, TextColumn, WriteError,
     auth::{AdminUser, AuthSession, TenantEditor, create_admin},
     lens,
     testing::{
-        NavGroup, TestClient, area_back_link, find_href_with, form_body, mount_with_handle,
-        nav_groups, nav_links, tenant_page_link, trail,
+        NavGroup, TestClient, action_label, area_back_link, find_href_with, form_body,
+        mount_with_handle, nav_groups, nav_links, tenant_page_link, trail,
     },
 };
 use toasty::Db;
@@ -230,6 +230,82 @@ async fn the_profile_page_moves_into_the_area_that_holds_it() {
     assert_eq!(saved.headers()[LOCATION], "/admin/settings/profile");
 }
 
+/// Signs every session of the user out, from the profile's header.
+struct SignOutEverywhere;
+
+impl HeaderAction for SignOutEverywhere {
+    type Input = ();
+    const NAME: &'static str = "sign-out-everywhere";
+
+    async fn run(
+        _cx: &Cx,
+        _input: (),
+        _ex: &mut dyn toasty::Executor,
+    ) -> Result<Outcome, WriteError<std::convert::Infallible>> {
+        Ok(Outcome::done())
+    }
+}
+
+/// A header action no request may run.
+struct Never;
+
+impl HeaderAction for Never {
+    type Input = ();
+    const NAME: &'static str = "never";
+
+    fn can_run(_cx: &Cx) -> bool {
+        false
+    }
+
+    async fn run(
+        _cx: &Cx,
+        _input: (),
+        _ex: &mut dyn toasty::Executor,
+    ) -> Result<Outcome, WriteError<std::convert::Infallible>> {
+        Ok(Outcome::done())
+    }
+}
+
+/// The profile page placed in an area renders its header actions over the form, serves them
+/// under its URL and lands back on it, and refuses one the request may not run.
+#[tokio::test]
+async fn the_profile_page_in_an_area_runs_its_header_actions() {
+    let db = test_db(toasty::models!(Book, AdminUser, AuthSession)).await;
+    let admin = create_admin(&mut db.clone(), "ada@example.com", "a password", "Ada")
+        .await
+        .unwrap();
+    let router = mount(
+        db.clone(),
+        tablo::Panel::new("admin")
+            .auth(Auth::password().profile(PasswordAuth))
+            .resource::<BookResource>()
+            .area(Area::new("settings").group("Account", |group| {
+                group.profile_with(|def| {
+                    def.header_action::<SignOutEverywhere>()
+                        .header_action::<Never>()
+                })
+            })),
+    )
+    .expect("the panel mounts");
+    let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
+
+    let action = "/admin/settings/profile/-/actions/sign-out-everywhere";
+    let page = body_string(client.get("/admin/settings/profile").await).await;
+    assert!(action_label(&page, action).is_some());
+    assert!(action_label(&page, "/admin/settings/profile/-/actions/never").is_none());
+    assert_eq!(
+        tablo::testing::input_value(&page, "name").as_deref(),
+        Some("Ada")
+    );
+
+    let ran = client.submit(action, &form_body(&[])).await;
+    assert_eq!(ran.headers()[LOCATION], "/admin/settings/profile");
+    let refused = client
+        .submit("/admin/settings/profile/-/actions/never", &form_body(&[]))
+        .await;
+    assert_eq!(refused.status(), 403);
+}
+
 /// What the tenant settings page asks for.
 #[derive(FormInput)]
 struct TeamName {
@@ -290,7 +366,11 @@ fn team_router(db: Db) -> Router {
                 .auth(Auth::custom(MemberAuth).tenant_profile(Teams))
                 .area(Area::new("settings").tenant_group(|group| {
                     group
-                        .tenant_profile_with(|def| def.slug("team").label("General"))
+                        .tenant_profile_with(|def| {
+                            def.slug("team")
+                                .label("General")
+                                .header_action::<SignOutEverywhere>()
+                        })
                         .resource::<NoteResource>()
                 })),
         )
@@ -327,6 +407,28 @@ async fn the_tenant_group_is_headed_by_the_tenant_the_request_acts_for() {
     let alan = members::member(&db, "Alan", &[]).await;
     let client = TestClient::new(&router).sign_in(&db, "admin", &alan).await;
     assert_eq!(client.get("/admin/settings").await.status(), 404);
+}
+
+/// The tenant settings page placed in an area serves its header actions to whom auth offers the
+/// page, the tenant's owner, and refuses them to a member who may not edit the tenant.
+#[tokio::test]
+async fn the_tenant_settings_actions_follow_who_may_edit_the_tenant() {
+    let db = members::db().await;
+    let ada = members::member(&db, "Ada", &["Acme"]).await;
+    let alan = members::member(&db, "Alan", &[]).await;
+    members::seat(&db, &alan.member, ada.owned[0], "Acme", false).await;
+    let router = team_router(db.clone());
+    let action = "/admin/settings/team/-/actions/sign-out-everywhere";
+
+    let owner = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
+    let page = body_string(owner.get("/admin/settings/team").await).await;
+    assert!(action_label(&page, action).is_some());
+    let ran = owner.submit(action, &form_body(&[])).await;
+    assert_eq!(ran.headers()[LOCATION], "/admin/settings/team");
+
+    let member = TestClient::new(&router).sign_in(&db, "admin", &alan).await;
+    let refused = member.submit(action, &form_body(&[])).await;
+    assert_eq!(refused.status(), 403);
 }
 
 /// An area holding a page auth does not install, or the same page twice, or a def declaring
@@ -368,6 +470,15 @@ async fn mounting_refuses_an_area_holding_what_it_cannot_serve() {
         [DeclarationErrorKind::Area(AreaFault::AuthPageDeclares {
             page: "profile",
             feature: "an access check",
+        })]
+    );
+    assert_eq!(
+        kinds(Area::new("settings").group("Account", |group| {
+            group.two_factor_with(|def| def.header_action::<SignOutEverywhere>())
+        })),
+        [DeclarationErrorKind::Area(AreaFault::AuthPageDeclares {
+            page: "two-factor",
+            feature: "header actions",
         })]
     );
     assert_eq!(

@@ -18,6 +18,11 @@ panel's home, in place of the panel's. The panel's sidebar lists the area as one
   into an area. Their routes and every link to them, the user menu's and the tenant menu's, read
   their path from the panel's realm, so a moved page has one URL. Their def takes a slug, a label,
   an icon and an order; mounting refuses what the page does not render rather than drop it.
+- A moved profile or tenant settings page takes header actions, served and checked as a page's
+  are and rendered in its form's header, so deleting an account or a tenant sits on the page that
+  edits it rather than on a page of its own or on an unrelated list. Auth still renders the form
+  and decides who opens the page; the panel registers the page under a type of its own only to
+  hold the actions.
 - A tenant group is headed by the name of the tenant the request acts for, and its entries show
   only while the request acts for one. The tenant a settings page edits is then in the sidebar,
   beside the switch that changes it.
