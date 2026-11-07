@@ -1,9 +1,9 @@
 //! The Policy, auth, tenancy chapter's snippets.
 
 use tablo::{
-    AuthMail, Authenticator, EmailVerification, Membership, PanelUser, PasswordAuth, PasswordReset,
-    PasswordSignUp, Profile, ProfileEditor, ProfileUpdate, Registrar, RouterBuilderPanelExt,
-    TenantRegistration, TwoFactor,
+    AuthMail, Authenticator, EmailVerification, Impersonation, Membership, PanelUser, PasswordAuth,
+    PasswordReset, PasswordSignUp, Profile, ProfileEditor, ProfileUpdate, Registrar,
+    RouterBuilderPanelExt, TenantRegistration, TwoFactor,
     auth::{TenantEditor, TenantRegistrar, hash_password, new_password_errors, verify_password},
     prelude::*,
 };
@@ -337,6 +337,17 @@ pub fn two_factor_router(db: toasty::Db, cookie_key: &[u8]) -> Result<Router> {
         .build())
 }
 // ANCHOR_END: policy-two-factor
+
+// ANCHOR: policy-impersonation
+pub fn impersonating_panel() -> Panel {
+    // An editor may act as a colleague who is not one, for half an hour at most.
+    let rule = Impersonation::new(|_cx, actor: &SignedStaff, target: &SignedStaff| {
+        actor.staff.editor && !target.staff.editor
+    })
+    .lifetime(std::time::Duration::from_secs(30 * 60));
+    Panel::new("admin").auth(Auth::custom(StaffAuth).impersonation(rule))
+}
+// ANCHOR_END: policy-impersonation
 
 // ANCHOR: policy-tenant-registration
 #[derive(FormInput)]

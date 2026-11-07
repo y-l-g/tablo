@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use http::header::LOCATION;
 use tablo::{
-    Auth, DeclarationErrorKind, EmailVerification, ExternalAuth, GlobalSearch, Membership, NoForm,
-    Panel, PanelUser, PasswordAuth, PasswordReset, PasswordSignUp, Resource, ResourceDef,
-    RouterBuilderPanelExt, Tenancy, TenantId, TwoFactor,
+    Auth, DeclarationErrorKind, EmailVerification, ExternalAuth, GlobalSearch, Impersonation,
+    Membership, NoForm, Panel, PanelUser, PasswordAuth, PasswordReset, PasswordSignUp, Resource,
+    ResourceDef, RouterBuilderPanelExt, Tenancy, TenantId, TwoFactor,
     auth::{AdminUser, AuthSession, session_cookie},
     lens,
     testing::{external_sign_out, form_body, refreshes_to, row_keys},
@@ -602,7 +602,8 @@ async fn the_mount_refuses_the_features_that_own_credentials() {
         .registration(PasswordSignUp::pending())
         .password_reset(PasswordReset::new(PasswordAuth))
         .email_verification(EmailVerification::new(PasswordAuth))
-        .two_factor(TwoFactor::new());
+        .two_factor(TwoFactor::new())
+        .impersonation(Impersonation::new(|_, _: &AdminUser, _: &AdminUser| true));
 
     let mistakes = refusal(mount(db, Panel::new("admin").auth(auth)));
 
@@ -620,6 +621,7 @@ async fn the_mount_refuses_the_features_that_own_credentials() {
             "Auth::password_reset",
             "Auth::email_verification",
             "Auth::two_factor",
+            "Auth::impersonation",
         ]
     );
 }

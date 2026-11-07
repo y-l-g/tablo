@@ -125,10 +125,21 @@ impl Layer for PanelGate {
             let logout_route =
                 uri(&cx).path() == logout_url(&cx) && matches!(*method(&cx), http::Method::POST);
             let signed = resolve(&cx, &self.realm, authenticator).await?;
+            // A user acting as another never reaches the pages that change the target's
+            // credentials, factors or tenants.
+            if signed
+                .as_ref()
+                .is_some_and(|signed| signed.impersonator.is_some())
+                && super::impersonation::refused(&cx, &self.realm)
+            {
+                return Err(forbidden().into());
+            }
             // A user who owes a step, such as verifying their address, reaches only the step's
-            // page and the logout route.
+            // page and the logout route. One acting as another sees what the target sees, owing
+            // nothing: the step's page is the target's to visit.
             if let Some(signed) = &signed
                 && signed.may_enter()
+                && signed.impersonator.is_none()
                 && !logout_route
                 && let Some(step) = owed_step(&cx, &self.realm, signed).await?
                 && !step.serves(&cx)
@@ -210,12 +221,13 @@ async fn owed_step(cx: &Cx, panel: &Realm, signed: &SignedIn) -> topcoat::Result
 
 /// Whether `signed` may reach any endpoint: they have panel access and owe no step.
 async fn admitted(cx: &Cx, signed: &SignedIn) -> topcoat::Result<bool> {
-    Ok(signed.may_enter() && owed_step(cx, &signed.realm, signed).await?.is_none())
+    Ok(signed.may_enter()
+        && (signed.impersonator.is_some() || owed_step(cx, &signed.realm, signed).await?.is_none()))
 }
 
 /// Whether the session that signed the request in still signs in the same user, admitted, acting
-/// for the same tenant: what a connected render checks before it shows anything new, since the
-/// gate ran once, when the render started.
+/// for the same tenant, as the same actor: what a connected render checks before it shows anything
+/// new, since the gate ran once, when the render started.
 pub(crate) async fn still_signed_in(cx: &Cx) -> topcoat::Result<bool> {
     let Some(signed) = super::signed(cx) else {
         return Ok(false);
@@ -228,7 +240,9 @@ pub(crate) async fn still_signed_in(cx: &Cx) -> topcoat::Result<bool> {
     };
     let tenant = crate::tenant_id(cx);
     let member = tenant.is_none_or(|tenant| now.user.tenants().iter().any(|m| m.tenant == tenant));
+    let actor = |signed: &SignedIn| signed.impersonator.as_ref().map(|actor| actor.user_id());
     Ok(now.user.user_id() == signed.user.user_id()
+        && actor(&now) == actor(signed)
         && now.tenant == signed.tenant
         && member
         && admitted(cx, &now).await?)

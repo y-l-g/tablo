@@ -16,6 +16,7 @@ mod admin_credentials;
 mod auth_override;
 mod email_change;
 mod external;
+mod impersonation;
 mod locale;
 mod login;
 mod mail;

@@ -556,6 +556,7 @@ fn mounted_cx(
         user: Arc::new(user),
         realm: Arc::clone(&panel.realm),
         tenant: None,
+        impersonator: None,
     })
 }
 
@@ -714,6 +715,7 @@ fn serving_cx(
             user: std::sync::Arc::new(Member(memberships, default)),
             realm: std::sync::Arc::clone(&panel.realm),
             tenant: selected,
+            impersonator: None,
         })
         .with(crate::tenancy::TenantSource(session_tenant));
     if let Some(tenant) = overridden {

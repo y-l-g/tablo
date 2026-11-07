@@ -122,6 +122,7 @@ async fn panel_root_redirect_rechecks_auth_before_the_root_target() {
         }),
         realm: Arc::clone(&gated.realm),
         tenant: None,
+        impersonator: None,
     };
     let (parts, ()) = http::Request::builder()
         .uri("/admin")

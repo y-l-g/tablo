@@ -327,6 +327,7 @@ impl Panel {
                     // navigation (upstream `examples/ui` uses a plain div).
                     // The page container (`tablo_ui::page`) owns the width
                     // and the padding.
+                    (super::impersonation::banner(cx))
                     <div class="flex flex-1 flex-col">(slot)</div>
                 )
                 (toaster)

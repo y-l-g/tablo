@@ -456,6 +456,14 @@ tablo-audit-attach = Linked
 tablo-audit-detach = Unlinked
 tablo-audit-action = Ran { $name }
 tablo-audit-immutable = The audit log cannot be changed.
+tablo-audit-impersonate = Started acting as a user
+tablo-audit-stop-impersonating = Stopped acting as a user
+tablo-impersonation-start = Act as this user
+tablo-impersonation-started = You are now acting as this user.
+tablo-impersonation-one = Act as one user at a time.
+tablo-impersonation-banner = You are acting as { $name }.
+tablo-impersonation-stop = Stop
+tablo-impersonation-user = User
 
 ## Sign-in
 

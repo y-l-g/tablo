@@ -3,14 +3,13 @@
 
 use std::sync::Arc;
 
-use jiff::Timestamp;
 use toasty::Executor;
 use topcoat::{Result, context::Cx};
 
 use super::{Panel, PanelChange, state::current};
 use crate::{
     Ability, ChangedRecord, NoForm, Policy, Resource, ResourceDef, Tenancy, Text,
-    audit::{AuditChange, AuditEntry},
+    audit::{AuditEntry, AuditEvent},
     resource::Change,
 };
 
@@ -177,74 +176,7 @@ impl Panel {
     }
 }
 
-/// The app's own event for the audit log of a panel with [`Panel::audit_log`]: a sign-in, an
-/// export, a payment, beside what the panel's writes record.
-///
-/// ```rust,no_run
-/// # use tablo_core::AuditEvent;
-/// # use topcoat::context::Cx;
-/// # async fn exported(cx: &Cx, ex: &mut dyn toasty::Executor) -> topcoat::Result<()> {
-/// AuditEvent::new("export")
-///     .resource("orders")
-///     .record(cx, ex)
-///     .await?;
-/// # Ok(())
-/// # }
-/// ```
-#[derive(Debug, Clone)]
-pub struct AuditEvent {
-    event: String,
-    resource: Option<String>,
-    record: Option<String>,
-    url: Option<String>,
-    changes: Vec<AuditChange>,
-}
-
 impl AuditEvent {
-    /// An event named `event`, on no resource: the log shows the name as it is.
-    pub fn new(event: impl Into<String>) -> Self {
-        Self {
-            event: event.into(),
-            resource: None,
-            record: None,
-            url: None,
-            changes: Vec::new(),
-        }
-    }
-
-    /// The slug of the resource it happened to: only readers who may list that resource see it.
-    #[must_use]
-    pub fn resource(mut self, slug: impl Into<String>) -> Self {
-        self.resource = Some(slug.into());
-        self
-    }
-
-    /// The key of the record it happened to, and its page when it has one.
-    #[must_use]
-    pub fn key(mut self, key: impl Into<String>, url: Option<String>) -> Self {
-        self.record = Some(key.into());
-        self.url = url;
-        self
-    }
-
-    /// A field it changed, from `before` to `after`.
-    #[must_use]
-    pub fn change(
-        mut self,
-        field: impl Into<String>,
-        label: impl Into<String>,
-        before: Option<String>,
-        after: Option<String>,
-    ) -> Self {
-        self.changes.push(AuditChange {
-            field: field.into(),
-            label: label.into(),
-            before,
-            after,
-        });
-        self
-    }
-
     /// Stores the event for the request's panel, user and tenant through `ex`: the write's
     /// transaction inside a [`CommitHook`](crate::CommitHook) or
     /// [`Resource::before_commit`], or the panel's [`Db`](toasty::Db) outside one.
@@ -338,23 +270,14 @@ async fn insert(
     prefix: String,
     event: AuditEvent,
 ) -> Result<AuditEntry> {
-    let user = crate::auth::signed(cx).map(|signed| signed.user.clone());
-    toasty::create!(AuditEntry {
-        panel: prefix,
-        tenant: crate::tenant_id(cx),
-        actor_id: user.as_ref().map(|user| user.user_id()),
-        actor: user
-            .as_ref()
-            .map(|user| user.display_name().to_owned())
-            .unwrap_or_default(),
-        event: event.event,
-        resource: event.resource,
-        record: event.record,
-        url: event.url,
-        changes: toasty::Json(event.changes),
-        created_at: Timestamp::now(),
-    })
-    .exec(ex)
-    .await
-    .map_err(|error| crate::error::driver_failure(error, "The audit log is unavailable right now."))
+    let actor = crate::auth::signed(cx).map(|signed| {
+        let user = signed.impersonator.as_ref().unwrap_or(&signed.user);
+        (user.user_id(), user.display_name().to_owned())
+    });
+    event
+        .write(ex, prefix, crate::tenant_id(cx), actor)
+        .await
+        .map_err(|error| {
+            crate::error::driver_failure(error, "The audit log is unavailable right now.")
+        })
 }
