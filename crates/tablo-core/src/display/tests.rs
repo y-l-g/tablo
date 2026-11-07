@@ -24,6 +24,24 @@ fn money_puts_the_sign_before_the_symbol() {
     assert_eq!(Currency::USD.format(-1234.5_f64), "-$1,234.50");
     assert_eq!(Currency::EUR.symbol_after().format(-2_i32), "-2.00 €");
     assert_eq!(Currency::JPY.format(1234.6_f64), "¥1,235");
+    assert_eq!(Currency::EUR.symbol_before().format(-2_i32), "-€2.00");
+}
+
+#[test]
+fn a_locale_spells_its_own_separators() {
+    let french = super::NumberFormat {
+        group: "\u{202f}".to_owned(),
+        decimal: ",".to_owned(),
+    };
+    assert_eq!(
+        french.spell(Number::Float(-1_234_567.891), 2),
+        "-1\u{202f}234\u{202f}567,89"
+    );
+    assert_eq!(french.spell(Number::Int(999), 0), "999");
+    assert_eq!(
+        super::NumberFormat::english().spell(Number::Int(1000), 1),
+        "1,000.0"
+    );
 }
 
 #[test]

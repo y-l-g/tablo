@@ -8,7 +8,7 @@ use topcoat::{
 
 use crate::{
     Color, Text,
-    display::{Number, format_number},
+    display::{Number, NumberFormat},
 };
 
 mod scale;
@@ -266,9 +266,15 @@ fn plot<'a>(
     labels: &[String],
     series: &[Drawn],
 ) -> BoxView<'a> {
+    let numbers = NumberFormat::of(cx);
     let ticks: Vec<(String, String)> = axis
         .ticks()
-        .map(|tick| (axis.format(tick), coordinate(PLOT * axis.share(tick))))
+        .map(|tick| {
+            (
+                axis.format(tick, &numbers),
+                coordinate(PLOT * axis.share(tick)),
+            )
+        })
         .collect();
     let width = PLOT / labels.len() as f64;
     let marks: Vec<BoxView<'a>> = series
@@ -287,7 +293,8 @@ fn plot<'a>(
             let values: Vec<String> = series
                 .iter()
                 .map(|drawn| {
-                    let value = drawn.values[index].map_or_else(|| "–".to_string(), format_value);
+                    let value = drawn.values[index]
+                        .map_or_else(|| "–".to_string(), |value| format_value(value, &numbers));
                     format!("{}: {value}", drawn.label)
                 })
                 .collect();
@@ -467,6 +474,7 @@ fn data_table<'a>(
     labels: &[String],
     series: &[Drawn],
 ) -> BoxView<'a> {
+    let numbers = NumberFormat::of(cx);
     let labels = labels.to_vec();
     let rows: Vec<(String, Vec<String>)> = series
         .iter()
@@ -474,7 +482,11 @@ fn data_table<'a>(
             let values = drawn
                 .values
                 .iter()
-                .map(|value| value.map(format_value).unwrap_or_default())
+                .map(|value| {
+                    value
+                        .map(|value| format_value(value, &numbers))
+                        .unwrap_or_default()
+                })
                 .collect();
             (drawn.label.clone(), values)
         })
@@ -512,14 +524,15 @@ fn coordinate(value: f64) -> String {
     format!("{value:.3}")
 }
 
-/// A value as the chart spells it: a whole number without decimals, any other with two.
-fn format_value(value: f64) -> String {
+/// A value as the chart spells it in `numbers`: a whole number without decimals, any other with
+/// two.
+fn format_value(value: f64, numbers: &NumberFormat) -> String {
     // `i128` holds every whole float below 1.7e38 exactly.
     if value.fract() == 0.0 && value.abs() < 1e38 {
         #[allow(clippy::cast_possible_truncation)]
-        format_number(Number::Int(value as i128), 0)
+        numbers.spell(Number::Int(value as i128), 0)
     } else {
-        format_number(Number::Float(value), 2)
+        numbers.spell(Number::Float(value), 2)
     }
 }
 

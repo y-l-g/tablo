@@ -215,7 +215,8 @@ impl Stat {
             return Ok(None);
         };
         let count = crate::db::count(cx, crate::scoped_query::<R>(cx)?).await?;
-        let count = crate::display::format_number(crate::display::Number::Int(count.into()), 0);
+        let count = crate::display::NumberFormat::of(cx)
+            .spell(crate::display::Number::Int(count.into()), 0);
         let mut stat = Self::new(item.label, count).href(url);
         stat.icon = item.icon;
         Ok(Some(stat))

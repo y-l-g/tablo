@@ -1,4 +1,5 @@
 use super::{format_value, runs};
+use crate::display::NumberFormat;
 
 fn point(index: usize, value: f64) -> String {
     format!("{index},{value}")
@@ -13,7 +14,8 @@ fn a_line_breaks_where_a_value_is_missing_and_doubles_a_lone_point() {
 
 #[test]
 fn a_whole_value_spells_no_decimals_and_any_other_two() {
-    assert_eq!(format_value(1204.0), "1,204");
-    assert_eq!(format_value(-3.0), "-3");
-    assert_eq!(format_value(2.5), "2.50");
+    let english = NumberFormat::english();
+    assert_eq!(format_value(1204.0, &english), "1,204");
+    assert_eq!(format_value(-3.0, &english), "-3");
+    assert_eq!(format_value(2.5, &english), "2.50");
 }

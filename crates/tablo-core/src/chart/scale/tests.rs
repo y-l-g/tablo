@@ -1,6 +1,7 @@
 use proptest::prelude::*;
 
 use super::Axis;
+use crate::display::NumberFormat;
 
 fn ticks(values: &[f64]) -> Vec<f64> {
     Axis::over(values).expect("an axis").ticks().collect()
@@ -25,10 +26,19 @@ fn the_axis_runs_from_zero_in_round_steps() {
 #[test]
 fn a_tick_label_spells_the_decimals_its_step_needs() {
     let axis = Axis::over(&[0.3]).expect("an axis");
-    let labels: Vec<String> = axis.ticks().map(|tick| axis.format(tick)).collect();
+    let labels: Vec<String> = axis
+        .ticks()
+        .map(|tick| axis.format(tick, &NumberFormat::english()))
+        .collect();
     assert_eq!(labels, ["0.0", "0.1", "0.2", "0.3"]);
     let axis = Axis::over(&[12_000.0]).expect("an axis");
-    assert_eq!(axis.format(axis.ticks().last().expect("a tick")), "15,000");
+    assert_eq!(
+        axis.format(
+            axis.ticks().last().expect("a tick"),
+            &NumberFormat::english()
+        ),
+        "15,000"
+    );
 }
 
 #[test]
