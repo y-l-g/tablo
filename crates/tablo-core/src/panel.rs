@@ -34,7 +34,7 @@ use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 pub use self::{
     area::{Area, AreaGroup},
     build::{PanelHandle, RouterBuilderPanelExt},
-    commit_hook::{ChangedRecord, CommitHook, PanelChange},
+    commit_hook::{ChangedField, ChangedRecord, CommitHook, PanelChange},
     gate::{can_list, can_open, can_view_field},
     list::{WiredTable, list_query, wired_table},
     page_filters::page_filters,

@@ -8,7 +8,7 @@ use topcoat::{Result, context::Cx};
 
 use super::{Panel, state::current};
 use crate::{
-    BoxFuture, Text,
+    BoxFuture, ModelColumns, Text,
     resource::{Change, Resource, require_mounted},
 };
 
@@ -55,7 +55,7 @@ pub trait CommitHook: 'static {
 }
 
 /// A [`Change`] as a [`CommitHook`] receives it: the resource that wrote it, and each record it
-/// names by its key and its URL.
+/// names by its key, its URL and the fields the write changed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PanelChange {
     slug: String,
@@ -74,7 +74,7 @@ impl PanelChange {
         &self.label
     }
 
-    /// What the write changed, each record named by its key and URL.
+    /// What the write changed, each record named by its key, URL and fields.
     pub fn change(&self) -> &Change<ChangedRecord> {
         &self.change
     }
@@ -85,6 +85,7 @@ impl PanelChange {
 pub struct ChangedRecord {
     key: String,
     url: Option<String>,
+    fields: Vec<ChangedField>,
 }
 
 impl ChangedRecord {
@@ -97,6 +98,114 @@ impl ChangedRecord {
     /// the resource serves none.
     pub fn url(&self) -> Option<&str> {
         self.url.as_deref()
+    }
+
+    /// The fields the write changed on this record, each with its value before and after it.
+    ///
+    /// They are the fields the model's [`ModelColumns::table`] lists, each spelled as that column
+    /// spells it in an export, in the request's locale: a field marked `#[columns(skip)]`, such
+    /// as a password hash, never appears. A create names each field it filled, an update's
+    /// `after` record each field whose spelling changed, and a delete's or a force delete's
+    /// records each field they held. The other records name none: a restore, an action, an
+    /// attach and a detach write what the model's columns do not say, and an update's `before`
+    /// record leaves the change to its `after`.
+    pub fn fields(&self) -> &[ChangedField] {
+        &self.fields
+    }
+}
+
+/// One field a write changed on a [`ChangedRecord`]: its name, its label, and its spelling before
+/// and after the write, `None` where it held nothing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChangedField {
+    name: String,
+    label: Text,
+    before: Option<String>,
+    after: Option<String>,
+}
+
+impl ChangedField {
+    /// The column's name, the model field it reads: `title`.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// The column's label: `Title`, or the message its catalog spells it with.
+    pub fn label(&self) -> &Text {
+        &self.label
+    }
+
+    /// The field's spelling before the write; `None` for a create, or a field that held nothing.
+    pub fn before(&self) -> Option<&str> {
+        self.before.as_deref()
+    }
+
+    /// The field's spelling after the write; `None` for a delete, or a field left empty.
+    pub fn after(&self) -> Option<&str> {
+        self.after.as_deref()
+    }
+}
+
+/// The fields `before` and `after` spell differently, by the columns of `M`'s default table; a
+/// record that is absent spells every field empty.
+fn changed_fields<M: ModelColumns>(
+    cx: &Cx,
+    before: Option<&M>,
+    after: Option<&M>,
+) -> Vec<ChangedField> {
+    let table = M::table();
+    let spell = |record: Option<&M>| record.map(|record| table.spell(cx, record));
+    let (before, after) = (spell(before), spell(after));
+    let columns = after.as_ref().or(before.as_ref()).map_or(0, Vec::len);
+    let held = |spelled: &Option<Vec<(String, Text, String)>>, index: usize| {
+        spelled
+            .as_ref()
+            .map(|spelled| spelled[index].2.clone())
+            .filter(|text| !text.is_empty())
+    };
+    (0..columns)
+        .filter_map(|index| {
+            let (was, is) = (held(&before, index), held(&after, index));
+            let (name, label, _) = after.as_ref().or(before.as_ref())?[index].clone();
+            (was != is).then_some(ChangedField {
+                name,
+                label,
+                before: was,
+                after: is,
+            })
+        })
+        .collect()
+}
+
+/// `change` with each record named by its key and URL, and the fields the write changed on it.
+fn changed_records<R: Resource>(
+    cx: &Cx,
+    change: &Change<R::Model>,
+    key: impl Fn(&R::Model) -> String,
+) -> Change<ChangedRecord> {
+    let named = |record: &R::Model, fields| ChangedRecord {
+        key: key(record),
+        url: crate::url::record::<R>(cx, record),
+        fields,
+    };
+    let held = |records: &[R::Model]| {
+        records
+            .iter()
+            .map(|record| named(record, changed_fields(cx, Some(record), None)))
+            .collect()
+    };
+    match change {
+        Change::Create(record) => Change::Create(named(
+            record,
+            changed_fields::<R::Model>(cx, None, Some(record)),
+        )),
+        Change::Update { before, after } => Change::Update {
+            before: named(before, Vec::new()),
+            after: named(after, changed_fields(cx, Some(before), Some(after))),
+        },
+        Change::Delete(records) => Change::Delete(held(records)),
+        Change::ForceDelete(records) => Change::ForceDelete(held(records)),
+        other => other.map(|record| named(record, Vec::new())),
     }
 }
 
@@ -138,10 +247,7 @@ pub(crate) async fn before_commit<R: Resource>(
     let change = PanelChange {
         slug: mounted.slug.clone(),
         label: mounted.label.clone(),
-        change: change.map(|record| ChangedRecord {
-            key: mounted.table.key_of(record),
-            url: crate::url::record::<R>(cx, record),
-        }),
+        change: changed_records::<R>(cx, change, |record| mounted.table.key_of(record)),
     };
     run(cx, hooks, &change, ex).await
 }
