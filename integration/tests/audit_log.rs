@@ -150,6 +150,13 @@ async fn each_write_stores_an_entry_with_the_fields_it_changed() {
     assert_eq!(response.status(), 303, "a valid edit redirects");
     let response = post_fields(
         &router,
+        &format!("/admin/memos/{}/edit", memo.id),
+        &[("title", "Beta")],
+    )
+    .await;
+    assert_eq!(response.status(), 303, "an edit changing nothing saves");
+    let response = post_fields(
+        &router,
         &format!("/admin/memos/{}/delete", memo.id),
         &[("confirm", "1")],
     )
@@ -158,7 +165,11 @@ async fn each_write_stores_an_entry_with_the_fields_it_changed() {
 
     let entries = entries(&db).await;
     let events: Vec<&str> = entries.iter().map(|entry| entry.event.as_str()).collect();
-    assert_eq!(events, ["create", "update", "delete"]);
+    assert_eq!(
+        events,
+        ["create", "update", "delete"],
+        "an edit changing nothing stores no entry"
+    );
     for entry in &entries {
         assert_eq!(entry.panel, "/admin");
         assert_eq!(entry.resource.as_deref(), Some("memos"));
@@ -265,6 +276,13 @@ async fn the_log_lists_only_what_its_reader_may_read() {
         !list.html().contains("1234"),
         "nothing of the vault's entry reaches the page"
     );
+    for entry in entries(&db).await {
+        let held = entry.panel == "/admin"
+            && entry.tenant.is_none()
+            && entry.resource.as_deref() == Some("memos");
+        let status = client.resource::<AuditLog>().view(&entry).await.status();
+        assert_eq!(status == 200, held, "opened by its URL: {entry:?}");
+    }
 }
 
 #[tokio::test]
@@ -358,6 +376,6 @@ async fn the_log_registered_by_hand_still_deletes_nothing() {
     let entry = entries(&db).await.remove(0);
     let client = TestClient::new(&router).panel(&handle);
     let response = client.resource::<AuditLog>().delete(&entry).submit().await;
-    assert_ne!(response.status(), 500);
+    assert_eq!(response.status(), 404, "the log answers no delete");
     assert_eq!(entries(&db).await.len(), 1, "the entry stays");
 }

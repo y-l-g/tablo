@@ -146,6 +146,11 @@ impl Panel {
     /// field marked `#[columns(skip)]`, such as a password hash, is never stored. A write whose
     /// entry fails to store rolls back with it.
     ///
+    /// A reader sees the entries of the resources whose list they may open, whatever row scope
+    /// each resource's own query keeps, so the log's policy should be no wider than the narrowest
+    /// of them. A delete keeps every field the record held until
+    /// [`prune_audit_log`](crate::PanelHandle::prune_audit_log) removes the entry.
+    ///
     /// The log is denied to everyone until `customize` gives it a policy, and that policy allows
     /// reads only:
     ///
@@ -303,6 +308,8 @@ fn events(cx: &Cx, change: &PanelChange) -> Vec<AuditEvent> {
     };
     match change.change() {
         Change::Create(record) => vec![on("create", record)],
+        // A save that changed no field the log reads writes no entry.
+        Change::Update { after, .. } if after.fields().is_empty() => Vec::new(),
         Change::Update { after, .. } => vec![on("update", after)],
         Change::Delete(records) => each("delete", records),
         Change::Restore(records) => each("restore", records),

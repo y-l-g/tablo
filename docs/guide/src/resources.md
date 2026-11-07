@@ -270,7 +270,14 @@ registers the table.
 The log is a read-only resource at `{prefix}/audit-log`, newest first. It is denied until
 `customize` gives it a policy, and whatever that policy says, its pages never write. A reader sees
 the entries of their own panel and tenant, about the resources whose list they may open; a field
-[field access](#field-access) hides from them reads "Hidden".
+[field access](#field-access) hides from them reads "Hidden". The resource's own row scope, such as
+a `query` that lists only the user's own orders, does not narrow the log: give the log a policy no
+wider than the narrowest scope of the resources it records.
+
+Values are stored as the writer read them, in their language and time zone, so an entry is a
+snapshot rather than data to compute on. A delete stores every field the record held, so data an
+app erases on request also lives in the log until it is pruned; mark such a field
+`#[columns(skip)]`, or prune on the schedule the app's retention rules set.
 
 An app records its own events, an export or a payment, with
 [`AuditEvent`](https://y-l.fr/tablo/nightly/api/tablo/struct.AuditEvent.html), through a hook's
