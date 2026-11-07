@@ -425,6 +425,26 @@ tablo-ago-minutes = il y a { $count } min
 tablo-ago-hours = il y a { $count } h
 tablo-ago-days = il y a { $count } j
 
+## Audit log
+
+tablo-audit-log = Journal d'audit
+tablo-audit-entry = Entrée d'audit
+tablo-audit-when = Date
+tablo-audit-actor = Utilisateur
+tablo-audit-event = Événement
+tablo-audit-resource = Ressource
+tablo-audit-record = Enregistrement
+tablo-audit-changes = Modifications
+tablo-audit-hidden = Masqué
+tablo-audit-create = Créé
+tablo-audit-update = Modifié
+tablo-audit-delete = Supprimé
+tablo-audit-restore = Restauré
+tablo-audit-force-delete = Supprimé définitivement
+tablo-audit-attach = Lié
+tablo-audit-detach = Délié
+tablo-audit-action = { $name } exécutée
+
 ## Sign-in
 
 tablo-auth-name = Nom

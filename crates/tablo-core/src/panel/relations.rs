@@ -48,6 +48,9 @@ pub(crate) struct Child {
     pub(crate) render: for<'a> fn(&'a Cx, BoundRelation) -> BoxView<'a>,
     /// Whether the request may list the child: [`can_list`](crate::can_list).
     pub(crate) listable: fn(&Cx) -> bool,
+    /// The fields of the child [`field_access`](crate::ResourceDef::field_access) hides from the
+    /// request; `None` when the panel does not mount it.
+    pub(crate) hidden: fn(&Cx) -> Option<Vec<String>>,
     /// The child's form as a `has_one` relation's.
     pub(crate) form: super::forms::ChildForm,
 }

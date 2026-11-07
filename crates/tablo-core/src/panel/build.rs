@@ -169,10 +169,7 @@ impl Panel {
 
     fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
         let db = builder.try_context::<Db>().cloned();
-        let services = crate::auth::mount::Services {
-            mail: builder.try_context::<topcoat::mail::MailConfig>().is_some(),
-            cookie_key: builder.try_context::<topcoat::cookie::Key>().is_some(),
-        };
+        let services = crate::auth::mount::Services::of(&builder);
         let mut registry = Registry::new(self.prefix.clone(), db.as_ref().map(AppSchema::of_db));
         let Panel {
             prefix,
@@ -197,6 +194,7 @@ impl Panel {
             global_search,
             limits,
             commit_hooks,
+            audit_log,
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
         let serves_tenants = serves_tenants(&auth, &mounts);
@@ -229,6 +227,7 @@ impl Panel {
                     .into_iter()
                     .map(DeclarationError::panel),
                 );
+                errors.extend(super::audit::declaration_error(db, audit_log));
             }
             None => errors.push(DeclarationError::panel(DeclarationErrorKind::MissingDb)),
         }

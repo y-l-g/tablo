@@ -351,6 +351,10 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
                 plural_label: mounted.plural_label.clone(),
                 render: relation_table::<R>,
                 listable: crate::can_list::<R>,
+                hidden: |cx| {
+                    crate::resource::mounted::<R>(cx)
+                        .map(|mounted| mounted.field_mask(cx).hidden().to_vec())
+                },
                 form: ChildForm::of::<R>(),
             },
         );

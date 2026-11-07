@@ -487,6 +487,8 @@ pub fn admin_panel() -> Panel {
         .resource::<CategoryResource>()
         .resource::<CommentResource>()
         .page::<MediaLibraryPage>()
+        // Every write kept, with the fields it changed, at /admin/audit-log.
+        .audit_log(|log| log.policy(when(blog_open)))
         // The bell over each user's stored notifications, in the topbar.
         .notifications()
         // The public blog, from the user menu.

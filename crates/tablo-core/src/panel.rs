@@ -2,6 +2,7 @@
 
 mod actions;
 pub(crate) mod area;
+mod audit;
 mod bar;
 mod build;
 pub(crate) mod commit_hook;
@@ -33,6 +34,7 @@ use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 
 pub use self::{
     area::{Area, AreaGroup},
+    audit::{AuditEvent, AuditLog},
     build::{PanelHandle, RouterBuilderPanelExt},
     commit_hook::{ChangedField, ChangedRecord, CommitHook, PanelChange},
     gate::{can_list, can_open, can_view_field},
@@ -145,6 +147,8 @@ pub struct Panel {
     limits: crate::Limits,
     /// The hooks every write of the panel runs before it commits, in registration order.
     commit_hooks: Vec<commit_hook::CommitHookFn>,
+    /// Whether [`Self::audit_log`] keeps the panel's writes, whose table the `Db` then registers.
+    audit_log: bool,
 }
 
 impl Panel {
@@ -180,6 +184,7 @@ impl Panel {
             global_search: true,
             limits: crate::Limits::default(),
             commit_hooks: Vec::new(),
+            audit_log: false,
         }
     }
 

@@ -251,6 +251,32 @@ table that lower-privilege users can read should store only what they may see.
 
 The profile and tenant-settings pages save their own rows and reach neither hook.
 
+### The audit log
+
+A panel that needs an audit trail without writing one turns on the shipped log:
+
+```rust,ignore
+Panel::new("admin").audit_log(|log| log.policy(when(is_admin)))
+```
+
+Every write of the panel then stores an
+[`AuditEntry`](https://y-l.fr/tablo/nightly/api/tablo/struct.AuditEntry.html) per record it names,
+inside the write's transaction, so a write whose entry fails rolls back with it. An entry keeps
+the signed-in user, the tenant they acted for, the resource's slug, the record's key and page,
+and the fields the write changed, as a `PanelChange` spells them: a field marked
+`#[columns(skip)]` is never stored. [`models!`](https://y-l.fr/tablo/nightly/api/tablo/macro.models.html)
+registers the table.
+
+The log is a read-only resource at `{prefix}/audit-log`, newest first. It is denied until
+`customize` gives it a policy, and whatever that policy says, its pages never write. A reader sees
+the entries of their own panel and tenant, about the resources whose list they may open; a field
+[field access](#field-access) hides from them reads "Hidden".
+
+An app records its own events, an export or a payment, with
+[`AuditEvent`](https://y-l.fr/tablo/nightly/api/tablo/struct.AuditEvent.html), through a hook's
+executor or the panel's `Db`. Nothing deletes entries but `PanelHandle::prune_audit_log(age)`,
+which a job calls on the schedule the app keeps them for.
+
 ## Startup checks
 
 Mounting the panel builds each resource's def once and binds its table, form and detail page to
