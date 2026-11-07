@@ -94,13 +94,19 @@ pub enum EmailChange {
 ///
 /// # Errors
 ///
-/// The opaque outage when the database cannot answer.
+/// 403 while the signed-in user is acted as through
+/// [`Auth::impersonation`](super::Auth::impersonation); the opaque outage when the database cannot
+/// answer.
 pub async fn request_email_change(
     cx: &Cx,
     ex: &mut dyn toasty::Executor,
     user: &dyn PanelUser,
     email: &str,
 ) -> topcoat::Result<EmailChange> {
+    // A user acting as another never changes the target's address.
+    if super::signed(cx).is_some_and(|signed| signed.impersonator.is_some()) {
+        return Err(topcoat::router::error::forbidden().into());
+    }
     if !current_realm(cx).is_some_and(|panel| panel.auth.verification().is_some()) {
         return Ok(EmailChange::Immediate);
     }
@@ -274,7 +280,7 @@ async fn opened(
     // The routes answer signed out, so the gate resolved no session for them.
     let signed = resolve(cx, panel, authenticator)
         .await?
-        .filter(|signed| signed.user.user_id() == row.user_id);
+        .filter(|signed| signed.user.user_id() == row.user_id && signed.impersonator.is_none());
     Ok(Some(Opened {
         row,
         account,

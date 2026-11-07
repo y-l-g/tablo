@@ -347,6 +347,40 @@ code fail until its owner signs in with a recovery code.
 [`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor) lists the setup, the challenge, codes
 by email, throttling and what the mount refuses.
 
+### Acting as another user
+
+`Auth::impersonation` lets a signed-in user act as another to see the panel as they see it. It is
+off until the app gives the rule deciding who may act as whom:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-impersonation}}
+```
+
+The shipped `Impersonate` action places the button on a users resource whose model is the panel's
+user type, and shows it only where the rule allows; a form of your own posts the user's id as
+`auth::IMPERSONATE_FIELD` to `{prefix}/impersonate`. Every page then reads the target as the
+signed-in user, under a banner whose Stop restores the actor, and `auth::impersonator` names the
+actor in your own code.
+
+Write the rule over both users: one that only checks the actor, such as "is support", lets support
+act as an administrator too. Decide from the two users alone, since what `cx` signs in depends on
+when the rule is asked.
+
+The rule is asked again on every request, and acting as someone ends with its lifetime, an hour
+unless you say otherwise and never more than a day. Nobody acts as themselves, as a user who may
+not enter the panel, or as a third user while acting as a second. On a panel that acts for
+tenants, the target must belong to no tenant the actor does not, so acting as them reaches nothing
+the actor could not already; `Impersonation::across_tenants` lifts that for a platform's own staff.
+An actor who owes a step, such as a factor the panel now requires, is themselves again until they
+take it. The profile, two-factor, tenant settings, tenant
+registration and email-verification pages answer 403 meanwhile, so the actor never changes the
+target's credentials. A panel with the [audit log](resources.md#the-audit-log) records the start
+and the stop, an end the lifetime or the rule brings included, in the same transaction as the
+session's change, and names the actor on every write made in between.
+
+The session row stores the target in two nullable columns, `impersonating` and
+`impersonating_until`: an existing `auth_sessions` table gains them by `ALTER TABLE`.
+
 ### Turning it off
 
 ```rust

@@ -79,6 +79,8 @@ impl Column<AuditEntry> for Event {
             "force_delete" => built_in("tablo-audit-force-delete"),
             "attach" => built_in("tablo-audit-attach"),
             "detach" => built_in("tablo-audit-detach"),
+            "impersonate" => built_in("tablo-audit-impersonate"),
+            "stop_impersonating" => built_in("tablo-audit-stop-impersonating"),
             event => match event
                 .strip_prefix("action:")
                 .or_else(|| event.strip_prefix("header_action:"))

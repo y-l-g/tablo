@@ -445,6 +445,14 @@ tablo-audit-attach = Lié
 tablo-audit-detach = Délié
 tablo-audit-action = { $name } exécutée
 tablo-audit-immutable = Le journal d'audit ne peut pas être modifié.
+tablo-audit-impersonate = A commencé à agir en tant qu'utilisateur
+tablo-audit-stop-impersonating = A cessé d'agir en tant qu'utilisateur
+tablo-impersonation-start = Agir en tant que cet utilisateur
+tablo-impersonation-started = Vous agissez désormais en tant que cet utilisateur.
+tablo-impersonation-one = Agissez en tant qu'un seul utilisateur à la fois.
+tablo-impersonation-banner = Vous agissez en tant que { $name }.
+tablo-impersonation-stop = Arrêter
+tablo-impersonation-user = Utilisateur
 
 ## Sign-in
 

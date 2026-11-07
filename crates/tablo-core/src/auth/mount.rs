@@ -140,6 +140,18 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
             route_path(&format!("{prefix}/logout")),
             logout_post,
         ));
+        if auth.impersonation().is_some() {
+            for (path, post) in [
+                (
+                    "impersonate",
+                    super::impersonation::start_post as RouteHandlerFn,
+                ),
+                ("impersonate/stop", super::impersonation::stop_post),
+            ] {
+                let path = route_path(&format!("{prefix}/{path}"));
+                builder = builder.route(capped(RouteFn::new(http::Method::POST, path, post)));
+            }
+        }
         if realm.serves_tenants {
             builder = builder.route(RouteFn::new(
                 http::Method::POST,

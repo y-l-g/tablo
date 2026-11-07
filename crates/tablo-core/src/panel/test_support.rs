@@ -56,6 +56,7 @@ pub(crate) fn panel_state<U: crate::PanelUser>(
             notifications: false,
             serves_tenants: false,
             pages: crate::auth::SettingsPaths::under(prefix),
+            audit_log: false,
         }),
         nav_items: Vec::new(),
         areas: Vec::new(),

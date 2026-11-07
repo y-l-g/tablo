@@ -9,6 +9,7 @@ pub(crate) mod config;
 mod email_change;
 pub(crate) mod external;
 mod gate;
+pub(crate) mod impersonation;
 pub(crate) mod input;
 mod login;
 pub(crate) mod mail;
@@ -45,6 +46,7 @@ use self::realm::realms;
 pub use self::{
     columns::ColumnPreference,
     email_change::{EmailChange, request_email_change},
+    impersonation::{IMPERSONATE_FIELD, impersonator},
     login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD, safe_next},
     password::{AdminUser, create_admin, hash_password, verify_password},
     password_reset::{PasswordResetter, RESET_LIFETIME},
@@ -64,6 +66,7 @@ pub(crate) use self::{
     columns::{load_choice, save_choice},
     config::{Auth, AuthConfig},
     gate::{PagePanelStamp, PanelGate, RuntimeGate, still_signed_in},
+    impersonation::{may_impersonate, start as impersonate, stop_url as stop_impersonating_url},
     login::{logout_url, tenant_url},
     mail::AuthMail,
     panel_user::{Authenticator, PanelUser},
@@ -173,6 +176,9 @@ pub(crate) struct SignedIn {
     /// The tenant the session selected, if any. [`tenant_id`](crate::tenant_id)
     /// honors it only while it is one of the user's memberships.
     pub(crate) tenant: Option<TenantId>,
+    /// The user who acts as `user` through [`Auth::impersonation`](crate::Auth::impersonation),
+    /// and whom stopping restores; `None` while `user` acts as themselves.
+    pub(crate) impersonator: Option<Arc<dyn PanelUser>>,
 }
 
 impl SignedIn {

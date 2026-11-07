@@ -29,7 +29,7 @@ use super::{
 /// registrar to the tenant editor, names the same type, so a seam over another user type does not
 /// compile.
 pub struct Auth<U = AdminUser> {
-    config: AuthConfig,
+    pub(super) config: AuthConfig,
     user: PhantomData<fn() -> U>,
 }
 
@@ -63,6 +63,7 @@ impl Auth {
             tenant_registration: None,
             tenant_editor: None,
             two_factor: None,
+            impersonation: None,
         })
     }
 }
@@ -86,6 +87,7 @@ impl<U: PanelUser> Auth<U> {
             tenant_registration: None,
             tenant_editor: None,
             two_factor: None,
+            impersonation: None,
         })
     }
 
@@ -94,7 +96,8 @@ impl<U: PanelUser> Auth<U> {
     ///
     /// Mounting refuses what needs Tablo to own the credentials:
     /// [`registration`](Self::registration), [`password_reset`](Self::password_reset),
-    /// [`email_verification`](Self::email_verification) and [`two_factor`](Self::two_factor).
+    /// [`email_verification`](Self::email_verification), [`two_factor`](Self::two_factor) and
+    /// [`impersonation`](Self::impersonation).
     #[must_use]
     pub fn external<E: ExternalAuth<User = U>>(external: E) -> Self {
         let external = Arc::new(external);
@@ -441,6 +444,7 @@ pub(crate) struct AuthConfig {
     pub(super) tenant_registration: Option<TenantRegistration<()>>,
     pub(super) tenant_editor: Option<Box<dyn DynTenantEditor>>,
     pub(super) two_factor: Option<TwoFactor>,
+    pub(super) impersonation: Option<super::impersonation::ImpersonationConfig>,
 }
 
 impl AuthConfig {
@@ -562,6 +566,7 @@ impl std::fmt::Debug for AuthConfig {
                 .field("tenant_registration", &self.tenant_registration)
                 .field("tenant_profile", &self.tenant_editor.is_some())
                 .field("two_factor", &self.two_factor)
+                .field("impersonation", &self.impersonation)
                 .field("mail", &self.mail)
                 .finish_non_exhaustive()
         }

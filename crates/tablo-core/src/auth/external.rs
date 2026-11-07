@@ -287,6 +287,7 @@ pub(super) fn declaration_errors(auth: &AuthConfig) -> Vec<DeclarationErrorKind>
         ("Auth::password_reset", auth.reset().is_some()),
         ("Auth::email_verification", auth.verification().is_some()),
         ("Auth::two_factor", auth.two_factor_config().is_some()),
+        ("Auth::impersonation", auth.impersonation().is_some()),
     ]
     .into_iter()
     .filter(|(_, declared)| *declared)

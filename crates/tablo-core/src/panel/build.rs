@@ -289,15 +289,7 @@ impl Panel {
             Some(Root::Redirect(target)) => Some(target),
             Some(Root::Home) | None => None,
         };
-        let served_paths = served_dirs
-            .iter()
-            .map(|served| served.path.clone())
-            .collect();
-        let signed_roots = served_dirs
-            .iter()
-            .filter(|served| served.signed)
-            .map(|served| served_root(&served.path).to_owned())
-            .collect();
+        let (served_paths, signed_roots) = super::files::served_paths(&served_dirs);
         let state = Arc::new(PanelState {
             realm: Arc::new(Realm {
                 prefix: prefix.clone(),
@@ -308,6 +300,7 @@ impl Panel {
                 notifications,
                 serves_tenants,
                 pages,
+                audit_log: urls.contains_key(&std::any::TypeId::of::<super::AuditLog>()),
             }),
             nav_items,
             areas,

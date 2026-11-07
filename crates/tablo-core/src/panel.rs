@@ -13,6 +13,7 @@ mod forms;
 pub(crate) mod gate;
 mod headers;
 mod host;
+mod impersonation;
 mod input;
 mod list;
 mod page_filters;
@@ -34,10 +35,11 @@ use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 
 pub use self::{
     area::{Area, AreaGroup},
-    audit::{AuditEvent, AuditLog},
+    audit::AuditLog,
     build::{PanelHandle, RouterBuilderPanelExt},
     commit_hook::{ChangedField, ChangedRecord, CommitHook, PanelChange},
     gate::{can_list, can_open, can_view_field},
+    impersonation::Impersonate,
     list::{WiredTable, list_query, wired_table},
     page_filters::page_filters,
     pages::page_filter_bar,

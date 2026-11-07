@@ -89,7 +89,9 @@ fn session_panel(cx: &Cx) -> topcoat::Result<&Arc<Realm>> {
 /// nullable `tenant` column, a [`TenantId`] Toasty stores as a `Uuid` on the database. A table
 /// created without them gains them by migration: add `panel` with the panel's prefix as its
 /// default (`ALTER TABLE auth_sessions ADD COLUMN panel TEXT NOT NULL DEFAULT '/admin'`), then drop
-/// the default once every row names its panel.
+/// the default once every row names its panel. [`Auth::impersonation`](crate::Auth::impersonation)
+/// reads two more nullable columns, `impersonating` (`TEXT`) and `impersonating_until`, a
+/// timestamp: a table created without them gains them by `ALTER TABLE ... ADD COLUMN`.
 #[derive(Debug, Clone, toasty::Model)]
 pub struct AuthSession {
     /// Hex-encoded SHA-256 of the session token.
@@ -107,6 +109,11 @@ pub struct AuthSession {
     #[index]
     pub expires_at: Timestamp,
     pub created_at: Timestamp,
+    /// [`PanelUser::user_id`] of the user the session's user acts as, through
+    /// [`Auth::impersonation`](crate::Auth::impersonation); `None` while they act as themselves.
+    pub impersonating: Option<String>,
+    /// When acting as `impersonating` ends on its own.
+    pub impersonating_until: Option<Timestamp>,
 }
 
 /// Starts a new session, issuing a fresh token in the request's panel's [`session_cookie`].
@@ -288,6 +295,8 @@ async fn insert(
         tenant,
         expires_at,
         created_at: Timestamp::now(),
+        impersonating: None,
+        impersonating_until: None,
     })
     .exec(ex)
     .await?;
@@ -303,6 +312,37 @@ pub(super) async fn select_tenant(cx: &Cx, tenant: TenantId) -> topcoat::Result<
         .update()
         .tenant(Some(tenant))
         .exec(&mut db)
+        .await
+        .map_err(infrastructure_failure)?;
+    Ok(())
+}
+
+/// Makes the request's session act as `target` until `until`, for no tenant yet, or, with `None`,
+/// as its own user again, through `ex`.
+pub(super) async fn impersonate(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    target: Option<(String, Timestamp)>,
+) -> topcoat::Result<()> {
+    let Some(hash) = token_hash(cx, session_panel(cx)?).await? else {
+        return Err(topcoat::router::error::forbidden().into());
+    };
+    set_impersonation(ex, &token_key(&hash), target).await
+}
+
+/// Sets what the session row keyed `key` acts as, through `ex`: see [`impersonate`].
+pub(super) async fn set_impersonation(
+    ex: &mut dyn toasty::Executor,
+    key: &str,
+    target: Option<(String, Timestamp)>,
+) -> topcoat::Result<()> {
+    let (user, until) = target.unzip();
+    AuthSession::filter(AuthSession::fields().token_hash().eq(key.to_owned()))
+        .update()
+        .impersonating(user)
+        .impersonating_until(until)
+        .tenant(None)
+        .exec(ex)
         .await
         .map_err(infrastructure_failure)?;
     Ok(())
@@ -476,10 +516,16 @@ pub(super) async fn session_user(
         .await
         .map_err(infrastructure_failure)?
     {
+        Some(user) if row.impersonating.is_some() => {
+            super::impersonation::resolve(cx, row, user, panel, authenticator)
+                .await
+                .map(Some)
+        }
         Some(user) => Ok(Some(SignedIn {
             user,
             realm: Arc::clone(panel),
             tenant: row.tenant,
+            impersonator: None,
         })),
         None => {
             if panel.auth.external().is_none() {

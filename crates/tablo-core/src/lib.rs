@@ -138,10 +138,11 @@ mod widget;
 /// The future a type-erased, dyn-compatible method returns.
 pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
-pub use audit::{AuditChange, AuditEntry};
+pub use audit::{AuditChange, AuditEntry, AuditEvent};
 pub use auth::{
     config::Auth,
     external::ExternalAuth,
+    impersonation::Impersonation,
     mail::AuthMail,
     panel_user::{Authenticator, PanelUser},
     password::{PasswordAuth, PasswordSignUp},
@@ -181,7 +182,7 @@ pub use notification::stored::Notifications;
 pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};
 pub use page::{Page, PageDef, PageFilter, PageFilters};
 pub use panel::{
-    Area, AreaGroup, AuditEvent, AuditLog, Brand, ChangedField, ChangedRecord, CommitHook, Panel,
+    Area, AreaGroup, AuditLog, Brand, ChangedField, ChangedRecord, CommitHook, Impersonate, Panel,
     PanelChange, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open,
     can_view_field, list_query, navigation_item, page_filter_bar, page_filters,
     pages::header_action_buttons, record_table, stats, url, widgets, wired_table,

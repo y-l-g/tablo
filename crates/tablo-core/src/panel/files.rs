@@ -86,6 +86,17 @@ impl Panel {
     }
 }
 
+/// The patterns of `served`, and the roots of those that need a signed URL.
+pub(super) fn served_paths(served: &[headers::ServedDir]) -> (Vec<String>, Vec<String>) {
+    let paths = served.iter().map(|served| served.path.clone()).collect();
+    let signed = served
+        .iter()
+        .filter(|served| served.signed)
+        .map(|served| served_root(&served.path).to_owned())
+        .collect();
+    (paths, signed)
+}
+
 /// A served directory's pattern without its catch-all's name: the router treats
 /// `/uploads/{*file}` and `/uploads/{*path}` as one route.
 pub(super) fn served_root(path: &str) -> &str {

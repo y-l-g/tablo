@@ -64,3 +64,99 @@ pub struct AuditChange {
     pub before: Option<String>,
     pub after: Option<String>,
 }
+
+/// The app's own event for the audit log of a panel with
+/// [`Panel::audit_log`](crate::Panel::audit_log): a sign-in, an export, a payment, beside what the
+/// panel's writes record.
+///
+/// ```rust,no_run
+/// # use tablo_core::AuditEvent;
+/// # use topcoat::context::Cx;
+/// # async fn exported(cx: &Cx, ex: &mut dyn toasty::Executor) -> topcoat::Result<()> {
+/// AuditEvent::new("export")
+///     .resource("orders")
+///     .record(cx, ex)
+///     .await?;
+/// # Ok(())
+/// # }
+/// ```
+#[derive(Debug, Clone)]
+pub struct AuditEvent {
+    pub(crate) event: String,
+    pub(crate) resource: Option<String>,
+    pub(crate) record: Option<String>,
+    pub(crate) url: Option<String>,
+    pub(crate) changes: Vec<AuditChange>,
+}
+
+impl AuditEvent {
+    /// An event named `event`, on no resource: the log shows the name as it is.
+    pub fn new(event: impl Into<String>) -> Self {
+        Self {
+            event: event.into(),
+            resource: None,
+            record: None,
+            url: None,
+            changes: Vec::new(),
+        }
+    }
+
+    /// The slug of the resource it happened to: only readers who may list that resource see it.
+    #[must_use]
+    pub fn resource(mut self, slug: impl Into<String>) -> Self {
+        self.resource = Some(slug.into());
+        self
+    }
+
+    /// The key of the record it happened to, and its page when it has one.
+    #[must_use]
+    pub fn key(mut self, key: impl Into<String>, url: Option<String>) -> Self {
+        self.record = Some(key.into());
+        self.url = url;
+        self
+    }
+
+    /// A field it changed, from `before` to `after`.
+    #[must_use]
+    pub fn change(
+        mut self,
+        field: impl Into<String>,
+        label: impl Into<String>,
+        before: Option<String>,
+        after: Option<String>,
+    ) -> Self {
+        self.changes.push(AuditChange {
+            field: field.into(),
+            label: label.into(),
+            before,
+            after,
+        });
+        self
+    }
+
+    /// Stores the event on `panel` for `tenant`, done by `actor`, its id and display name, through
+    /// `ex`: what [`record`](Self::record) and auth's own events share.
+    pub(crate) async fn write(
+        self,
+        ex: &mut dyn toasty::Executor,
+        panel: String,
+        tenant: Option<TenantId>,
+        actor: Option<(String, String)>,
+    ) -> toasty::Result<AuditEntry> {
+        let (actor_id, actor) = actor.map_or((None, String::new()), |(id, name)| (Some(id), name));
+        toasty::create!(AuditEntry {
+            panel,
+            tenant,
+            actor_id,
+            actor,
+            event: self.event,
+            resource: self.resource,
+            record: self.record,
+            url: self.url,
+            changes: toasty::Json(self.changes),
+            created_at: Timestamp::now(),
+        })
+        .exec(ex)
+        .await
+    }
+}

@@ -62,6 +62,10 @@ What Tablo does by default, and what your deployment must provide for those defa
   up to an hour, and the account is mailed that its password was used. Whoever holds the password
   can keep the owner's app codes waiting until the owner changes it:
   [`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor).
+- Acting as another user is off until the app gives a rule, which every request asks again. It
+  lasts an hour by default, never nests, keeps the actor off the target's credential pages, and
+  the audit log names the actor:
+  [`Auth::impersonation`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.impersonation).
 
 ## Several panels, one user type
 

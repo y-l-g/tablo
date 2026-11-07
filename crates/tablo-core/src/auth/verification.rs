@@ -400,7 +400,9 @@ pub(super) fn confirm_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         let signed_in_here = match panel.auth.authenticator() {
             Some(authenticator) => resolve(cx, panel, authenticator)
                 .await?
-                .is_some_and(|signed| signed.user.user_id() == row.user_id),
+                .is_some_and(|signed| {
+                    signed.user.user_id() == row.user_id && signed.impersonator.is_none()
+                }),
             None => false,
         };
         let target = if signed_in_here {

@@ -12,6 +12,7 @@ fn realm(prefix: &str) -> Arc<Realm> {
         notifications: false,
         serves_tenants: false,
         pages: SettingsPaths::under(prefix),
+        audit_log: false,
     })
 }
 

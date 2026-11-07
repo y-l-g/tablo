@@ -42,6 +42,9 @@ pub(crate) struct Realm {
     pub(crate) serves_tenants: bool,
     /// Where the settings pages auth renders in the panel's shell are served.
     pub(crate) pages: SettingsPaths,
+    /// Whether the panel keeps an audit log, set by
+    /// [`Panel::audit_log`](crate::Panel::audit_log): auth records impersonation in it.
+    pub(crate) audit_log: bool,
 }
 
 /// Where the settings pages auth renders in the panel's shell are served: under the prefix,
