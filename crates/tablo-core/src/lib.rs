@@ -158,10 +158,10 @@ pub use column::{
     ToOneRelation, ToggleColumn, contains_expr,
 };
 pub use declaration::{
-    ActionInputFault, AuthMailFault, DeclarationError, DeclarationErrorKind, EditableColumnFault,
-    FieldAccessFault, FieldRuleFault, LocaleFault, ManyToManyFault, MountError, ProfileFault,
-    RelatedFormFault, ResetFault, SegmentFault, SignUpFault, Site, TenancyFault,
-    TenantProfileFault, TenantRegistrationFault, TwoFactorFault, VerificationFault,
+    ActionInputFault, AreaFault, AuthMailFault, DeclarationError, DeclarationErrorKind,
+    EditableColumnFault, FieldAccessFault, FieldRuleFault, LocaleFault, ManyToManyFault,
+    MountError, ProfileFault, RelatedFormFault, ResetFault, SegmentFault, SignUpFault, Site,
+    TenancyFault, TenantProfileFault, TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
 pub use derive::{EmbeddedForm, FormInput, ModelColumns, ModelForm, Options, RecordForm};
 pub use detail::{Detail, IntoDetail};
@@ -176,9 +176,10 @@ pub use notification::stored::Notifications;
 pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};
 pub use page::{Page, PageDef, PageFilter, PageFilters};
 pub use panel::{
-    Brand, ChangedRecord, CommitHook, Panel, PanelChange, PanelHandle, RouterBuilderPanelExt,
-    WiredTable, can_list, can_open, can_view_field, list_query, navigation_item, page_filter_bar,
-    page_filters, pages::header_action_buttons, record_table, stats, url, widgets, wired_table,
+    Area, AreaGroup, Brand, ChangedRecord, CommitHook, Panel, PanelChange, PanelHandle,
+    RouterBuilderPanelExt, WiredTable, can_list, can_open, can_view_field, list_query,
+    navigation_item, page_filter_bar, page_filters, pages::header_action_buttons, record_table,
+    stats, url, widgets, wired_table,
 };
 pub use policy::{Abilities, Ability, Allow, And, Deny, Or, Policy, ReadOnly, When, when};
 pub use resource::{

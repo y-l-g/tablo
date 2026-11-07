@@ -178,6 +178,15 @@ impl Panel {
             }
             None => breadcrumbs::trail(nav_items, &resources, current_path, current_query),
         };
+        let area = current(cx).and_then(|panel| {
+            let area = panel.area_at(current_path)?;
+            Some((panel.areas[area].clone(), panel.realm.prefix.clone()))
+        });
+        let trail = match &area {
+            Some((area, _)) => breadcrumbs::within(area.label.clone(), &area.url, trail),
+            None => trail,
+        };
+        let back = area.map_or_else(|| ().boxed(), |(_, home)| area::back_link(cx, &home));
         let crumbs = breadcrumbs::render(cx, trail);
         // The user and tenant menus, present only with a session (ADR-0013). `ensure_token` runs
         // before any streaming starts so their forms, and the language menu's, always carry a
@@ -271,6 +280,7 @@ impl Panel {
                             class="md:group-data-[collapsible=icon]/sidebar:[scrollbar-width:none]"
                         },
                         (tenant_menu)
+                        (back)
                         (navigation)
                     )
                     sidebar_footer((user_menu))
@@ -359,12 +369,12 @@ impl Panel {
         let path = topcoat::router::request::original_uri(cx)
             .path()
             .to_string();
-        // The panel's sidebar, or a single Home entry outside any panel.
-        let entries: Vec<_> = current(cx)
-            .iter()
-            .flat_map(|panel| &panel.nav_items)
-            .filter(|entry| (entry.visible)(cx))
-            .collect();
+        // The sidebar of the area the path is under, else the panel's, or a single Home entry
+        // outside any panel.
+        let panel = current(cx);
+        let entries: Vec<_> = panel
+            .map(|panel| area::listed(cx, panel, panel.area_at(&path)))
+            .unwrap_or_default();
         // One count per badge, run together rather than one after another.
         let badges = futures_util::future::join_all(entries.iter().map(|entry| async {
             match &entry.badge {
@@ -378,7 +388,7 @@ impl Panel {
             .iter()
             .zip(badges)
             .map(|(entry, badge)| {
-                let mut item = entry.item.clone();
+                let mut item = area::item(cx, entry);
                 if let Some(badge) = badge {
                     item.badge = badge;
                 }
@@ -402,6 +412,7 @@ impl Panel {
     }
 }
 
+mod area;
 mod brand;
 mod breadcrumbs;
 mod document;
@@ -411,6 +422,7 @@ mod theme;
 mod toaster;
 mod user_menu;
 
+pub(in crate::panel) use area::area_entries;
 pub use brand::Brand;
 pub(crate) use language::{LANGUAGE_SEGMENT, language_post};
 use theme::{SIDEBAR_COOKIE, Theme};

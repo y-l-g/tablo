@@ -262,9 +262,13 @@ const TENANT_FIELD: &str = "editing_tenant";
 /// The keys a tenant settings POST carries besides its input, which no input field may post.
 pub(crate) const RESERVED_KEYS: [&str; 2] = [crate::csrf::FIELD_NAME, TENANT_FIELD];
 
-/// Where the panel's tenant settings page lives: `{prefix}/tenant/profile`.
+/// Where the panel's tenant settings page lives: `{prefix}/tenant/profile`, or in the area that
+/// holds it.
 pub(crate) fn tenant_profile_url(cx: &Cx) -> String {
-    format!("{}/tenant/profile", panel_prefix(cx))
+    current_realm(cx).map_or_else(
+        || format!("{}/tenant/profile", panel_prefix(cx)),
+        |realm| realm.pages.tenant_profile.clone(),
+    )
 }
 
 /// Whether the request's signed-in user may open the tenant settings page for the tenant they act

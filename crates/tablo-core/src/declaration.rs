@@ -1,6 +1,7 @@
 //! The declaration mistakes a panel refuses to mount with, and the one place their wording lives.
 
 mod action_input;
+mod area;
 mod auth;
 mod editable;
 mod field_access;
@@ -17,6 +18,7 @@ mod wording;
 
 pub use action_input::ActionInputFault;
 use action_input::fmt_action_input;
+pub use area::AreaFault;
 pub use auth::{
     AuthMailFault, ProfileFault, ResetFault, SignUpFault, TenantProfileFault,
     TenantRegistrationFault, TwoFactorFault, VerificationFault,

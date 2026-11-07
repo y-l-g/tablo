@@ -12,6 +12,7 @@ use super::{
         resource_action_options, resource_bulk_delete, resource_delete, resource_export,
         resource_list_action, resource_options, resource_record_action,
     },
+    area::AuthPage,
     build::validate_route_segment,
     detail::resource_view,
     forms::{
@@ -22,7 +23,7 @@ use super::{
     pages::{page_action, page_action_options, page_handler},
     record_page::{record_page_view, relation_tab_view},
     relations::{Child, relation_table},
-    state::{BadgeFn, NavEntry, ResourceTrail, Searchable},
+    state::{AreaNav, BadgeFn, NavEntry, ResourceTrail, Searchable},
 };
 use crate::{
     Ability, DeclarationError, DeclarationErrorKind, Page, PageDef, Site,
@@ -42,6 +43,7 @@ use crate::{
     },
 };
 
+mod area;
 mod form_facts;
 mod links;
 
@@ -74,8 +76,15 @@ pub(super) struct PageRegistration<P> {
 pub(super) struct Registry {
     pub(super) prefix: String,
     schema: Option<crate::toasty_compat::model::AppSchema>,
-    /// Every slug a resource or page mounts at: one namespace.
-    slugs: Vec<String>,
+    /// Every slug a resource, page or area mounts at, beside the URL it mounts under: the
+    /// panel's prefix or an area's, each a namespace of its own.
+    slugs: Vec<(String, String)>,
+    /// The area the registrations now running land in; `None` lands them in the panel.
+    scope: Option<area::Scope>,
+    /// The panel's areas, in registration order.
+    pub(super) areas: Vec<AreaNav>,
+    /// The pages auth serves that an area holds, with the URL each mounts at.
+    pub(super) auth_pages: Vec<(AuthPage, String)>,
     /// The URL each resource and page serves at, by type.
     pub(super) urls: HashMap<TypeId, String>,
     /// The registered pages as the panel mounted them, by type.
@@ -100,6 +109,8 @@ pub(super) struct Registered {
     resource: TypeId,
     pub(super) name: &'static str,
     slug: String,
+    /// The list's URL, `{base}/{slug}`.
+    url: String,
     /// The declaration checks mount runs with the app's values.
     pub(super) check: ResourceCheck,
     /// The form's file fields, whose bytes only an installed uploader keeps.
@@ -129,6 +140,9 @@ impl Registry {
             prefix,
             schema,
             slugs: Vec::new(),
+            scope: None,
+            areas: Vec::new(),
+            auth_pages: Vec::new(),
             urls: HashMap::new(),
             mounted_pages: HashMap::new(),
             nav_items: Vec::new(),
@@ -144,16 +158,44 @@ impl Registry {
         }
     }
 
-    /// Claims `{prefix}/{slug}` for `T`, recording a refusal and returning `None` when the slug is
+    /// The URL the registrations now running mount under: the area's, else the panel's prefix.
+    fn base(&self) -> &str {
+        self.scope
+            .as_ref()
+            .map_or(self.prefix.as_str(), |scope| scope.base.as_str())
+    }
+
+    /// Claims `{base}/{slug}` for `T`, recording a refusal and returning `None` when the slug is
     /// unavailable.
     fn claim_slug<T: 'static>(&mut self, item: &'static str, slug: &str) -> Option<String> {
+        let url = self.claim(item, slug, |kind| {
+            DeclarationError::of::<T>(Site::Registration, kind)
+        })?;
+        self.urls.insert(TypeId::of::<T>(), url.clone());
+        Some(url)
+    }
+
+    /// Claims `{base}/{slug}`, recording the refusal `refuse` builds and returning `None` when
+    /// the slug is unavailable. Only the panel's own namespace reserves the routes auth and the
+    /// panel serve under its prefix.
+    fn claim(
+        &mut self,
+        item: &'static str,
+        slug: &str,
+        refuse: impl FnOnce(DeclarationErrorKind) -> DeclarationError,
+    ) -> Option<String> {
+        let base = self.base().to_string();
         let refused = if let Err(error) = validate_route_segment(item, slug) {
             Some(error)
-        } else if RESERVED_SLUGS.contains(&slug) {
+        } else if self.scope.is_none() && RESERVED_SLUGS.contains(&slug) {
             Some(DeclarationErrorKind::ReservedSlug {
                 slug: slug.to_string(),
             })
-        } else if self.slugs.iter().any(|taken| taken == slug) {
+        } else if self
+            .slugs
+            .iter()
+            .any(|(under, taken)| *under == base && taken == slug)
+        {
             Some(DeclarationErrorKind::DuplicateSlug {
                 slug: slug.to_string(),
             })
@@ -161,14 +203,31 @@ impl Registry {
             None
         };
         if let Some(error) = refused {
-            self.errors
-                .push(DeclarationError::of::<T>(Site::Registration, error));
+            self.errors.push(refuse(error));
             return None;
         }
-        let url = format!("{}/{slug}", self.prefix);
-        self.slugs.push(slug.to_string());
-        self.urls.insert(TypeId::of::<T>(), url.clone());
+        let url = format!("{base}/{slug}");
+        self.slugs.push((base, slug.to_string()));
         Some(url)
+    }
+
+    /// Adds `entry` to the sidebar the registrations now running land in: the area's group, else
+    /// the panel's, `first` putting it ahead of the panel's other entries.
+    fn push_nav(&mut self, mut entry: NavEntry, first: bool) {
+        match &self.scope {
+            Some(scope) => {
+                entry.item.group = Some(scope.group.clone());
+                entry.area = Some(scope.slot);
+                if scope.slot.tenant {
+                    let visible = entry.visible;
+                    entry.visible =
+                        Arc::new(move |cx| crate::auth::membership(cx).is_some() && visible(cx));
+                }
+                self.nav_items.push(entry);
+            }
+            None if first => self.nav_items.insert(0, entry),
+            None => self.nav_items.push(entry),
+        }
     }
 
     /// Refuses a panel whose resources all leave the sidebar while no home page takes the root:
@@ -220,8 +279,8 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             return;
         }
         let Self(customize) = *self;
-        let prefix = registry.prefix.clone();
-        let mounted = Mounted::new(customize(R::declare()), &prefix);
+        let base = registry.base().to_string();
+        let mounted = Mounted::new(customize(R::declare()), &base);
         let Some(url) = registry.claim_slug::<R>("ResourceDef::slug", &mounted.slug) else {
             return;
         };
@@ -248,11 +307,11 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
                 registry.page(http::Method::GET, &route, record_page_view::<R>);
             }
         }
-        if registry.root.is_none() && !mounted.navigation_hidden {
+        if registry.root.is_none() && registry.scope.is_none() && !mounted.navigation_hidden {
             registry.root = Some(Root::Redirect(url.clone()));
         }
         if !mounted.navigation_hidden {
-            registry.nav_items.push(NavEntry {
+            let entry = NavEntry {
                 item: mounted.navigation.clone(),
                 visible: Arc::new(|cx| crate::can::<R>(cx, Ability::ViewAny)),
                 resource_list: Some(ResourceTrail {
@@ -272,7 +331,9 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
                         })
                     })
                 }),
-            });
+                area: None,
+            };
+            registry.push_nav(entry, false);
         }
         if mounted.globally_searched() {
             registry.searches.push(Searchable {
@@ -297,6 +358,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             resource: TypeId::of::<R>(),
             name: std::any::type_name::<R>(),
             slug: mounted.slug.clone(),
+            url: mounted.url.clone(),
             check: check_resource::<R>,
             toggles,
             file_fields: mounted
@@ -517,13 +579,12 @@ impl<P: Page> Registration for PageRegistration<P> {
             visible: page.access(),
             resource_list: None,
             badge: None,
+            area: None,
         };
         let listed = !page.navigation_hidden;
         registry.mounted_pages.insert(TypeId::of::<P>(), page);
-        match (listed, home) {
-            (false, _) => {}
-            (true, true) => registry.nav_items.insert(0, item),
-            (true, false) => registry.nav_items.push(item),
+        if listed {
+            registry.push_nav(item, home);
         }
     }
 }

@@ -14,6 +14,7 @@ mod common;
 mod action_face;
 mod action_matching;
 mod action_policy;
+mod area;
 mod declaration;
 mod extend;
 mod header_action;

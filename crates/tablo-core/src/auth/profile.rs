@@ -355,9 +355,12 @@ pub(crate) const CURRENT_PASSWORD_FIELD: &str = "current_password";
 /// The keys a profile POST carries besides its input, which no input field may post.
 pub(crate) const RESERVED_KEYS: [&str; 1] = [crate::csrf::FIELD_NAME];
 
-/// Where the panel's profile page lives: `{prefix}/profile`.
+/// Where the panel's profile page lives: `{prefix}/profile`, or in the area that holds it.
 pub(crate) fn profile_url(cx: &Cx) -> String {
-    format!("{}/profile", panel_prefix(cx))
+    current_realm(cx).map_or_else(
+        || format!("{}/profile", panel_prefix(cx)),
+        |realm| realm.pages.profile.clone(),
+    )
 }
 
 /// Whether the request's panel installs a [`ProfileEditor`].

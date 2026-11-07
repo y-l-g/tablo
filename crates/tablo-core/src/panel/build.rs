@@ -200,6 +200,7 @@ impl Panel {
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
         let serves_tenants = serves_tenants(&auth, &mounts);
+        errors.extend(registry.unoffered_auth_pages(&auth));
         errors.extend(mount_errors(
             &builder,
             &prefix,
@@ -260,12 +261,14 @@ impl Panel {
         if builder.try_context::<Panels>().is_none() {
             builder = install_shared(builder);
         }
+        let pages = super::area::settings_paths(&prefix, &registry.auth_pages);
         let Registry {
             urls,
             mounted_pages,
             nav_items,
+            areas,
             searches,
-            mut pages,
+            pages: mut page_routes,
             routes,
             root,
             children,
@@ -277,7 +280,7 @@ impl Panel {
             Vec::new()
         };
         if !searches.is_empty() {
-            pages.push(PageFn::new(
+            page_routes.push(PageFn::new(
                 http::Method::GET,
                 route_path(&format!("{prefix}/{}", super::search::SEARCH_SEGMENT)),
                 super::search::search_page,
@@ -306,8 +309,10 @@ impl Panel {
                 catalog,
                 notifications,
                 serves_tenants,
+                pages,
             }),
             nav_items,
+            areas,
             brand,
             dark_mode,
             shell_assets,
@@ -364,7 +369,7 @@ impl Panel {
                 .layer(headers::ServedFileHeaders::new(&served.path, served.signed))
                 .serve_dir(route_path(&served.path), served.dir);
         }
-        for page in pages {
+        for page in page_routes {
             builder = builder.page(page);
         }
         for route in routes {

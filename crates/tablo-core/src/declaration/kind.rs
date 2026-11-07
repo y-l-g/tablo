@@ -1,10 +1,10 @@
 //! [`DeclarationErrorKind`]: every mistake a declaration can hold.
 
 use super::{
-    ActionInputFault, AuthMailFault, EditableColumnFault, FieldAccessFault, FieldRuleFault,
-    LocaleFault, ManyToManyFault, ProfileFault, RelatedFormFault, ResetFault, SegmentFault,
-    SignUpFault, TenancyFault, TenantProfileFault, TenantRegistrationFault, TwoFactorFault,
-    VerificationFault,
+    ActionInputFault, AreaFault, AuthMailFault, EditableColumnFault, FieldAccessFault,
+    FieldRuleFault, LocaleFault, ManyToManyFault, ProfileFault, RelatedFormFault, ResetFault,
+    SegmentFault, SignUpFault, TenancyFault, TenantProfileFault, TenantRegistrationFault,
+    TwoFactorFault, VerificationFault,
 };
 
 /// What is wrong with a declaration.
@@ -186,6 +186,8 @@ pub enum DeclarationErrorKind {
     SignUp(SignUpFault),
     /// The panel's profile page cannot be served.
     Profile(ProfileFault),
+    /// An area cannot hold a page auth serves.
+    Area(AreaFault),
     /// The panel's password reset cannot be served.
     PasswordReset(ResetFault),
     /// The panel's email verification cannot be served.

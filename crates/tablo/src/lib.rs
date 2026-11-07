@@ -82,21 +82,21 @@ pub use tablo_ui as ui;
 /// The items a resource module names most: `use tablo::prelude::*;`.
 pub mod prelude {
     pub use tablo_core::{
-        Abilities, Ability, Action, ActionLayout, Alignment, Allow, Auth, BooleanColumn, Brand,
-        Change, Chart, ChoiceField, Color, ColorColumn, ColumnWidth, ComputedColumn, CountColumn,
-        Currency, CustomField, DateColumn, DateFilter, DateValue, Deny, Detail, EmbeddedColumn,
-        EmbeddedForm, Field, FieldAccess, FieldErrors, FileColumn, FileField, FontWeight,
-        FormInput, FormValues, GlobalSearch, Grid, Group, HeaderAction, HeaderActions, IconColumn,
-        ImageColumn, IntoOptions, Lens, ListTab, ModelColumns, ModelForm, NavigationItem, NoForm,
-        Options, Outcome, Page, PageDef, PageFilter, PageFilters, Pagination, Panel, Places,
-        Policy, Posted, PublicLink, QueryFilter, ReadOnly, Reads, RecordForm, RecordPage,
-        RecordPageDef, RecordTable, Relation, RelationColumn, RepeaterColumn, Resource,
-        ResourceDef, ResourcePage, RouterBuilderPanelExt, RowLink, Schema, Section, SelectColumn,
-        SelectFilter, Series, Sort, Stat, Step, Summary, Tab, Table, Tabs, Tenancy, TenantId,
-        TernaryFilter, Text, TextColumn, TextField, TextInputColumn, Toggle, ToggleColumn, Trend,
-        Widget, WidgetDef, Wizard, WriteError, can, can_list, can_open, can_view_field,
-        filter_keys, lens, list_query, page_filters, relation, scoped_query, t, tenant_id, text,
-        when,
+        Abilities, Ability, Action, ActionLayout, Alignment, Allow, Area, Auth, BooleanColumn,
+        Brand, Change, Chart, ChoiceField, Color, ColorColumn, ColumnWidth, ComputedColumn,
+        CountColumn, Currency, CustomField, DateColumn, DateFilter, DateValue, Deny, Detail,
+        EmbeddedColumn, EmbeddedForm, Field, FieldAccess, FieldErrors, FileColumn, FileField,
+        FontWeight, FormInput, FormValues, GlobalSearch, Grid, Group, HeaderAction, HeaderActions,
+        IconColumn, ImageColumn, IntoOptions, Lens, ListTab, ModelColumns, ModelForm,
+        NavigationItem, NoForm, Options, Outcome, Page, PageDef, PageFilter, PageFilters,
+        Pagination, Panel, Places, Policy, Posted, PublicLink, QueryFilter, ReadOnly, Reads,
+        RecordForm, RecordPage, RecordPageDef, RecordTable, Relation, RelationColumn,
+        RepeaterColumn, Resource, ResourceDef, ResourcePage, RouterBuilderPanelExt, RowLink,
+        Schema, Section, SelectColumn, SelectFilter, Series, Sort, Stat, Step, Summary, Tab, Table,
+        Tabs, Tenancy, TenantId, TernaryFilter, Text, TextColumn, TextField, TextInputColumn,
+        Toggle, ToggleColumn, Trend, Widget, WidgetDef, Wizard, WriteError, can, can_list,
+        can_open, can_view_field, filter_keys, lens, list_query, page_filters, relation,
+        scoped_query, t, tenant_id, text, when,
     };
     #[cfg(feature = "rich-text")]
     pub use tablo_core::{RichTextColumn, RichTextField, Tool};

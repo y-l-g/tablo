@@ -168,7 +168,7 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
     }
     if auth.profile_editor().is_some() {
         // The profile page renders in the panel's shell, under the panel's own form cap.
-        let profile_path = route_path(&format!("{prefix}/profile"));
+        let profile_path = route_path(&realm.pages.profile);
         builder = builder
             .page(PageFn::new(
                 http::Method::GET,
@@ -179,7 +179,7 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
     }
     if auth.tenant_editor().is_some() {
         // The settings page renders in the panel's shell, under the panel's own form cap.
-        let path = route_path(&format!("{prefix}/tenant/profile"));
+        let path = route_path(&realm.pages.tenant_profile);
         builder = builder
             .page(PageFn::new(
                 http::Method::GET,
@@ -191,7 +191,7 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
     if auth.two_factor_config().is_some() {
         let challenge = route_path(&format!("{prefix}/two-factor-challenge"));
         // The settings page renders in the panel's shell, under the panel's own form cap.
-        let settings = route_path(&format!("{prefix}/two-factor"));
+        let settings = route_path(&realm.pages.two_factor);
         builder = builder
             .route(capped(RouteFn::new(
                 http::Method::GET,

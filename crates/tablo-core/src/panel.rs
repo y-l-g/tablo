@@ -1,6 +1,7 @@
 //! `Panel` — resources and pages under one prefix, which an app mounts into its router.
 
 mod actions;
+pub(crate) mod area;
 mod bar;
 mod build;
 pub(crate) mod commit_hook;
@@ -30,8 +31,8 @@ mod write;
 
 use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 
-pub(crate) use self::{bar::header_bar, pages::current_page};
 pub use self::{
+    area::{Area, AreaGroup},
     build::{PanelHandle, RouterBuilderPanelExt},
     commit_hook::{ChangedRecord, CommitHook, PanelChange},
     gate::{can_list, can_open, can_view_field},
@@ -41,6 +42,7 @@ pub use self::{
     shell::Brand,
     widgets::{record_table, stats, widgets},
 };
+pub(crate) use self::{bar::header_bar, pages::current_page};
 use self::{
     register::{PageRegistration, Registration, ResourceRegistration},
     shell::ShellAssets,
@@ -278,6 +280,13 @@ impl Panel {
             customize: Box::new(customize),
             _page: std::marker::PhantomData,
         }));
+        self
+    }
+
+    /// Registers `area`, a part of the panel under `{prefix}/{slug}` with a sidebar of its own,
+    /// after the resources and pages already registered: see [`Area`].
+    pub fn area(mut self, area: Area) -> Self {
+        self.registrations.push(Box::new(area));
         self
     }
 

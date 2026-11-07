@@ -107,6 +107,22 @@ pub fn shell_panel() -> Panel {
 }
 // ANCHOR_END: panel-custom-layout
 
+// ANCHOR: panel-area
+pub fn app_panel() -> Panel {
+    Panel::new("app")
+        .resource::<PostResource>() // GET /app/posts
+        .area(
+            Area::new("settings")
+                .group("Account", |group| group.profile().two_factor())
+                .tenant_group(|group| {
+                    group
+                        .tenant_profile_with(|def| def.slug("general").label("General"))
+                        .resource::<UserResource>() // GET /app/settings/users
+                }),
+        )
+}
+// ANCHOR_END: panel-area
+
 // ANCHOR: panel-reports-page
 pub struct ReportsPage;
 
