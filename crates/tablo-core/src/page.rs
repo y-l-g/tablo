@@ -117,6 +117,7 @@ pub struct PageDef {
     navigation_order: Option<i32>,
     navigation_group: Option<crate::Text>,
     navigation: Option<NavigationItem>,
+    navigation_hidden: bool,
     title: Option<crate::Text>,
     description: Option<crate::Text>,
     access: Arc<AccessFn>,
@@ -187,6 +188,15 @@ impl PageDef {
     #[must_use]
     pub fn navigation(mut self, item: NavigationItem) -> Self {
         self.navigation = Some(item);
+        self
+    }
+
+    /// Keeps the page out of the sidebar. It stays mounted at its URL, and
+    /// [`access`](Self::access) still decides who may open it: link it from a
+    /// [user menu item](crate::Panel::user_menu_item), another page or a notification.
+    #[must_use]
+    pub fn without_navigation(mut self) -> Self {
+        self.navigation_hidden = true;
         self
     }
 
@@ -291,6 +301,7 @@ impl Default for PageDef {
             navigation_order: None,
             navigation_group: None,
             navigation: None,
+            navigation_hidden: false,
             title: None,
             description: None,
             access: Arc::new(|_| true),
@@ -309,6 +320,7 @@ impl std::fmt::Debug for PageDef {
             .field("navigation_order", &self.navigation_order)
             .field("navigation_group", &self.navigation_group)
             .field("navigation", &self.navigation)
+            .field("navigation_hidden", &self.navigation_hidden)
             .field("title", &self.title)
             .field("description", &self.description)
             .field("header_actions", &self.header_actions)
@@ -322,6 +334,8 @@ pub(crate) struct MountedPage {
     pub(crate) slug: String,
     /// The sidebar entry, its target not yet resolved to the page's URL.
     pub(crate) navigation: NavigationItem,
+    /// Whether the sidebar leaves the page out: [`PageDef::without_navigation`].
+    pub(crate) navigation_hidden: bool,
     /// The heading the default [`Page::render`] shows.
     pub(crate) title: crate::Text,
     pub(crate) description: Option<crate::Text>,
@@ -363,6 +377,7 @@ impl MountedPage {
         Self {
             slug: def.slug.unwrap_or_else(|| kebab_case(stem)),
             navigation,
+            navigation_hidden: def.navigation_hidden,
             title,
             description: def.description,
             access: def.access,

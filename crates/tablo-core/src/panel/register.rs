@@ -518,11 +518,12 @@ impl<P: Page> Registration for PageRegistration<P> {
             resource_list: None,
             badge: None,
         };
+        let listed = !page.navigation_hidden;
         registry.mounted_pages.insert(TypeId::of::<P>(), page);
-        if home {
-            registry.nav_items.insert(0, item);
-        } else {
-            registry.nav_items.push(item);
+        match (listed, home) {
+            (false, _) => {}
+            (true, true) => registry.nav_items.insert(0, item),
+            (true, false) => registry.nav_items.push(item),
         }
     }
 }
