@@ -121,6 +121,7 @@ pub struct PageDef {
     title: Option<crate::Text>,
     description: Option<crate::Text>,
     access: Arc<AccessFn>,
+    access_declared: bool,
     header_actions: HeaderActions,
     widgets: WidgetGrid,
     filters: Vec<PageFilter>,
@@ -244,6 +245,7 @@ impl PageDef {
     #[must_use]
     pub fn access(mut self, access: impl Fn(&Cx) -> bool + Send + Sync + 'static) -> Self {
         self.access = Arc::new(access);
+        self.access_declared = true;
         self
     }
 
@@ -305,6 +307,7 @@ impl Default for PageDef {
             title: None,
             description: None,
             access: Arc::new(|_| true),
+            access_declared: false,
             header_actions: HeaderActions::new(),
             widgets: WidgetGrid::default(),
             filters: Vec::new(),
@@ -340,6 +343,8 @@ pub(crate) struct MountedPage {
     pub(crate) title: crate::Text,
     pub(crate) description: Option<crate::Text>,
     access: Arc<AccessFn>,
+    /// Whether the def declared [`PageDef::access`] rather than keep the default.
+    pub(crate) access_declared: bool,
     pub(crate) header_actions: HeaderActions,
     pub(crate) widgets: WidgetGrid,
     /// The [`PageDef::filter`]s, in declaration order.
@@ -349,17 +354,21 @@ pub(crate) struct MountedPage {
 impl MountedPage {
     pub(crate) fn new<P: Page>(def: PageDef) -> Self {
         let stem = type_stem::<P>("Page");
+        let noun = sentence_case(stem);
+        let label = crate::Text::derived(
+            crate::naming::derived_id("page", &crate::naming::slug_case(&noun)),
+            noun,
+        );
+        Self::declared(def, kebab_case(stem), label)
+    }
+
+    /// `def` with its defaults filled in: `slug` and `label` where it names none.
+    pub(crate) fn declared(def: PageDef, slug: String, label: crate::Text) -> Self {
         let title = def
             .title
             .or_else(|| def.label.clone())
             .or_else(|| def.navigation.as_ref().map(|item| item.label.clone()));
-        let label = def.label.unwrap_or_else(|| {
-            let noun = sentence_case(stem);
-            crate::Text::derived(
-                crate::naming::derived_id("page", &crate::naming::slug_case(&noun)),
-                noun,
-            )
-        });
+        let label = def.label.unwrap_or(label);
         let title = title.unwrap_or_else(|| label.clone());
         let mut navigation = def.navigation.unwrap_or_else(|| NavigationItem {
             label,
@@ -375,12 +384,13 @@ impl MountedPage {
             navigation.group = Some(group);
         }
         Self {
-            slug: def.slug.unwrap_or_else(|| kebab_case(stem)),
+            slug: def.slug.unwrap_or(slug),
             navigation,
             navigation_hidden: def.navigation_hidden,
             title,
             description: def.description,
             access: def.access,
+            access_declared: def.access_declared,
             header_actions: def.header_actions,
             widgets: def.widgets,
             filters: def.filters,

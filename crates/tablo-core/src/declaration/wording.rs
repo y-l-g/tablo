@@ -103,6 +103,7 @@ impl fmt::Display for DeclarationErrorKind {
             Self::ActionInput { action, fault } => fmt_action_input(f, action, fault),
             Self::SignUp(fault) => fault.fmt(f),
             Self::Profile(fault) => fault.fmt(f),
+            Self::Area(fault) => fault.fmt(f),
             Self::PasswordReset(fault) => fault.fmt(f),
             Self::EmailVerification(fault) => fault.fmt(f),
             Self::TenantRegistration(fault) => fault.fmt(f),

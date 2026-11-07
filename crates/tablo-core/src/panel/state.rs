@@ -35,6 +35,25 @@ pub(crate) struct NavEntry {
     /// A resource's [`navigation_badge`](crate::ResourceDef::navigation_badge), counted per
     /// request.
     pub(crate) badge: Option<BadgeFn>,
+    /// The area whose sidebar lists the entry; `None` lists it in the panel's.
+    pub(crate) area: Option<AreaSlot>,
+}
+
+/// Where in an [`Area`](crate::Area) a sidebar entry sits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AreaSlot {
+    /// The area's index in [`PanelState::areas`].
+    pub(crate) area: usize,
+    /// Whether the entry sits in the area's tenant group, headed by the tenant's name.
+    pub(crate) tenant: bool,
+}
+
+/// One mounted [`Area`](crate::Area): where it is served, and the first step of its trail.
+#[derive(Debug, Clone)]
+pub(crate) struct AreaNav {
+    /// `{prefix}/{slug}`, which every page of the area is under.
+    pub(crate) url: String,
+    pub(crate) label: crate::Text,
 }
 
 /// What the trail reads under a resource's list.
@@ -79,6 +98,8 @@ pub(crate) struct PanelState {
     /// the prefix, and no other panel's prefix overlaps it.
     pub(crate) realm: Arc<Realm>,
     pub(crate) nav_items: Vec<NavEntry>,
+    /// The panel's areas, in registration order; [`AreaSlot::area`] indexes it.
+    pub(crate) areas: Vec<AreaNav>,
     pub(crate) brand: Option<Brand>,
     pub(crate) dark_mode: bool,
     pub(crate) shell_assets: Option<ShellAssets>,
@@ -115,6 +136,15 @@ pub(crate) struct PanelState {
 pub(crate) fn under_prefix(prefix: &str, path: &str) -> bool {
     path.strip_prefix(prefix)
         .is_some_and(|rest| rest.is_empty() || rest.starts_with(['/', '?']))
+}
+
+impl PanelState {
+    /// The index of the area `path` is under; `None` when it is under none.
+    pub(crate) fn area_at(&self, path: &str) -> Option<usize> {
+        self.areas
+            .iter()
+            .position(|area| under_prefix(&area.url, path))
+    }
 }
 
 /// Every panel mounted on the router, in mount order: the router context value the panel's

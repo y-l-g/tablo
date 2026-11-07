@@ -40,6 +40,29 @@ pub(crate) struct Realm {
     /// mounts a resource over tenant-owned rows. A panel that does not acts for no tenant, and
     /// offers no tenant menu and no tenant switch.
     pub(crate) serves_tenants: bool,
+    /// Where the settings pages auth renders in the panel's shell are served.
+    pub(crate) pages: SettingsPaths,
+}
+
+/// Where the settings pages auth renders in the panel's shell are served: under the prefix,
+/// unless an area of the panel holds them.
+#[derive(Debug, Clone)]
+pub(crate) struct SettingsPaths {
+    pub(crate) profile: String,
+    pub(crate) two_factor: String,
+    pub(crate) tenant_profile: String,
+}
+
+impl SettingsPaths {
+    /// The paths under `prefix`: `{prefix}/profile`, `{prefix}/two-factor` and
+    /// `{prefix}/tenant/profile`.
+    pub(crate) fn under(prefix: &str) -> Self {
+        Self {
+            profile: format!("{prefix}/profile"),
+            two_factor: format!("{prefix}/two-factor"),
+            tenant_profile: format!("{prefix}/tenant/profile"),
+        }
+    }
 }
 
 impl Realm {

@@ -119,7 +119,7 @@ toasts — with a layout it registers itself, so declare no `#[layout]` of your 
   `display_name` and the `subtitle` their `PanelUser` returns, such as an email. It opens the
   theme choice, a Profile link when the panel has a
   [profile page](./policy-auth-tenancy.md#profile), the entries `Panel::user_menu_item` adds, and
-  Sign out. A panel with
+  Sign out. The Profile link follows the page into an [area](#areas) that holds it. A panel with
   `Auth::disabled()` has no user to show, so its footer offers the theme choice alone.
 
 To change the frame, pass your own layout function to `Panel::layout`. `Panel::layout_shell` is
@@ -195,6 +195,27 @@ An entry may carry a badge after its label. `NavigationItem::badge("New")` sets 
 the resource's [`scoped_query`](./data-access.md) that the filter matches, so each tenant sees its
 own count. Each counted badge is a query on every sidebar render:
 [`navigation_badge`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.navigation_badge) says when it runs.
+
+## Areas
+
+An app's settings are many pages a user opens rarely: the account's profile and sign-in, the
+tenant's name, members and billing. An [`Area`](https://y-l.fr/tablo/nightly/api/tablo/struct.Area.html)
+moves them out of the sidebar into a part of the panel with a sidebar of its own:
+
+```rust
+{{#include ../../../examples/guide/src/panel_routing.rs:panel-area}}
+```
+
+The area mounts its resources and pages under `/app/settings`, each slug taken from the area's
+own namespace. The panel's sidebar lists the area as one entry, which opens the first of its
+entries the user may open; `Area::without_navigation()` leaves that entry out, for an area the user
+menu and the tenant menu lead into. Inside the area, the sidebar shows a link back to the panel's
+home, then each group with the entries the user may open, and the trail starts at the area.
+
+`AreaGroup::profile`, `two_factor` and `tenant_profile` move the pages auth serves into the group.
+The user menu and the tenant menu link them at their new URL, and the prefix no longer serves
+them. A group added with `Area::tenant_group` is headed by the name of the tenant the request acts
+for, and shows nothing to a request that acts for none.
 
 ## Global search
 

@@ -103,7 +103,7 @@ impl Registry {
                 } else if parent.record_page_slugs.contains(&slug) {
                     refuse(DeclarationErrorKind::DuplicateSlug { slug });
                 } else {
-                    let list = format!("{}/{}", self.prefix, parent.slug);
+                    let list = parent.url.clone();
                     let label = link.label.clone().or_else(|| {
                         self.children
                             .get(&link.child)

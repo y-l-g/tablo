@@ -6,6 +6,7 @@
 tablo-shell-navigation = Navigation
 tablo-shell-close-sidebar = Fermer le menu latéral
 tablo-shell-home = Accueil
+tablo-shell-back = Retour
 tablo-shell-account = Compte
 tablo-shell-profile = Profil
 tablo-shell-two-factor = Connexion à deux facteurs

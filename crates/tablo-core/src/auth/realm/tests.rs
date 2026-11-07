@@ -11,6 +11,7 @@ fn realm(prefix: &str) -> Arc<Realm> {
             .expect("`en` builds"),
         notifications: false,
         serves_tenants: false,
+        pages: SettingsPaths::under(prefix),
     })
 }
 

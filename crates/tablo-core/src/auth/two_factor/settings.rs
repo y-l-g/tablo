@@ -80,9 +80,12 @@ impl Intent {
     }
 }
 
-/// Where the settings page lives: `{prefix}/two-factor`.
+/// Where the settings page lives: `{prefix}/two-factor`, or in the area that holds it.
 pub(crate) fn settings_url(cx: &Cx) -> String {
-    format!("{}/two-factor", panel_prefix(cx))
+    crate::auth::realm::current_realm(cx).map_or_else(
+        || format!("{}/two-factor", panel_prefix(cx)),
+        |realm| realm.pages.two_factor.clone(),
+    )
 }
 
 /// The signed-in user and the panel's two-factor sign-in, or the answer to a request without them.

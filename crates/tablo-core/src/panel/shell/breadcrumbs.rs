@@ -93,6 +93,17 @@ pub(super) fn trail(
     }
 }
 
+/// `trail` under the area labelled `label` at `url`: the area first, linked, unless the trail is
+/// empty.
+pub(super) fn within(label: Text, url: &str, trail: Vec<Crumb>) -> Vec<Crumb> {
+    if trail.is_empty() {
+        return trail;
+    }
+    std::iter::once(Crumb::link(label, url))
+        .chain(trail)
+        .collect()
+}
+
 /// The trail to a page that failed at `current_path` under `current_query`: the sidebar entry it
 /// is under, then `label`, the failure.
 pub(super) fn failed(

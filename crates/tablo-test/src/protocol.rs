@@ -41,7 +41,9 @@ pub use page_filters::{PageFilterBar, page_filter_bar};
 pub use rich_text::rich_text_values;
 pub use search::{SearchGroup, SearchResult, search_box, search_results};
 pub use sections::{Section, sections};
-pub use sidebar::{nav_badge, nav_links};
+pub use sidebar::{
+    NavGroup, area_back_link, nav_badge, nav_groups, nav_links, tenant_page_link, trail,
+};
 pub use summaries::{SummaryFigure, summaries};
 use tablo_core::{Notification, auth::SESSION_COOKIE_PREFIX};
 pub use tabs::{Tab, tabs};

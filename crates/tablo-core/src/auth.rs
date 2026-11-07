@@ -70,7 +70,10 @@ pub(crate) use self::{
     password::{PasswordAuth, end_changed_credentials},
     password_reset::PasswordReset,
     profile::{Profile, ProfileEditor, ProfileUpdate, offered as profile_offered, profile_url},
-    realm::{AuthHost, CurrentRealm, Host, Realm, SettingsPage, current_realm, panel_prefix},
+    realm::{
+        AuthHost, CurrentRealm, Host, Realm, SettingsPage, SettingsPaths, current_realm,
+        panel_prefix,
+    },
     registration::{Registrar, SignUp},
     tenant_profile::{offered as tenant_profile_offered, tenant_profile_url},
     tenant_registration::{
