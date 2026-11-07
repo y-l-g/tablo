@@ -95,13 +95,16 @@ impl Frame<'_> {
         } = position;
         let first = u64::from(page - 1) * u64::try_from(per_page).unwrap_or(u64::MAX) + 1;
         let last_row = first + u64::try_from(rows).unwrap_or(0).saturating_sub(1);
+        // Fluent writes a number without grouping, so the counts go in grouped as the locale does.
+        let format = crate::display::NumberFormat::of(cx);
+        let grouped = |count: u64| format.spell(crate::display::Number::Int(count.into()), 0);
         let summary = match total {
             Some(total) => t!(
                 cx,
                 "tablo-pager-showing",
-                first = first,
-                last = last_row,
-                total = total,
+                first = grouped(first),
+                last = grouped(last_row),
+                total = grouped(total),
             ),
             None => t!(cx, "tablo-pager-page", page = page),
         };

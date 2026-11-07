@@ -596,3 +596,29 @@ async fn numbers_and_amounts_read_in_the_readers_locale() {
         ["-1\u{202f}234\u{202f}567,89\u{a0}€", "1\u{202f}234,6"]
     );
 }
+
+/// The pager groups its counts as the reader's locale does, as the cells do.
+#[tokio::test]
+async fn the_pagers_counts_read_in_the_readers_locale() {
+    let db = db().await;
+    for _ in 0..1_000 {
+        toasty::create!(Invoice {
+            total_cents: 1,
+            weight: 1.0,
+        })
+        .exec(&mut db.clone())
+        .await
+        .unwrap();
+    }
+    let router = mount(
+        db.clone(),
+        panel(Auth::disabled()).resource::<InvoiceResource>(),
+    )
+    .expect("panel builds");
+    let english = TestClient::new(&router).language("en");
+    let html = body_string(english.get("/admin/invoices").await).await;
+    assert!(html.contains("of 1,000"), "{html}");
+    let french = TestClient::new(&router).language("fr");
+    let html = body_string(french.get("/admin/invoices").await).await;
+    assert!(html.contains("sur 1\u{202f}000"), "the French pager groups");
+}
