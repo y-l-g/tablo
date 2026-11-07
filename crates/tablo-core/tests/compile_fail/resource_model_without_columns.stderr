@@ -10,11 +10,16 @@ help: the trait `ModelColumns` is not implemented for `Post`
  4 | struct Post {
    | ^^^^^^^^^^^
    = note: add `#[derive(tablo::ModelColumns)]` to `Post`, or `impl tablo::ModelColumns for Post { const TENANT_COLUMNS: &[&str] = &[..]; }`, naming its `TenantId` fields, when its resources declare their own table and detail page
-help: the trait `ModelColumns` is implemented for `AdminUser`
+help: the following other types implement trait `ModelColumns`
   --> src/auth/password.rs
    |
    | #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
-   |                                       ^^^^^^^^^^^^^^^^^^^
+   |                                       ^^^^^^^^^^^^^^^^^^^ `AdminUser`
+   |
+  ::: src/audit.rs
+   |
+   | impl crate::ModelColumns for AuditEntry {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `AuditEntry`
 note: required by a bound in `tablo_core::Resource::Model`
   --> src/resource.rs
    |

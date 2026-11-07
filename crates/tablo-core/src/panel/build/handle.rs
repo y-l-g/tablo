@@ -129,6 +129,31 @@ impl PanelHandle {
         Notifications::new(self.db.clone(), self.bus.clone(), self.prefix.clone(), None)
     }
 
+    /// Deletes the panel's [`AuditEntry`](crate::AuditEntry) rows older than `age`. Nothing else
+    /// deletes them; a job calls it on the schedule the app keeps its audit trail for.
+    ///
+    /// # Errors
+    ///
+    /// An opaque infrastructure failure when the rows cannot be deleted.
+    pub async fn prune_audit_log(&self, age: std::time::Duration) -> topcoat::Result<()> {
+        let cutoff = jiff::Timestamp::now()
+            .checked_sub(jiff::SignedDuration::try_from(age).map_err(topcoat::Error::from)?)
+            .map_err(topcoat::Error::from)?;
+        let fields = crate::AuditEntry::fields();
+        crate::AuditEntry::filter(
+            fields
+                .panel()
+                .eq(self.prefix.clone())
+                .and(fields.created_at().lt(cutoff)),
+        )
+        .delete()
+        .exec(&mut self.db.clone())
+        .await
+        .map_err(|error| {
+            crate::error::driver_failure(error, "The audit log is unavailable right now.")
+        })
+    }
+
     /// Renders a complete HTML document around a page outside every prefix with this panel's
     /// shell settings: its stylesheet, font, scripts, favicon and dark-mode default. A handle
     /// [`Panel::handle`] gives renders the document without them.

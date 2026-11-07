@@ -2,6 +2,7 @@
 
 mod actions;
 pub(crate) mod area;
+mod audit;
 mod bar;
 mod build;
 pub(crate) mod commit_hook;
@@ -33,6 +34,7 @@ use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 
 pub use self::{
     area::{Area, AreaGroup},
+    audit::{AuditEvent, AuditLog},
     build::{PanelHandle, RouterBuilderPanelExt},
     commit_hook::{ChangedField, ChangedRecord, CommitHook, PanelChange},
     gate::{can_list, can_open, can_view_field},

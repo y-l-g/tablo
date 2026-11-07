@@ -487,6 +487,7 @@ pub fn admin_panel() -> Panel {
         .resource::<CategoryResource>()
         .resource::<CommentResource>()
         .page::<MediaLibraryPage>()
+        .audit_log(|log| log.policy(when(blog_open)))
         // The bell over each user's stored notifications, in the topbar.
         .notifications()
         // The public blog, from the user menu.

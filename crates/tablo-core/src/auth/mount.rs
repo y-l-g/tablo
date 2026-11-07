@@ -28,6 +28,16 @@ pub(crate) struct Services {
     pub(crate) cookie_key: bool,
 }
 
+impl Services {
+    /// What `builder` installs.
+    pub(crate) fn of(builder: &RouterBuilder) -> Self {
+        Self {
+            mail: builder.try_context::<topcoat::mail::MailConfig>().is_some(),
+            cookie_key: builder.try_context::<topcoat::cookie::Key>().is_some(),
+        }
+    }
+}
+
 /// Every mistake in `auth` the mount refuses: a shipped model missing from `db`, and the
 /// sign-up, profile, password-reset, email-verification, tenant, two-factor and mail
 /// declarations. `toggles` says whether some list declares a toggleable column, `notifications`

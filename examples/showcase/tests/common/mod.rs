@@ -28,7 +28,8 @@ pub async fn empty_schema_db() -> Db {
         tablo::auth::ColumnPreference,
         tablo::auth::AuthToken,
         tablo::auth::AuthFactor,
-        tablo::notification::StoredNotification
+        tablo::notification::StoredNotification,
+        tablo::AuditEntry
     ))
     .await
 }

@@ -32,6 +32,11 @@ pub enum DeclarationErrorKind {
     ShellAssetsWithoutBundle,
     /// `Panel::notifications` on `Auth::disabled`, which signs nobody in to notify.
     NotificationsWithoutAuth,
+    /// `Panel::audit_log` over a `Db` that does not register `AuditEntry`, so every write would
+    /// fail to store its entry.
+    ///
+    /// Build the `Db` from `tablo::models!(..)`, or add `AuditEntry` to `toasty::models!(..)`.
+    MissingAuditModel,
     /// `Auth::external` beside a feature that needs Tablo to own the account's credentials.
     ///
     /// Drop the feature: the host app signs its users in, and keeps their credentials.

@@ -435,6 +435,28 @@ tablo-ago-minutes = { $count } min ago
 tablo-ago-hours = { $count } h ago
 tablo-ago-days = { $count } d ago
 
+## Audit log
+
+# The audit log's resource, its columns, and what each entry says happened.
+tablo-audit-log = Audit log
+tablo-audit-entry = Audit entry
+tablo-audit-when = When
+tablo-audit-actor = User
+tablo-audit-event = Event
+tablo-audit-resource = Resource
+tablo-audit-record = Record
+tablo-audit-changes = Changes
+tablo-audit-hidden = Hidden
+tablo-audit-create = Created
+tablo-audit-update = Updated
+tablo-audit-delete = Deleted
+tablo-audit-restore = Restored
+tablo-audit-force-delete = Deleted permanently
+tablo-audit-attach = Linked
+tablo-audit-detach = Unlinked
+tablo-audit-action = Ran { $name }
+tablo-audit-immutable = The audit log cannot be changed.
+
 ## Sign-in
 
 # The fields of the sign-in, sign-up, profile and password reset forms.

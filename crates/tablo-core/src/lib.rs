@@ -92,6 +92,7 @@ pub mod __macro {
 }
 // Each public item has one path. Types live at the root; a public module is a namespace for
 // the functions and constants that read best qualified (`auth::user`, `csrf::verify`).
+mod audit;
 pub mod auth;
 mod bus;
 mod chart;
@@ -137,6 +138,7 @@ mod widget;
 /// The future a type-erased, dyn-compatible method returns.
 pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+pub use audit::{AuditChange, AuditEntry};
 pub use auth::{
     config::Auth,
     external::ExternalAuth,
@@ -179,10 +181,10 @@ pub use notification::stored::Notifications;
 pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};
 pub use page::{Page, PageDef, PageFilter, PageFilters};
 pub use panel::{
-    Area, AreaGroup, Brand, ChangedField, ChangedRecord, CommitHook, Panel, PanelChange,
-    PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open, can_view_field, list_query,
-    navigation_item, page_filter_bar, page_filters, pages::header_action_buttons, record_table,
-    stats, url, widgets, wired_table,
+    Area, AreaGroup, AuditEvent, AuditLog, Brand, ChangedField, ChangedRecord, CommitHook, Panel,
+    PanelChange, PanelHandle, RouterBuilderPanelExt, WiredTable, can_list, can_open,
+    can_view_field, list_query, navigation_item, page_filter_bar, page_filters,
+    pages::header_action_buttons, record_table, stats, url, widgets, wired_table,
 };
 pub use policy::{Abilities, Ability, Allow, And, Deny, Or, Policy, ReadOnly, When, when};
 pub use resource::{

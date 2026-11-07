@@ -12,6 +12,7 @@
 mod common;
 
 mod action_input;
+mod audit_log;
 mod commit;
 mod commit_hook;
 mod declined;

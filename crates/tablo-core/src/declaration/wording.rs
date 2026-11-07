@@ -40,6 +40,11 @@ impl fmt::Display for DeclarationErrorKind {
             Self::NotificationsWithoutAuth => f.write_str(
                 "notifications are for signed-in users: `Panel::notifications` needs auth on",
             ),
+            Self::MissingAuditModel => f.write_str(
+                "`Panel::audit_log` stores its entries in `AuditEntry`, which the Db does not \
+                 register: build the Db from `tablo::models!(…)`, or add `AuditEntry` to \
+                 `toasty::models!(…)`",
+            ),
             Self::ExternalAuthFeature { feature } => write!(
                 f,
                 "`Auth::external` leaves credentials to the host app: drop `{feature}`",
