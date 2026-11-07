@@ -137,6 +137,16 @@ tablo-filter-ignored-invalid = valeur invalide
 tablo-filter-all = Tous
 tablo-filter-true = Vrai
 tablo-filter-false = Faux
+tablo-filter-set = Renseigné
+tablo-filter-empty = Vide
+tablo-filter-min = { $label } à partir de
+tablo-filter-max = { $label } jusqu'à
+tablo-filter-text-way = Correspondance de { $label }
+tablo-filter-text-contains = Contient
+tablo-filter-text-excludes = Ne contient pas
+tablo-filter-text-starts = Commence par
+tablo-filter-text-ends = Se termine par
+tablo-filter-text-is = Est
 
 # A page's filter bar above its widgets.
 tablo-page-filters-apply = Appliquer

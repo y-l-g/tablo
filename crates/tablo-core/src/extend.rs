@@ -2,8 +2,10 @@
 //! and a detail page shows, a [`Filter`] a table offers, a [`Control`] a
 //! [`Field::custom`](crate::Field::custom) field renders, an [`OptionSource`] a relationship
 //! choice loads its options from, a [`TypedValue`] a text field parses, a [`FilterDate`] a
-//! [`DateFilter`](crate::DateFilter) matches by day, and a [`FilterKey`] a
-//! [`SelectFilter`](crate::SelectFilter) matches. [`Includes`], [`FilterInput`],
+//! [`DateFilter`](crate::DateFilter) matches by day, a [`FilterKey`] a
+//! [`SelectFilter`](crate::SelectFilter) matches, a [`FilterNumber`] a
+//! [`NumberFilter`](crate::NumberFilter) compares, and a [`FilterText`] a
+//! [`TextFilter`](crate::TextFilter) matches. [`Includes`], [`FilterInput`],
 //! [`FilterValue`](crate::FilterValue), [`ControlFuture`] and [`ControlInput`] are what their
 //! methods take and return.
 //!
@@ -19,6 +21,8 @@ pub use crate::{
         fields::custom::{Control, ControlInput},
         relationship::OptionSource,
     },
-    table::filter::{ControlFuture, Filter, FilterDate, FilterInput, FilterKey},
+    table::filter::{
+        ControlFuture, Filter, FilterDate, FilterInput, FilterKey, FilterNumber, FilterText,
+    },
     values::TypedValue,
 };

@@ -221,7 +221,16 @@ links still navigate to the state they spell.
 ```
 
 `SelectFilter` matches one or more values of a field, `TernaryFilter` a `bool`, `DateFilter` a
-day or a range of days, and `QueryFilter` named options, each a Toasty predicate you build. An
+day or a range of days, `NumberFilter` a number or a range of them, `TextFilter` a term the user
+types, matched by what the field contains, starts or ends with, or equals, `PresenceFilter`
+whether an optional field holds a value, and `QueryFilter` named options, each a Toasty predicate
+you build:
+
+```rust
+{{#include ../../../examples/guide/src/tables.rs:table-comparison-filters}}
+```
+
+A text filter ignores case on every driver, as the search does. An
 active filter's parameter is `?f.<name>=<value>`, named after the field, and active filters
 combine with AND. Each filter's page has its values and its options, such as `.multiple()` for a
 checklist or `DateFilter::range` for two bounds.
@@ -232,7 +241,7 @@ applies only the related rows the user may view, as a relationship choice does, 
 `SelectFilter` over the key would reveal which keys exist.
 
 A filter is anything that implements `Filter<M>`, from `tablo::extend`: a name, a label, the
-predicate a value selects, and the control the filter menu renders. The four filters above implement it and nothing more.
+predicate a value selects, and the control the filter menu renders. The built-in filters implement it and nothing more.
 
 ```rust
 {{#include ../../../examples/guide/src/tables.rs:table-promoted-filter}}

@@ -49,6 +49,17 @@ pub fn post_table() -> Table<Post> {
 }
 // ANCHOR_END: post-table-post
 
+// ANCHOR: table-comparison-filters
+pub fn filtered_user_table() -> Table<User> {
+    User::table().filters((
+        // Two number inputs: `?f.age.min=18&f.age.max=65`, both ends included.
+        NumberFilter::new(lens!(User.age)).range(),
+        // A term and how it matches: `?f.email=example.com&f.email.op=ends`.
+        TextFilter::new(lens!(User.email)).matching([TextMatch::EndsWith, TextMatch::Is]),
+    ))
+}
+// ANCHOR_END: table-comparison-filters
+
 // ANCHOR: table-option-tabs
 pub fn status_tabs() -> Table<Post> {
     Table::new(TextColumn::new(lens!(Post.title))).option_tabs(lens!(Post.status))

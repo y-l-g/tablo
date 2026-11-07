@@ -1,4 +1,4 @@
-//! Table filters: the [`Filter`] trait, the [`FilterValue`] it reads, the four built-in filters,
+//! Table filters: the [`Filter`] trait, the [`FilterValue`] it reads, the built-in filters,
 //! and the [`IntoFilters`] seam.
 
 use std::{collections::BTreeMap, sync::Arc};
@@ -288,15 +288,21 @@ macro_rules! filter_impls {
 
 mod date;
 mod input;
+mod number;
+mod presence;
 mod query;
 mod select;
 mod ternary;
+mod text;
 
 pub use date::{DateFilter, FilterDate};
 pub use input::FilterInput;
+pub use number::{FilterNumber, NumberFilter};
+pub use presence::PresenceFilter;
 pub use query::QueryFilter;
 pub use select::{FilterKey, SelectFilter};
 pub use ternary::TernaryFilter;
+pub use text::{FilterText, TextFilter, TextMatch};
 
 /// A table's filters, as the table stores them.
 pub(crate) type BoxFilter<M> = Arc<dyn Filter<M>>;
@@ -323,7 +329,15 @@ macro_rules! into_filters_single {
     };
 }
 
-into_filters_single!(SelectFilter, TernaryFilter, DateFilter, QueryFilter);
+into_filters_single!(
+    SelectFilter,
+    TernaryFilter,
+    DateFilter,
+    QueryFilter,
+    NumberFilter,
+    TextFilter,
+    PresenceFilter
+);
 
 /// Generate the tuple impls of [`IntoFilters`] from one list per arity.
 macro_rules! into_filters_tuples {

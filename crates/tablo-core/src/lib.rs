@@ -200,8 +200,9 @@ pub use schema::{
 };
 pub use table::{
     ActionLayout, Cursor, DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, DateFilter, FilterValue,
-    IntoFilters, ListTab, ModelColumns, PagePosition, Pagination, QueryFilter, RowLink,
-    SelectFilter, Sort, Summary, Table, TablePage, TableState, TernaryFilter,
+    IntoFilters, ListTab, ModelColumns, NumberFilter, PagePosition, Pagination, PresenceFilter,
+    QueryFilter, RowLink, SelectFilter, Sort, Summary, Table, TablePage, TableState, TernaryFilter,
+    TextFilter, TextMatch,
 };
 pub use tenancy::{Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id};
 pub use upload::{DirUploader, Uploader, sanitize_filename};
