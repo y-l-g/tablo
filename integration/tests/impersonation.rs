@@ -312,3 +312,91 @@ async fn the_audit_log_names_the_actor() {
     assert_eq!(entries[0].record.as_ref(), Some(&bob));
     assert_eq!(entries[2].record.as_ref(), Some(&bob));
 }
+
+/// Acting as another that ends on its own, here because the target lost panel access, is written
+/// to the audit log as a stop.
+#[tokio::test]
+async fn an_impersonation_that_ends_on_its_own_is_audited() {
+    let app = Fixture::with(Auth::password().impersonation(support_only()), |panel| {
+        panel.audit_log(|log| log.policy(Allow))
+    })
+    .await;
+    let client = app.as_user(&app.support).await;
+    client.submit("/admin/impersonate", &act_as(&app.bob)).await;
+    AdminUser::filter(AdminUser::fields().id().eq(app.bob.id))
+        .update()
+        .active(false)
+        .exec(&mut app.db.clone())
+        .await
+        .expect("deactivate bob");
+    assert!(banner(&client).await.is_none(), "the actor is back");
+    let mut entries = AuditEntry::all()
+        .exec(&mut app.db.clone())
+        .await
+        .expect("query entries");
+    entries.sort_by_key(|entry| entry.created_at);
+    let events: Vec<&str> = entries.iter().map(|entry| entry.event.as_str()).collect();
+    assert_eq!(events, ["impersonate", "stop_impersonating"]);
+    assert_eq!(entries[1].actor_id, Some(app.support.id.to_string()));
+}
+
+/// On a panel that acts for tenants, the actor acts only as a user of their own tenants, unless
+/// the rule says `across_tenants`; acting as one starts with no tenant chosen.
+#[tokio::test]
+async fn acting_as_another_stays_within_the_actors_tenants() {
+    use crate::common::members::{self, MemberAuth, SignedMember};
+
+    let support_rule = || {
+        Impersonation::new(|_cx, actor: &SignedMember, _target: &SignedMember| {
+            actor.member.name == "Support"
+        })
+    };
+    let db = members::db().await;
+    let support = members::member(&db, "Support", &["Acme"]).await;
+    let alice = members::member(&db, "Alice", &[]).await;
+    members::seat(&db, &alice.member, support.owned[0], "Acme", false).await;
+    let mallory = members::member(&db, "Mallory", &["Globex"]).await;
+    let target =
+        |user: &SignedMember| form_body(&[(IMPERSONATE_FIELD, &user.member.id.to_string())]);
+
+    let router = members::mount(
+        db.clone(),
+        Auth::custom(MemberAuth).impersonation(support_rule()),
+    )
+    .expect("panel builds");
+    let client = TestClient::new(&router)
+        .sign_in(&db, "admin", &support)
+        .await;
+    let refused = client.submit("/admin/impersonate", &target(&mallory)).await;
+    assert_eq!(
+        refused.status(),
+        403,
+        "Globex is not one of support's tenants"
+    );
+    let started = client.submit("/admin/impersonate", &target(&alice)).await;
+    assert_eq!(started.status(), 303, "Acme is");
+    assert_eq!(
+        members::session_tenant(&db).await,
+        None,
+        "the tenant follows the target"
+    );
+    let page = body_string(client.get("/admin/notes").await).await;
+    let shown = impersonation_banner(&page).expect("acting as alice");
+    assert_eq!(shown.user_id, alice.member.id.to_string());
+
+    let db = members::db().await;
+    let support = members::member(&db, "Support", &["Acme"]).await;
+    let mallory = members::member(&db, "Mallory", &["Globex"]).await;
+    let rule = support_rule().across_tenants();
+    let router = members::mount(db.clone(), Auth::custom(MemberAuth).impersonation(rule))
+        .expect("panel builds");
+    let client = TestClient::new(&router)
+        .sign_in(&db, "admin", &support)
+        .await;
+    let started = client.submit("/admin/impersonate", &target(&mallory)).await;
+    assert_eq!(
+        started.status(),
+        303,
+        "across_tenants lets support act as any member"
+    );
+}

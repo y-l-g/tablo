@@ -362,12 +362,21 @@ user type, and shows it only where the rule allows; a form of your own posts the
 signed-in user, under a banner whose Stop restores the actor, and `auth::impersonator` names the
 actor in your own code.
 
+Write the rule over both users: one that only checks the actor, such as "is support", lets support
+act as an administrator too. Decide from the two users alone, since what `cx` signs in depends on
+when the rule is asked.
+
 The rule is asked again on every request, and acting as someone ends with its lifetime, an hour
-unless you say otherwise. Nobody acts as themselves, as a user who may not enter the panel, or as
-a third user while acting as a second. The profile, two-factor, tenant settings, tenant
+unless you say otherwise and never more than a day. Nobody acts as themselves, as a user who may
+not enter the panel, or as a third user while acting as a second. On a panel that acts for
+tenants, the target must belong to no tenant the actor does not, so acting as them reaches nothing
+the actor could not already; `Impersonation::across_tenants` lifts that for a platform's own staff.
+An actor who owes a step, such as a factor the panel now requires, is themselves again until they
+take it. The profile, two-factor, tenant settings, tenant
 registration and email-verification pages answer 403 meanwhile, so the actor never changes the
 target's credentials. A panel with the [audit log](resources.md#the-audit-log) records the start
-and the stop, and names the actor on every write made in between.
+and the stop, an end the lifetime or the rule brings included, in the same transaction as the
+session's change, and names the actor on every write made in between.
 
 The session row stores the target in two nullable columns, `impersonating` and
 `impersonating_until`: an existing `auth_sessions` table gains them by `ALTER TABLE`.

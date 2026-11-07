@@ -17,7 +17,7 @@ use topcoat::{
 };
 
 use super::{
-    SignedIn, email_change,
+    PanelUser, SignedIn, email_change,
     login::{login_url, logout_url},
     page::{AuthPage, render},
     page_load,
@@ -217,6 +217,18 @@ async fn owed_step(cx: &Cx, panel: &Realm, signed: &SignedIn) -> topcoat::Result
     } else {
         tenant_registration::pending(panel, user).then_some(Step::RegisterTenant)
     })
+}
+
+/// Whether `user` owes `panel` a step: what ends their acting as another user, so the step is
+/// not put off while they do.
+pub(super) async fn owes_step(
+    cx: &Cx,
+    panel: &Realm,
+    user: &dyn PanelUser,
+) -> topcoat::Result<bool> {
+    Ok(verification::pending(panel, user)
+        || two_factor::setup_pending(cx, panel, user).await?
+        || tenant_registration::pending(panel, user))
 }
 
 /// Whether `signed` may reach any endpoint: they have panel access and owe no step.

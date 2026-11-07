@@ -39,33 +39,56 @@ type Rule<U> = dyn Fn(&Cx, &U, &U) -> bool + Send + Sync;
 /// # use tablo_core::{Auth, Impersonation, auth::AdminUser};
 /// # fn is_support(user: &AdminUser) -> bool { user.email.ends_with("@support.example") }
 /// let auth = Auth::password().impersonation(
-///     Impersonation::new(|_cx, actor: &AdminUser, _target: &AdminUser| is_support(actor))
-///         .lifetime(std::time::Duration::from_secs(30 * 60)),
+///     // Support acts as customers, never as another member of support.
+///     Impersonation::new(|_cx, actor: &AdminUser, target: &AdminUser| {
+///         is_support(actor) && !is_support(target)
+///     })
+///     .lifetime(std::time::Duration::from_secs(30 * 60)),
 /// );
 /// ```
 pub struct Impersonation<U> {
     allows: Arc<Rule<U>>,
     lifetime: Duration,
+    across_tenants: bool,
 }
+
+/// The longest an [`Impersonation`] lasts, whatever its [`lifetime`](Impersonation::lifetime).
+const LONGEST: Duration = Duration::from_hours(24);
 
 impl<U: PanelUser> Impersonation<U> {
     /// Lets a user act as another when `allows(cx, actor, target)` answers `true`, for an hour.
     ///
     /// It is asked again on every request while the actor acts as the target, so a change to
     /// either user, or to the rule, ends it at once. A user never acts as themselves, nor as a
-    /// user who may not enter the panel, whatever it answers. `cx` signs in neither user:
-    /// [`auth::user`](crate::auth::user) answers `None` inside it.
+    /// user who may not enter the panel, whatever it answers; on a panel that acts for tenants,
+    /// nor as a user who belongs to a tenant the actor does not, unless
+    /// [`across_tenants`](Self::across_tenants) says otherwise.
+    ///
+    /// Decide from `actor` and `target` alone: `cx` carries the request, but whom
+    /// [`auth::user`](crate::auth::user) names inside it depends on when the rule is asked.
     pub fn new(allows: impl Fn(&Cx, &U, &U) -> bool + Send + Sync + 'static) -> Self {
         Self {
             allows: Arc::new(allows),
             lifetime: Duration::from_hours(1),
+            across_tenants: false,
         }
     }
 
-    /// How long acting as a user lasts before the actor is themselves again; defaults to an hour.
+    /// How long acting as a user lasts before the actor is themselves again; defaults to an hour,
+    /// and never exceeds a day.
     #[must_use]
     pub fn lifetime(mut self, lifetime: Duration) -> Self {
-        self.lifetime = lifetime;
+        self.lifetime = lifetime.min(LONGEST);
+        self
+    }
+
+    /// Let the actor act as a user of tenants they are no member of, such as a platform's own
+    /// staff acting as any customer. Off by default: on a panel that acts for tenants, every
+    /// tenant the target belongs to must be one of the actor's, so acting as them reaches no
+    /// tenant the actor could not already.
+    #[must_use]
+    pub fn across_tenants(mut self) -> Self {
+        self.across_tenants = true;
         self
     }
 }
@@ -102,6 +125,7 @@ impl<U: PanelUser> Auth<U> {
                 }
             }),
             lifetime: impersonation.lifetime,
+            across_tenants: impersonation.across_tenants,
         });
         self
     }
@@ -114,29 +138,41 @@ type Allows = dyn Fn(&Cx, &dyn PanelUser, &dyn PanelUser) -> bool + Send + Sync;
 pub(crate) struct ImpersonationConfig {
     allows: Arc<Allows>,
     lifetime: Duration,
+    across_tenants: bool,
 }
 
 impl std::fmt::Debug for ImpersonationConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Impersonation")
             .field("lifetime", &self.lifetime)
+            .field("across_tenants", &self.across_tenants)
             .finish_non_exhaustive()
     }
 }
 
 impl ImpersonationConfig {
-    /// Whether `actor` may act as `target` on the panel at `prefix`: two users, both admitted to
-    /// it, and the app's rule agreeing.
+    /// Whether `actor` may act as `target` on `panel`: two users, both admitted to it, the target
+    /// in no tenant the actor is not, on a panel that acts for tenants, and the app's rule
+    /// agreeing.
     fn permits(
         &self,
         cx: &Cx,
-        prefix: &str,
+        panel: &Realm,
         actor: &dyn PanelUser,
         target: &dyn PanelUser,
     ) -> bool {
+        let within_tenants = !panel.serves_tenants
+            || self.across_tenants
+            || target.tenants().iter().all(|membership| {
+                actor
+                    .tenants()
+                    .iter()
+                    .any(|own| own.tenant == membership.tenant)
+            });
         actor.user_id() != target.user_id()
-            && actor.can_access_panel(prefix)
-            && target.can_access_panel(prefix)
+            && actor.can_access_panel(&panel.prefix)
+            && target.can_access_panel(&panel.prefix)
+            && within_tenants
             && (self.allows)(cx, actor, target)
     }
 }
@@ -172,7 +208,25 @@ pub(super) async fn resolve(
             impersonator: Some(actor),
         });
     }
-    session::set_impersonation(&mut crate::db::db(cx)?, &row.token_hash, None).await?;
+    // Ended by its lifetime, the rule or either user: cleared and recorded together.
+    let mut db = crate::db::db(cx)?;
+    let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
+    session::set_impersonation(&mut tx, &row.token_hash, None).await?;
+    if let Some(target) = row.impersonating.as_deref() {
+        let tenant = row.tenant;
+        record(
+            cx,
+            &mut tx,
+            panel,
+            tenant,
+            "stop_impersonating",
+            &*actor,
+            target,
+            None,
+        )
+        .await?;
+    }
+    tx.commit().await.map_err(infrastructure_failure)?;
     Ok(SignedIn {
         user: actor,
         realm: Arc::clone(panel),
@@ -195,14 +249,15 @@ async fn live_target(
     ) else {
         return Ok(None);
     };
-    if until <= Timestamp::now() {
+    // An actor who owes a step, such as setting up a factor the panel now requires, goes to it.
+    if until <= Timestamp::now() || super::gate::owes_step(cx, panel, actor).await? {
         return Ok(None);
     }
     let target = authenticator
         .find_by_id(cx, id)
         .await
         .map_err(infrastructure_failure)?;
-    Ok(target.filter(|target| config.permits(cx, &panel.prefix, actor, &**target)))
+    Ok(target.filter(|target| config.permits(cx, panel, actor, &**target)))
 }
 
 /// The signed-in user who may start acting as another, with the panel's rule: one acting as
@@ -215,13 +270,12 @@ fn actor(cx: &Cx) -> Option<(&SignedIn, &ImpersonationConfig)> {
 /// Whether the signed-in user may act as `target`: what shows the
 /// [`Impersonate`](crate::Impersonate) button.
 pub(crate) fn may_impersonate(cx: &Cx, target: &dyn PanelUser) -> bool {
-    actor(cx).is_some_and(|(signed, config)| {
-        config.permits(cx, &signed.realm.prefix, &*signed.user, target)
-    })
+    actor(cx)
+        .is_some_and(|(signed, config)| config.permits(cx, &signed.realm, &*signed.user, target))
 }
 
-/// Makes the request's session act as `target` through `ex`, and records it; 403 when the
-/// signed-in user may not.
+/// Makes the request's session act as `target` through `ex`, and records it through `ex` too, so
+/// a transaction commits both or neither; 403 when the signed-in user may not.
 pub(crate) async fn start(
     cx: &Cx,
     ex: &mut dyn toasty::Executor,
@@ -230,13 +284,25 @@ pub(crate) async fn start(
     let Some((signed, config)) = actor(cx) else {
         return Err(forbidden().into());
     };
-    if !config.permits(cx, &signed.realm.prefix, &*signed.user, target) {
+    if !config.permits(cx, &signed.realm, &*signed.user, target) {
         return Err(forbidden().into());
     }
     let until =
         Timestamp::try_from(SystemTime::now() + config.lifetime).map_err(topcoat::Error::from)?;
     session::impersonate(cx, &mut *ex, Some((target.user_id(), until))).await?;
-    record(cx, ex, &signed.realm, "impersonate", &*signed.user, target).await?;
+    let (realm, tenant) = (&signed.realm, crate::tenant_id(cx));
+    let (id, name) = (target.user_id(), Some(target.display_name()));
+    record(
+        cx,
+        ex,
+        realm,
+        tenant,
+        "impersonate",
+        &*signed.user,
+        &id,
+        name,
+    )
+    .await?;
     crate::bus::bus(cx).wake(&signed.realm.prefix, &signed.user.user_id());
     Ok(())
 }
@@ -258,7 +324,10 @@ pub(super) fn start_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .await
             .map_err(infrastructure_failure)?
             .ok_or_else(forbidden)?;
-        start(cx, &mut crate::db::db(cx)?, &*target).await?;
+        let mut db = crate::db::db(cx)?;
+        let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
+        start(cx, &mut tx, &*target).await?;
+        tx.commit().await.map_err(infrastructure_failure)?;
         see_other(panel_root(cx)).into_response(cx)
     })
 }
@@ -273,16 +342,13 @@ pub(super) fn stop_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         if let Some(actor) = &signed.impersonator {
             let mut db = crate::db::db(cx)?;
-            session::impersonate(cx, &mut db, None).await?;
-            record(
-                cx,
-                &mut db,
-                &signed.realm,
-                "stop_impersonating",
-                &**actor,
-                &*signed.user,
-            )
-            .await?;
+            let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
+            session::impersonate(cx, &mut tx, None).await?;
+            let (realm, tenant) = (&signed.realm, crate::tenant_id(cx));
+            let (id, name) = (signed.user.user_id(), Some(signed.user.display_name()));
+            let event = "stop_impersonating";
+            record(cx, &mut tx, realm, tenant, event, &**actor, &id, name).await?;
+            tx.commit().await.map_err(infrastructure_failure)?;
             crate::bus::bus(cx).wake(&signed.realm.prefix, &actor.user_id());
         }
         see_other(panel_root(cx)).into_response(cx)
@@ -294,30 +360,37 @@ pub(crate) fn stop_url(cx: &Cx) -> String {
     format!("{}/impersonate/stop", panel_prefix(cx))
 }
 
-/// Records `event`, done by `actor` to `target`, in `panel`'s audit log when it keeps one.
+/// Records `event`, done by `actor` to the user of `target_id`, named `target_name` when known, in
+/// `panel`'s audit log for `tenant`, when it keeps one.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one call per event, each naming every part"
+)]
 async fn record(
     cx: &Cx,
     ex: &mut dyn toasty::Executor,
     panel: &Realm,
+    tenant: Option<crate::TenantId>,
     event: &str,
     actor: &dyn PanelUser,
-    target: &dyn PanelUser,
+    target_id: &str,
+    target_name: Option<&str>,
 ) -> topcoat::Result<()> {
     if !panel.audit_log {
         return Ok(());
     }
     AuditEvent::new(event)
-        .key(target.user_id(), None)
+        .key(target_id.to_owned(), None)
         .change(
             "user",
             crate::t!(cx, "tablo-impersonation-user"),
             None,
-            Some(target.display_name().to_owned()),
+            Some(target_name.unwrap_or(target_id).to_owned()),
         )
         .write(
             ex,
             panel.prefix.clone(),
-            crate::tenant_id(cx),
+            tenant,
             Some((actor.user_id(), actor.display_name().to_owned())),
         )
         .await
