@@ -69,7 +69,59 @@ pub trait ModelColumns: Model + IntoExpr<Self> + Sized {
     {
         self.clone()
     }
+
+    /// The record's foreign keys and [`TenantId`](crate::TenantId) fields, by name, each spelled
+    /// as the database stores it, `None` where it holds nothing.
+    ///
+    /// The default table leaves them out, so a [`ChangedField`](crate::ChangedField) reads them
+    /// here: moving a record to another owner or tenant is a change a write names. The derive
+    /// lists them; an impl by hand keeps this default, which lists none.
+    fn references(&self) -> Vec<(&'static str, Option<String>)> {
+        Vec::new()
+    }
 }
+
+/// A foreign key or tenant field's type, spelled for [`ModelColumns::references`].
+#[doc(hidden)]
+pub trait Reference {
+    /// The value as the database stores it, `None` for an empty optional one.
+    fn spell(&self) -> Option<String>;
+}
+
+/// Spells each key type a foreign key or tenant field holds, and an `Option` of one.
+macro_rules! reference {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl Reference for $ty {
+                fn spell(&self) -> Option<String> {
+                    Some(self.to_string())
+                }
+            }
+
+            impl Reference for Option<$ty> {
+                fn spell(&self) -> Option<String> {
+                    self.as_ref().map(ToString::to_string)
+                }
+            }
+        )*
+    };
+}
+
+reference!(
+    uuid::Uuid,
+    crate::TenantId,
+    String,
+    i8,
+    i16,
+    i32,
+    i64,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    usize,
+);
 
 /// A copy of `row` without its relations: see [`ModelColumns::UNLOADS_RELATIONS`].
 pub(crate) fn bare<M: ModelColumns + Clone>(row: &M) -> M {

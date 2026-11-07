@@ -91,6 +91,19 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
             quote! { #name: ::core::clone::Clone::clone(&self.#name) }
         }
     });
+    // The foreign keys and tenant fields the default table leaves out, which a change still names.
+    let foreign = foreign_keys(fields.iter());
+    let references = fields
+        .iter()
+        .filter(|field| {
+            let ident = field.ident.as_ref().expect("named field");
+            foreign.contains(ident) || is_tenant(&field.ty)
+        })
+        .map(|field| {
+            let name = field.ident.as_ref().expect("named field");
+            let spelled = name.to_string();
+            quote! { (#spelled, #krate::__macro::Reference::spell(&self.#name)) }
+        });
     let picks = quote! {
         #[allow(unused_imports)]
         use #pick::{
@@ -124,6 +137,12 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
 
             fn bare(&self) -> Self {
                 Self { #(#copies),* }
+            }
+
+            fn references(
+                &self,
+            ) -> ::std::vec::Vec<(&'static str, ::core::option::Option<::std::string::String>)> {
+                ::std::vec![#(#references),*]
             }
         }
     })

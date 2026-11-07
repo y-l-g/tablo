@@ -224,12 +224,17 @@ An audit trail over every resource of a panel registers one
 of a `before_commit` on each resource, so a resource added later cannot be left out. It runs inside
 the same transaction, after the resource's own hook, and receives a
 [`PanelChange`](https://y-l.fr/tablo/nightly/api/tablo/struct.PanelChange.html): the resource's
-slug and label, and the `Change` with each record named by its key and its URL:
+slug and label, and the `Change` with each record named by its key, its URL and the fields the
+write changed, each spelled before and after it as the model's default table spells it. Its
+foreign keys and `TenantId` fields, which that table leaves out, are spelled as stored, so moving a
+record to another owner or tenant shows:
 
 ```rust,ignore
 impl CommitHook for Audit {
     async fn before_commit(cx: &Cx, change: &PanelChange, ex: &mut dyn Executor) -> Result<()> {
-        // change.label(), change.change().records()[0].url(), …
+        for record in change.change().records() {
+            // record.url(), and for each field: field.name(), field.before(), field.after()
+        }
     }
 }
 
@@ -240,8 +245,9 @@ Panel::new("admin").before_commit::<Audit>()
 say, such as the links a form wrote. The audit example's match lists every variant without a `_`
 arm, so a kind of write a later Tablo adds breaks the build instead of going unaudited.
 
-A `Change` carries every column, including fields the user's [field access](#field-access) hides.
-An audit table that lower-privilege users can read should store only what they may see.
+A `Change` carries every column, including fields the user's [field access](#field-access) hides,
+and so do a `PanelChange`'s fields, but for those the model marks `#[columns(skip)]`. An audit
+table that lower-privilege users can read should store only what they may see.
 
 The profile and tenant-settings pages save their own rows and reach neither hook.
 

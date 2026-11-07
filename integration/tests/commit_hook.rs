@@ -13,6 +13,9 @@ struct Memo {
     #[auto]
     id: Uuid,
     title: String,
+    #[columns(skip)]
+    #[default("hidden".to_string())]
+    secret: String,
 }
 
 #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
@@ -34,6 +37,8 @@ struct Trail {
     kind: String,
     record_key: String,
     record_url: Option<String>,
+    /// The fields the last record names, `name:before>after` joined by `;`.
+    fields: String,
 }
 
 #[derive(tablo::RecordForm)]
@@ -87,10 +92,31 @@ impl CommitHook for Audit {
     ) -> topcoat::Result<()> {
         let kind = match change.change() {
             Change::Create(_) => "create",
+            Change::Update { .. } => "update",
             Change::Delete(_) => "delete",
             _ => "other",
         };
         let first = change.change().records().first();
+        let fields = change
+            .change()
+            .records()
+            .last()
+            .map(|record| {
+                record
+                    .fields()
+                    .iter()
+                    .map(|field| {
+                        format!(
+                            "{}:{}>{}",
+                            field.name(),
+                            field.before().unwrap_or_default(),
+                            field.after().unwrap_or_default()
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(";")
+            })
+            .unwrap_or_default();
         toasty::create!(Trail {
             slug: change.slug().to_string(),
             label: change.label().localize(cx),
@@ -99,6 +125,7 @@ impl CommitHook for Audit {
                 .map(|record| record.key().to_string())
                 .unwrap_or_default(),
             record_url: first.and_then(|record| record.url().map(str::to_string)),
+            fields,
         })
         .exec(&mut *ex)
         .await?;
@@ -208,4 +235,61 @@ async fn a_hook_error_rolls_the_write_back() {
     };
     assert!(memos.is_empty(), "the write rolled back");
     assert!(trails(&db).await.is_empty(), "so did the hook's row");
+}
+
+/// The hook reads the fields each write changed, by the model's columns: what a create filled, what
+/// an update changed and what a delete removed, never a field the columns skip.
+#[tokio::test]
+async fn the_hook_reads_the_fields_each_write_changed() {
+    let db = db().await;
+    let router = mount(
+        db.clone(),
+        panel().resource::<MemoResource>().before_commit::<Audit>(),
+    )
+    .expect("panel builds");
+    let response = post_fields(&router, "/admin/memos/-/create", &[("title", "Alpha")]).await;
+    assert_eq!(response.status(), 303, "a valid create redirects");
+    let id = {
+        let mut db = db.clone();
+        Memo::all().exec(&mut db).await.expect("query memos")[0].id
+    };
+    let response = post_fields(
+        &router,
+        &format!("/admin/memos/{id}/edit"),
+        &[("title", "Beta")],
+    )
+    .await;
+    assert_eq!(response.status(), 303, "a valid edit redirects");
+    let response = post_fields(
+        &router,
+        &format!("/admin/memos/{id}/edit"),
+        &[("title", "Beta")],
+    )
+    .await;
+    assert_eq!(response.status(), 303, "an edit changing nothing saves");
+    let response = post_fields(
+        &router,
+        &format!("/admin/memos/{id}/delete"),
+        &[("confirm", "1")],
+    )
+    .await;
+    assert_eq!(response.status(), 303, "a confirmed delete redirects");
+
+    let fields = |kind: &str, trails: &[Trail]| -> Vec<String> {
+        trails
+            .iter()
+            .filter(|trail| trail.kind == kind)
+            .map(|trail| trail.fields.clone())
+            .collect()
+    };
+    let trails = trails(&db).await;
+    assert_eq!(fields("create", &trails), ["title:>Alpha"]);
+    let mut updates = fields("update", &trails);
+    updates.sort();
+    assert_eq!(
+        updates,
+        ["", "title:Alpha>Beta"],
+        "an edit changing nothing names no field"
+    );
+    assert_eq!(fields("delete", &trails), ["title:Beta>"]);
 }

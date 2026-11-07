@@ -449,6 +449,20 @@ impl<M> Table<M> {
         (self.key)(record)
     }
 
+    /// Each column's name, label and text for `record`, as the export spells them.
+    pub(crate) fn spell(&self, cx: &Cx, record: &M) -> Vec<(String, crate::Text, String)> {
+        self.columns
+            .iter()
+            .map(|column| {
+                (
+                    column.name().to_string(),
+                    column.label(),
+                    column.text(cx, record),
+                )
+            })
+            .collect()
+    }
+
     /// Whether a row's key resolves as a URL id, so its record's actions have a route.
     pub(crate) fn is_addressable(&self) -> bool {
         self.addressable
