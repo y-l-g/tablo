@@ -76,6 +76,16 @@ impl Panel {
         let (_, locale) = crate::i18n::catalog_and_locale(cx);
         let (lang, dir) = (locale.id().clone(), locale.id().direction());
         let page = metadata(cx).await?;
+        // The brand's colors over the shipped theme, after its stylesheet so they win.
+        let style = panel
+            .and_then(|panel| panel.brand.as_ref())
+            .and_then(super::Brand::style);
+        let environment = panel.and_then(|panel| panel.environment.as_ref());
+        let title = match environment {
+            Some(environment) => format!("[{}] {title}", environment.name(cx)),
+            None => title,
+        };
+        let ribbon = environment.map(|environment| environment.ribbon(cx));
         Ok(view! {
             <!DOCTYPE html>
             <html lang=(lang) dir=(dir) class=(html_class)>
@@ -89,9 +99,17 @@ impl Panel {
                         <link rel="icon" href=(favicon)>
                     }
                     (head)
+                    if let Some(style) = style {
+                        <style>(style)</style>
+                    }
                     <script>(panel_mark)</script>
                 </head>
-                <body>(body)</body>
+                <body>
+                    (body)
+                    if let Some(ribbon) = ribbon {
+                        (ribbon)
+                    }
+                </body>
             </html>
         }
         .boxed())

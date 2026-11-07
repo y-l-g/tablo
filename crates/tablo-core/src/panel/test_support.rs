@@ -62,6 +62,7 @@ pub(crate) fn panel_state<U: crate::PanelUser>(
         areas: Vec::new(),
         brand: None,
         dark_mode: false,
+        environment: None,
         shell_assets: None,
         children: std::collections::HashMap::new(),
         mounts: std::sync::Arc::default(),

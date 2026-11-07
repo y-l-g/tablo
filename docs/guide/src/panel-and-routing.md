@@ -39,6 +39,7 @@ in before learning a path serves nothing. [`Panel`](https://y-l.fr/tablo/nightly
 | `home::<P>()` | registers a page at `/{prefix}` | [Pages](#pages) |
 | `brand(Brand)` | sets the name and optional logo in the sidebar, the topbar, and above the sign-in and sign-up cards, and the optional favicon | [Branding](#branding-and-theme) |
 | `dark_by_default()` | starts a first-time visitor dark | [Branding](#branding-and-theme) |
+| `environment(Environment)` | names the deployment, such as staging, on every page | [Branding](#branding-and-theme) |
 | `login_hint(text)` | adds a line under the sign-in card | [Branding](#branding-and-theme) |
 | `locales(locales)` | lists the locales the panel offers, the default first, English by default | [Translations](./translations.md) |
 | `translations(locale, ftl)` | adds the app's Fluent catalog for a locale | [Translations](./translations.md#catalogs) |
@@ -388,6 +389,38 @@ tenant predicate. See [Data access](./data-access.md).
   and wins over this default. Under the system's theme, `tablo-ui`'s script mirrors the system's
   scheme into `tablo_scheme` for the server to render. Without the call the panel starts light.
 - `login_hint` renders a muted line under the sign-in card, such as demo credentials.
+
+### Brand colors
+
+A brand repaints the shipped theme without a stylesheet of the app's own:
+
+```rust,ignore
+Brand::new("Acme")
+    .color("oklch(0.55 0.2 270)")      // buttons, links, focus rings, the brand mark
+    .dark_color("oklch(0.7 0.16 270)") // the same while the page renders dark
+    .on_color("#ffffff")               // the text on them
+    .radius(Radius::Large)             // every corner
+```
+
+Each page then carries a small `<style>` after the stylesheet, which redeclares `--primary`,
+`--ring`, `--primary-foreground` and `--radius`. A color is a hex color or a color function of
+plain arguments: mounting the panel refuses anything else (`BrandColor`), since the style sheet
+would carry it as it is.
+
+### Environments
+
+`environment(Environment::new("Staging"))` draws a stripe along the top of every page of the panel,
+its sign-in pages included, and a badge at the bottom, in `Color::Warning` unless `.color(..)`
+picks another; the browser tab title starts with `[Staging]`. Read it from the deployment, and give
+production none:
+
+```rust,ignore
+let panel = match std::env::var("APP_ENV").as_deref() {
+    Ok("production") => panel,
+    Ok(name) => panel.environment(Environment::new(name.to_owned())),
+    Err(_) => panel.environment(Environment::new("Local").color(Color::Info)),
+};
+```
 
 ### Theme tokens
 

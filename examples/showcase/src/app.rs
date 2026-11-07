@@ -5,13 +5,13 @@ use std::path::PathBuf;
 use tablo::{
     Ability, ActionLayout, Allow, Auth, AuthMail, BooleanColumn, Brand, Change, Color,
     ComputedColumn, CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification,
-    EmbeddedColumn, FieldErrors, FontWeight, GlobalSearch, Grid, Group, HeaderAction, ModelColumns,
-    NavigationItem, Notification, Notifications, NumberFilter, Pagination, Panel, PanelHandle,
-    PanelUser, PasswordReset, PresenceFilter, PublicLink, QueryFilter, Reads, Relation,
-    RelationColumn, RepeaterColumn, Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt,
-    RowLink, Schema, Section, SelectFilter, Step, Tab, Table, Tabs, Tenancy, TenantRegistration,
-    TernaryFilter, TextColumn, TextFilter, TextMatch, ToggleColumn, TwoFactor, Wizard, lens,
-    relation, tenant_id, when,
+    EmbeddedColumn, Environment, FieldErrors, FontWeight, GlobalSearch, Grid, Group, HeaderAction,
+    ModelColumns, NavigationItem, Notification, Notifications, NumberFilter, Pagination, Panel,
+    PanelHandle, PanelUser, PasswordReset, PresenceFilter, PublicLink, QueryFilter, Reads,
+    Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef, RichTextColumn,
+    RouterBuilderPanelExt, RowLink, Schema, Section, SelectFilter, Step, Tab, Table, Tabs, Tenancy,
+    TenantRegistration, TernaryFilter, TextColumn, TextFilter, TextMatch, ToggleColumn, TwoFactor,
+    Wizard, lens, relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -480,6 +480,7 @@ pub fn admin_panel() -> Panel {
                 .email_verification(EmailVerification::new(StaffAuth)),
         )
         .brand(Brand::new("Tablo Blog").logo(LOGO).favicon(LOGO))
+        .environment(Environment::new("Demo").color(Color::Info))
         .home::<Dashboard>()
         .resource::<UserResource>()
         .resource::<AuthorResource>()

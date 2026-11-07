@@ -1,11 +1,14 @@
 //! The shell around a panel's pages: its brand, and the theme and sidebar its cookies restore.
 
 use http::header::COOKIE;
-use tablo::{Brand, Panel, ReadOnly, Resource, ResourceDef, Table, TextColumn, lens};
+use tablo::{
+    Brand, Color, DeclarationErrorKind, Environment, Panel, Radius, ReadOnly, Resource,
+    ResourceDef, Table, TextColumn, lens,
+};
 use topcoat::router::{Body, Router};
 use uuid::Uuid;
 
-use crate::common::{body_string, mount, panel, test_db};
+use crate::common::{body_string, mount, panel, refusal, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Book {
@@ -159,5 +162,63 @@ async fn the_sign_in_page_follows_the_dark_mode_default() {
     assert_eq!(
         html_tag(&body_string(response).await),
         "<html lang=\"en\" dir=\"ltr\" class=\"dark\">"
+    );
+}
+
+/// The brand's colors and radius reach the page as the theme's tokens, the dark ones winning while
+/// it renders dark.
+#[tokio::test]
+async fn the_brand_paints_the_themes_primary_tokens() {
+    let router = books(
+        panel().brand(
+            Brand::new("Acme")
+                .color("#4f46e5")
+                .dark_color("oklch(0.7 0.15 270)")
+                .radius(Radius::Large),
+        ),
+    )
+    .await;
+    let html = list_page(&router, "").await;
+    assert!(
+        html.contains(
+            ":root{--primary:#4f46e5;--ring:#4f46e5;--radius:0.75rem;}\
+             :root.dark{--primary:oklch(0.7 0.15 270);--ring:oklch(0.7 0.15 270);}"
+        ),
+        "{html}"
+    );
+}
+
+/// A color that could close the declaration and open another refuses the mount instead of
+/// reaching the stylesheet.
+#[tokio::test]
+async fn the_mount_refuses_a_brand_color_that_is_no_color() {
+    let db = test_db(toasty::models!(Book)).await;
+    let hostile = "red;}body{display:none";
+    let errors = refusal(mount(
+        db,
+        panel()
+            .brand(Brand::new("Acme").color(hostile))
+            .resource::<BookResource>(),
+    ));
+    assert!(
+        errors.iter().any(|error| error.kind
+            == DeclarationErrorKind::BrandColor {
+                value: hostile.to_owned()
+            }),
+        "{errors:?}"
+    );
+}
+
+/// An environment names itself on every page: its badge, and the start of the tab title.
+#[tokio::test]
+async fn an_environment_names_itself_on_every_page() {
+    let router = books(panel().environment(Environment::new("Staging").color(Color::Info))).await;
+    let html = list_page(&router, "").await;
+    assert!(html.contains("<title>[Staging] "), "{html}");
+    assert!(html.contains("data-environment=\"Staging\""), "{html}");
+    let html = list_page(&books(panel()).await, "").await;
+    assert!(
+        !html.contains("data-environment"),
+        "no environment, no badge"
     );
 }

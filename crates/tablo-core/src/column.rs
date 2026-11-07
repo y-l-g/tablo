@@ -151,6 +151,7 @@ pub(crate) use bare::{bare_column, reads_own_fields};
 pub use boolean::BooleanColumn;
 pub(crate) use cell::link_href;
 pub use color::ColorColumn;
+pub(crate) use color::is_css_color;
 pub use computed::ComputedColumn;
 pub use date::{DateColumn, DateValue};
 pub(crate) use editable::Editor;
@@ -166,10 +167,10 @@ pub use repeater::RepeaterColumn;
 #[cfg(feature = "rich-text")]
 pub use rich_text::RichTextColumn;
 pub(crate) use sealed::ColumnInternals;
+#[cfg(test)]
+use text::escape_like_pattern;
 pub(crate) use text::{LIKE_ESCAPE, escape_like};
 pub use text::{TextColumn, contains_expr};
-#[cfg(test)]
-use {color::is_css_color, text::escape_like_pattern};
 
 mod sealed {
     use topcoat::{context::Cx, view::BoxView};
