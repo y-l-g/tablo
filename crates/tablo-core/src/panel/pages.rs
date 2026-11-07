@@ -88,14 +88,40 @@ pub fn page_filter_bar<P: Page>(cx: &Cx) -> BoxView<'_> {
 /// The registered page the request's path names, once the panel's sign-in and the page's access
 /// admit the request.
 pub(crate) fn current_page(cx: &Cx) -> Option<&Arc<MountedPage>> {
+    current_entry(cx).and_then(|(page, _)| mounted_admitted(cx, page))
+}
+
+/// The registered page the request is to, and its URL.
+fn current_entry(cx: &Cx) -> Option<(TypeId, &str)> {
     let panel = super::state::current(cx)?;
     let path = topcoat::router::request::uri(cx)
         .path()
         .trim_end_matches('/');
-    let (page, _) = panel.urls.iter().find(|(page, url)| {
-        url.trim_end_matches('/') == path && panel.mounted_pages.contains_key(*page)
-    })?;
-    mounted_admitted(cx, *page)
+    panel
+        .urls
+        .iter()
+        .find(|(page, url)| {
+            url.trim_end_matches('/') == path && panel.mounted_pages.contains_key(*page)
+        })
+        .map(|(page, url)| (*page, url.as_str()))
+}
+
+/// The header bar of the registered page the request is to, holding the actions it may run; empty
+/// on a request to no such page or one it may not open. A page whose body auth renders, such as
+/// the profile placed in an area, shows it so.
+pub(super) fn current_header_bar(cx: &Cx) -> super::bar::ActionBar {
+    current_entry(cx)
+        .and_then(|(page, url)| {
+            let mounted = mounted_admitted(cx, page)?;
+            Some(super::header_bar(
+                cx,
+                url,
+                &mounted.header_actions,
+                |_| true,
+                &[],
+            ))
+        })
+        .unwrap_or_default()
 }
 
 /// The header buttons of `mounted`, the page of type `page`, that the request may run.

@@ -1,20 +1,21 @@
 //! Registering an [`Area`]: its slug, its groups' resources and pages under its URL, the pages
 //! auth serves that it holds, and its entry in the panel's sidebar.
 
-use std::sync::Arc;
+use std::{any::TypeId, sync::Arc};
 
 use topcoat::{
     context::Cx,
     router::{Body, RouteFuture, error::redirect},
 };
 
-use super::{CustomizePage, Registration, Registry};
+use super::{CustomizePage, Registration, Registry, list_actions_route};
 use crate::{
-    AreaFault, DeclarationError, DeclarationErrorKind, NavigationItem, PageDef, Text,
+    AreaFault, DeclarationError, DeclarationErrorKind, NavigationItem, Page, PageDef, Text,
     navigation::NavTarget,
-    page::MountedPage,
+    page::{MountedPage, check_page},
     panel::{
         area::{Area, AreaEntry, AreaGroupLabel, AuthPage},
+        pages::{page_action, page_action_options},
         state::{AreaNav, AreaSlot, NavEntry, current},
     },
 };
@@ -30,6 +31,17 @@ pub(super) struct Scope {
 
 /// The group label a tenant group's entries carry until the shell names the tenant.
 pub(crate) const TENANT_GROUP: &str = "tablo-shell-tenants";
+
+/// The profile page as the panel's pages know it once it is placed in an area, so its header
+/// actions mount, check and render as a page's do. Auth renders its body.
+struct ProfileSettings;
+
+impl Page for ProfileSettings {}
+
+/// The tenant settings page as the panel's pages know it, as [`ProfileSettings`] is.
+struct TenantSettings;
+
+impl Page for TenantSettings {}
 
 impl Registration for Area {
     fn register(self: Box<Self>, registry: &mut Registry) {
@@ -181,12 +193,17 @@ impl Registry {
             customize(PageDef::new().icon(icon)),
             slug.to_string(),
             Text::message(label),
-        );
+        )
+        .with_access(move |cx| page.offered(cx));
         let declared = [
             (!mounted.widgets.widgets.is_empty(), "widgets"),
             (!mounted.filters.is_empty(), "filters"),
             (mounted.access_declared, "an access check"),
-            (!mounted.header_actions.is_empty(), "header actions"),
+            // Auth renders the two-factor page as no form it shares with the others.
+            (
+                page == AuthPage::TwoFactor && !mounted.header_actions.is_empty(),
+                "header actions",
+            ),
         ];
         let mut refused = false;
         for (_, feature) in declared.into_iter().filter(|(declares, _)| *declares) {
@@ -205,17 +222,40 @@ impl Registry {
             return;
         };
         self.auth_pages.push((page, url.clone()));
-        if mounted.navigation_hidden {
-            return;
-        }
         let entry = NavEntry {
-            item: mounted.navigation.resolved(&url),
-            visible: Arc::new(move |cx| page.offered(cx)),
+            item: mounted.navigation.clone().resolved(&url),
+            visible: mounted.access(),
             resource_list: None,
             badge: None,
             area: None,
         };
-        self.push_nav(entry, false);
+        let listed = !mounted.navigation_hidden;
+        if !mounted.header_actions.is_empty() {
+            match page {
+                AuthPage::Profile => self.mount_actions::<ProfileSettings>(&url, mounted),
+                AuthPage::TenantProfile => self.mount_actions::<TenantSettings>(&url, mounted),
+                AuthPage::TwoFactor => {}
+            }
+        }
+        if listed {
+            self.push_nav(entry, false);
+        }
+    }
+
+    /// Serves the header actions of `mounted`, the auth page at `url`, as the page `P`'s: their
+    /// POST and option search, behind the page's access, checked as a page's are.
+    fn mount_actions<P: Page>(&mut self, url: &str, mounted: MountedPage) {
+        let mounted = Arc::new(mounted);
+        let actions = list_actions_route(url);
+        self.page(http::Method::POST, &actions, page_action::<P>);
+        self.route(
+            http::Method::GET,
+            &format!("{actions}/options"),
+            page_action_options::<P>,
+        );
+        self.page_checks.push(check_page::<P>(Arc::clone(&mounted)));
+        self.urls.insert(TypeId::of::<P>(), url.to_string());
+        self.mounted_pages.insert(TypeId::of::<P>(), mounted);
     }
 }
 

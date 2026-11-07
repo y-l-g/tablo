@@ -214,7 +214,9 @@ home, then each group with the entries the user may open, and the trail starts a
 
 `AreaGroup::profile`, `two_factor` and `tenant_profile` move the pages auth serves into the group.
 The user menu and the tenant menu link them at their new URL, and the prefix no longer serves
-them. A group added with `Area::tenant_group` is headed by the name of the tenant the request acts
+them. `profile_with` and `tenant_profile_with` adjust the moved page's def, and take header actions
+there, which render in the form's header: deleting the account, or the tenant, belongs on the page
+that edits it. A group added with `Area::tenant_group` is headed by the name of the tenant the request acts
 for, and shows nothing to a request that acts for none.
 
 ## Global search

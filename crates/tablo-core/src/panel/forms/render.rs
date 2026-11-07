@@ -195,6 +195,12 @@ impl<'a> FormChrome<'a> {
         }
     }
 
+    /// The chrome with `actions` in its header: a settings page's header actions.
+    pub(crate) fn with_actions(mut self, actions: ActionBar) -> Self {
+        self.actions = actions;
+        self
+    }
+
     /// The chrome with the hidden `(name, value)` control the submit carries besides the schema's.
     pub(crate) fn with_hidden(mut self, name: &str, value: String) -> Self {
         self.hidden.push((name.to_string(), value));
