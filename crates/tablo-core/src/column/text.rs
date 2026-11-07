@@ -142,21 +142,24 @@ type RowFn<M, V> = ReadFn<M, V>;
 /// A column's spelling of its value, which may read the rest of the row.
 type FormatFn<M, T> = Arc<dyn Fn(&M, &T) -> Text + Send + Sync>;
 
-/// The escape character the search pattern declares to `LIKE`.
-const LIKE_ESCAPE: char = '\\';
+/// The escape character a search or filter pattern declares to `LIKE`.
+pub(crate) const LIKE_ESCAPE: char = '\\';
+
+/// `term` with `LIKE`'s wildcards and the escape character escaped, so it matches only itself.
+pub(crate) fn escape_like(term: &str) -> String {
+    let mut escaped = String::with_capacity(term.len());
+    for c in term.chars() {
+        if c == LIKE_ESCAPE || c == '%' || c == '_' {
+            escaped.push(LIKE_ESCAPE);
+        }
+        escaped.push(c);
+    }
+    escaped
+}
 
 /// Wrap `term` as a `LIKE` pattern matching it anywhere in the column.
 pub(super) fn escape_like_pattern(term: &str) -> String {
-    let mut pattern = String::with_capacity(term.len() + 2);
-    pattern.push('%');
-    for c in term.chars() {
-        if c == LIKE_ESCAPE || c == '%' || c == '_' {
-            pattern.push(LIKE_ESCAPE);
-        }
-        pattern.push(c);
-    }
-    pattern.push('%');
-    pattern
+    format!("%{}%", escape_like(term))
 }
 
 /// Escaped substring predicate for `lens` matching `term`.

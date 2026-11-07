@@ -131,6 +131,8 @@ const RENDER_HOOKS: &[&str] = &[
     "schema/repeater.rs",
     "table/filter/date.rs",
     "table/filter/input.rs",
+    "table/filter/number.rs",
+    "table/filter/text.rs",
 ];
 
 #[test]

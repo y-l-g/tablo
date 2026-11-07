@@ -1,4 +1,5 @@
 use showcase::models::{Author, Post, PostStatus};
+use tablo::testing::{IgnoredFilter, IgnoredReason, ignored_filters};
 
 use crate::common::{
     body_string, demo_client, filter_options, find_href_with, full_db, input_value, pager_link,
@@ -549,4 +550,77 @@ async fn posts_filter_variant_promoted_pairs_the_flag_with_status() {
         let expected: Vec<String> = expected.iter().map(|title| title.to_string()).collect();
         assert_eq!(row_titles(&html), expected, "{query}: {html}");
     }
+}
+
+/// The age range keeps the users its bounds include, both ends counted.
+#[tokio::test]
+async fn the_age_range_keeps_the_users_within_its_bounds() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let html = body_string(client.get("/admin/users?f.age.min=57&f.age.max=62").await).await;
+    let mut names = row_titles(&html);
+    names.sort();
+    assert_eq!(
+        names,
+        ["Claude Shannon", "Dorothy Vaughan", "Frances Allen"],
+        "{html}"
+    );
+}
+
+/// The email filter matches whatever case the term is typed in, on every driver, and refuses a
+/// way it does not offer.
+#[tokio::test]
+async fn the_email_filter_ignores_case_and_offers_only_its_ways() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let is = body_string(
+        client
+            .get("/admin/users?f.email=KEN%40Example.COM&f.email.op=is")
+            .await,
+    )
+    .await;
+    assert_eq!(row_titles(&is), ["Ken Thompson"], "{is}");
+    let contains = body_string(
+        client
+            .get("/admin/users?f.email=ken&f.email.op=contains")
+            .await,
+    )
+    .await;
+    assert_eq!(
+        ignored_filters(&contains),
+        [IgnoredFilter {
+            filter: "f.email=ken&f.email.op=contains".to_string(),
+            reason: IgnoredReason::Invalid,
+        }],
+        "{contains}"
+    );
+}
+
+/// The cover filter splits the posts by whether one is set.
+#[tokio::test]
+async fn the_cover_filter_splits_the_posts_by_whether_one_is_set() {
+    let db = full_db().await;
+    let mut db_w = db.clone();
+    let mut post = Post::filter(Post::fields().title().eq("Hello Toasty"))
+        .first()
+        .exec(&mut db_w)
+        .await
+        .unwrap()
+        .expect("the seeded post");
+    post.update()
+        .cover_id(Some(uuid::Uuid::new_v4()))
+        .exec(&mut db_w)
+        .await
+        .unwrap();
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let set = body_string(client.get("/admin/posts?f.cover_id=set").await).await;
+    assert_eq!(row_titles(&set), ["Hello Toasty"], "{set}");
+    let empty = body_string(client.get("/admin/posts?f.cover_id=empty").await).await;
+    assert!(
+        !row_titles(&empty).is_empty() && !row_titles(&empty).contains(&"Hello Toasty".to_string()),
+        "{empty}"
+    );
 }

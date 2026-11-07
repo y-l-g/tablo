@@ -166,6 +166,7 @@ pub use repeater::RepeaterColumn;
 #[cfg(feature = "rich-text")]
 pub use rich_text::RichTextColumn;
 pub(crate) use sealed::ColumnInternals;
+pub(crate) use text::{LIKE_ESCAPE, escape_like};
 pub use text::{TextColumn, contains_expr};
 #[cfg(test)]
 use {color::is_css_color, text::escape_like_pattern};

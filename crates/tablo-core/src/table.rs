@@ -34,7 +34,10 @@ mod tab;
 
 use self::sort::FieldOrder;
 pub use self::{
-    filter::{DateFilter, FilterValue, IntoFilters, QueryFilter, SelectFilter, TernaryFilter},
+    filter::{
+        DateFilter, FilterValue, IntoFilters, NumberFilter, PresenceFilter, QueryFilter,
+        SelectFilter, TernaryFilter, TextFilter, TextMatch,
+    },
     model::ModelColumns,
     page::{DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, PagePosition, Pagination, TablePage},
     row_link::RowLink,

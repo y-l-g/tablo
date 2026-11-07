@@ -140,6 +140,18 @@ tablo-filter-ignored-invalid = invalid value
 tablo-filter-all = All
 tablo-filter-true = True
 tablo-filter-false = False
+tablo-filter-set = Has a value
+tablo-filter-empty = Empty
+# A number filter's range inputs.
+tablo-filter-min = { $label } from
+tablo-filter-max = { $label } to
+# A text filter's choice of how its term matches.
+tablo-filter-text-way = How { $label } matches
+tablo-filter-text-contains = Contains
+tablo-filter-text-excludes = Does not contain
+tablo-filter-text-starts = Starts with
+tablo-filter-text-ends = Ends with
+tablo-filter-text-is = Is
 
 # A page's filter bar above its widgets.
 tablo-page-filters-apply = Apply

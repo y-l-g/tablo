@@ -6,11 +6,12 @@ use tablo::{
     Ability, ActionLayout, Allow, Auth, AuthMail, BooleanColumn, Brand, Change, Color,
     ComputedColumn, CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification,
     EmbeddedColumn, FieldErrors, FontWeight, GlobalSearch, Grid, Group, HeaderAction, ModelColumns,
-    NavigationItem, Notification, Notifications, Pagination, Panel, PanelHandle, PanelUser,
-    PasswordReset, PublicLink, QueryFilter, Reads, Relation, RelationColumn, RepeaterColumn,
-    Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt, RowLink, Schema, Section,
-    SelectFilter, Step, Tab, Table, Tabs, Tenancy, TenantRegistration, TernaryFilter, TextColumn,
-    ToggleColumn, TwoFactor, Wizard, lens, relation, tenant_id, when,
+    NavigationItem, Notification, Notifications, NumberFilter, Pagination, Panel, PanelHandle,
+    PanelUser, PasswordReset, PresenceFilter, PublicLink, QueryFilter, Reads, Relation,
+    RelationColumn, RepeaterColumn, Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt,
+    RowLink, Schema, Section, SelectFilter, Step, Tab, Table, Tabs, Tenancy, TenantRegistration,
+    TernaryFilter, TextColumn, TextFilter, TextMatch, ToggleColumn, TwoFactor, Wizard, lens,
+    relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -76,6 +77,10 @@ impl Resource for UserResource {
             )))
             // Creates users from a CSV file, each row checked as the create form checks it.
             .importable()
+            .table(User::table().filters((
+                NumberFilter::new(lens!(User.age)).range(),
+                TextFilter::new(lens!(User.email)).matching([TextMatch::EndsWith, TextMatch::Is]),
+            )))
             .detail(Detail::new(Section::new("Profile").columns(User::detail())))
             .record_title(lens!(User.name))
             // Lists each user's email and role under their name in the topbar's search.
@@ -308,7 +313,7 @@ fn post_table() -> Table<Post> {
     )
     // Every post, then a tab per status, each counted.
     .option_tabs(lens!(Post.status))
-    // Five filters: the reader sets several, then applies them at once.
+    // Six filters: the reader sets several, then applies them at once.
     .deferred_filters()
     .filters((
         SelectFilter::of(lens!(Post.status)).multiple(),
@@ -317,6 +322,7 @@ fn post_table() -> Table<Post> {
             .label("Created")
             .range(),
         SelectFilter::relationship::<AuthorResource>(lens!(Post.author_id)).label("Author"),
+        PresenceFilter::new(lens!(Post.cover_id)).labels("With a cover", "Without a cover"),
         QueryFilter::new("promoted", "Promoted")
             .option(
                 "Promoted",
