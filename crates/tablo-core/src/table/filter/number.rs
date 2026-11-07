@@ -36,7 +36,26 @@ macro_rules! filter_number {
     };
 }
 
-filter_number!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize, f32, f64);
+filter_number!(i8, i16, i32, i64, isize, u8, u16, u32, f32, f64);
+
+/// Binds the unsigned types wider than an `i64`, refusing a bound above `i64::MAX`: SQLite wraps
+/// one into a negative and PostgreSQL refuses it, so it could match every row or fail the page.
+macro_rules! filter_wide_unsigned {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl FilterNumber for $ty {
+                type Value = Self;
+
+                fn parse(value: &str) -> Option<Self> {
+                    <$ty as TypedValue>::parse_input(value)
+                        .filter(|value| i64::try_from(*value).is_ok())
+                }
+            }
+        )*
+    };
+}
+
+filter_wide_unsigned!(u64, usize);
 
 impl<T: FilterNumber<Value = T> + IntoExpr<T> + PartialOrd> FilterNumber for Option<T> {
     type Value = T;

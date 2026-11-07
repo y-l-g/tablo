@@ -230,8 +230,8 @@ you build:
 {{#include ../../../examples/guide/src/tables.rs:table-comparison-filters}}
 ```
 
-A text filter ignores case on every driver, as the search does. An
-active filter's parameter is `?f.<name>=<value>`, named after the field, and active filters
+A text filter ignores case as the search does: through `ILIKE` on PostgreSQL, the column's
+collation on MySQL, and for ASCII letters only on SQLite and Turso. An active filter's parameter is `?f.<name>=<value>`, named after the field, and active filters
 combine with AND. Each filter's page has its values and its options, such as `.multiple()` for a
 checklist or `DateFilter::range` for two bounds.
 

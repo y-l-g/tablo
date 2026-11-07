@@ -106,8 +106,9 @@ type NoneFn = Arc<dyn Fn() -> Option<Expr<bool>> + Send + Sync>;
 ///
 /// `f.<name>=<term>` matches by the first way the filter offers, [`Contains`](TextMatch::Contains)
 /// unless [`matching`](Self::matching) says otherwise; `f.<name>.op=<way>` picks another it
-/// offers. The match ignores case on every driver, as the table's search does, and `%` and `_`
-/// match only themselves. [`Excludes`](TextMatch::Excludes) also matches a record whose optional
+/// offers. The match ignores case as the table's search does: `ILIKE` on PostgreSQL, the
+/// column's collation on MySQL, and ASCII letters only on SQLite and Turso. `%` and `_` match only
+/// themselves. [`Excludes`](TextMatch::Excludes) also matches a record whose optional
 /// field holds nothing.
 ///
 /// ```rust
@@ -196,7 +197,7 @@ where
 
     /// The match of the one term the value holds, the way its `op` part names; `None` for no
     /// term or several, another part, or a way the filter does not offer.
-    fn to_expr(&self, _cx: &Cx, value: &FilterValue) -> Option<Expr<bool>> {
+    fn to_expr(&self, cx: &Cx, value: &FilterValue) -> Option<Expr<bool>> {
         let [term] = value.values() else {
             return None;
         };
@@ -204,7 +205,12 @@ where
             return None;
         }
         let way = way(&self.ways, value)?;
-        let matched = (self.like)(way.pattern(term));
+        // Only this filter's own `LIKE` folds case: an app filter's keeps the driver's meaning.
+        let like = (self.like)(way.pattern(term));
+        let matched = match topcoat::context::try_context::<toasty::Db>(cx) {
+            Some(db) => crate::toasty_compat::case_insensitive_search(db, like),
+            None => like,
+        };
         Some(match way {
             TextMatch::Excludes => match (self.none)() {
                 Some(none) => matched.not().or(none),

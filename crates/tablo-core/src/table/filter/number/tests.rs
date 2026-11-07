@@ -105,3 +105,17 @@ fn a_number_filter_refuses_what_bounds_nothing_it_can_read() {
         "a filter without a range renders no bound input, so it reads no part"
     );
 }
+
+proptest::proptest! {
+    /// An unsigned bound is accepted exactly when the drivers can bind it as an `i64`, so a huge
+    /// one neither wraps into a negative nor fails the query.
+    #[test]
+    fn a_wide_unsigned_bound_fits_an_i64(value: u64) {
+        let parsed = <u64 as FilterNumber>::parse(&value.to_string());
+        proptest::prop_assert_eq!(parsed.is_some(), value <= i64::MAX as u64);
+        proptest::prop_assert_eq!(
+            <usize as FilterNumber>::parse(&value.to_string()).is_some(),
+            usize::try_from(value).is_ok() && value <= i64::MAX as u64
+        );
+    }
+}

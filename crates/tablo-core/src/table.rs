@@ -528,10 +528,8 @@ impl<M> Table<M> {
         {
             query = query.filter(crate::toasty_compat::case_insensitive_search(db, expr));
         }
-        // A filter's `LIKE`, such as a `TextFilter`'s, ignores case on every driver, as the
-        // search's does.
         if let Some(expr) = self.filter_expr(cx, state, refused) {
-            query = query.filter(crate::toasty_compat::case_insensitive_search(db, expr));
+            query = query.filter(expr);
         }
         query
     }
