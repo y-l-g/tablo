@@ -1,8 +1,9 @@
-//! A resource hidden from the sidebar: it stays mounted and answers at its URL under its policy,
-//! and neither a sidebar entry nor the panel root leads to it.
+//! A resource or a page hidden from the sidebar: it stays mounted and answers at its URL under its
+//! policy or access check, and neither a sidebar entry nor the panel root leads to it.
 
 use tablo::{
-    DeclarationErrorKind, Page, ReadOnly, Resource, ResourceDef, Site, Table, TextColumn, lens,
+    DeclarationErrorKind, Page, PageDef, ReadOnly, Resource, ResourceDef, Site, Table, TextColumn,
+    lens,
     testing::{TestClient, mount_with_handle, nav_links},
 };
 use topcoat::{
@@ -12,7 +13,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::common::{mount, panel, refusal, test_db};
+use crate::common::{body_string, mount, panel, refusal, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
 struct Book {
@@ -140,4 +141,59 @@ async fn a_panel_of_hidden_resources_needs_a_home_page() {
         mount(db, panel().home::<Home>().resource::<ArchiveResource>()).expect("the panel mounts");
     let root = TestClient::new(&router).get("/admin").await;
     assert_eq!(root.status(), http::StatusCode::OK);
+}
+
+/// A page kept out of the sidebar, linked from elsewhere.
+struct AccountPage;
+
+impl Page for AccountPage {
+    fn declare() -> PageDef {
+        PageDef::new().slug("account").without_navigation()
+    }
+
+    async fn render(cx: &Cx) -> Result<impl View> {
+        Ok(view! { "account" })
+    }
+}
+
+/// The same page, refused to everyone.
+struct ClosedPage;
+
+impl Page for ClosedPage {
+    fn declare() -> PageDef {
+        PageDef::new()
+            .slug("closed")
+            .without_navigation()
+            .access(|_cx| false)
+    }
+
+    async fn render(cx: &Cx) -> Result<impl View> {
+        Ok(view! { "closed" })
+    }
+}
+
+/// A hidden page answers at its URL, under its access check, and no sidebar entry leads to it,
+/// on its own page or another's.
+#[tokio::test]
+async fn a_hidden_page_answers_at_its_url_and_leaves_the_sidebar() {
+    let db = test_db(toasty::models!(Book)).await;
+    let (router, handle) = mount_with_handle(
+        db,
+        panel()
+            .page::<AccountPage>()
+            .page::<ClosedPage>()
+            .resource::<BookResource>(),
+    )
+    .expect("the panel mounts");
+    let client = TestClient::new(&router).panel(&handle);
+
+    let account = client.get("/admin/account").await;
+    assert_eq!(account.status(), http::StatusCode::OK);
+    assert_eq!(nav_links(&body_string(account).await), ["/admin/books"]);
+
+    let books = client.resource::<BookResource>().list().await;
+    assert_eq!(nav_links(books.html()), ["/admin/books"]);
+
+    let closed = client.get("/admin/closed").await;
+    assert_eq!(closed.status(), http::StatusCode::FORBIDDEN);
 }

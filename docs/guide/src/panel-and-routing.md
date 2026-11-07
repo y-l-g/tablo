@@ -133,15 +133,15 @@ call it replaces the shell entirely:
 ## Sidebar
 
 Every resource and page gets one sidebar entry, labelled with its plural label (a page's
-`label`) and linked to its list or page URL, unless its resource is hidden as described
-below. The sidebar lists an entry only when the request's user may open it: a resource's
+`label`) and linked to its list or page URL, unless it is hidden as described below. The sidebar lists an entry only when the request's user may open it: a resource's
 when its policy allows `ViewAny`, a page's when its `PageDef::access` answers `true`. So a
 user never sees a link that would answer 403.
 
-A resource that calls `ResourceDef::without_navigation()` gets no entry. Its pages stay
-mounted and answer at their URLs under its policy, but the topbar trail starts at the
-sidebar entry a page is under, so it has none for them unless another entry covers their
-path, such as the home page.
+A resource that calls `ResourceDef::without_navigation()`, or a page whose def calls
+`PageDef::without_navigation()`, gets no entry. Its pages stay mounted and answer at their URLs
+under its policy or access check, but the topbar trail starts at the sidebar entry a page is
+under, so it has none for them unless another entry covers their path, such as the home page.
+Link such a page from the user menu with `Panel::user_menu_item`.
 
 A resource sets the order and an icon on its def, and the panel resolves the URL:
 
