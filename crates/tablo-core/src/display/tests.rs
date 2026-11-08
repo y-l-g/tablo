@@ -169,6 +169,16 @@ fn a_big_decimal_reads_as_at_most_38_digits() {
 }
 
 #[test]
+fn a_number_and_a_percentage_spell_in_english_outside_a_panel() {
+    assert_eq!(Number::format(1_234_567.891, 2), "1,234,567.89");
+    assert_eq!(Number::percent(-12.34, 1), "-12.3%");
+    assert_eq!(Number::format(None::<i32>, 2), "");
+    assert_eq!(Number::percent(None::<f64>, 1), "");
+    let cx = topcoat::context::Cx::new();
+    assert_eq!(Number::percent_in(&cx, 12.5, 1), "12.5%");
+}
+
+#[test]
 fn none_spells_nothing() {
     assert_eq!(Currency::USD.format(None::<f64>), "");
     assert_eq!(Currency::USD.format(Some(3_u8)), "$3.00");

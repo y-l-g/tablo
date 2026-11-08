@@ -58,11 +58,13 @@ tablo-action-delete = Delete
 tablo-yes = Yes
 tablo-no = No
 
-# How the locale writes numbers and amounts: the thousands separator, the decimal mark, and an
-# amount with its sign and currency symbol. A catalog for another locale overrides them.
+# How the locale writes numbers and amounts: the thousands separator, the decimal mark, an
+# amount with its sign and currency symbol, and a percentage. A catalog for another locale
+# overrides them.
 tablo-number-group = ,
 tablo-number-decimal = .
 tablo-money = { $sign }{ $symbol }{ $amount }
+tablo-percent = { $number }%
 
 ## Lists
 
