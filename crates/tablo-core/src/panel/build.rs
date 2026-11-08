@@ -155,8 +155,10 @@ impl Panel {
             global_search,
             limits,
             commit_hooks,
+            audit_log,
         } = self;
-        let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
+        let (mounts, mut errors) =
+            registry.register_all(registrations, audit_log, configuration_errors);
         let serves_tenants = serves_tenants(&auth, &mounts);
         errors.extend(registry.unoffered_auth_pages(&auth));
         errors.extend(mount_errors(
@@ -338,11 +340,16 @@ impl Registry {
     fn register_all(
         &mut self,
         registrations: Vec<Box<dyn super::register::Registration>>,
+        audit_log: Option<super::audit::CustomizeAuditLog>,
         configuration_errors: Vec<DeclarationError>,
     ) -> (Arc<Mounts>, Vec<DeclarationError>) {
+        if let Some(customize) = audit_log {
+            self.audit_log = super::register::AuditLogList::Unplaced(customize);
+        }
         for registration in registrations {
             registration.register(self);
         }
+        self.place_unplaced_audit_log();
         self.link_relations();
         self.check_root();
         let mut errors = configuration_errors;

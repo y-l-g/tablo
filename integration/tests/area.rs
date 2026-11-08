@@ -1,12 +1,12 @@
 //! Areas: the resources and pages an area mounts under its URL, the sidebar it shows in place of
 //! the panel's, the redirect at its root, the pages auth serves that it holds and their header
-//! actions, and the mistakes mounting refuses.
+//! actions, the audit log it holds, and the mistakes mounting refuses.
 
 use http::header::LOCATION;
 use tablo::{
-    Area, AreaFault, Auth, DeclarationErrorKind, FieldErrors, FormInput, HeaderAction, Membership,
-    NoForm, Outcome, Page, PageDef, PasswordAuth, ReadOnly, Resource, ResourceDef,
-    RouterBuilderPanelExt, Table, TextColumn, WriteError,
+    Allow, Area, AreaFault, AuditEntry, Auth, DeclarationErrorKind, FieldErrors, FormInput,
+    HeaderAction, Membership, NoForm, Outcome, Page, PageDef, PasswordAuth, ReadOnly, Resource,
+    ResourceDef, RouterBuilderPanelExt, Table, TextColumn, WriteError,
     auth::{AdminUser, AuthSession, TenantEditor, create_admin},
     lens,
     testing::{
@@ -429,6 +429,68 @@ async fn the_tenant_settings_actions_follow_who_may_edit_the_tenant() {
     let member = TestClient::new(&router).sign_in(&db, "admin", &alan).await;
     let refused = member.submit(action, &form_body(&[])).await;
     assert_eq!(refused.status(), 403);
+}
+
+/// An area that holds the audit log lists it under the area, and the panel's sidebar and prefix
+/// no longer do.
+#[tokio::test]
+async fn the_audit_log_moves_into_the_area_that_holds_it() {
+    let db = test_db(toasty::models!(Book, AuditEntry)).await;
+    let (router, handle) = mount_with_handle(
+        db,
+        panel()
+            .resource::<BookResource>()
+            .audit_log(|log| log.policy(Allow))
+            .area(Area::new("settings").group("Library", |group| {
+                group.resource::<ShelfResource>().audit_log()
+            })),
+    )
+    .expect("the panel mounts");
+    let client = TestClient::new(&router).panel(&handle);
+
+    let books = body_string(client.get("/admin/books").await).await;
+    assert_eq!(nav_links(&books), ["/admin/books", "/admin/settings"]);
+    assert_eq!(client.get("/admin/audit-log").await.status(), 404);
+    let log = client.get("/admin/settings/audit-log").await;
+    assert_eq!(log.status(), 200);
+    assert_eq!(
+        nav_groups(&body_string(log).await),
+        [NavGroup {
+            label: "Library".to_string(),
+            links: vec![
+                "/admin/settings/books".to_string(),
+                "/admin/settings/audit-log".to_string()
+            ],
+        }]
+    );
+}
+
+/// An area holding the audit log of a panel that keeps none, or two groups holding it, refuse
+/// to mount.
+#[tokio::test]
+async fn mounting_refuses_an_audit_log_placed_without_one_or_twice() {
+    let db = test_db(toasty::models!(Book, AuditEntry)).await;
+    let kinds = |panel: tablo::Panel| {
+        refusal(mount(db.clone(), panel.resource::<BookResource>()))
+            .into_iter()
+            .map(|error| error.kind)
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(
+        kinds(panel().area(Area::new("settings").group("Log", |group| group.audit_log()))),
+        [DeclarationErrorKind::Area(AreaFault::AuditLogNotKept)]
+    );
+    assert_eq!(
+        kinds(
+            panel().audit_log(|log| log.policy(Allow)).area(
+                Area::new("settings")
+                    .group("One", |group| group.audit_log())
+                    .group("Two", |group| group.audit_log())
+            )
+        ),
+        [DeclarationErrorKind::Area(AreaFault::AuditLogPlacedTwice)]
+    );
 }
 
 /// An area holding a page auth does not install, or the same page twice, or a def declaring

@@ -151,6 +151,9 @@ pub struct Panel {
     limits: crate::Limits,
     /// The hooks every write of the panel runs before it commits, in registration order.
     commit_hooks: Vec<commit_hook::CommitHookFn>,
+    /// How [`audit_log`](Self::audit_log) adjusts the [`AuditLog`] resource's def, when the panel
+    /// keeps one: it registers in the area group that places it, else in the panel.
+    audit_log: Option<audit::CustomizeAuditLog>,
 }
 
 impl Panel {
@@ -187,6 +190,7 @@ impl Panel {
             global_search: true,
             limits: crate::Limits::default(),
             commit_hooks: Vec::new(),
+            audit_log: None,
         }
     }
 

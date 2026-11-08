@@ -236,10 +236,12 @@ impl Panel {
             limits,
             locales,
             translations,
+            audit_log,
             ..
         } = self;
         let mut registry = Registry::new(prefix.clone(), Some(AppSchema::of_db(db)));
-        let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
+        let (mounts, mut errors) =
+            registry.register_all(registrations, audit_log, configuration_errors);
         let serves_tenants = serves_tenants(&auth, &mounts);
         registry.check_all(
             db,
