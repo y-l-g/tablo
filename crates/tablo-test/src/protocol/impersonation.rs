@@ -1,5 +1,6 @@
 //! Reads the banner a panel page shows while its signed-in user is acted as another:
-//! `[data-impersonating]`, naming the target's id, and the form its Stop button posts.
+//! `[data-impersonating]`, naming the target's id, and the form its Stop button posts; and the
+//! buttons `auth::impersonate_button` renders, `form[data-impersonate]`.
 
 use super::dom::{attr_value, elements, strip_text};
 
@@ -27,4 +28,12 @@ pub fn impersonation_banner(html: &str) -> Option<ImpersonationBanner> {
         text: strip_text(&inner),
         stop,
     })
+}
+
+/// The `user_id`s the `auth::impersonate_button` forms of `html` act as, in document order.
+pub fn impersonate_buttons(html: &str) -> Vec<String> {
+    elements(html, "form")
+        .into_iter()
+        .filter_map(|(_, attrs, _)| attr_value(&attrs, "data-impersonate"))
+        .collect()
 }
