@@ -47,6 +47,15 @@ impl Membership {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Tenant(pub TenantId);
 
+/// The tenant a test claims its request acts for, as a request extension: what
+/// `tablo::testing::TestClient::tenant` sends. Unlike a [`Tenant`] override it is no seam
+/// around membership: a signed-in user acts for it only while a member, as after switching to it
+/// from the tenant menu, and otherwise for the tenant they would act for without it. A request
+/// with nobody signed in, such as one to a panel with auth disabled, acts for it.
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ClaimedTenant(pub TenantId);
+
 /// The tenant the request acts for, if any.
 ///
 /// Checks a `Tenant` request extension first (a server-set override — the

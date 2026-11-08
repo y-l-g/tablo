@@ -143,6 +143,18 @@ async fn posts_list_is_scoped_by_tenant_via_resource_query() {
     );
 }
 
+/// The test client claims a tenant as the tenant menu switches to it: a signed-in user who holds
+/// no seat in it does not act for it, so a cross-tenant test reaches only what a browser would.
+#[tokio::test]
+async fn a_claimed_tenant_without_a_seat_is_not_acted_for() {
+    let (db, t1, _) = tenanted_db().await;
+    let router = router(db.clone());
+    let client = tenantless_client(&router, &db).await;
+
+    let resp = client.tenant(t1).get("/admin/posts").await;
+    assert_eq!(resp.status(), 403, "a seatless claim acts for no tenant");
+}
+
 #[tokio::test]
 async fn per_tenant_policy_deny_yields_403() {
     let (db, _, _) = tenanted_db().await;

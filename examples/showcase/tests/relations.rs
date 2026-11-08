@@ -310,8 +310,10 @@ async fn post_author_options_are_tenant_scoped() {
         "own-tenant options must list writers: {html}"
     );
 
+    let other = TenantId::new(uuid::Uuid::from_u128(4242));
+    crate::common::seat_demo_admin(&db, &[other]).await;
     let foreign = client
-        .tenant(TenantId::new(uuid::Uuid::from_u128(4242)))
+        .tenant(other)
         .get("/admin/posts/-/options?field=author_id")
         .await;
     assert!(foreign.status().is_success());
