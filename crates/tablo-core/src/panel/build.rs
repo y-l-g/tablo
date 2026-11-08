@@ -140,6 +140,7 @@ impl Panel {
             layout,
             registrations,
             content_security_policy,
+            content_security_policy_sources,
             strict_transport_security,
             configuration_errors,
             uploads,
@@ -194,11 +195,15 @@ impl Panel {
             None => errors.push(DeclarationError::panel(DeclarationErrorKind::MissingDb)),
         }
         let catalog = build_catalog(&locales, &translations, &mut errors);
-        let panel_headers = match headers::PanelHeaders::new(
-            prefix.clone(),
-            content_security_policy.resolve().as_deref(),
-            strict_transport_security,
-        ) {
+        let panel_headers = match content_security_policy
+            .resolve(&content_security_policy_sources)
+            .and_then(|policy| {
+                headers::PanelHeaders::new(
+                    prefix.clone(),
+                    policy.as_deref(),
+                    strict_transport_security,
+                )
+            }) {
             Ok(layer) => Some(layer),
             Err(kind) => {
                 errors.push(DeclarationError::panel(kind));

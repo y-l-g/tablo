@@ -124,6 +124,9 @@ pub struct Panel {
     registrations: Vec<Box<dyn Registration>>,
     /// The `Content-Security-Policy` of every response under the prefix.
     content_security_policy: headers::Policy,
+    /// The sources [`content_security_policy_source`](Self::content_security_policy_source)
+    /// adds to the policy, as `(directive, source)`.
+    content_security_policy_sources: Vec<(String, String)>,
     /// `Strict-Transport-Security`'s `max-age`, when the panel sends it.
     strict_transport_security: Option<std::time::Duration>,
     /// Mistakes in the panel's own configuration, for mount to report.
@@ -175,6 +178,7 @@ impl Panel {
             layout: None,
             registrations: Vec::new(),
             content_security_policy: headers::Policy::Default,
+            content_security_policy_sources: Vec::new(),
             strict_transport_security: None,
             configuration_errors,
             uploads: None,

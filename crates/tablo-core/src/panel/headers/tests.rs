@@ -31,7 +31,9 @@ fn a_policy_with_a_line_break_is_a_declaration_error() {
     let error = PanelHeaders::new("/admin", Some("'self'\r\nX-Evil: 1"), None).unwrap_err();
     assert!(matches!(
         error,
-        crate::DeclarationErrorKind::InvalidContentSecurityPolicy { .. }
+        crate::DeclarationErrorKind::ContentSecurityPolicy(
+            crate::PolicyFault::InvalidHeader { .. }
+        )
     ));
 }
 
@@ -77,6 +79,69 @@ fn a_dev_url_that_is_no_http_origin_adds_nothing() {
     ] {
         assert_eq!(default_csp(Some(url)), DEFAULT_CSP, "{url}");
     }
+}
+
+fn sources(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+    pairs
+        .iter()
+        .map(|(directive, source)| ((*directive).to_owned(), (*source).to_owned()))
+        .collect()
+}
+
+#[test]
+fn a_source_joins_the_directive_the_policy_has() {
+    let policy = with_sources(
+        "default-src 'self'; form-action 'self'",
+        &sources(&[
+            ("form-action", "https://pay.example"),
+            ("form-action", "https://pay.example"),
+        ]),
+    );
+    assert_eq!(
+        policy.as_deref(),
+        Ok("default-src 'self'; form-action 'self' https://pay.example")
+    );
+}
+
+#[test]
+fn a_missing_fetch_directive_starts_from_default_src() {
+    let policy = with_sources(
+        "default-src 'self' https://cdn.example; object-src 'none'",
+        &sources(&[
+            ("connect-src", "https://api.example"),
+            ("object-src", "https://flash.example"),
+        ]),
+    );
+    assert_eq!(
+        policy.as_deref(),
+        Ok(
+            "default-src 'self' https://cdn.example; object-src https://flash.example; \
+            connect-src 'self' https://cdn.example https://api.example"
+        )
+    );
+}
+
+#[test]
+fn what_no_policy_could_carry_is_refused() {
+    for (directive, source) in [
+        ("form-action", ""),
+        ("form-action", "https://a.example; script-src *"),
+        ("form-action", "https://a.example https://b.example"),
+        ("form-action", "https://a.example,https://b.example"),
+        ("Form-Action", "https://a.example"),
+        ("sandbox", "allow-forms"),
+    ] {
+        assert_eq!(
+            with_sources(DEFAULT_CSP, &sources(&[(directive, source)])),
+            Err(refused_source(directive, source)),
+            "{directive} {source}"
+        );
+    }
+    assert_eq!(
+        Policy::Off.resolve(&sources(&[("form-action", "https://a.example")])),
+        Err(refused_source("form-action", "https://a.example"))
+    );
+    assert_eq!(Policy::Off.resolve(&[]), Ok(None));
 }
 
 /// A served file's response with `content_type`, or none at all.

@@ -542,6 +542,17 @@ async fn a_panel_page_sends_the_security_headers() {
         Some("frame-ancestors https://a.example")
     );
 
+    let added = headers(
+        Panel::new("admin").content_security_policy_source("form-action", "https://pay.example"),
+    )
+    .await;
+    let policy = header(&added, http::header::CONTENT_SECURITY_POLICY).unwrap();
+    assert!(
+        policy.contains("form-action 'self' https://pay.example;"),
+        "{policy}"
+    );
+    assert!(policy.contains("frame-ancestors 'self'"), "{policy}");
+
     let off = headers(Panel::new("admin").without_content_security_policy()).await;
     assert_eq!(header(&off, http::header::CONTENT_SECURITY_POLICY), None);
     assert_eq!(

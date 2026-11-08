@@ -35,16 +35,96 @@ pub(crate) enum Policy {
 }
 
 impl Policy {
-    /// The header value the panel sends, if any.
-    pub(crate) fn resolve(self) -> Option<String> {
-        match self {
-            Self::Default => Some(default_csp(
-                std::env::var("TOPCOAT_DEV_URL").ok().as_deref(),
-            )),
-            Self::Custom(policy) => Some(policy),
-            Self::Off => None,
+    /// The header value the panel sends, if any, with `sources` added as
+    /// [`with_sources`] adds them.
+    pub(crate) fn resolve(
+        self,
+        sources: &[(String, String)],
+    ) -> Result<Option<String>, crate::DeclarationErrorKind> {
+        let policy = match self {
+            Self::Default => default_csp(std::env::var("TOPCOAT_DEV_URL").ok().as_deref()),
+            Self::Custom(policy) => policy,
+            Self::Off => {
+                return match sources.first() {
+                    Some((directive, source)) => Err(refused_source(directive, source)),
+                    None => Ok(None),
+                };
+            }
+        };
+        with_sources(&policy, sources).map(Some)
+    }
+}
+
+/// `policy` with each `(directive, source)` of `sources` added: to the directive when the policy
+/// has it, else to a new fetch directive (`*-src`) that starts from `default-src`'s sources, so
+/// it allows what the policy allowed before. A directive that is not a lowercase name, a source
+/// that is empty or holds whitespace, `;` or `,`, and any other directive the policy leaves out,
+/// which no source would narrow to `source` alone, are declaration errors.
+pub(crate) fn with_sources(
+    policy: &str,
+    sources: &[(String, String)],
+) -> Result<String, crate::DeclarationErrorKind> {
+    if sources.is_empty() {
+        return Ok(policy.to_owned());
+    }
+    let mut directives: Vec<Vec<&str>> = policy
+        .split(';')
+        .map(|directive| directive.split_ascii_whitespace().collect::<Vec<_>>())
+        .filter(|tokens| !tokens.is_empty())
+        .collect();
+    let named = |directives: &[Vec<&str>], name: &str| {
+        directives
+            .iter()
+            .position(|tokens| tokens[0].eq_ignore_ascii_case(name))
+    };
+    for (directive, source) in sources {
+        let valid_name = !directive.is_empty()
+            && directive
+                .bytes()
+                .all(|byte| byte.is_ascii_lowercase() || byte == b'-');
+        let valid_source = !source.is_empty()
+            && !source
+                .chars()
+                .any(|c| c.is_whitespace() || c == ';' || c == ',');
+        if !valid_name || !valid_source {
+            return Err(refused_source(directive, source));
+        }
+        let index = match named(&directives, directive) {
+            Some(index) => index,
+            None if directive.ends_with("-src") => {
+                let Some(default) = named(&directives, "default-src") else {
+                    return Err(refused_source(directive, source));
+                };
+                let mut tokens = vec![directive.as_str()];
+                tokens.extend(
+                    directives[default][1..]
+                        .iter()
+                        .filter(|token| **token != "'none'"),
+                );
+                directives.push(tokens);
+                directives.len() - 1
+            }
+            None => return Err(refused_source(directive, source)),
+        };
+        let tokens = &mut directives[index];
+        tokens.retain(|token| *token != "'none'");
+        if !tokens[1..].contains(&source.as_str()) {
+            tokens.push(source);
         }
     }
+    Ok(directives
+        .iter()
+        .map(|tokens| tokens.join(" "))
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
+/// The declaration error for a source [`with_sources`] cannot add.
+fn refused_source(directive: &str, source: &str) -> crate::DeclarationErrorKind {
+    crate::DeclarationErrorKind::ContentSecurityPolicy(crate::PolicyFault::InvalidSource {
+        directive: directive.to_owned(),
+        source: source.to_owned(),
+    })
 }
 
 /// The default policy, with the `topcoat dev` server's origin `dev` allowed to load its live
@@ -116,9 +196,11 @@ impl PanelHeaders {
         ];
         if let Some(policy) = csp {
             let value = header::HeaderValue::from_str(policy).map_err(|_| {
-                crate::DeclarationErrorKind::InvalidContentSecurityPolicy {
-                    policy: policy.to_owned(),
-                }
+                crate::DeclarationErrorKind::ContentSecurityPolicy(
+                    crate::PolicyFault::InvalidHeader {
+                        policy: policy.to_owned(),
+                    },
+                )
             })?;
             headers.push((CSP, value));
         }
@@ -226,6 +308,30 @@ impl Panel {
     /// ```
     pub fn content_security_policy(mut self, policy: impl Into<String>) -> Self {
         self.content_security_policy = Policy::Custom(policy.into());
+        self
+    }
+
+    /// Adds `source` to `directive` of the panel's policy, the default or the one
+    /// [`content_security_policy`](Self::content_security_policy) sets, keeping what `topcoat
+    /// dev` adds: a form that posts to a payment provider adds its origin to `form-action`.
+    ///
+    /// ```no_run
+    /// # use tablo_core::Panel;
+    /// Panel::new("app").content_security_policy_source("form-action", "https://checkout.stripe.com");
+    /// ```
+    ///
+    /// A fetch directive (`*-src`) the policy leaves out starts from `default-src`'s sources, so
+    /// it allows what it allowed before, plus `source`. Mounting refuses a directive that is not a
+    /// lowercase name, a source that is empty or holds whitespace, `;` or `,`, any other directive
+    /// the policy leaves out, and any source on a panel
+    /// [without a policy](Self::without_content_security_policy).
+    pub fn content_security_policy_source(
+        mut self,
+        directive: impl Into<String>,
+        source: impl Into<String>,
+    ) -> Self {
+        self.content_security_policy_sources
+            .push((directive.into(), source.into()));
         self
     }
 
