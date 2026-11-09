@@ -66,10 +66,7 @@ impl fmt::Display for DeclarationErrorKind {
             | Self::ServeDirWithoutCatchAll { .. }
             | Self::ServeDirTwice { .. }
             | Self::ServeDirTaken { .. } => fmt_route(f, self),
-            Self::InvalidContentSecurityPolicy { policy } => write!(
-                f,
-                "content_security_policy {policy:?} is not a valid header value"
-            ),
+            Self::ContentSecurityPolicy(fault) => fault.fmt(f),
             Self::SecondHome => {
                 f.write_str("a home page is already registered: `Panel::home` takes one")
             }

@@ -2,9 +2,9 @@
 
 use super::{
     ActionInputFault, AreaFault, AuthMailFault, EditableColumnFault, FieldAccessFault,
-    FieldRuleFault, LocaleFault, ManyToManyFault, ProfileFault, RelatedFormFault, ResetFault,
-    SegmentFault, SignUpFault, TenancyFault, TenantProfileFault, TenantRegistrationFault,
-    TwoFactorFault, VerificationFault,
+    FieldRuleFault, LocaleFault, ManyToManyFault, PolicyFault, ProfileFault, RelatedFormFault,
+    ResetFault, SegmentFault, SignUpFault, TenancyFault, TenantProfileFault,
+    TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
 
 /// What is wrong with a declaration.
@@ -114,11 +114,8 @@ pub enum DeclarationErrorKind {
         /// The serving panel's prefix.
         panel: String,
     },
-    /// A `Panel::content_security_policy` that is no valid header value: drop its line breaks.
-    InvalidContentSecurityPolicy {
-        /// The policy.
-        policy: String,
-    },
+    /// The panel's content security policy cannot be served.
+    ContentSecurityPolicy(PolicyFault),
     /// A second `Panel::home` page.
     ///
     /// Keep one home page; register the other with `page`.
