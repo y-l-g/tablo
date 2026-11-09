@@ -232,12 +232,20 @@ pub fn membership(cx: &Cx) -> Option<&Membership> {
 /// first: the [`TenantSource`](crate::tenancy::TenantSource) the panel installs. `None` on a panel
 /// that does not act for tenants, which offers no way to see or switch the tenant.
 pub(crate) fn session_tenant(cx: &Cx) -> Option<TenantId> {
-    let signed = signed(cx).filter(|signed| signed.realm.serves_tenants)?;
+    let claimed = try_context::<http::request::Parts>(cx)
+        .and_then(|parts| parts.extensions.get::<crate::tenancy::ClaimedTenant>())
+        .map(|claimed| claimed.0);
+    let Some(signed) = signed(cx) else {
+        return claimed;
+    };
+    if !signed.realm.serves_tenants {
+        return None;
+    }
     let tenants = signed.user.tenants();
     let member = |tenant: TenantId| tenants.iter().find(|m| m.tenant == tenant);
-    signed
-        .tenant
+    claimed
         .and_then(member)
+        .or_else(|| signed.tenant.and_then(member))
         .or_else(|| signed.user.default_tenant().and_then(member))
         .or_else(|| tenants.first())
         .map(|membership| membership.tenant)

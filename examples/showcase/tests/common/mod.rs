@@ -41,10 +41,11 @@ pub async fn empty_users_db() -> Db {
     db
 }
 
-/// `Db` with the users seed applied.
+/// `Db` with the users seed applied, and the demo admin seated in the blocked tenant.
 pub async fn seeded_db() -> Db {
     let mut db = empty_schema_db().await;
     seed(&mut db).await.expect("seed");
+    seat_demo_admin(&db, &[showcase::models::BLOCKED_TENANT]).await;
     db
 }
 
@@ -54,7 +55,38 @@ pub async fn full_db() -> Db {
     let mut db = empty_schema_db().await;
     seed(&mut db).await.expect("seed");
     seed_content(&mut db).await.expect("seed_content");
+    seat_demo_admin(&db, &[showcase::models::BLOCKED_TENANT]).await;
     db
+}
+
+/// Seats the demo admin in each of `tenants`, so a test acts for one as a member would: the
+/// test client claims a tenant the way the tenant menu switches to it.
+pub async fn seat_demo_admin(db: &Db, tenants: &[TenantId]) {
+    use showcase::staff::{Seat, Staff, ensure_workspace};
+
+    let mut db = db.clone();
+    let admin = Staff::filter(Staff::fields().email().eq(DEMO_ADMIN_EMAIL.to_string()))
+        .first()
+        .exec(&mut db)
+        .await
+        .expect("look up the demo admin")
+        .expect("the seed creates the demo admin");
+    for tenant in tenants {
+        ensure_workspace(
+            &mut db,
+            tenant.get(),
+            &format!("Workspace {}", tenant.get()),
+        )
+        .await
+        .expect("create the workspace");
+        toasty::create!(Seat {
+            staff_id: admin.id,
+            workspace_id: tenant.get(),
+        })
+        .exec(&mut db)
+        .await
+        .expect("seat the demo admin");
+    }
 }
 
 /// `Db` with one author and post per tenant, for tenancy tests.
@@ -137,6 +169,7 @@ pub async fn tenanted_db() -> (Db, TenantId, TenantId) {
     .exec(&mut db)
     .await
     .expect("create comment t2");
+    seat_demo_admin(&db, &[t1, t2, showcase::models::BLOCKED_TENANT]).await;
     (db, t1, t2)
 }
 

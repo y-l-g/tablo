@@ -211,6 +211,7 @@ async fn the_library_lists_one_tenants_rows() {
 
     // Another tenant uploads: the row carries the tenant that uploaded it.
     let other = tablo::TenantId::new(uuid::Uuid::from_u128(4242));
+    crate::common::seat_demo_admin(&db, &[other]).await;
     let csrf = uuid::Uuid::new_v4().to_string();
     let response = post_upload(
         &demo_client(&router, &db).await.tenant(other),

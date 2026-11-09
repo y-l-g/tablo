@@ -250,8 +250,10 @@ impl<'a> TestClient<'a> {
         (client.cookies(&session), response)
     }
 
-    /// Scopes the request to another tenant, taking precedence over the
-    /// logged-in user's tenant.
+    /// Acts for `tenant`, as a browser that switched to it from the tenant menu: a signed-in user
+    /// who is not one of its members acts for their own tenant instead, so a cross-tenant test
+    /// reaches only what a browser would. With nobody signed in, such as on a panel with auth
+    /// disabled, the request acts for `tenant`.
     pub fn tenant(&self, tenant: tablo_core::TenantId) -> Self {
         let mut client = self.clone();
         client.tenant = Some(tenant);
@@ -384,7 +386,7 @@ impl<'a> TestClient<'a> {
         }
         let (mut parts, body) = builder.body(Body::empty()).unwrap().into_parts();
         if let Some(tenant) = self.tenant {
-            parts.extensions.insert(tablo_core::Tenant(tenant));
+            parts.extensions.insert(tablo_core::ClaimedTenant(tenant));
         }
         http::Request::from_parts(parts, body)
     }

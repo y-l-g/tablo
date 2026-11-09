@@ -210,7 +210,9 @@ pub use table::{
     QueryFilter, RowLink, SelectFilter, Sort, Summary, Table, TablePage, TableState, TernaryFilter,
     TextFilter, TextMatch,
 };
-pub use tenancy::{Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id};
+pub use tenancy::{
+    ClaimedTenant, Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id,
+};
 pub use upload::{DirUploader, Uploader, sanitize_filename};
 pub use values::{
     FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, FormValue, FormValues,
