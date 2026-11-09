@@ -1,6 +1,16 @@
 # Tablo's English: every message Tablo renders. An app's catalog overrides any of them by id
 # (`Panel::translations`), and a locale's catalog leaves out what reads as here.
 
+# The word for a tenant, in each message that names one. An app that calls its tenants something
+# else, such as teams, overrides this term in its own catalog for each locale, every form below
+# included: a form it leaves out reads the default one.
+-tenant = { $form ->
+   *[lower] tenant
+    [upper] Tenant
+    [upper-plural] Tenants
+    [indefinite] a tenant
+}
+
 ## Shell
 
 tablo-shell-navigation = Navigation
@@ -18,11 +28,11 @@ tablo-shell-theme-system = System
 tablo-shell-language = Language
     .en = English
     .fr = French
-tablo-shell-tenants = Tenants
-tablo-shell-switch-tenant = Switch tenant
-tablo-shell-select-tenant = Select a tenant
-tablo-shell-tenant-settings = Tenant settings
-tablo-shell-create-tenant = Create tenant
+tablo-shell-tenants = { -tenant(form: "upper-plural") }
+tablo-shell-switch-tenant = Switch { -tenant }
+tablo-shell-select-tenant = Select { -tenant(form: "indefinite") }
+tablo-shell-tenant-settings = { -tenant(form: "upper") } settings
+tablo-shell-create-tenant = Create { -tenant }
 tablo-crumb-create = Create
 tablo-crumb-view = View
 tablo-crumb-edit = Edit
@@ -598,14 +608,14 @@ tablo-profile-current-password-help = Required to change your email or password.
 
 ## Tenants
 
-tablo-tenant-saved = Tenant saved
+tablo-tenant-saved = { -tenant(form: "upper") } saved
 tablo-tenant-not-saved = Nothing saved
 tablo-tenant-switched = You now act for { $tenant }. Check its settings before saving.
-tablo-tenant-created = Tenant created
+tablo-tenant-created = { -tenant(form: "upper") } created
 tablo-tenant-acting = You now act for { $tenant }.
-tablo-tenant-create-title = Create a tenant
-tablo-tenant-create-first = Create the tenant you work in on { $brand }.
-tablo-tenant-create-another = Create another tenant to work in on { $brand }.
+tablo-tenant-create-title = Create { -tenant(form: "indefinite") }
+tablo-tenant-create-first = Create the { -tenant } you work in on { $brand }.
+tablo-tenant-create-another = Create another { -tenant } to work in on { $brand }.
 tablo-tenant-changed-mind = Changed your mind?
 tablo-tenant-go-back = Go back
 

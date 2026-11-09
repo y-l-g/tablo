@@ -298,3 +298,53 @@ fn a_catalog_calls_fluents_functions() {
     let price = Text::message("price").arg("amount", 3);
     assert_eq!(spell(&catalog, "en", &price), "3.00");
 }
+
+/// Overriding the `-tenant` term renames the tenant in each of Tablo's messages that names one,
+/// in agreement with the gender the app's catalog gives it.
+#[test]
+fn the_apps_tenant_term_names_the_tenant_in_tablos_messages() {
+    let catalog = catalog(
+        &["en", "fr"],
+        &[
+            (
+                "en",
+                "-tenant = { $form ->\n   *[lower] team\n    [upper] Team\n    \
+                 [upper-plural] Teams\n    [indefinite] a team\n}",
+            ),
+            (
+                "fr",
+                "-tenant = { $form ->\n   *[lower] équipe\n    [upper] Équipe\n    \
+                 [upper-plural] Équipes\n    [indefinite] une équipe\n    \
+                 [definite] l'équipe\n    [of] d'équipe\n    [of-definite] de l'équipe\n    \
+                 [another] une autre équipe\n}\n    .gender = feminine",
+            ),
+        ],
+    )
+    .expect("the catalog builds");
+    let read = |tag, id| spell(&catalog, tag, &Text::message(id));
+    assert_eq!(read("en", "tablo-shell-tenants"), "Teams");
+    assert_eq!(read("en", "tablo-shell-select-tenant"), "Select a team");
+    assert_eq!(read("en", "tablo-tenant-saved"), "Team saved");
+    assert_eq!(
+        read("fr", "tablo-shell-tenant-settings"),
+        "Paramètres de l'équipe"
+    );
+    assert_eq!(read("fr", "tablo-tenant-created"), "Équipe créée");
+    assert_eq!(
+        spell(
+            &catalog,
+            "fr",
+            &Text::message("tablo-tenant-create-another").arg("brand", "Acme")
+        ),
+        "Créez une autre équipe dans laquelle travailler sur Acme."
+    );
+    // A panel that keeps Tablo's word reads it unchanged.
+    assert_eq!(
+        spell(
+            Catalog::english(),
+            "en",
+            &Text::message("tablo-tenant-saved")
+        ),
+        "Tenant saved"
+    );
+}

@@ -1,6 +1,21 @@
 # Le français de Tablo : chaque message de `en.ftl`, avec ses variables. Le catalogue d'une
 # application remplace n'importe lequel par son identifiant (`Panel::translations`).
 
+# Le mot qui désigne un espace, dans chaque message qui en nomme un. Une application qui appelle
+# ses espaces autrement, par exemple équipes, remplace ce terme dans son propre catalogue, avec
+# chacune des formes ci-dessous et son genre : une forme absente se lit comme celle par défaut.
+-tenant = { $form ->
+   *[lower] espace
+    [upper] Espace
+    [upper-plural] Espaces
+    [indefinite] un espace
+    [definite] l'espace
+    [of] d'espace
+    [of-definite] de l'espace
+    [another] un autre espace
+}
+    .gender = masculine
+
 ## Shell
 
 tablo-shell-navigation = Navigation
@@ -18,11 +33,11 @@ tablo-shell-theme-system = Système
 tablo-shell-language = Langue
     .en = Anglais
     .fr = Français
-tablo-shell-tenants = Espaces
-tablo-shell-switch-tenant = Changer d'espace
-tablo-shell-select-tenant = Choisir un espace
-tablo-shell-tenant-settings = Paramètres de l'espace
-tablo-shell-create-tenant = Créer un espace
+tablo-shell-tenants = { -tenant(form: "upper-plural") }
+tablo-shell-switch-tenant = Changer { -tenant(form: "of") }
+tablo-shell-select-tenant = Choisir { -tenant(form: "indefinite") }
+tablo-shell-tenant-settings = Paramètres { -tenant(form: "of-definite") }
+tablo-shell-create-tenant = Créer { -tenant(form: "indefinite") }
 tablo-crumb-create = Créer
 tablo-crumb-view = Voir
 tablo-crumb-edit = Modifier
@@ -583,14 +598,26 @@ tablo-profile-current-password-help = Obligatoire pour changer votre e-mail ou v
 
 ## Tenants
 
-tablo-tenant-saved = Espace enregistré
+tablo-tenant-saved = { -tenant(form: "upper") } { -tenant.gender ->
+        [feminine] enregistrée
+       *[masculine] enregistré
+    }
 tablo-tenant-not-saved = Rien n'a été enregistré
 tablo-tenant-switched = Vous agissez désormais pour { $tenant }. Vérifiez ses paramètres avant d'enregistrer.
-tablo-tenant-created = Espace créé
+tablo-tenant-created = { -tenant(form: "upper") } { -tenant.gender ->
+        [feminine] créée
+       *[masculine] créé
+    }
 tablo-tenant-acting = Vous agissez désormais pour { $tenant }.
-tablo-tenant-create-title = Créer un espace
-tablo-tenant-create-first = Créez l'espace dans lequel vous travaillez sur { $brand }.
-tablo-tenant-create-another = Créez un autre espace dans lequel travailler sur { $brand }.
+tablo-tenant-create-title = Créer { -tenant(form: "indefinite") }
+tablo-tenant-create-first = Créez { -tenant(form: "definite") } dans { -tenant.gender ->
+        [feminine] laquelle
+       *[masculine] lequel
+    } vous travaillez sur { $brand }.
+tablo-tenant-create-another = Créez { -tenant(form: "another") } dans { -tenant.gender ->
+        [feminine] laquelle
+       *[masculine] lequel
+    } travailler sur { $brand }.
 tablo-tenant-changed-mind = Vous avez changé d'avis ?
 tablo-tenant-go-back = Revenir
 

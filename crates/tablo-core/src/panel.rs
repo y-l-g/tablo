@@ -483,6 +483,20 @@ impl Panel {
     ///     .translations(locale!("en"), include_str!("../locales/en.ftl"));
     /// ```
     ///
+    /// Tablo's messages name a tenant through the Fluent term `-tenant`, so an app that calls its
+    /// tenants teams overrides that one term in each of its catalogs rather than each message.
+    /// Each locale's term has the forms its messages read, listed atop Tablo's catalog for it;
+    /// the French one adds a `.gender` attribute the messages agree with:
+    ///
+    /// ```ftl
+    /// -tenant = { $form ->
+    ///    *[lower] team
+    ///     [upper] Team
+    ///     [upper-plural] Teams
+    ///     [indefinite] a team
+    /// }
+    /// ```
+    ///
     /// The panel refuses to mount a catalog that is not valid Fluent, and one for a locale it does
     /// not offer, `en` aside.
     pub fn translations(
