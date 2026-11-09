@@ -6,12 +6,12 @@ use tablo::testing::{TestClient, response_cookies};
 use toasty::Db;
 use topcoat::{
     context::Cx,
-    cookie::RouterBuilderCookieExt,
+    cookie::CookieLayer,
     router::{
         Body, RouteFn, RouteFuture, RouterBuilder, error::see_other, request::uri,
         response::IntoResponse,
     },
-    session::{self, RouterBuilderSessionExt, SessionConfig},
+    session::{self, SessionLifetime},
 };
 use uuid::Uuid;
 
@@ -132,8 +132,8 @@ pub fn host_routes(builder: RouterBuilder, lifetime: Duration) -> RouterBuilder 
             .to_owned()
     };
     builder
-        .cookies()
-        .sessions(SessionConfig::builder().lifetime(lifetime).build())
+        .layer(CookieLayer::new())
+        .with(SessionLifetime(lifetime))
         .route(RouteFn::new(http::Method::POST, path("/app/login"), login))
         .route(RouteFn::new(
             http::Method::POST,

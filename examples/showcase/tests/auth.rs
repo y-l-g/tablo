@@ -10,7 +10,7 @@ use tablo::{
 };
 use topcoat::{
     context::Cx,
-    mail::{MailConfig, MemoryTransport, RouterBuilderMailExt},
+    mail::{Mailer, MemoryTransport},
     router::{Router, RouterBuilderDiscoverExt},
 };
 
@@ -60,11 +60,7 @@ async fn the_hint_renders_and_sign_up_links_back_to_sign_in() {
         .discover()
         .with(db)
         .with(topcoat::cookie::Key::generate())
-        .mail(
-            MailConfig::builder()
-                .transport(MemoryTransport::new())
-                .build(),
-        )
+        .with(Mailer::new(MemoryTransport::new()))
         .panel(showcase::app::admin_panel().login_hint("Demo: admin / password"))
         .expect("panel builds")
         .build();

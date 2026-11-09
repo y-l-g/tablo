@@ -20,7 +20,7 @@ use topcoat::{
     context::Cx,
     cookie::Key,
     font::{Font, fontsource::fontsource_font},
-    mail::{FileTransport, MailConfig, Mailbox, RouterBuilderMailExt},
+    mail::{FileTransport, Mailbox, Mailer},
     router::{Router, RouterBuilderDiscoverExt},
     tailwind,
 };
@@ -540,7 +540,7 @@ pub fn build_app(
         .discover()
         .with(db)
         .with(cookie_key())
-        .mail(MailConfig::builder().transport(mail_transport()).build());
+        .with(Mailer::new(mail_transport()));
     if let Some(dir) = uploads {
         builder = builder.with(MediaStore(DirUploader::new(UPLOAD_URL_PREFIX, dir.clone())));
         panel = panel.uploads_dir(UPLOAD_URL_PREFIX, dir);

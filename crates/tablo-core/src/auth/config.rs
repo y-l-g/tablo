@@ -258,7 +258,7 @@ impl<U: PanelUser> Auth<U> {
     ///   Past it the page answers 429. A limit per client belongs at the proxy.
     /// - The resetter's `User` is `U`. Mounting refuses a reset on `Auth::disabled()`, a reset
     ///   without `Auth::mail`, a base URL that is not an absolute `http` or `https` URL or that
-    ///   carries a query or fragment, and a router without a `MailConfig`.
+    ///   carries a query or fragment, and a router without a `Mailer`.
     #[must_use]
     pub fn password_reset(mut self, reset: PasswordReset<U>) -> Self {
         self.config.reset = Some(reset.erase());
@@ -397,7 +397,7 @@ impl<U: PanelUser> Auth<U> {
 
     /// Sends the panel's auth mail, such as reset links, from `mail`'s sender, with links that
     /// start with its base URL. Mounting refuses a base URL that is not absolute, and a router
-    /// without a [`MailConfig`](topcoat::mail::MailConfig).
+    /// without a [`Mailer`](topcoat::mail::Mailer).
     #[must_use]
     pub fn mail(mut self, mail: AuthMail) -> Self {
         self.config.mail = Some(mail);

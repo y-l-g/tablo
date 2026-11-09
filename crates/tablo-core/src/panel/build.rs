@@ -8,13 +8,13 @@ use topcoat::{
     Result,
     asset::AssetConfig,
     context::Cx,
-    cookie::RouterBuilderCookieExt,
+    cookie::CookieLayer,
     metadata::{Metadata, Robots},
     router::{
         Body, LayoutFn, Methods, PageFn, Path, RouteFn, RouteFuture, RouterBuilder,
         RouterBuilderDirectoryExt, error::redirect,
     },
-    runtime::{PrefetchMode, RouterBuilderRuntimeExt, RuntimeSetup},
+    runtime::{PrefetchMode, RuntimeLayer},
 };
 
 use super::{
@@ -476,7 +476,7 @@ fn mount_errors(
 /// Installs what every panel on a router shares.
 fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
     builder = builder
-        .cookies()
+        .layer(CookieLayer::new())
         .layer(RuntimeGate::new())
         .with(Panels::default())
         .with(AuthHost(&PanelHost))
@@ -488,12 +488,11 @@ fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
         .with(crate::i18n::CatalogSource(crate::auth::session_catalog))
         .with(NotificationBus::new());
     // The runtime layer has no path, so a page re-run reaches the panel's layers already rewritten
-    // to a `GET`.
-    if builder.try_context::<RuntimeSetup>().is_none() {
-        builder = builder.runtime();
-    }
+    // to a `GET`. One the app installs before the panels sits inside this one and passes on what
+    // this one already rewrote.
+    builder = builder.layer(RuntimeLayer::new());
     if builder.try_context::<PrefetchMode>().is_none() {
-        builder = builder.prefetch(PrefetchMode::Never);
+        builder = builder.with(PrefetchMode::Never);
     }
     // The last pathless layer runs outermost, so this one sees the socket's handshake unless the
     // app installs the runtime layer after the panels. `RuntimeGate` refuses those sockets' runs.

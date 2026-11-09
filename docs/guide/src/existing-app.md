@@ -22,14 +22,14 @@ needs from the app and the two ways to connect their sign-ins.
 ## Mounting beside the app's sessions
 
 The panel keeps its sessions in its own `__Host-tablo_session_{prefix}` cookie. The router's
-`SessionConfig` stays the app's, so a sign-in, a sign-out or a session lifetime on one side never
+`SessionTokenStore` and `SessionLifetime` stay the app's, so a sign-in, a sign-out or a session lifetime on one side never
 touches the other:
 
 ```rust
 {{#include ../../../examples/guide/src/existing_app.rs:existing-app-router-body}}
 ```
 
-Install the app's own pathless layers before `.panel(..)`, which installs Topcoat's runtime layer.
+Install the app's own pathless layers before `.panel(..)`, which installs Topcoat's `CookieLayer` and `RuntimeLayer`.
 
 ## Choosing who signs users in
 

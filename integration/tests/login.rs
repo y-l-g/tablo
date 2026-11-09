@@ -447,9 +447,9 @@ async fn a_socket_runs_only_as_the_panel_of_the_page_that_opened_it() {
 /// The stamp reaches a socket on a router whose app installed the runtime layer itself.
 #[tokio::test]
 async fn a_socket_keeps_its_page_on_an_app_installed_runtime() {
-    use topcoat::runtime::RouterBuilderRuntimeExt;
+    use topcoat::runtime::RuntimeLayer;
     let router = Router::builder()
-        .runtime()
+        .layer(RuntimeLayer::new())
         .discover()
         .with(db_with_ada().await)
         .panel(Panel::new("admin"))
@@ -467,7 +467,7 @@ async fn a_socket_keeps_its_page_on_an_app_installed_runtime() {
 /// socket's page is unknown: its runs are refused rather than run as whichever session it holds.
 #[tokio::test]
 async fn a_socket_the_stamp_never_saw_runs_nothing() {
-    use topcoat::runtime::RouterBuilderRuntimeExt;
+    use topcoat::runtime::RuntimeLayer;
     let router = Router::builder()
         .discover()
         .with(db_with_ada().await)
@@ -475,7 +475,7 @@ async fn a_socket_the_stamp_never_saw_runs_nothing() {
         .expect("admin builds")
         .panel(Panel::new("portal"))
         .expect("portal builds")
-        .runtime()
+        .layer(RuntimeLayer::new())
         .build();
     let admin = session_on(&router, "/admin").await;
     let json = serde_json::json!({ "content-type": "application/json" });

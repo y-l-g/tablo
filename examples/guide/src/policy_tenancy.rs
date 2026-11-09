@@ -11,7 +11,7 @@ use topcoat::{
     Result,
     context::Cx,
     cookie::Key,
-    mail::{FileTransport, MailConfig, Mailbox, RouterBuilderMailExt},
+    mail::{FileTransport, Mailbox, Mailer},
     router::Router,
 };
 
@@ -303,11 +303,7 @@ pub fn reset_router(db: toasty::Db) -> Result<Router> {
         .with(db)
         // Before the panel, which checks for it. `SmtpTransport`, behind Topcoat's `mail-smtp`
         // feature, delivers in production; `FileTransport` writes `.eml` files instead.
-        .mail(
-            MailConfig::builder()
-                .transport(FileTransport::new("target/mail"))
-                .build(),
-        )
+        .with(Mailer::new(FileTransport::new("target/mail")))
         .panel(Panel::new("admin").auth(auth))?
         .build())
 }

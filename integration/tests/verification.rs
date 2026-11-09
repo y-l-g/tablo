@@ -15,7 +15,7 @@ use tablo::{
 };
 use toasty::Db;
 use topcoat::{
-    mail::{MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt},
+    mail::{Mailbox, Mailer, MemoryTransport},
     router::{Router, RouterBuilderDiscoverExt},
 };
 use uuid::Uuid;
@@ -70,7 +70,7 @@ fn mount(db: Db, auth: Auth, mail: &MemoryTransport) -> topcoat::Result<Router> 
     Ok(Router::builder()
         .discover()
         .with(db)
-        .mail(MailConfig::builder().transport(mail.clone()).build())
+        .with(Mailer::new(mail.clone()))
         .panel(Panel::new("admin").auth(auth).resource::<TicketResource>())?
         .build())
 }
@@ -197,7 +197,7 @@ async fn a_link_verifies_only_the_address_it_was_mailed_to_while_it_lasts() {
     let router = Router::builder()
         .discover()
         .with(db.clone())
-        .mail(MailConfig::builder().transport(mail.clone()).build())
+        .with(Mailer::new(mail.clone()))
         .panel(
             Panel::new("admin")
                 .auth(verifying(EmailVerification::new(PasswordAuth)))

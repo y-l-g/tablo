@@ -17,7 +17,7 @@ Tablo needs Rust 1.99 or newer; every crate declares that as its `rust-version`.
 Run the showcase, a blog's admin panel that exercises every feature, through the Topcoat CLI:
 
 ```sh
-cargo install topcoat-cli --version 0.11 --locked
+cargo install topcoat-cli --version 0.12 --locked
 topcoat dev -p showcase
 # open http://localhost:3000/admin/users
 ```

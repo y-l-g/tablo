@@ -24,7 +24,7 @@ is the explicit opt-out.
   They share an origin, and cookies at `Path=/`, so a script on one panel's page can send a request
   as any other panel the browser is signed in to. Keeping the two sessions apart from a script
   takes a separate origin for each.
-- A session's token rides in Tablo's own cookie, never the router's `SessionConfig`: a router has
+- A session's token rides in Tablo's own cookie, never the router's `SessionTokenStore`: a router has
   one of those, and a panel writing it would replace a host app's Topcoat session on every login.
 - An app that signs its users in itself keeps doing so through `ExternalAuth`, set by
   `Auth::external`: Tablo asks it for the request's user. The panel still keeps its own session
@@ -57,8 +57,9 @@ is the explicit opt-out.
 
 - Stateless signed-cookie sessions, a `Panel` type parameter, a fixed erased identity struct, a
   tenant cookie, and app-built auth on generic Topcoat sessions.
-- A panel session reading a router's `SessionConfig` when the app installs one: its lifetime and
-  token would be the app's, and the two sign-ins would still share one cookie.
+- A panel session reading a router's `SessionTokenStore` and `SessionLifetime` when the app
+  installs them: its lifetime and token would be the app's, and the two sign-ins would still share
+  one cookie.
 - `ExternalAuth` with no session row, the app's session alone signing a request in: the tenant
   switch would need a tenant cookie, and each gate a second path with no row behind it.
 - One cookie for every panel: a browser held one session, so signing in to a panel ended the last.

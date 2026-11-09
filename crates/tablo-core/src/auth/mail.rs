@@ -33,8 +33,8 @@ use crate::auth::realm::{Realm, current_realm};
 /// The base URL is configuration, not the request's `Host` header, which the client chooses: a
 /// link built from it could point a victim's email at another host. Mounting refuses a base URL
 /// that is not an absolute `http` or `https` URL, or that carries a query or fragment, and a
-/// router without a [`MailConfig`](topcoat::mail::MailConfig), which the app registers with
-/// `.mail(..)` before mounting the panel.
+/// router without a [`Mailer`](topcoat::mail::Mailer), which the app adds with
+/// `.with(Mailer::new(..))` before mounting the panel.
 pub struct AuthMail {
     from: Mailbox,
     base_url: String,
@@ -85,7 +85,7 @@ impl AuthMail {
             .to([Mailbox::new(address)?])
             .subject(subject)
             .text(text)
-            .build())
+            .build()?)
     }
 }
 

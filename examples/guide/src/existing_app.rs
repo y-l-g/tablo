@@ -1,13 +1,15 @@
 //! The Adding a panel to an existing app chapter's snippets.
 
+use std::time::Duration;
+
 use tablo::{Auth, ExternalAuth, PanelUser, auth, prelude::*};
 use toasty::Db;
 use topcoat::{
     Result,
     context::Cx,
-    cookie::RouterBuilderCookieExt,
+    cookie::CookieLayer,
     router::{Router, RouterBuilderDiscoverExt},
-    session::{self, RouterBuilderSessionExt, SessionConfig, TokenHash},
+    session::{self, SessionLifetime, TokenHash},
 };
 
 pub struct Employee {
@@ -63,8 +65,8 @@ pub fn app_router(db: Db) -> Result<Router> {
     let router = Router::builder()
         .discover() // the app's own pages and routes, and Tablo's
         .with(db)
-        .cookies()
-        .sessions(SessionConfig::default()) // the app's sessions, untouched by the panel
+        .layer(CookieLayer::new())
+        .with(SessionLifetime(Duration::from_hours(24 * 14))) // the app's sessions, untouched by the panel
         .panel(Panel::new("admin").auth(Auth::external(AppSession)))?
         .build();
     Ok(router)
