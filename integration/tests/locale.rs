@@ -328,6 +328,33 @@ async fn mount_refuses_a_locale_no_request_could_read() {
     );
 }
 
+/// A job's context reads the panel's catalogs, in the default locale or the one the job adds,
+/// whether the handle comes from a router or from a panel no router mounts.
+#[tokio::test]
+async fn a_handles_context_reads_the_panels_catalogs() {
+    let db = db().await;
+    let greeting = || {
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .locales([locale!("fr"), locale!("en")])
+            .translations(locale!("fr"), "greeting = Bonjour")
+            .translations(locale!("en"), "greeting = Hello")
+            .resource::<BookResource>()
+    };
+    let builder = Router::builder()
+        .discover()
+        .with(db.clone())
+        .panel(greeting())
+        .expect("panel builds");
+    let mounted = builder.panel_handle("admin").expect("mounted above");
+    let unmounted = greeting().handle(&db).expect("panel builds");
+    for handle in [mounted, unmounted] {
+        let cx = handle.context();
+        assert_eq!(tablo::t!(&cx, "greeting"), "Bonjour");
+        assert_eq!(tablo::t!(&cx.with(locale!("en")), "greeting"), "Hello");
+    }
+}
+
 /// A page of a panel offering several locales tells caches it varies with the browser's languages
 /// and with the cookie the language menu writes.
 #[tokio::test]

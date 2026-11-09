@@ -51,8 +51,10 @@ pub(crate) fn panel_state<U: crate::PanelUser>(
             auth: auth.into_config(),
             login_hint: None,
             time_zone: jiff::tz::TimeZone::UTC,
-            catalog: crate::i18n::Catalog::new(std::slice::from_ref(&crate::i18n::ENGLISH), &[])
-                .expect("`en` builds"),
+            catalog: std::sync::Arc::new(
+                crate::i18n::Catalog::new(std::slice::from_ref(&crate::i18n::ENGLISH), &[])
+                    .expect("`en` builds"),
+            ),
             notifications: false,
             serves_tenants: false,
             pages: crate::auth::SettingsPaths::under(prefix),

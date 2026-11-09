@@ -9,15 +9,19 @@ use topcoat::{
     view::{BoxView, View, ViewExt},
 };
 
-use super::validation_cx;
+use super::{build_catalog, serves_tenants, validation_cx};
 use crate::{
+    MountError,
     bus::NotificationBus,
+    i18n::{Catalog, CatalogSource},
     notification::Notifications,
     panel::{
         Panel,
+        register::Registry,
         state::{PanelState, current, enter},
     },
     resource::Mounts,
+    toasty_compat::model::AppSchema,
 };
 
 /// A panel's mounted resources and its database, which a background job or a test keeps to build
@@ -51,6 +55,8 @@ use crate::{
 pub struct PanelHandle {
     pub(super) db: Db,
     pub(super) mounts: Arc<Mounts>,
+    /// The panel's messages, which [`context`](Self::context) renders its words from.
+    pub(super) catalog: Arc<Catalog>,
     /// The mounted panel, for a handle a router gives; `None` for [`Panel::handle`]'s.
     pub(super) panel: Option<Arc<PanelState>>,
     pub(super) prefix: String,
@@ -66,12 +72,20 @@ impl PanelHandle {
     /// session or tenant. Add a tenant with `cx.with(Tenant(id))`. It carries no signed-in user,
     /// so a policy that reads one answers as for a signed-out request.
     ///
+    /// Its words, [`t!`](crate::t) and a [`Text`](crate::Text)'s
+    /// [`localize`](crate::Text::localize), read the panel's catalogs in its default locale. A
+    /// job writing to someone in another language adds theirs, `cx.with(locale)`, which reads the
+    /// panel's best match for it.
+    ///
     /// The context is one unit of work, as a request is: loads it memoizes stay cached for its
     /// lifetime, so a job builds one per run. A context built with no panel at all knows no
     /// resource: every entry point that reads a mounted def answers as for a resource the panel
     /// does not mount.
     pub fn context(&self) -> Cx {
-        validation_cx(&self.db, &self.mounts)
+        validation_cx(&self.db, &self.mounts).with_many((
+            HeldCatalog(Arc::clone(&self.catalog)),
+            CatalogSource(held_catalog),
+        ))
     }
 
     /// `cx` answering as this panel, for a request outside every panel's prefix, such as a
@@ -191,5 +205,61 @@ pub(super) fn request_mounts(cx: &Cx) -> Option<&Mounts> {
         None => {
             topcoat::context::try_context::<EnteredPanel>(cx).map(|EnteredPanel(mounts)| &**mounts)
         }
+    }
+}
+
+/// The catalog [`PanelHandle::context`] renders words from, outside every request.
+struct HeldCatalog(Arc<Catalog>);
+
+/// The [`CatalogSource`] of a handle's context.
+fn held_catalog(cx: &Cx) -> Option<&Catalog> {
+    topcoat::context::try_context::<HeldCatalog>(cx).map(|HeldCatalog(catalog)| &**catalog)
+}
+
+impl Panel {
+    /// The panel's resources declared and checked against `db` without a router: what a test, or
+    /// a job that runs with no router, builds its contexts from with [`PanelHandle::context`].
+    /// A job that runs beside a router takes the mounted panel's handle from
+    /// [`panel_handle`](super::RouterBuilderPanelExt::panel_handle) instead.
+    ///
+    /// # Errors
+    ///
+    /// The declaration errors [`panel`](super::RouterBuilderPanelExt::panel) refuses the resources
+    /// with.
+    pub fn handle(self, db: &Db) -> Result<PanelHandle> {
+        let Panel {
+            prefix,
+            registrations,
+            configuration_errors,
+            uploads,
+            auth,
+            limits,
+            locales,
+            translations,
+            ..
+        } = self;
+        let mut registry = Registry::new(prefix.clone(), Some(AppSchema::of_db(db)));
+        let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
+        let serves_tenants = serves_tenants(&auth, &mounts);
+        registry.check_all(
+            db,
+            &mounts,
+            serves_tenants,
+            uploads.is_some(),
+            &limits,
+            &mut errors,
+        );
+        let catalog = build_catalog(&locales, &translations, &mut errors);
+        if !errors.is_empty() {
+            return Err(MountError::new(&prefix, errors).into());
+        }
+        Ok(PanelHandle {
+            db: db.clone(),
+            mounts,
+            panel: None,
+            catalog: Arc::new(catalog.expect("a catalog that failed to build fails the handle")),
+            prefix,
+            bus: NotificationBus::new(),
+        })
     }
 }

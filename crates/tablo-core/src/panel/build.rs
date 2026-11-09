@@ -115,6 +115,7 @@ impl RouterBuilderPanelExt for RouterBuilder {
         Some(PanelHandle {
             db: self.try_context::<Db>()?.clone(),
             mounts: Arc::clone(&panel.mounts),
+            catalog: Arc::clone(&panel.realm.catalog),
             panel: Some(Arc::clone(panel)),
             prefix: panel.realm.prefix.clone(),
             bus: self
@@ -126,47 +127,6 @@ impl RouterBuilderPanelExt for RouterBuilder {
 }
 
 impl Panel {
-    /// The panel's resources declared and checked against `db` without a router: what a test, or
-    /// a job that runs with no router, builds its contexts from with [`PanelHandle::context`].
-    /// A job that runs beside a router takes the mounted panel's handle from
-    /// [`panel_handle`](RouterBuilderPanelExt::panel_handle) instead.
-    ///
-    /// # Errors
-    ///
-    /// The declaration errors [`panel`](RouterBuilderPanelExt::panel) refuses the resources with.
-    pub fn handle(self, db: &Db) -> Result<PanelHandle> {
-        let Panel {
-            prefix,
-            registrations,
-            configuration_errors,
-            uploads,
-            auth,
-            limits,
-            ..
-        } = self;
-        let mut registry = Registry::new(prefix.clone(), Some(AppSchema::of_db(db)));
-        let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
-        let serves_tenants = serves_tenants(&auth, &mounts);
-        registry.check_all(
-            db,
-            &mounts,
-            serves_tenants,
-            uploads.is_some(),
-            &limits,
-            &mut errors,
-        );
-        if !errors.is_empty() {
-            return Err(MountError::new(&prefix, errors).into());
-        }
-        Ok(PanelHandle {
-            db: db.clone(),
-            mounts,
-            panel: None,
-            prefix,
-            bus: NotificationBus::new(),
-        })
-    }
-
     fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
         let db = builder.try_context::<Db>().cloned();
         let services = crate::auth::mount::Services::of(&builder);
@@ -231,17 +191,7 @@ impl Panel {
             }
             None => errors.push(DeclarationError::panel(DeclarationErrorKind::MissingDb)),
         }
-        let catalog = match crate::i18n::Catalog::new(&locales, &translations) {
-            Ok(catalog) => Some(catalog),
-            Err(faults) => {
-                errors.extend(
-                    faults
-                        .into_iter()
-                        .map(|fault| DeclarationError::panel(DeclarationErrorKind::Locale(fault))),
-                );
-                None
-            }
-        };
+        let catalog = build_catalog(&locales, &translations, &mut errors);
         let panel_headers = match headers::PanelHeaders::new(
             prefix.clone(),
             content_security_policy.resolve().as_deref(),
@@ -256,7 +206,7 @@ impl Panel {
         if !errors.is_empty() {
             return Err(MountError::new(&prefix, errors).into());
         }
-        let catalog = catalog.expect("a catalog that failed to build fails the mount");
+        let catalog = Arc::new(catalog.expect("a catalog that failed to build fails the mount"));
         if builder.try_context::<Panels>().is_none() {
             builder = install_shared(builder);
         }
@@ -573,6 +523,24 @@ pub(super) fn validate_route_segment(
         }),
         None => Ok(()),
     }
+}
+
+/// The panel's catalog over `locales` and `translations`; `None`, with each fault pushed onto
+/// `errors`, when it does not build.
+fn build_catalog(
+    locales: &[topcoat::l10n::Locale],
+    translations: &[(topcoat::l10n::Locale, String)],
+    errors: &mut Vec<DeclarationError>,
+) -> Option<crate::i18n::Catalog> {
+    crate::i18n::Catalog::new(locales, translations)
+        .map_err(|faults| {
+            errors.extend(
+                faults
+                    .into_iter()
+                    .map(|fault| DeclarationError::panel(DeclarationErrorKind::Locale(fault))),
+            );
+        })
+        .ok()
 }
 
 /// Builds the context for the mount-time declaration checks and [`PanelHandle::context`] from `db`

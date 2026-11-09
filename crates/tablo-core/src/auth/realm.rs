@@ -32,7 +32,7 @@ pub(crate) struct Realm {
     /// The messages the panel renders in each locale it offers, set by
     /// [`Panel::locales`](crate::Panel::locales) and
     /// [`Panel::translations`](crate::Panel::translations).
-    pub(crate) catalog: crate::i18n::Catalog,
+    pub(crate) catalog: Arc<crate::i18n::Catalog>,
     /// Whether the topbar shows the bell, set by
     /// [`Panel::notifications`](crate::Panel::notifications).
     pub(crate) notifications: bool,

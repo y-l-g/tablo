@@ -264,13 +264,13 @@ fn format(layered: &Layered, text: &Text) -> String {
             .0
             .iter()
             .find_map(|bundle| format_message(layered, bundle, message))
-            .unwrap_or_else(|| {
-                tracing::debug!(id = %message.id, "no catalog holds the message");
-                message
-                    .fallback
-                    .as_deref()
-                    .unwrap_or(&message.id)
-                    .to_owned()
+            .unwrap_or_else(|| match message.fallback.as_deref() {
+                Some(fallback) => fallback.to_owned(),
+                // A message with no fallback renders its id, which a reader should never see.
+                None => {
+                    tracing::warn!(id = %message.id, "no catalog holds the message");
+                    message.id.to_string()
+                }
             }),
     }
 }

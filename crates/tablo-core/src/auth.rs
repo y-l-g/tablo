@@ -255,7 +255,7 @@ pub(crate) fn session_time_zone(cx: &Cx) -> Option<jiff::tz::TimeZone> {
 /// The request panel's catalog: the [`CatalogSource`](crate::i18n::CatalogSource) the panel
 /// installs.
 pub(crate) fn session_catalog(cx: &Cx) -> Option<&crate::i18n::Catalog> {
-    current_realm(cx).map(|realm| &realm.catalog)
+    current_realm(cx).map(|realm| &*realm.catalog)
 }
 
 /// The signed-in user, as the app's own user type.
