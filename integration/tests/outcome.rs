@@ -95,6 +95,38 @@ impl HeaderAction for Home {
     }
 }
 
+/// Opens a checkout session on another site and lands on it.
+struct Checkout;
+
+impl HeaderAction for Checkout {
+    type Input = ();
+    const NAME: &'static str = "checkout";
+
+    async fn run(
+        _: &Cx,
+        _: (),
+        _: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<Outcome, tablo::WriteError<std::convert::Infallible>> {
+        Ok(Outcome::done().redirect_off_site("https://checkout.example/session/1"))
+    }
+}
+
+/// Asks to land off the site on a URL no browser should follow.
+struct Script;
+
+impl HeaderAction for Script {
+    type Input = ();
+    const NAME: &'static str = "script";
+
+    async fn run(
+        _: &Cx,
+        _: (),
+        _: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<Outcome, tablo::WriteError<std::convert::Infallible>> {
+        Ok(Outcome::done().redirect_off_site("javascript:alert(1)"))
+    }
+}
+
 struct TicketResource;
 
 impl Resource for TicketResource {
@@ -110,6 +142,8 @@ impl Resource for TicketResource {
             .action::<Close>()
             .action::<Leave>()
             .header_action::<Home>()
+            .header_action::<Checkout>()
+            .header_action::<Script>()
     }
 }
 
@@ -199,6 +233,18 @@ async fn a_redirect_off_the_site_lands_where_the_run_started_and_keeps_the_write
         is_closed(&db, ticket.id).await,
         "the committed write stands"
     );
+}
+
+/// An off-site landing goes to an `http` or `https` URL, and nowhere else.
+#[tokio::test]
+async fn an_off_site_landing_takes_a_web_url_only() {
+    let db = db().await;
+    let router = router(&db);
+
+    let response = post_fields(&router, "/admin/tickets/-/actions/checkout", &[]).await;
+    assert_eq!(location(&response), "https://checkout.example/session/1");
+    let response = post_fields(&router, "/admin/tickets/-/actions/script", &[]).await;
+    assert_eq!(location(&response), "/admin/tickets");
 }
 
 #[tokio::test]

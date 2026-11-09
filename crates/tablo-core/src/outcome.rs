@@ -56,12 +56,7 @@ impl NotificationAction {
     /// The URL when a browser may follow it: a same-origin path, or an `http` or `https` URL.
     pub(crate) fn safe_url(&self) -> Option<&str> {
         let url = self.url.trim();
-        if same_origin_path(url).is_some() {
-            return Some(url);
-        }
-        let lower = url.get(..8).unwrap_or(url).to_ascii_lowercase();
-        let web = lower.starts_with("https://") || lower.starts_with("http://");
-        (web && !url.chars().any(|c| c.is_control() || c == '\\')).then_some(url)
+        same_origin_path(url).or_else(|| web_url(url))
     }
 }
 
@@ -131,7 +126,26 @@ impl Notification {
 #[must_use]
 pub struct Outcome {
     notification: Option<Notification>,
-    redirect: Option<String>,
+    redirect: Option<Landing>,
+}
+
+/// Where an [`Outcome`] asks to land.
+#[derive(Debug, Clone)]
+pub(crate) enum Landing {
+    /// [`Outcome::redirect`]'s same-origin path.
+    Path(String),
+    /// [`Outcome::redirect_off_site`]'s `http` or `https` URL.
+    OffSite(String),
+}
+
+impl Landing {
+    /// The URL a browser may land on, if the landing is what its builder accepts.
+    pub(crate) fn url(&self) -> Option<&str> {
+        match self {
+            Self::Path(path) => same_origin_path(path),
+            Self::OffSite(url) => web_url(url.trim()),
+        }
+    }
 }
 
 impl Outcome {
@@ -151,7 +165,20 @@ impl Outcome {
     /// as `/admin/invoices/42`; anything else, such as `https://…` or `//host`, lands where the
     /// action ran from and logs an error, since the write has already committed.
     pub fn redirect(mut self, path: impl Into<String>) -> Self {
-        self.redirect = Some(path.into());
+        self.redirect = Some(Landing::Path(path.into()));
+        self
+    }
+
+    /// Lands on `url` on another site, such as a payment provider's checkout page the action
+    /// just opened a session for. `url` is an `http` or `https` URL the app builds, never one a
+    /// request carries: anything else lands where the action ran from and logs an error, since
+    /// the write has already committed.
+    ///
+    /// The browser follows the redirect of a form it posted only to an origin the panel's
+    /// `form-action` allows, so add the site's origin with
+    /// [`Panel::content_security_policy_source`](crate::Panel::content_security_policy_source).
+    pub fn redirect_off_site(mut self, url: impl Into<String>) -> Self {
+        self.redirect = Some(Landing::OffSite(url.into()));
         self
     }
 
@@ -169,9 +196,9 @@ impl Outcome {
         self.notification.as_ref()
     }
 
-    /// The landing path asked for, if any, as given.
-    pub(crate) fn redirect_path(&self) -> Option<&str> {
-        self.redirect.as_deref()
+    /// The landing asked for, if any, as given.
+    pub(crate) fn landing(&self) -> Option<&Landing> {
+        self.redirect.as_ref()
     }
 }
 
@@ -186,4 +213,19 @@ pub(crate) fn same_origin_path(path: &str) -> Option<&str> {
         return None;
     }
     Some(path)
+}
+
+/// `url` when it is an absolute `http` or `https` URL with a host and holds no backslash or
+/// control character.
+pub(crate) fn web_url(url: &str) -> Option<&str> {
+    let lower = url.get(..8).unwrap_or(url).to_ascii_lowercase();
+    let rest = if lower.starts_with("https://") {
+        &url[8..]
+    } else if lower.starts_with("http://") {
+        &url[7..]
+    } else {
+        return None;
+    };
+    let host = !rest.is_empty() && !rest.starts_with(['/', '?', '#']);
+    (host && !url.chars().any(|c| c.is_control() || c == '\\')).then_some(url)
 }

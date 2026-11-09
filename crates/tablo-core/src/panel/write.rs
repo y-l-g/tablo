@@ -11,7 +11,7 @@ use crate::{
     flash::{notify_write_failure, set_notification},
     form::RecordForm,
     notification::Notification,
-    outcome::{Outcome, same_origin_path},
+    outcome::Outcome,
     resource::{Change, Mounted, Resource},
 };
 
@@ -192,12 +192,15 @@ fn redirect_after_write(cx: &Cx, home: &str, note: String, outcome: Outcome) -> 
         .cloned()
         .unwrap_or_else(|| Notification::success(note));
     set_notification(cx, notification);
-    let target = match outcome.redirect_path() {
-        Some(path) => match same_origin_path(path) {
-            Some(path) => path.to_string(),
+    let target = match outcome.landing() {
+        Some(landing) => match landing.url() {
+            Some(url) => url.to_string(),
             None => {
                 // The write has committed: land where the run started rather than fail it.
-                tracing::error!(path, "an action's outcome redirects off the site; ignored");
+                tracing::error!(
+                    ?landing,
+                    "an action's outcome lands where no browser should go; ignored"
+                );
                 landing_url(cx, home)
             }
         },
