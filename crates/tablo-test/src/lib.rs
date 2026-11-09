@@ -6,7 +6,7 @@ mod protocol;
 mod resource;
 mod two_factor;
 
-pub use db::{TEST_DATABASE_URL, test_db};
+pub use db::{TEST_DATABASE_URL, migrated_db, test_db};
 use http::header::{ACCEPT_LANGUAGE, CONTENT_TYPE, COOKIE};
 pub use protocol::{
     Bell, BellNotification, CellEdit, ChartData, ChartSeries, CreateOptionLink, DetailEntry,
