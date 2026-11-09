@@ -15,8 +15,12 @@ use crate::{
 
 mod columns;
 
+/// How [`Panel::audit_log`] adjusts the [`AuditLog`] resource's def.
+pub(super) type CustomizeAuditLog =
+    Box<dyn FnOnce(ResourceDef<AuditLog>) -> ResourceDef<AuditLog> + Send>;
+
 /// The read-only resource listing the [`AuditEntry`] rows of its panel, newest first, at
-/// `{prefix}/audit-log`. [`Panel::audit_log`] registers it.
+/// `{prefix}/audit-log`, or under the area that places it. [`Panel::audit_log`] registers it.
 ///
 /// It lists what happened on its own panel only, for the tenant the reader acts for, and to the
 /// resources the reader may list: an entry about a resource whose list the reader may not open
@@ -138,7 +142,9 @@ impl Policy<AuditEntry> for Immutable {
 
 impl Panel {
     /// Keeps an [`AuditEntry`] for each record every write of the panel names, inside the write's
-    /// transaction, and lists them at `{prefix}/audit-log` through the [`AuditLog`] resource.
+    /// transaction, and lists them through the [`AuditLog`] resource at `{prefix}/audit-log`, or
+    /// `{prefix}/{area}/audit-log` once [`AreaGroup::audit_log`](crate::AreaGroup::audit_log)
+    /// places it.
     ///
     /// Each entry names the signed-in user, the tenant they act for, the resource and record,
     /// and the fields the write changed, as a [`CommitHook`](crate::CommitHook) reads them: a
@@ -161,18 +167,23 @@ impl Panel {
     /// ```
     ///
     /// The database registers [`AuditEntry`]: [`models!`](crate::models!) does.
+    ///
+    /// Calling `audit_log` again replaces `customize`.
     #[must_use]
     pub fn audit_log(
         mut self,
         customize: impl FnOnce(ResourceDef<AuditLog>) -> ResourceDef<AuditLog> + Send + 'static,
     ) -> Self {
-        self.commit_hooks
-            .push(|cx, change, ex| Box::pin(store(cx, change, ex)));
-        self.resource_with::<AuditLog>(move |def| {
+        if self.audit_log.is_none() {
+            self.commit_hooks
+                .push(|cx, change, ex| Box::pin(store(cx, change, ex)));
+        }
+        self.audit_log = Some(Box::new(move |def| {
             let mut def = customize(def);
             def.policy = Arc::new(Immutable(def.policy));
             def
-        })
+        }));
+        self
     }
 }
 

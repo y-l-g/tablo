@@ -26,6 +26,14 @@ pub enum AreaFault {
         /// What the def declares.
         feature: &'static str,
     },
+    /// An area holds the audit log's list, but the panel keeps no audit log.
+    ///
+    /// Call `Panel::audit_log`, or take it out of the area.
+    AuditLogNotKept,
+    /// Two groups hold the audit log's list, which mounts at one URL.
+    ///
+    /// Keep one.
+    AuditLogPlacedTwice,
 }
 
 impl fmt::Display for AreaFault {
@@ -45,6 +53,13 @@ impl fmt::Display for AreaFault {
                 "the def of the {page} page declares {feature}, which the page does not render: \
                  drop them from the def"
             ),
+            Self::AuditLogNotKept => f.write_str(
+                "an area holds the audit log, which the panel does not keep: call \
+                 `Panel::audit_log`, or take it out of the area",
+            ),
+            Self::AuditLogPlacedTwice => {
+                f.write_str("two area groups hold the audit log, which mounts at one URL: keep one")
+            }
         }
     }
 }

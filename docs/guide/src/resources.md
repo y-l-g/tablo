@@ -274,6 +274,16 @@ the entries of their own panel and tenant, about the resources whose list they m
 a `query` that lists only the user's own orders, does not narrow the log: give the log a policy no
 wider than the narrowest scope of the resources it records.
 
+A tenant's trail belongs with its settings. An [area](panel-and-routing.md#areas) group that calls
+[`audit_log()`](https://y-l.fr/tablo/nightly/api/tablo/struct.AreaGroup.html#method.audit_log)
+lists the log there, at `{prefix}/{area}/audit-log`, instead of in the panel's sidebar:
+
+```rust,ignore
+Panel::new("app")
+    .audit_log(|log| log.policy(when(manages_members)))
+    .area(Area::new("settings").tenant_group(|group| group.tenant_profile().audit_log()))
+```
+
 Values are stored as the writer read them, in their language and time zone, so an entry is a
 snapshot rather than data to compute on. A delete stores every field the record held, so data an
 app erases on request also lives in the log until it is pruned; mark such a field
