@@ -10,12 +10,14 @@ use std::{
 use jiff::Timestamp;
 use topcoat::{
     context::Cx,
+    icon::icon,
     router::{
         Body, RouteFuture,
         error::{forbidden, see_other},
         request::uri,
         response::IntoResponse,
     },
+    view::{BoxView, ViewExt, attributes, view},
 };
 
 use super::{
@@ -265,6 +267,45 @@ async fn live_target(
 fn actor(cx: &Cx) -> Option<(&SignedIn, &ImpersonationConfig)> {
     let signed = signed(cx).filter(|signed| signed.impersonator.is_none())?;
     Some((signed, signed.realm.auth.impersonation()?))
+}
+
+/// A button that acts as `target`, for a page of the app's own, such as a staff list over a user
+/// type that is no model, where the [`Impersonate`](crate::Impersonate) action cannot go: a form
+/// that posts `target`'s [`user_id`](PanelUser::user_id) to `{prefix}/impersonate` with the CSRF
+/// field.
+///
+/// It renders nothing unless the signed-in user may act as `target` under the panel's
+/// [`Impersonation`] rule, as the action's button shows only then; the route asks the rule again.
+///
+/// ```rust
+/// # use tablo_core::{PanelUser, auth};
+/// # use topcoat::{context::Cx, view::{View, view}};
+/// fn act_as<'a>(cx: &'a Cx, colleague: &dyn PanelUser) -> impl View + 'a {
+///     let button = auth::impersonate_button(cx, colleague);
+///     view! { <td>(button)</td> }
+/// }
+/// ```
+pub fn impersonate_button<'a>(cx: &'a Cx, target: &dyn PanelUser) -> BoxView<'a> {
+    if !may_impersonate(cx, target) {
+        return view! {}.boxed();
+    }
+    let token = crate::csrf::ensure_token(cx);
+    let action = format!("{}/impersonate", panel_prefix(cx));
+    let id = target.user_id();
+    view! {
+        <form method="post" action=(action) data-impersonate=(id.clone())>
+            (crate::csrf::field(cx, &token))
+            <input type="hidden" name=(IMPERSONATE_FIELD) value=(id)>
+            tablo_ui::button(
+                variant: tablo_ui::ButtonVariant::Outline,
+                size: tablo_ui::ButtonSize::Sm,
+                attrs: attributes! { type="submit" },
+                icon(data: tablo_ui::icons::EYE)
+                (crate::t!(cx, "tablo-impersonation-start"))
+            )
+        </form>
+    }
+    .boxed()
 }
 
 /// Whether the signed-in user may act as `target`: what shows the

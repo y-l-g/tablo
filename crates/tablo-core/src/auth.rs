@@ -46,7 +46,7 @@ use self::realm::realms;
 pub use self::{
     columns::ColumnPreference,
     email_change::{EmailChange, request_email_change},
-    impersonation::{IMPERSONATE_FIELD, impersonator},
+    impersonation::{IMPERSONATE_FIELD, impersonate_button, impersonator},
     login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD, safe_next},
     password::{AdminUser, create_admin, hash_password, verify_password},
     password_reset::{PasswordResetter, RESET_LIFETIME},

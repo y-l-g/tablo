@@ -36,7 +36,7 @@ pub use dom::{
 };
 use http_body_util::BodyExt;
 pub use ignored::{IgnoredFilter, IgnoredReason, ignored_filters};
-pub use impersonation::{ImpersonationBanner, impersonation_banner};
+pub use impersonation::{ImpersonationBanner, impersonate_buttons, impersonation_banner};
 pub use import::{ImportError, ImportRefusal, import_columns, import_errors, import_refusal};
 pub use list_tabs::{TabLink, tab_links};
 pub use page_filters::{PageFilterBar, page_filter_bar};

@@ -4,14 +4,18 @@
 use std::time::Duration;
 
 use tablo::{
-    Allow, AuditEntry, Auth, Impersonate, Impersonation, NoForm, Panel, Resource, ResourceDef,
-    Table, TextColumn,
-    auth::{AdminUser, AuthSession, IMPERSONATE_FIELD, create_admin},
+    Allow, AuditEntry, Auth, Impersonate, Impersonation, NoForm, Page, PageDef, Panel, Resource,
+    ResourceDef, Table, TextColumn,
+    auth::{self, AdminUser, AuthSession, IMPERSONATE_FIELD, create_admin},
     lens,
-    testing::{form_body, impersonation_banner, mount_with_handle},
+    testing::{form_body, impersonate_buttons, impersonation_banner, mount_with_handle},
 };
 use toasty::Db;
-use topcoat::router::Router;
+use topcoat::{
+    context::Cx,
+    router::Router,
+    view::{View, view},
+};
 use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, test_db};
@@ -59,6 +63,30 @@ impl Resource for Memos {
     }
 }
 
+/// Every user, each with the button that acts as them: a staff page of the app's own.
+struct StaffPage;
+
+impl Page for StaffPage {
+    fn declare() -> PageDef {
+        PageDef::new().slug("staff")
+    }
+
+    async fn render(cx: &Cx) -> topcoat::Result<impl View> {
+        let mut db = tablo::db::db(cx)?;
+        let mut users = AdminUser::all().exec(&mut db).await?;
+        users.sort_by(|a, b| a.email.cmp(&b.email));
+        let buttons: Vec<_> = users
+            .iter()
+            .map(|user| auth::impersonate_button(cx, user))
+            .collect();
+        Ok(view! {
+            for button in buttons {
+                (button)
+            }
+        })
+    }
+}
+
 /// Support staff may act as anyone; nobody else may act as anyone.
 fn support_only() -> Impersonation<AdminUser> {
     Impersonation::new(|_cx, actor: &AdminUser, _target: &AdminUser| {
@@ -90,7 +118,8 @@ impl Fixture {
         let panel = Panel::new("admin")
             .auth(auth)
             .resource::<Users>()
-            .resource::<Memos>();
+            .resource::<Memos>()
+            .page::<StaffPage>();
         let (router, handle) =
             mount_with_handle(db.clone(), customize(panel)).expect("panel builds");
         Self {
@@ -174,6 +203,34 @@ async fn acting_as_a_user_until_stop() {
     assert_eq!(stopped.status(), 303);
     assert!(banner(&client).await.is_none());
     assert!(app.sessions().await[0].impersonating.is_none());
+}
+
+/// The users the staff page offers a button for, as `client` reads it.
+async fn staff(client: &TestClient<'_>) -> Vec<String> {
+    impersonate_buttons(&body_string(client.get("/admin/staff").await).await)
+}
+
+/// A page of the app's offers a button for each user the rule lets the signed-in user act as,
+/// and the button acts as them.
+#[tokio::test]
+async fn an_apps_page_offers_the_users_the_rule_allows() {
+    let app = Fixture::new(Auth::password().impersonation(support_only())).await;
+
+    assert!(staff(&app.as_user(&app.bob).await).await.is_empty());
+    let support = app.as_user(&app.support).await;
+    assert_eq!(
+        staff(&support).await,
+        [app.bob.id.to_string()],
+        "support may act as bob, not as themselves"
+    );
+    let started = support
+        .submit("/admin/impersonate", &act_as(&app.bob))
+        .await;
+    assert_eq!(started.status(), 303);
+    assert!(
+        staff(&support).await.is_empty(),
+        "no button while acting as someone"
+    );
 }
 
 /// The route answers 403 alike to a user the rule refuses, to acting as oneself, to an inactive
