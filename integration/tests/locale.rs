@@ -19,7 +19,7 @@ use toasty::Db;
 use topcoat::{
     context::Cx,
     l10n::{Locale, locale},
-    mail::{MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt},
+    mail::{Mailbox, Mailer, MemoryTransport},
     router::{Router, RouterBuilderDiscoverExt},
 };
 use uuid::Uuid;
@@ -550,7 +550,7 @@ async fn a_reset_mail_reads_its_recipients_locale() {
     let router = Router::builder()
         .discover()
         .with(db.clone())
-        .mail(MailConfig::builder().transport(mail.clone()).build())
+        .with(Mailer::new(mail.clone()))
         .panel(panel(auth))
         .expect("panel builds")
         .build();

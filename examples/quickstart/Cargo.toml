@@ -16,7 +16,7 @@ description = "The smallest complete Tablo app, built as a dependent outside the
 [dependencies]
 tablo = { path = "../../crates/tablo", features = ["sqlite"] }
 # ANCHOR: upstream
-topcoat = { version = "0.11", default-features = false, features = ["view", "router", "discover", "serve", "font", "font-fontsource", "asset"] }
+topcoat = { version = "0.12", default-features = false, features = ["view", "router", "discover", "serve", "font", "font-fontsource", "asset"] }
 toasty = { version = "0.11", default-features = false, features = ["jiff"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 uuid = "1.23"
@@ -28,19 +28,3 @@ tablo = { path = "../../crates/tablo", features = ["sqlite", "testing"] }
 [lints.rust]
 unsafe_code = "deny"
 warnings = "deny"
-
-# Temporary: the same Topcoat `main` patch as the workspace; drop it with the workspace one.
-[patch.crates-io]
-topcoat = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-asset = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-cookie = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-core = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-font = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-icon = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-l10n = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-mail = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-router = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-runtime = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-session = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-tailwind = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }
-topcoat-view = { git = "https://github.com/tokio-rs/topcoat", rev = "6d95e1eeabecd5c82eb459ce96d5e55ad5d5b8a7" }

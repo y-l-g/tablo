@@ -15,7 +15,7 @@ use tablo::{
 };
 use toasty::Db;
 use topcoat::{
-    mail::{MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt},
+    mail::{Mailbox, Mailer, MemoryTransport},
     router::{Router, RouterBuilderDiscoverExt},
 };
 use uuid::Uuid;
@@ -76,7 +76,7 @@ fn mount_panels(
     let mut builder = Router::builder()
         .discover()
         .with(db)
-        .mail(MailConfig::builder().transport(mail.clone()).build());
+        .with(Mailer::new(mail.clone()));
     for panel in panels {
         builder = builder.panel(panel)?;
     }
@@ -592,7 +592,7 @@ async fn a_revocation_through_a_panel_handle_ends_the_reset_link() {
     let builder = Router::builder()
         .discover()
         .with(db.clone())
-        .mail(MailConfig::builder().transport(mail.clone()).build())
+        .with(Mailer::new(mail.clone()))
         .panel(panel(mailing().password_reset(reset())))
         .expect("panel builds");
     let handle = builder.panel_handle("admin").expect("mounted above");

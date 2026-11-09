@@ -8,7 +8,7 @@ use tablo::{
 };
 use toasty::Db;
 use topcoat::{
-    mail::{MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt},
+    mail::{Mailbox, Mailer, MemoryTransport},
     router::{Router, RouterBuilderDiscoverExt},
 };
 use uuid::Uuid;
@@ -48,11 +48,7 @@ fn sender() -> Mailbox {
 async fn mount(auth: Auth, with_mail: bool) -> topcoat::Result<Router> {
     let mut builder = Router::builder().discover().with(db().await);
     if with_mail {
-        builder = builder.mail(
-            MailConfig::builder()
-                .transport(MemoryTransport::new())
-                .build(),
-        );
+        builder = builder.with(Mailer::new(MemoryTransport::new()));
     }
     let panel = Panel::new("admin").auth(auth).resource::<MemoResource>();
     Ok(builder.panel(panel)?.build())

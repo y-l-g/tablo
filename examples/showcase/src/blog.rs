@@ -5,11 +5,7 @@ use toasty::stmt::Include;
 use topcoat::{
     Result,
     context::{Cx, context},
-    router::{
-        Slot,
-        error::{RouterErrorExt, not_found},
-        href, layout, page, path_param,
-    },
+    router::{Slot, error::RouterErrorExt, href, layout, page, path_param},
     view::{Unescaped, View, class, view},
 };
 
@@ -18,7 +14,8 @@ use crate::{
     models::{Author, MediaAsset, Post, PostStatus},
 };
 
-path_param!(pub id: uuid::Uuid);
+// A malformed id answers not-found.
+path_param!(pub id: uuid::Uuid else not_found);
 
 /// The public shell.
 #[layout("/blog")]
@@ -116,7 +113,7 @@ async fn page(cx: &Cx) -> Result<impl View> {
                             <div>
                                 <h2 class="text-xl font-semibold tracking-tight">
                                     <a
-                                        href=(href!(post_page, Id(post.id)))
+                                        href=(href!(post_page, id: post.id))
                                         class="hover:text-primary"
                                     >
                                         (&post.title)
@@ -140,8 +137,7 @@ async fn page(cx: &Cx) -> Result<impl View> {
 /// Renders one published post; drafts answer not-found.
 #[page("/blog/{id}")]
 async fn post_page(cx: &Cx) -> Result<impl View> {
-    // A malformed id answers not-found.
-    let id = path_param::<Id>(cx).map_err(|_| not_found())?.to_owned();
+    let id = *id(cx)?;
 
     let mut db = db(cx)?;
     let include_author: Include<Post, Author> = Post::fields().author().into();

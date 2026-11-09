@@ -12,7 +12,7 @@ use tablo::{
 };
 use toasty::Db;
 use topcoat::{
-    mail::{Mail, MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt},
+    mail::{Mail, Mailbox, Mailer, MemoryTransport},
     router::{Body, Router, RouterBuilderDiscoverExt},
 };
 use uuid::Uuid;
@@ -67,7 +67,7 @@ fn router(db: Db, mail: &MemoryTransport) -> Router {
     Router::builder()
         .discover()
         .with(db)
-        .mail(MailConfig::builder().transport(mail.clone()).build())
+        .with(Mailer::new(mail.clone()))
         .panel(Panel::new("admin").auth(auth).resource::<InvoiceResource>())
         .expect("panel builds")
         .build()

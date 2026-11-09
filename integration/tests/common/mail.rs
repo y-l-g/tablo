@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use topcoat::mail::{Mail, MemoryTransport, TextBody};
+use topcoat::mail::{Mail, MemoryTransport};
 
 /// The host every test's auth mail links to.
 pub const BASE_URL: &str = "https://admin.example.com";
@@ -21,10 +21,7 @@ pub async fn mails(mail: &MemoryTransport, count: usize) -> Vec<Mail> {
 
 /// The plain-text body of `mail`.
 pub fn text(mail: &Mail) -> &str {
-    match mail.text() {
-        TextBody::Text(text) => text,
-        other => panic!("auth mail is plain text, got {other:?}"),
-    }
+    mail.text().expect("auth mail has a plain-text body")
 }
 
 /// The path and query of the link `mail` carries to [`BASE_URL`].

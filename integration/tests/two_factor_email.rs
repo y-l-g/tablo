@@ -14,7 +14,7 @@ use tablo::{
 use toasty::Db;
 use topcoat::{
     cookie::Key,
-    mail::{MailConfig, Mailbox, MemoryTransport, RouterBuilderMailExt},
+    mail::{Mailbox, Mailer, MemoryTransport},
     router::{Router, RouterBuilderDiscoverExt},
 };
 
@@ -59,7 +59,7 @@ fn keyed_router(db: Db, mail: &MemoryTransport, two_factor: TwoFactor, key: Key)
         .discover()
         .with(db)
         .with(key)
-        .mail(MailConfig::builder().transport(mail.clone()).build())
+        .with(Mailer::new(mail.clone()))
         .panel(Panel::new("admin").auth(auth))
         .expect("panel builds")
         .build()
@@ -279,11 +279,7 @@ async fn mounting_refuses_mailed_codes_without_a_sender() {
         .discover()
         .with(db)
         .with(Key::generate())
-        .mail(
-            MailConfig::builder()
-                .transport(MemoryTransport::new())
-                .build(),
-        )
+        .with(Mailer::new(MemoryTransport::new()))
         .panel(
             Panel::new("admin").auth(Auth::password().two_factor(TwoFactor::new().email_codes())),
         )

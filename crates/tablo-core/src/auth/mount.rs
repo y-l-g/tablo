@@ -22,7 +22,7 @@ use crate::{DeclarationErrorKind, naming::route_path, toasty_compat::model::AppS
 /// What the router installs that auth features need.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Services {
-    /// A `MailConfig`, which mailed links go out through.
+    /// A `Mailer`, which mailed links go out through.
     pub(crate) mail: bool,
     /// A cookie `Key`, which seals two-factor secrets.
     pub(crate) cookie_key: bool,
@@ -32,7 +32,7 @@ impl Services {
     /// What `builder` installs.
     pub(crate) fn of(builder: &RouterBuilder) -> Self {
         Self {
-            mail: builder.try_context::<topcoat::mail::MailConfig>().is_some(),
+            mail: builder.try_context::<topcoat::mail::Mailer>().is_some(),
             cookie_key: builder.try_context::<topcoat::cookie::Key>().is_some(),
         }
     }

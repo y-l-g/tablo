@@ -138,9 +138,9 @@ pub enum AuthMailFault {
     ///
     /// Pass the scheme and host, such as `https://admin.example.com`.
     BaseUrl(String),
-    /// The router registers no `MailConfig` to send the mail through.
+    /// The router registers no `Mailer` to send the mail through.
     ///
-    /// Call `.mail(..)` before `.panel(..)`.
+    /// Add one with `.with(Mailer::new(..))` before `.panel(..)`.
     MissingMail,
 }
 
@@ -158,8 +158,8 @@ impl fmt::Display for AuthMailFault {
              scheme and host the app answers on, such as `https://admin.example.com`"
             ),
             Self::MissingMail => f.write_str(
-                "the panel's auth mails links, but the router registers no `MailConfig`: install \
-             one with `.mail(..)` before mounting the panel",
+                "the panel's auth mails links, but the router registers no `Mailer`: add \
+             one with `.with(Mailer::new(..))` before mounting the panel",
             ),
         }
     }

@@ -31,8 +31,8 @@ pub const SESSION_COOKIE_PREFIX: &str = "__Host-tablo_session_";
 /// The cookie that carries a session's token on the panel `Panel::new(panel)` mounts; `panel` is
 /// spelled as for [`Panel::new`](crate::Panel::new). Each panel has its own, so a browser stays
 /// signed in to several. Tablo keeps them apart from the router's
-/// [`SessionConfig`](topcoat::session::SessionConfig), so a host app's own Topcoat sessions and a
-/// panel's never replace each other's token.
+/// [`SessionTokenStore`](topcoat::session::SessionTokenStore), so a host app's own Topcoat sessions
+/// and a panel's never replace each other's token.
 #[must_use]
 pub fn session_cookie(panel: &str) -> String {
     format!(

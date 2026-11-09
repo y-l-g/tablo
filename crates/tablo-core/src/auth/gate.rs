@@ -334,8 +334,8 @@ impl Layer for RuntimeGate {
             let gated = realms.iter().any(|realm| realm.gates());
             if gated && connected_untracked(cx) && !headers(cx).contains_key(PAGE_PANEL) {
                 return Err(crate::error::declaration(
-                    "a runtime socket opened outside Tablo's stamp: call `.runtime()` before \
-                     `.panel()`, or leave it to the panel",
+                    "a runtime socket opened outside Tablo's stamp: add a `RuntimeLayer` \
+                     before `.panel()`, or leave it to the panel",
                 ));
             }
             let declaring = host.declaring(cx, uri(cx).path());

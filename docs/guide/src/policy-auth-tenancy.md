@@ -288,7 +288,7 @@ the user's sessions, what the mount refuses and how saves are throttled.
 `Auth::password_reset` adds a "Forgot your password?" link to the login page. It leads to
 `{prefix}/forgot-password`, which mails a reset link, and the link opens `{prefix}/reset-password`,
 where the visitor chooses a new password. `Auth::mail` names the sender and the base URL every
-link the panel mails starts with. The mail goes through the router's `MailConfig`, so register one
+link the panel mails starts with. The mail goes through the router's `Mailer`, so add one
 before mounting the panel, and add `AuthToken` to the `Db`'s models:
 
 ```rust
