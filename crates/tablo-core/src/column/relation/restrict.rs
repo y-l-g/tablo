@@ -5,7 +5,7 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, Mutex},
+    sync::{Arc, LazyLock, Mutex},
 };
 
 use toasty::{Deferred, Executor};
@@ -89,6 +89,27 @@ fn checked<S: OptionSource>(cx: &Cx, _tenant: Option<crate::TenantId>) -> Arc<Ch
     Arc::default()
 }
 
+/// Logs one warning per process for each source a relation column could not load from: its
+/// cells render empty, as a record the source hides does, which no status check tells apart.
+fn warn_denied(source: &'static str) {
+    if first_denial(source) {
+        tracing::warn!(
+            source,
+            "a relation column's source refuses the request, so its cells render empty: let the \
+             source list for the user, or use `RelationColumn::unscoped`"
+        );
+    }
+}
+
+/// Whether `source` is denied for the first time in this process.
+fn first_denial(source: &'static str) -> bool {
+    static DENIED: LazyLock<Mutex<HashSet<&'static str>>> = LazyLock::new(Mutex::default);
+    DENIED
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(source)
+}
+
 /// How many keys one visibility query names, under every driver's bound-parameter limit.
 const KEYS_PER_QUERY: usize = 500;
 
@@ -126,7 +147,9 @@ async fn check<S: OptionSource>(
         .iter()
         .map(|record| (pk::pk_text(*record), false))
         .collect();
-    if ensure_option_access::<S>(cx).is_ok() {
+    if ensure_option_access::<S>(cx).is_err() {
+        warn_denied(std::any::type_name::<S>());
+    } else {
         for chunk in unchecked.chunks(KEYS_PER_QUERY) {
             let rows = S::scoped_query(cx)?
                 .filter(pk::pk_set_filter(chunk))
@@ -141,3 +164,6 @@ async fn check<S: OptionSource>(
     lock().extend(answers);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
