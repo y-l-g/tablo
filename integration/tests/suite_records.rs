@@ -1,5 +1,5 @@
 //! The integration suite's records binary: what a submitted form writes: derived forms, embedded
-//! values, related forms, commits, uniqueness and action input.
+//! values, related forms, commits, uniqueness and action input; and a database the migrations made.
 //!
 //! Each module is one suite file; `common` holds the fixtures every binary shares. Filter per file
 //! with `cargo test -p tablo-integration <module>::`.
@@ -18,6 +18,7 @@ mod commit_hook;
 mod declined;
 mod embedded_lens;
 mod embedded_value;
+mod migrated_db;
 mod record_form;
 mod related_form;
 mod tenant_write;
