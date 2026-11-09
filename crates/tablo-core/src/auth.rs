@@ -111,6 +111,13 @@ pub(crate) trait DynAuthenticator: Send + Sync {
         user: &'a dyn PanelUser,
         password: &'a str,
     ) -> BoxFuture<'a, topcoat::Result<bool>>;
+    /// Stores `locale` as `user`'s; a user of another type stores nothing.
+    fn store_locale<'a>(
+        &'a self,
+        cx: &'a Cx,
+        user: &'a dyn PanelUser,
+        locale: &'a topcoat::l10n::Locale,
+    ) -> BoxFuture<'a, topcoat::Result<()>>;
     /// The [`TypeId`] of [`Authenticator::User`], so mounting knows when the
     /// shipped [`AdminUser`] must be registered.
     fn user_type(&self) -> TypeId;
@@ -153,6 +160,21 @@ impl<A: Authenticator> DynAuthenticator for A {
             match user.downcast_ref::<A::User>() {
                 Some(user) => Authenticator::confirm_password(self, cx, user, password).await,
                 None => Ok(false),
+            }
+        })
+    }
+
+    fn store_locale<'a>(
+        &'a self,
+        cx: &'a Cx,
+        user: &'a dyn PanelUser,
+        locale: &'a topcoat::l10n::Locale,
+    ) -> BoxFuture<'a, topcoat::Result<()>> {
+        Box::pin(async move {
+            let user: &dyn Any = user;
+            match user.downcast_ref::<A::User>() {
+                Some(user) => Authenticator::store_locale(self, cx, user, locale).await,
+                None => Ok(()),
             }
         })
     }

@@ -150,6 +150,15 @@ impl Authenticator for ReaderAuth {
             .exec(&mut tablo::db::db(cx)?)
             .await?)
     }
+
+    async fn store_locale(&self, cx: &Cx, user: &Reader, locale: &Locale) -> topcoat::Result<()> {
+        Reader::filter(Reader::fields().id().eq(user.id))
+            .update()
+            .locale(Some(locale.to_string()))
+            .exec(&mut tablo::db::db(cx)?)
+            .await?;
+        Ok(())
+    }
 }
 
 impl PasswordResetter for ReaderAuth {
@@ -468,6 +477,35 @@ async fn a_picked_locale_outranks_the_users_own() {
     let picked = signed.cookies(&response_cookies(&response));
     let (after, _) = read(&picked).await;
     assert_eq!(after.as_deref(), Some("fr"));
+}
+
+/// The locale picked from the menu lands on the account through the authenticator, so a fresh
+/// browser and the account's mail read it too.
+#[tokio::test]
+async fn a_picked_locale_is_stored_on_the_account() {
+    let db = db().await;
+    let router = router(&db, Auth::custom(ReaderAuth));
+    let reader = reader(&db, "Ada", Some("en")).await;
+    let signed = TestClient::new(&router)
+        .language("en")
+        .sign_in(&db, "admin", &reader)
+        .await;
+    let response = signed
+        .submit("/admin/locale", &form_body(&[("locale", "fr")]))
+        .await;
+    assert_eq!(response.status(), http::StatusCode::SEE_OTHER);
+    let stored = Reader::filter(Reader::fields().id().eq(reader.id))
+        .first()
+        .exec(&mut db.clone())
+        .await
+        .unwrap()
+        .expect("the reader");
+    assert_eq!(stored.locale.as_deref(), Some("fr"));
+    let elsewhere = TestClient::new(&router)
+        .language("en")
+        .sign_in(&db, "admin", &stored)
+        .await;
+    assert_eq!(read(&elsewhere).await.0.as_deref(), Some("fr"));
 }
 
 /// The post refuses a locale the panel does not offer, and one the panel dropped since reads as

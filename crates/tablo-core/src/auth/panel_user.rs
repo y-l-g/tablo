@@ -114,7 +114,8 @@ pub trait PanelUser: Any + Send + Sync {
     /// browser's best match among the panel's [`locales`](crate::Panel::locales), else its
     /// default. A locale matches the closest the panel offers, as `fr-CA` reads `fr`; one with no
     /// match counts as none. A locale the user picks from the shell's language menu outranks this
-    /// one for their pages, while their mails still read this one.
+    /// one for their pages, while their mails still read this one, unless the authenticator
+    /// stores the pick through [`Authenticator::store_locale`] for this method to read.
     ///
     /// A user who stores their locale as text parses it:
     ///
@@ -191,5 +192,22 @@ pub trait Authenticator: Send + Sync + 'static {
             let verified = self.verify(cx, login, password).await?;
             Ok(verified.is_some_and(|found| found.user_id() == user.user_id()))
         }
+    }
+
+    /// Stores `locale` as `user`'s after they pick it from the shell's language menu, so their
+    /// [`locale`](PanelUser::locale) reads it on the next request, in another browser, and in the
+    /// mail a job sends them. It runs only when the pick differs from that locale, and never
+    /// while someone [impersonates](crate::Auth::impersonation) the user.
+    ///
+    /// It defaults to storing nothing: the pick then lives in the browser's cookie alone. A
+    /// failure is logged, and the page still switches to the locale picked.
+    fn store_locale(
+        &self,
+        cx: &Cx,
+        user: &Self::User,
+        locale: &topcoat::l10n::Locale,
+    ) -> impl Future<Output = topcoat::Result<()>> + Send {
+        let _ = (cx, user, locale);
+        async { Ok(()) }
     }
 }

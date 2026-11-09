@@ -1,7 +1,10 @@
 //! Acting as another user: off until the app gives a rule, asked again on every request, ended by
 //! Stop or its lifetime, kept away from the target's credentials, and written to the audit log.
 
-use std::time::Duration;
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use tablo::{
     Allow, AuditEntry, Auth, Impersonate, Impersonation, NoForm, Page, PageDef, Panel, Resource,
@@ -13,6 +16,7 @@ use tablo::{
 use toasty::Db;
 use topcoat::{
     context::Cx,
+    l10n::{Locale, locale},
     router::Router,
     view::{View, view},
 };
@@ -455,5 +459,64 @@ async fn acting_as_another_stays_within_the_actors_tenants() {
         started.status(),
         303,
         "across_tenants lets support act as any member"
+    );
+}
+
+/// The password sign-in over [`AdminUser`], noting each locale it is asked to store.
+struct RecordingAuth(Arc<Mutex<Vec<String>>>);
+
+impl tablo::Authenticator for RecordingAuth {
+    type User = AdminUser;
+
+    async fn verify(
+        &self,
+        cx: &Cx,
+        login: &str,
+        password: &str,
+    ) -> topcoat::Result<Option<AdminUser>> {
+        tablo::Authenticator::verify(&tablo::PasswordAuth, cx, login, password).await
+    }
+
+    async fn find_by_id(&self, cx: &Cx, id: &str) -> topcoat::Result<Option<AdminUser>> {
+        tablo::Authenticator::find_by_id(&tablo::PasswordAuth, cx, id).await
+    }
+
+    async fn store_locale(
+        &self,
+        _cx: &Cx,
+        user: &AdminUser,
+        locale: &Locale,
+    ) -> topcoat::Result<()> {
+        self.0
+            .lock()
+            .expect("the record")
+            .push(format!("{} {locale}", user.email));
+        Ok(())
+    }
+}
+
+/// A locale picked while acting as another stays off their account: the pick is the actor's.
+#[tokio::test]
+async fn a_locale_picked_while_acting_as_another_is_not_stored() {
+    let stored = Arc::new(Mutex::new(Vec::new()));
+    let auth = Auth::custom(RecordingAuth(Arc::clone(&stored))).impersonation(support_only());
+    let app = Fixture::with(auth, |panel| panel.locales([locale!("en"), locale!("fr")])).await;
+    let client = app.as_user(&app.support).await;
+    let picked = client
+        .submit("/admin/locale", &form_body(&[("locale", "fr")]))
+        .await;
+    assert_eq!(picked.status(), 303);
+    assert_eq!(*stored.lock().unwrap(), ["support@example.com fr"]);
+
+    let acting = client.submit("/admin/impersonate", &act_as(&app.bob)).await;
+    assert_eq!(acting.status(), 303);
+    let picked = client
+        .submit("/admin/locale", &form_body(&[("locale", "en")]))
+        .await;
+    assert_eq!(picked.status(), 303);
+    assert_eq!(
+        *stored.lock().unwrap(),
+        ["support@example.com fr"],
+        "nothing lands on Bob's account"
     );
 }
