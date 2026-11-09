@@ -1,7 +1,61 @@
-//! The spellings of a [`Numeric`] value: a number with its thousands grouped, and an amount of a
-//! [`Currency`], in English or in the request's locale.
+//! The spellings of a [`Numeric`] value: a number with its thousands grouped, a percentage, and
+//! an amount of a [`Currency`], in English or in the request's locale.
 
 use super::{Number, Numeric};
+
+impl Number {
+    /// Spell `value` with `decimals` digits after the point and its thousands grouped, in
+    /// English, or an empty string when it holds none.
+    ///
+    /// ```rust
+    /// use tablo_core::Number;
+    ///
+    /// assert_eq!(Number::format(1234.5, 2), "1,234.50");
+    /// assert_eq!(Number::format(-3, 0), "-3");
+    /// ```
+    pub fn format(value: impl Numeric, decimals: u8) -> String {
+        value
+            .number()
+            .map(|number| NumberFormat::english().spell(number, decimals))
+            .unwrap_or_default()
+    }
+
+    /// Spell `value` as [`format`](Self::format) does, with the separators of the request's
+    /// locale: `1 234,50` in French.
+    pub fn format_in(cx: &topcoat::context::Cx, value: impl Numeric, decimals: u8) -> String {
+        value
+            .number()
+            .map(|number| NumberFormat::of(cx).spell(number, decimals))
+            .unwrap_or_default()
+    }
+
+    /// Spell `value`, a percentage such as `12.5` for twelve and a half percent, with
+    /// `decimals` digits, in English, or an empty string when it holds none.
+    ///
+    /// ```rust
+    /// use tablo_core::Number;
+    ///
+    /// assert_eq!(Number::percent(12.5, 1), "12.5%");
+    /// assert_eq!(Number::percent(-1250, 0), "-1,250%");
+    /// ```
+    pub fn percent(value: impl Numeric, decimals: u8) -> String {
+        let number = Self::format(value, decimals);
+        if number.is_empty() {
+            return number;
+        }
+        format!("{number}%")
+    }
+
+    /// Spell `value` as [`percent`](Self::percent) does, in the request's locale: its
+    /// separators, and its `tablo-percent` message, `12,5 %` in French.
+    pub fn percent_in(cx: &topcoat::context::Cx, value: impl Numeric, decimals: u8) -> String {
+        let number = Self::format_in(cx, value, decimals);
+        if number.is_empty() {
+            return number;
+        }
+        crate::t!(cx, "tablo-percent", number = number)
+    }
+}
 
 /// How a money column spells its amounts: the symbol, where it goes, the decimals, and whether
 /// the field stores minor units.

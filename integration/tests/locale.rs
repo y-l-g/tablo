@@ -624,6 +624,25 @@ async fn numbers_and_amounts_read_in_the_readers_locale() {
     );
 }
 
+/// A number and a percentage the app spells read the request's locale.
+#[tokio::test]
+async fn an_apps_numbers_and_percentages_read_in_the_readers_locale() {
+    let db = db().await;
+    let builder = Router::builder()
+        .discover()
+        .with(db)
+        .panel(panel(Auth::disabled()))
+        .expect("panel builds");
+    let cx = builder
+        .panel_handle("admin")
+        .expect("mounted above")
+        .context();
+    assert_eq!(tablo::Number::format_in(&cx, 1234.5, 2), "1\u{202f}234,50");
+    assert_eq!(tablo::Number::percent_in(&cx, 12.5, 1), "12,5\u{202f}%");
+    let english = cx.with(locale!("en"));
+    assert_eq!(tablo::Number::percent_in(&english, 12.5, 1), "12.5%");
+}
+
 /// The pager groups its counts as the reader's locale does, as the cells do.
 #[tokio::test]
 async fn the_pagers_counts_read_in_the_readers_locale() {

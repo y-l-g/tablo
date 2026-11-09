@@ -60,6 +60,7 @@ tablo-no = Non
 tablo-number-group = { "\u202F" }
 tablo-number-decimal = ,
 tablo-money = { $sign }{ $amount }{ "\u00A0" }{ $symbol }
+tablo-percent = { $number }{ "\u202F" }%
 
 ## Lists
 
