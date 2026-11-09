@@ -448,7 +448,8 @@ impl Panel {
     ///
     /// Offering several shows the language menu in the sidebar footer, each locale named by an
     /// attribute of the message `tablo-shell-language` and falling back to its tag; picking one
-    /// remembers it in a cookie under the panel's prefix.
+    /// remembers it in a cookie under the panel's prefix, and on the signed-in user's account
+    /// through [`Authenticator::store_locale`](crate::Authenticator::store_locale).
     ///
     /// Tablo translates its own words into `en` and `fr`; a locale it does not translate needs the
     /// app's catalog, from [`translations`](Self::translations). The pseudo-locale `en-XA` spells

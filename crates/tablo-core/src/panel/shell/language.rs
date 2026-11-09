@@ -5,6 +5,7 @@ use topcoat::{
     context::{Cx, try_context},
     cookie::{Cookie, CookieJarCell, Cookies, SameSite, cookies},
     icon::icon,
+    l10n::Locale,
     router::{Body, RouteFuture, response::IntoResponse},
     view::{BoxView, ViewExt, attributes, view},
 };
@@ -37,6 +38,7 @@ pub(crate) fn language_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .and_then(|tag| crate::i18n::offered_match(cx, tag))
             .ok_or_else(topcoat::router::error::forbidden)?;
         remember(cx, &picked.to_string());
+        store(cx, &picked).await;
         // The menu posts the page it was opened from; a `next` from elsewhere lands on the
         // panel's home rather than off-origin.
         let target = parts
@@ -62,6 +64,28 @@ fn remember(cx: &Cx, tag: &str) {
         .max_age(topcoat::cookie::time::Duration::days(REMEMBERED_DAYS))
         .build();
     cookies(cx).add(cookie);
+}
+
+/// Stores `picked` on the signed-in user's account through
+/// [`Authenticator::store_locale`](crate::Authenticator::store_locale), when it differs from the
+/// locale the account holds and nobody impersonates the user: an impersonator's pick is theirs,
+/// not the account's.
+async fn store(cx: &Cx, picked: &Locale) {
+    let Some(signed) = crate::auth::signed(cx) else {
+        return;
+    };
+    if signed.impersonator.is_some() || signed.user.locale().as_ref() == Some(picked) {
+        return;
+    }
+    let Some(authenticator) = signed.realm.auth.authenticator() else {
+        return;
+    };
+    if let Err(error) = authenticator
+        .store_locale(cx, signed.user.as_ref(), picked)
+        .await
+    {
+        tracing::error!(error = %error, locale = %picked, "the picked locale not stored");
+    }
 }
 
 /// The language choice: one form per locale the panel offers, the current one checked. A panel
