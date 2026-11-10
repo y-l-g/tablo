@@ -347,6 +347,49 @@ code fail until its owner signs in with a recovery code.
 [`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor) lists the setup, the challenge, codes
 by email, throttling and what the mount refuses.
 
+### Sign in with Google
+
+`Auth::oidc` adds a "Continue with Google" button to the login page, and to the sign-up page when
+the panel has one. The button leaves for Google, and Google sends the browser back to
+`{prefix}/sign-in/google/callback`, where the panel checks the answer and signs in the user an
+`IdentityLinker` names:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-oidc}}
+```
+
+Create an OAuth client of the "Web application" type in a Google Cloud project, and register
+`https://admin.example.com/admin/sign-in/google/callback` as its redirect URI: the base URL passed
+to `Oidc::new`, then the panel's prefix. The base URL is the app's public origin, for the same
+reason reset links use one rather than the request's `Host` header. The router must hold a cookie
+`Key`, as for two-factor sign-in.
+
+The linker is where the app decides who an identity is. Store the link as a row of your own, keyed
+by the identity's `issuer` and `subject`: an address can change hands at the provider, its
+`subject` cannot. Link a new identity to an existing account only through an address the provider
+verified, or anyone who registers that address with the provider signs in as its owner. Returning
+`None` refuses the sign-in; creating the account there makes the button a sign-up. With several
+providers, linking by address trusts the least careful of them to verify it.
+
+To admit the accounts of one Google Workspace domain only, check the identity's `hd` claim in the
+linker, `identity.claims.get("hd")`; `.param("hd", "example.com")` on the provider only narrows the
+accounts Google's page offers. `.param("prompt", "select_account")` lets a browser signed in to
+several Google accounts pick one, and `.scope(..)` asks for more than the address and name.
+`ProviderIdentity::new` builds an identity for a test of the linker alone.
+
+Serve the panel on the base URL's host only, redirecting any other such as `www.` to it: the
+pending sign-in's cookie belongs to the host the browser started on, and the provider sends it
+back to the base URL. A browser holds one pending sign-in at a time, so a sign-in started in a
+second tab replaces the first's. Callbacks count against the panel's sign-in throttle.
+
+A Google sign-in ends as a password one does: an account with a second factor answers the
+challenge, and the browser gets a new session. An account that has only ever signed in with Google
+has no password to confirm, so the pages that ask for it, such as the two-factor settings, need one
+set through the password reset first. `OidcProvider::new` signs in through any other provider that
+publishes an OpenID Connect discovery document.
+[`Auth::oidc`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.oidc) lists what the
+mount refuses.
+
 ### Acting as another user
 
 `Auth::impersonation` lets a signed-in user act as another to see the panel as they see it. It is
@@ -387,8 +430,8 @@ The session row stores the target in two nullable columns, `impersonating` and
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-auth-disabled-body}}
 ```
 
-Every panel route is then public and the login, sign-up, profile, password reset, two-factor and
-tenant routes are not registered. Use it for public
+Every panel route is then public and the login, sign-up, profile, password reset, two-factor,
+provider sign-in and tenant routes are not registered. Use it for public
 demos and tests only.
 
 ## Tenancy

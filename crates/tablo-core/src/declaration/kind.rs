@@ -2,8 +2,8 @@
 
 use super::{
     ActionInputFault, AreaFault, AuthMailFault, EditableColumnFault, FieldAccessFault,
-    FieldRuleFault, LocaleFault, ManyToManyFault, PolicyFault, ProfileFault, RelatedFormFault,
-    ResetFault, SegmentFault, SignUpFault, TenancyFault, TenantProfileFault,
+    FieldRuleFault, LocaleFault, ManyToManyFault, OidcFault, PolicyFault, ProfileFault,
+    RelatedFormFault, ResetFault, SegmentFault, SignUpFault, TenancyFault, TenantProfileFault,
     TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
 
@@ -208,6 +208,8 @@ pub enum DeclarationErrorKind {
     TenantProfile(TenantProfileFault),
     /// The panel's two-factor sign-in cannot be served.
     TwoFactor(TwoFactorFault),
+    /// The panel's provider sign-in cannot be served.
+    Oidc(OidcFault),
     /// The panel's auth mail cannot be sent.
     AuthMail(AuthMailFault),
     /// The panel's locales or translations cannot be served.

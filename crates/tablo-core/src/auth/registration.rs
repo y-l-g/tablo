@@ -497,6 +497,7 @@ async fn render_page<'a>(
     let csrf = crate::csrf::ensure_token(cx);
     let action = register_url(cx);
     let login = with_next(login_url(cx), &next);
+    let providers = super::oidc::buttons(cx, &next);
     let fields = schema.render(cx, Source::form(values, errors)).await?;
     let form = topcoat::view::view! {
         <form method="post" action=(action) class="flex flex-col gap-5">
@@ -516,6 +517,9 @@ async fn render_page<'a>(
                 (crate::t!(cx, "tablo-sign-up-submit"))
             )
         </form>
+        if let Some(providers) = providers {
+            <div class="mt-5">(providers)</div>
+        }
     }
     .boxed();
     super::page::render(

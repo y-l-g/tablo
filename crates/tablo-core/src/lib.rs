@@ -144,6 +144,7 @@ pub use auth::{
     external::ExternalAuth,
     impersonation::Impersonation,
     mail::AuthMail,
+    oidc::{IdentityLinker, Oidc, OidcProvider, ProviderIdentity},
     panel_user::{Authenticator, PanelUser},
     password::{PasswordAuth, PasswordSignUp},
     password_reset::PasswordReset,
@@ -166,8 +167,8 @@ pub use column::{
 pub use declaration::{
     ActionInputFault, AreaFault, AuthMailFault, DeclarationError, DeclarationErrorKind,
     EditableColumnFault, FieldAccessFault, FieldRuleFault, LocaleFault, ManyToManyFault,
-    MountError, PolicyFault, ProfileFault, RelatedFormFault, ResetFault, SegmentFault, SignUpFault,
-    Site, TenancyFault, TenantProfileFault, TenantRegistrationFault, TwoFactorFault,
+    MountError, OidcFault, PolicyFault, ProfileFault, RelatedFormFault, ResetFault, SegmentFault,
+    SignUpFault, Site, TenancyFault, TenantProfileFault, TenantRegistrationFault, TwoFactorFault,
     VerificationFault,
 };
 pub use derive::{EmbeddedForm, FormInput, ModelColumns, ModelForm, Options, RecordForm};

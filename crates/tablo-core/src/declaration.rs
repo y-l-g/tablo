@@ -21,7 +21,7 @@ pub use action_input::ActionInputFault;
 use action_input::fmt_action_input;
 pub use area::AreaFault;
 pub use auth::{
-    AuthMailFault, ProfileFault, ResetFault, SignUpFault, TenantProfileFault,
+    AuthMailFault, OidcFault, ProfileFault, ResetFault, SignUpFault, TenantProfileFault,
     TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
 pub use editable::EditableColumnFault;

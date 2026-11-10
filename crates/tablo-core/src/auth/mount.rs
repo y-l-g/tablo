@@ -67,6 +67,7 @@ pub(crate) fn declaration_errors(
         ))
         .chain(super::mail::declaration_errors(auth, services.mail))
         .chain(super::external::declaration_errors(auth))
+        .chain(super::oidc::declaration_errors(auth, services.cookie_key))
         .collect()
 }
 
@@ -161,6 +162,7 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
             ));
         }
     }
+    builder = super::oidc::routes(builder, realm);
     if auth.registrar().is_some() {
         let register_path = route_path(&format!("{prefix}/register"));
         builder = builder

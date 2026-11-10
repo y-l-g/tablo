@@ -3788,6 +3788,7 @@ dependencies = [
  "topcoat",
  "tracing",
  "trybuild",
+ "ureq",
  "url",
  "uuid",
 ]
@@ -3831,11 +3832,14 @@ dependencies = [
  "hmac 0.13.0",
  "http",
  "http-body-util",
+ "jiff",
  "percent-encoding",
  "serde_json",
  "sha1 0.11.0",
+ "sha2 0.11.1",
  "tablo-core",
  "toasty",
+ "tokio",
  "topcoat",
  "uuid",
 ]

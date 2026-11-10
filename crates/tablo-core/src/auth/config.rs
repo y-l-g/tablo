@@ -48,23 +48,7 @@ impl Auth {
     /// [`Auth::external`] gates both.
     #[must_use]
     pub fn disabled() -> Self {
-        Self::new(AuthConfig {
-            authenticator: None,
-            external: None,
-            throttle: LoginThrottle::off(),
-            account_throttle: LoginThrottle::off(),
-            registrar: None,
-            sign_up_throttle: LoginThrottle::off(),
-            profile_editor: None,
-            profile_throttle: LoginThrottle::off(),
-            reset: None,
-            mail: None,
-            verification: None,
-            tenant_registration: None,
-            tenant_editor: None,
-            two_factor: None,
-            impersonation: None,
-        })
+        Self::new(AuthConfig::new(None, LoginThrottle::off))
     }
 }
 
@@ -72,23 +56,8 @@ impl<U: PanelUser> Auth<U> {
     /// An app-owned authenticator over its own user table.
     #[must_use]
     pub fn custom<A: Authenticator<User = U>>(authenticator: A) -> Self {
-        Self::new(AuthConfig {
-            authenticator: Some(Box::new(authenticator)),
-            external: None,
-            throttle: LoginThrottle::default(),
-            account_throttle: LoginThrottle::off(),
-            registrar: None,
-            sign_up_throttle: LoginThrottle::default(),
-            profile_editor: None,
-            profile_throttle: LoginThrottle::default(),
-            reset: None,
-            mail: None,
-            verification: None,
-            tenant_registration: None,
-            tenant_editor: None,
-            two_factor: None,
-            impersonation: None,
-        })
+        let authenticator: Box<dyn DynAuthenticator> = Box::new(authenticator);
+        Self::new(AuthConfig::new(Some(authenticator), LoginThrottle::default))
     }
 
     /// A panel whose users sign in through the host app: no password form, and no credential of
@@ -96,8 +65,8 @@ impl<U: PanelUser> Auth<U> {
     ///
     /// Mounting refuses what needs Tablo to own the credentials:
     /// [`registration`](Self::registration), [`password_reset`](Self::password_reset),
-    /// [`email_verification`](Self::email_verification), [`two_factor`](Self::two_factor) and
-    /// [`impersonation`](Self::impersonation).
+    /// [`email_verification`](Self::email_verification), [`two_factor`](Self::two_factor),
+    /// [`impersonation`](Self::impersonation) and [`oidc`](Self::oidc).
     #[must_use]
     pub fn external<E: ExternalAuth<User = U>>(external: E) -> Self {
         let external = Arc::new(external);
@@ -446,9 +415,35 @@ pub(crate) struct AuthConfig {
     pub(super) tenant_editor: Option<Box<dyn DynTenantEditor>>,
     pub(super) two_factor: Option<TwoFactor>,
     pub(super) impersonation: Option<super::impersonation::ImpersonationConfig>,
+    pub(super) oidc: Option<super::oidc::Oidc<()>>,
 }
 
 impl AuthConfig {
+    /// `authenticator` with no feature on, its default throttles from `throttle`.
+    fn new(
+        authenticator: Option<Box<dyn DynAuthenticator>>,
+        throttle: fn() -> LoginThrottle,
+    ) -> Self {
+        Self {
+            authenticator,
+            external: None,
+            throttle: throttle(),
+            account_throttle: LoginThrottle::off(),
+            registrar: None,
+            sign_up_throttle: throttle(),
+            profile_editor: None,
+            profile_throttle: throttle(),
+            reset: None,
+            mail: None,
+            verification: None,
+            tenant_registration: None,
+            tenant_editor: None,
+            two_factor: None,
+            impersonation: None,
+            oidc: None,
+        }
+    }
+
     /// Whether the explicit opt-out is set.
     pub(crate) fn is_disabled(&self) -> bool {
         self.authenticator.is_none()
@@ -549,6 +544,11 @@ impl AuthConfig {
         self.authenticator.as_ref().and(self.two_factor.as_ref())
     }
 
+    /// The provider sign-in, or `None` when the panel offers none.
+    pub(crate) fn oidc(&self) -> Option<&super::oidc::Oidc<()>> {
+        self.authenticator.as_ref().and(self.oidc.as_ref())
+    }
+
     /// The auth mail, or `None` when the panel mails nothing.
     pub(crate) fn auth_mail(&self) -> Option<&AuthMail> {
         self.authenticator.as_ref().and(self.mail.as_ref())
@@ -592,6 +592,7 @@ impl std::fmt::Debug for AuthConfig {
                 .field("tenant_profile", &self.tenant_editor.is_some())
                 .field("two_factor", &self.two_factor)
                 .field("impersonation", &self.impersonation)
+                .field("oidc", &self.oidc)
                 .field("mail", &self.mail)
                 .finish_non_exhaustive()
         }

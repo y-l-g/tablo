@@ -97,7 +97,11 @@ impl Layer for PanelGate {
             let login = path == login_url(&cx)
                 && (self.realm.auth.external().is_none()
                     || matches!(*method(&cx), http::Method::GET | http::Method::HEAD));
-            let public = login || sign_up || reset || confirm || email_change || challenge;
+            // A provider sign-in's start and callback answer on GET alone.
+            let provider = super::oidc::serves(&cx, path)
+                && matches!(*method(&cx), http::Method::GET | http::Method::HEAD);
+            let public =
+                login || sign_up || reset || confirm || email_change || challenge || provider;
             if public
                 && matches!(
                     *method(&cx),

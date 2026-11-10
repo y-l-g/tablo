@@ -80,6 +80,9 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Tenant editor | The trait that lets an admitted member edit the tenant the request acts for on the tenant settings page. | Team settings, TenantProvider |
 | Auth mail | The sender and base URL a panel's auth mails its links from, set by `Auth::mail`. | Mailer, Notifier |
 | Auth token | A single-use secret a mailed link, a mailed code or a pending sign-in carries, stored as an `AuthToken` row holding its hash. | Nonce, Signed URL, Reset token |
+| Provider sign-in | Signing in through an OpenID Connect provider such as Google, from a button on the login page, set by `Auth::oidc`. | Social login, SSO, OAuth login |
+| Provider identity | Who a provider says signed in, once the panel checked its ID token: the issuer and subject that name the account there, its email and name. | Social account, OAuth profile, Claims |
+| Identity linker | The trait that turns a provider identity into a panel user: one it linked before, one it links or creates, or none. | Social auth handler, OAuth callback, Connector |
 | Two-factor sign-in | Signing in with a code from an authenticator app or mailed to the account, or a recovery code, after the password, set by `Auth::two_factor`. | MFA, 2FA, TOTP |
 | Auth factor | A second factor an account holds on a panel: its sealed authenticator secret, its choice of codes by email, or one recovery code's hash, stored as an `AuthFactor` row. | Two-factor secret, Backup code |
 | Panel user | The app's own user type: id, display name, panel access, tenant memberships. | CurrentUser, AuthUser, Principal |

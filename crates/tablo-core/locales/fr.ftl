@@ -493,6 +493,10 @@ tablo-login-no-account = Pas encore de compte ?
 tablo-login-sign-up = S'inscrire
 tablo-login-failed = E-mail ou mot de passe invalide.
 tablo-login-unavailable = La connexion est indisponible pour le moment. Réessayez dans un instant.
+tablo-oidc-or = ou
+tablo-oidc-continue = Continuer avec { $provider }
+tablo-oidc-failed = La connexion avec { $provider } n'a pas abouti. Réessayez, ou connectez-vous autrement.
+tablo-oidc-unavailable = { $provider } est injoignable pour le moment. Réessayez dans un instant.
 tablo-gate-description = Votre compte ne peut pas ouvrir { $brand }.
 tablo-external-leaving = Redirection vers la page de déconnexion.
 
