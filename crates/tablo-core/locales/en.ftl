@@ -503,6 +503,10 @@ tablo-login-no-account = Don't have an account?
 tablo-login-sign-up = Sign up
 tablo-login-failed = Invalid email or password.
 tablo-login-unavailable = Sign-in is unavailable right now. Try again shortly.
+tablo-oidc-or = or
+tablo-oidc-continue = Continue with { $provider }
+tablo-oidc-failed = Signing in with { $provider } did not work. Try again, or sign in another way.
+tablo-oidc-unavailable = { $provider } could not be reached. Try again shortly.
 tablo-gate-description = Your account cannot open { $brand }.
 tablo-external-leaving = Continuing to the sign-out page.
 

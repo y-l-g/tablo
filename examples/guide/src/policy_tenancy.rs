@@ -1,9 +1,10 @@
 //! The Policy, auth, tenancy chapter's snippets.
 
 use tablo::{
-    AuthMail, Authenticator, EmailVerification, Impersonation, Membership, PanelUser, PasswordAuth,
-    PasswordReset, PasswordSignUp, Profile, ProfileEditor, ProfileUpdate, Registrar,
-    RouterBuilderPanelExt, TenantRegistration, TwoFactor,
+    AuthMail, Authenticator, EmailVerification, IdentityLinker, Impersonation, Membership, Oidc,
+    OidcProvider, PanelUser, PasswordAuth, PasswordReset, PasswordSignUp, Profile, ProfileEditor,
+    ProfileUpdate, ProviderIdentity, Registrar, RouterBuilderPanelExt, TenantRegistration,
+    TwoFactor,
     auth::{TenantEditor, TenantRegistrar, hash_password, new_password_errors, verify_password},
     prelude::*,
 };
@@ -333,6 +334,68 @@ pub fn two_factor_router(db: toasty::Db, cookie_key: &[u8]) -> Result<Router> {
         .build())
 }
 // ANCHOR_END: policy-two-factor
+
+// ANCHOR: policy-oidc
+impl IdentityLinker for StaffAuth {
+    type User = SignedStaff;
+
+    async fn sign_in(
+        &self,
+        cx: &Cx,
+        identity: &ProviderIdentity,
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<Option<SignedStaff>> {
+        // An identity linked before signs in as its staff member.
+        if let Some(staff) = staff_linked_to(ex, &identity.issuer, &identity.subject).await? {
+            return Ok(Some(staff));
+        }
+        // A new one links to the staff member holding the address, once Google verified it.
+        let (Some(email), true) = (&identity.email, identity.email_verified) else {
+            return Ok(None);
+        };
+        let Some(staff) = find_staff_by_email(cx, email).await? else {
+            return Ok(None);
+        };
+        link_identity(ex, &staff, &identity.issuer, &identity.subject).await?;
+        // … load the memberships and return Some(SignedStaff { .. })
+        todo!()
+    }
+}
+
+pub fn google_router(db: toasty::Db, cookie_key: &[u8]) -> Result<Router> {
+    let google = OidcProvider::google(
+        std::env::var("GOOGLE_CLIENT_ID").unwrap_or_default(),
+        std::env::var("GOOGLE_CLIENT_SECRET").unwrap_or_default(),
+    );
+    let auth = Auth::custom(StaffAuth)
+        .oidc(Oidc::new("https://admin.example.com", StaffAuth).provider(google));
+    Ok(Router::builder()
+        .with(db)
+        // Seals each pending sign-in while the browser is at Google.
+        .with(Key::from(cookie_key))
+        .panel(Panel::new("admin").auth(auth))?
+        .build())
+}
+
+/// The staff member a row of the app's own identity table links `subject` at `issuer` to.
+pub async fn staff_linked_to(
+    _ex: &mut dyn toasty::Executor,
+    _issuer: &str,
+    _subject: &str,
+) -> Result<Option<SignedStaff>> {
+    todo!()
+}
+
+/// Stores a row of the app's own identity table linking `subject` at `issuer` to `staff`.
+pub async fn link_identity(
+    _ex: &mut dyn toasty::Executor,
+    _staff: &Staff,
+    _issuer: &str,
+    _subject: &str,
+) -> Result<()> {
+    todo!()
+}
+// ANCHOR_END: policy-oidc
 
 // ANCHOR: policy-impersonation
 pub fn impersonating_panel() -> Panel {

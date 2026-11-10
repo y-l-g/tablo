@@ -49,6 +49,12 @@ is the explicit opt-out.
   panel, with the authenticator secret sealed under a key derived from the router's cookie `Key`
   and mailed codes hashed under another, so a database read alone yields neither. A correct
   password issues a short-lived `AuthToken` instead of a session until the second factor passes.
+- Provider sign-in is OpenID Connect behind one seam, `IdentityLinker`, which turns a checked
+  identity into the app's user; providers are values, Google one of them. It ends where a password
+  sign-in does, so it takes the same two-factor challenge and session rotation. The pending
+  sign-in rides in a cookie sealed under the cookie `Key`, and the ID token is trusted from the
+  token endpoint's TLS answer, as OpenID Connect Core §3.1.3.7 allows, rather than by its
+  signature. The panel stores no identity: which account an identity is stays the app's rows.
 - Every mailed link and pending sign-in is one `AuthToken` row: the token's hash, its purpose, the
   account, the issuing panel and the expiry. One `AuthMail` names the sender and the configured
   base URL every link starts with.
@@ -94,6 +100,14 @@ is the explicit opt-out.
   stored in the clear: a database read would yield every account's second factor. A key of its
   own: the cookie `Key` is already the secret an app keeps. A session row in a half-signed-in
   state: every gate would have to check it, where a challenge token opens nothing.
+- Provider sign-in through `ExternalAuth`: it drops the panel's own sign-up, reset, verification
+  and two-factor. A plain OAuth 2 flow per provider: each would read its own profile endpoint,
+  where OpenID Connect names the account the same way everywhere. Checking the ID token's
+  signature against the provider's keys: it adds an RSA dependency and a key cache, for a token
+  the panel received from the provider itself. An identity table Tablo ships: the app's linking
+  policy, by verified address or by invitation, decides its shape. A pending sign-in as an
+  `AuthToken` row: it names no account yet, and the browser must carry it either way. A button
+  that posts: the panel's `form-action 'self'` stops a form's redirect to the provider.
 - A table per mailed link, and a sender and base URL per feature: each feature repeated the
   hashing, expiry and revocation, and an app repeated its sender. An address method on each
   seam: every seam that mails asks the same question of the same user type.

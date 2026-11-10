@@ -14,6 +14,7 @@ pub(crate) mod input;
 mod login;
 pub(crate) mod mail;
 pub(crate) mod mount;
+pub(crate) mod oidc;
 mod page;
 pub(crate) mod panel_user;
 pub(crate) mod password;

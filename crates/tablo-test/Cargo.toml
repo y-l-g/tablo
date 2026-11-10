@@ -15,9 +15,14 @@ form_urlencoded = "1.2"
 hmac = "0.13"
 http = "1"
 http-body-util = "0.1"
+jiff.workspace = true
 percent-encoding.workspace = true
 serde_json = "1"
 sha1 = "0.11"
+# The PKCE challenge `FakeProvider` checks a token request's verifier against.
+sha2 = "0.11"
+# `FakeProvider` serves its endpoints on a loopback port.
+tokio = { workspace = true, features = ["net", "io-util"] }
 # `migrated_db` applies the app's embedded migrations.
 toasty = { workspace = true, features = ["migration"] }
 topcoat = { workspace = true }

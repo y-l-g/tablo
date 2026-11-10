@@ -116,6 +116,7 @@ impl fmt::Display for DeclarationErrorKind {
             Self::TenantRegistration(fault) => fault.fmt(f),
             Self::TenantProfile(fault) => fault.fmt(f),
             Self::TwoFactor(fault) => fault.fmt(f),
+            Self::Oidc(fault) => fault.fmt(f),
             Self::AuthMail(fault) => fault.fmt(f),
             Self::Locale(fault) => fault.fmt(f),
             Self::DuplicateRelation => {

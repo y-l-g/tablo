@@ -21,6 +21,7 @@ mod locale;
 mod login;
 mod mail;
 mod notifications;
+mod oidc;
 mod password_reset;
 mod profile;
 mod registration;

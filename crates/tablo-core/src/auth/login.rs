@@ -12,6 +12,7 @@ use topcoat::{
 };
 
 use super::{
+    PanelUser,
     external::leave_for,
     infrastructure_failure, panel_root, resolved,
     session::{delete_session, fresh_session, record, select_tenant, stop, sweep_expired_sessions},
@@ -19,7 +20,7 @@ use super::{
 };
 use crate::{
     TenantId,
-    auth::realm::{current_realm, hosted, panel_prefix},
+    auth::realm::{Realm, current_realm, hosted, panel_prefix},
 };
 
 /// Caps the login body at 64 KiB; the panel's 10 MiB form cap covers multipart
@@ -192,36 +193,48 @@ pub(super) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                 .clear(cx, "account", login, None)
                 .await?;
         }
-        if let Err(error) = sweep_expired_sessions(cx).await {
-            tracing::error!(error = %error, "expired-session sweep failed");
-        }
-        if let Err(error) = super::token::sweep_expired(cx).await {
-            tracing::error!(error = %error, "expired-token sweep failed");
-        }
-        // An account with a second factor gets a challenge, not yet a session.
-        if panel.auth.two_factor_config().is_some() {
-            match super::two_factor::enrolled(cx, &*user).await {
-                Ok(Some(kind)) => {
-                    return super::two_factor::begin_challenge(cx, &*user, kind, &next).await;
-                }
-                Ok(None) => {}
-                Err(error) => return failed(cx, error, next).await,
-            }
-        }
-        let recorded = match fresh_session(cx).await {
-            Ok(session) => record(cx, &session, &*user, panel).await,
-            Err(error) => Err(error),
-        };
-        if let Err(error) = recorded {
-            return failed(cx, error, next).await;
-        }
-        let target = if next.is_empty() {
-            panel_root(cx)
-        } else {
-            next
-        };
-        topcoat::router::error::see_other(target).into_response(cx)
+        admit(cx, panel, &*user, next).await
     })
+}
+
+/// Signs `user`, whose credentials `panel` just accepted, in: a two-factor challenge when the
+/// account holds a factor, else a fresh session and a redirect to `next` or the panel root. Every
+/// way of signing in ends here, so none skips the challenge or the session rotation.
+pub(super) async fn admit(
+    cx: &Cx,
+    panel: &Realm,
+    user: &dyn PanelUser,
+    next: String,
+) -> topcoat::Result<topcoat::router::response::Response> {
+    if let Err(error) = sweep_expired_sessions(cx).await {
+        tracing::error!(error = %error, "expired-session sweep failed");
+    }
+    if let Err(error) = super::token::sweep_expired(cx).await {
+        tracing::error!(error = %error, "expired-token sweep failed");
+    }
+    // An account with a second factor gets a challenge, not yet a session.
+    if panel.auth.two_factor_config().is_some() {
+        match super::two_factor::enrolled(cx, user).await {
+            Ok(Some(kind)) => {
+                return super::two_factor::begin_challenge(cx, user, kind, &next).await;
+            }
+            Ok(None) => {}
+            Err(error) => return failed(cx, error, next).await,
+        }
+    }
+    let recorded = match fresh_session(cx).await {
+        Ok(session) => record(cx, &session, user, panel).await,
+        Err(error) => Err(error),
+    };
+    if let Err(error) = recorded {
+        return failed(cx, error, next).await;
+    }
+    let target = if next.is_empty() {
+        panel_root(cx)
+    } else {
+        next
+    };
+    topcoat::router::error::see_other(target).into_response(cx)
 }
 
 /// Maps a driver failure to the outage page; an app-authored error keeps its
@@ -310,6 +323,7 @@ async fn render_login_page<'a>(
 ) -> topcoat::Result<BoxView<'a>> {
     let csrf = crate::csrf::ensure_token(cx);
     let action = login_url(cx);
+    let providers = super::oidc::buttons(cx, &next);
     let hint =
         current_realm(cx).and_then(|panel| panel.login_hint.as_ref().map(|hint| hint.localize(cx)));
     let forgot = super::password_reset::offered(cx).then(|| super::password_reset::forgot_url(cx));
@@ -397,6 +411,9 @@ async fn render_login_page<'a>(
                 (crate::t!(cx, "tablo-login-submit"))
             )
         </form>
+        if let Some(providers) = providers {
+            <div class="mt-5">(providers)</div>
+        }
     }
     .boxed();
     super::page::render(

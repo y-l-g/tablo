@@ -314,3 +314,84 @@ impl fmt::Display for TwoFactorFault {
         }
     }
 }
+
+/// Why the panel's provider sign-in cannot be served:
+/// [`DeclarationErrorKind::Oidc`](super::DeclarationErrorKind::Oidc).
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum OidcFault {
+    /// `Auth::oidc` on `Auth::disabled`, which signs nobody in.
+    ///
+    /// Turn authentication on.
+    AuthDisabled,
+    /// `Auth::oidc` on `Auth::external`, whose app signs every user in itself.
+    ///
+    /// Sign in through the provider in the app, or use `Auth::custom`.
+    ExternalAuth,
+    /// The router registers no cookie `Key`, which seals a sign-in's secrets while the browser
+    /// is at the provider.
+    ///
+    /// Call `.with(Key::from(..))` before `.panel(..)`.
+    MissingKey,
+    /// `Oidc::new`'s base URL is not an absolute `https` origin.
+    ///
+    /// Pass the app's public origin, such as `https://app.example.com`.
+    BaseUrl(String),
+    /// `Oidc` without a provider.
+    ///
+    /// Add one with `Oidc::provider`.
+    NoProvider,
+    /// A provider key that is not lowercase ASCII letters, digits and `-`.
+    ///
+    /// Rename the provider.
+    ProviderKey(String),
+    /// Two providers with one key.
+    ///
+    /// Give each a distinct key.
+    DuplicateProvider(String),
+    /// A provider whose issuer is not an `https` URL, nor an `http` one on a loopback host.
+    ///
+    /// Fix the issuer.
+    Issuer(String),
+}
+
+impl fmt::Display for OidcFault {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AuthDisabled => f.write_str(
+                "provider sign-in needs auth: `Auth::disabled()` signs nobody in to link an \
+                 identity to",
+            ),
+            Self::ExternalAuth => f.write_str(
+                "provider sign-in cannot sit beside `Auth::external`: the app signs every user in \
+                 itself, so sign in through the provider there",
+            ),
+            Self::MissingKey => f.write_str(
+                "provider sign-in seals each pending sign-in under the router's cookie key, and \
+                 the router has none: register a `topcoat::cookie::Key` with `.with(..)`",
+            ),
+            Self::BaseUrl(url) => write!(
+                f,
+                "provider sign-in's base URL '{url}' is not an absolute `https` origin: pass the \
+                 app's public origin, such as `https://app.example.com`"
+            ),
+            Self::NoProvider => {
+                f.write_str("provider sign-in has no provider: add one with `Oidc::provider`")
+            }
+            Self::ProviderKey(key) => write!(
+                f,
+                "provider key '{key}' cannot name a route: use lowercase ASCII letters, digits \
+                 and `-`"
+            ),
+            Self::DuplicateProvider(key) => write!(
+                f,
+                "two providers have the key '{key}': give each a distinct key"
+            ),
+            Self::Issuer(key) => write!(
+                f,
+                "provider '{key}' has an issuer that is not an `https` URL, nor an `http` one on \
+                 a loopback host"
+            ),
+        }
+    }
+}
