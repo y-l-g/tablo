@@ -2,9 +2,10 @@
 //! user, the [`Oidc`] configuration, and the `{prefix}/sign-in/{key}` routes that leave for an
 //! OpenID Connect provider and come back from it.
 
+mod linker;
 mod provider;
 
-use std::{future::Future, marker::PhantomData, sync::Arc, time::Duration};
+use std::{marker::PhantomData, time::Duration};
 
 use topcoat::{
     context::Cx,
@@ -12,14 +13,20 @@ use topcoat::{
     router::{
         Body, RouteFuture,
         error::{not_found, see_other},
-        request::uri,
+        request::{client_ip, uri},
         response::{IntoResponse, Response},
     },
     view::{BoxView, ViewExt, view},
 };
 
-pub use self::provider::OidcProvider;
-use self::provider::{Failure, Pending};
+use self::{
+    linker::DynLinker,
+    provider::{Failure, Pending},
+};
+pub use self::{
+    linker::{IdentityLinker, ProviderIdentity},
+    provider::OidcProvider,
+};
 use super::{
     Auth, PanelUser, infrastructure_failure,
     login::{admit, login_url, next_from_query},
@@ -27,7 +34,7 @@ use super::{
     realm::{Realm, current_realm, panel_prefix},
     registration::with_next,
 };
-use crate::{BoxFuture, flash::set_notification, outcome::Notification};
+use crate::{flash::set_notification, outcome::Notification};
 
 #[cfg(test)]
 mod tests;
@@ -35,153 +42,12 @@ mod tests;
 /// How long a browser has to come back from the provider.
 const PENDING_LIFETIME: Duration = Duration::from_mins(10);
 
-/// The cookie a pending sign-in travels in, sealed under the router's cookie `Key`.
+/// The cookie a pending sign-in travels in, sealed under the router's cookie `Key`. One per
+/// browser: a sign-in started in a second tab replaces the first's.
 const COOKIE_NAME: &str = "__Host-tablo-oidc";
 
-/// Who an OpenID Connect provider says signed in, once the panel has checked its ID token: the
-/// token came from the provider's token endpoint, names the panel's client, has not expired and
-/// carries the nonce this sign-in sent.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct ProviderIdentity {
-    /// The provider's key, such as `google`.
-    pub provider: String,
-    /// The provider's issuer, such as `https://accounts.google.com`.
-    pub issuer: String,
-    /// The provider's id for the account (`sub`): with the issuer, the one stable name of the
-    /// account. An email address can change hands; this cannot.
-    pub subject: String,
-    /// The account's email address, as the provider has it.
-    pub email: Option<String>,
-    /// Whether the provider says the account proved it reads `email`.
-    pub email_verified: bool,
-    /// The account's display name.
-    pub name: Option<String>,
-}
-
-/// How a panel turns a [`ProviderIdentity`] into one of the app's users, installed with
-/// [`Auth::oidc`] through an [`Oidc`].
-///
-/// The app stores which of its users each identity is, as a row keyed by
-/// [`issuer`](ProviderIdentity::issuer) and [`subject`](ProviderIdentity::subject). A sign-in
-/// whose identity no row names may link it to an existing account, or create one, as the app
-/// decides; linking by email alone hands that account to whoever controls the address at the
-/// provider, so link only an address the provider [verified](ProviderIdentity::email_verified).
-///
-/// ```rust
-/// # use tablo_core::{IdentityLinker, PanelUser, ProviderIdentity};
-/// # use topcoat::context::Cx;
-/// # #[derive(Debug, Clone, toasty::Model)]
-/// # struct Staff {
-/// #     #[key] #[auto] id: uuid::Uuid,
-/// #     #[unique] email: String,
-/// #     name: String,
-/// # }
-/// # impl PanelUser for Staff {
-/// #     fn user_id(&self) -> String { self.id.to_string() }
-/// #     fn display_name(&self) -> &str { &self.name }
-/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
-/// # }
-/// #[derive(Debug, Clone, toasty::Model)]
-/// struct StaffIdentity {
-///     #[key]
-///     #[auto]
-///     id: uuid::Uuid,
-///     #[index]
-///     staff_id: uuid::Uuid,
-///     issuer: String,
-///     subject: String,
-/// }
-///
-/// struct StaffLinker;
-///
-/// impl IdentityLinker for StaffLinker {
-///     type User = Staff;
-///
-///     async fn sign_in(
-///         &self,
-///         _cx: &Cx,
-///         identity: &ProviderIdentity,
-///         ex: &mut dyn toasty::Executor,
-///     ) -> topcoat::Result<Option<Staff>> {
-///         let linked = StaffIdentity::filter(
-///             StaffIdentity::fields()
-///                 .issuer()
-///                 .eq(identity.issuer.clone())
-///                 .and(
-///                     StaffIdentity::fields()
-///                         .subject()
-///                         .eq(identity.subject.clone()),
-///                 ),
-///         )
-///         .first()
-///         .exec(&mut *ex)
-///         .await?;
-///         if let Some(linked) = linked {
-///             return Ok(Staff::filter_by_id(linked.staff_id)
-///                 .first()
-///                 .exec(ex)
-///                 .await?);
-///         }
-///         // Link an existing account only by an address the provider verified.
-///         let (Some(email), true) = (&identity.email, identity.email_verified) else {
-///             return Ok(None);
-///         };
-///         let Some(staff) = Staff::filter_by_email(email).first().exec(&mut *ex).await? else {
-///             return Ok(None);
-///         };
-///         toasty::create!(StaffIdentity {
-///             staff_id: staff.id,
-///             issuer: identity.issuer.clone(),
-///             subject: identity.subject.clone(),
-///         })
-///         .exec(ex)
-///         .await?;
-///         Ok(Some(staff))
-///     }
-/// }
-/// ```
-pub trait IdentityLinker: Send + Sync + 'static {
-    /// The account an identity signs in as: the type the panel's
-    /// [`Authenticator`](super::Authenticator) loads, which `Auth<U>` checks.
-    type User: PanelUser;
-
-    /// The user `identity` signs in as, linking or creating one as the app decides, through the
-    /// sign-in's transaction `ex`, which commits when it returns `Ok`. `None` refuses the sign-in,
-    /// which reads as a failed one. A user who may not
-    /// [access the panel](PanelUser::can_access_panel) is refused too.
-    fn sign_in(
-        &self,
-        cx: &Cx,
-        identity: &ProviderIdentity,
-        ex: &mut dyn toasty::Executor,
-    ) -> impl Future<Output = topcoat::Result<Option<Self::User>>> + Send;
-}
-
-/// [`IdentityLinker`] with its user type erased, as the panel keeps it.
-trait DynLinker: Send + Sync {
-    fn sign_in<'a>(
-        &'a self,
-        cx: &'a Cx,
-        identity: &'a ProviderIdentity,
-    ) -> BoxFuture<'a, topcoat::Result<Option<Arc<dyn PanelUser>>>>;
-}
-
-impl<L: IdentityLinker> DynLinker for L {
-    fn sign_in<'a>(
-        &'a self,
-        cx: &'a Cx,
-        identity: &'a ProviderIdentity,
-    ) -> BoxFuture<'a, topcoat::Result<Option<Arc<dyn PanelUser>>>> {
-        Box::pin(async move {
-            let mut db = crate::db::db(cx)?;
-            let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
-            let user = IdentityLinker::sign_in(self, cx, identity, &mut tx).await?;
-            tx.commit().await.map_err(infrastructure_failure)?;
-            Ok(user.map(|user| Arc::new(user) as Arc<dyn PanelUser>))
-        })
-    }
-}
+/// What the sign-in throttle counts provider callbacks under, apart from password sign-ins.
+const THROTTLE_SCOPE: &str = "provider-sign-in";
 
 /// A panel's provider sign-in, installed with [`Auth::oidc`]: a button on the login and sign-up
 /// pages for each [`OidcProvider`], which leaves for the provider and comes back signed in as the
@@ -222,6 +88,11 @@ impl<U: PanelUser> Oidc<U> {
     /// Signs users in through `linker`, with redirect URIs that start with `base_url`, such as
     /// `https://app.example.com`: the app's public origin, never one a request names. Add each
     /// provider with [`provider`](Self::provider).
+    ///
+    /// The pending sign-in's cookie belongs to the host the browser started on, and the provider
+    /// sends it back to `base_url`'s: serve the panel on that host alone, redirecting any other,
+    /// such as `www.`, to it, or a sign-in started there comes back without its cookie and
+    /// fails.
     #[must_use]
     pub fn new(base_url: impl Into<String>, linker: impl IdentityLinker<User = U>) -> Self {
         Self {
@@ -412,8 +283,11 @@ pub(super) fn callback(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         cookies(cx).remove(Cookie::build((COOKIE_NAME, "")).path("/").secure(true));
         let query = query(cx);
         let read = |key: &str| query.iter().find(|(name, _)| name == key).map(|(_, v)| v);
+        let now = jiff::Timestamp::now().as_second();
+        let lifetime = i64::try_from(PENDING_LIFETIME.as_secs()).unwrap_or(i64::MAX);
         let Some(pending) = pending.filter(|pending| {
-            pending.panel == panel.prefix
+            (0..lifetime).contains(&(now - pending.started))
+                && pending.panel == panel.prefix
                 && pending.provider == provider.key
                 && read("state").is_some_and(|state| {
                     subtle::ConstantTimeEq::ct_eq(state.as_bytes(), pending.state.as_bytes()).into()
@@ -426,11 +300,25 @@ pub(super) fn callback(cx: &Cx, _body: Body) -> RouteFuture<'_> {
             // The provider's `error`, such as `access_denied` when the user cancels.
             return refused(cx, provider, Failure::Refused, &next);
         };
+        // The cookie stays good for its lifetime, so the throttle bounds the token requests one
+        // client sends the provider by replaying it.
+        let throttle = panel.auth.login_throttle();
+        let client = client_ip(cx);
+        if !throttle
+            .attempt(cx, THROTTLE_SCOPE, &provider.key, client)
+            .await?
+        {
+            tracing::warn!(panel = %panel.prefix, client = ?client, "provider sign-in throttled");
+            return refused(cx, provider, Failure::Refused, &next);
+        }
         let redirect_uri = oidc.redirect_uri(&panel.prefix, &provider.key);
         let identity = match provider.redeem(code, &redirect_uri, &pending).await {
             Ok(identity) => identity,
             Err(failure) => return refused(cx, provider, failure, &next),
         };
+        throttle
+            .clear(cx, THROTTLE_SCOPE, &provider.key, client)
+            .await?;
         let user = match oidc.linker.sign_in(cx, &identity).await {
             Ok(user) => user,
             Err(error) => {
@@ -561,6 +449,11 @@ pub(super) fn declaration_errors(
         }
         if !provider.issuer_is_valid() {
             faults.push(OidcFault::Issuer(provider.key.clone()));
+        }
+        for (name, _) in &provider.params {
+            if provider::RESERVED_PARAMS.contains(&name.as_str()) {
+                faults.push(OidcFault::ReservedParam(provider.key.clone(), name.clone()));
+            }
         }
     }
     faults.into_iter().map(DeclarationErrorKind::Oidc).collect()

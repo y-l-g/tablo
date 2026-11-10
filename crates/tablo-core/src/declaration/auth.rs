@@ -353,6 +353,11 @@ pub enum OidcFault {
     ///
     /// Fix the issuer.
     Issuer(String),
+    /// A provider's `param` names an authorization parameter the panel sets: the provider key,
+    /// then the parameter.
+    ///
+    /// Drop the parameter.
+    ReservedParam(String, String),
 }
 
 impl fmt::Display for OidcFault {
@@ -391,6 +396,11 @@ impl fmt::Display for OidcFault {
                 f,
                 "provider '{key}' has an issuer that is not an `https` URL, nor an `http` one on \
                  a loopback host"
+            ),
+            Self::ReservedParam(key, name) => write!(
+                f,
+                "provider '{key}' sets the authorization parameter '{name}', which the panel \
+                 sets itself: drop it"
             ),
         }
     }

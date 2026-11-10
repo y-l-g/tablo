@@ -24,6 +24,18 @@ const CLOCK_SKEW_SECS: i64 = 300;
 /// What the panel asks every provider for: an ID token, the account's email and its name.
 const SCOPES: &str = "openid email profile";
 
+/// The authorization parameters the panel sets itself, which [`OidcProvider::param`] may not.
+pub(super) const RESERVED_PARAMS: [&str; 8] = [
+    "response_type",
+    "client_id",
+    "redirect_uri",
+    "scope",
+    "state",
+    "nonce",
+    "code_challenge",
+    "code_challenge_method",
+];
+
 /// One OpenID Connect provider a panel signs users in through, installed with
 /// [`Oidc::provider`](super::Oidc::provider).
 ///
@@ -34,6 +46,11 @@ const SCOPES: &str = "openid email profile";
 ///
 /// The panel registers `{base_url}{prefix}/sign-in/{key}/callback` as its redirect URI, where
 /// `base_url` is [`Oidc::new`](super::Oidc::new)'s; register the same URI with the provider.
+///
+/// The panel authenticates to the token endpoint with HTTP Basic (`client_secret_basic`), which
+/// every provider supports. A multi-tenant issuer whose discovery document names a placeholder
+/// issuer, such as Microsoft's `common` endpoint, fails the discovery check: name the tenant's
+/// own issuer instead.
 pub struct OidcProvider {
     pub(super) key: String,
     pub(super) label: Text,
@@ -43,6 +60,10 @@ pub struct OidcProvider {
     issuers: Vec<String>,
     client_id: String,
     client_secret: String,
+    /// The scopes asked for beyond [`SCOPES`].
+    scopes: Vec<String>,
+    /// Extra authorization parameters, such as Google's `prompt` or `hd`.
+    pub(super) params: Vec<(String, String)>,
     endpoints: Arc<tokio::sync::OnceCell<Endpoints>>,
 }
 
@@ -80,7 +101,8 @@ impl OidcProvider {
     /// lowercase ASCII letters, digits and `-`. `label` is the name its button shows.
     ///
     /// `issuer` is an `https` URL, or an `http` one on a loopback host for a provider running on
-    /// the same machine; anything else is a declaration error.
+    /// the same machine; anything else is a declaration error. It is spelled exactly as the
+    /// provider's ID tokens carry it, trailing `/` included where the provider writes one.
     #[must_use]
     pub fn new(
         key: impl Into<String>,
@@ -89,7 +111,7 @@ impl OidcProvider {
         client_id: impl Into<String>,
         client_secret: impl Into<String>,
     ) -> Self {
-        let issuer = issuer.into().trim_end_matches('/').to_string();
+        let issuer = issuer.into();
         Self {
             key: key.into(),
             label: label.into(),
@@ -97,8 +119,28 @@ impl OidcProvider {
             issuer,
             client_id: client_id.into(),
             client_secret: client_secret.into(),
+            scopes: Vec::new(),
+            params: Vec::new(),
             endpoints: Arc::new(tokio::sync::OnceCell::new()),
         }
+    }
+
+    /// Also asks for `scope`, beyond `openid email profile`.
+    #[must_use]
+    pub fn scope(mut self, scope: impl Into<String>) -> Self {
+        self.scopes.push(scope.into());
+        self
+    }
+
+    /// Sends `name=value` with every authorization request, such as Google's
+    /// `.param("prompt", "select_account")`, or `.param("hd", "example.com")` to offer the
+    /// accounts of one Workspace domain. A parameter only shapes the provider's page: a linker
+    /// that admits one domain alone checks the identity's `hd` claim itself. Naming a parameter
+    /// the panel sets, such as `state` or `redirect_uri`, is a declaration error.
+    #[must_use]
+    pub fn param(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.params.push((name.into(), value.into()));
+        self
     }
 
     /// Whether the key may name a route segment.
@@ -122,16 +164,24 @@ impl OidcProvider {
         pending: &Pending,
     ) -> Result<String, Failure> {
         let endpoints = self.endpoints().await?;
-        let query = form_urlencoded::Serializer::new(String::new())
+        let scope = std::iter::once(SCOPES)
+            .chain(self.scopes.iter().map(String::as_str))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let mut query = form_urlencoded::Serializer::new(String::new());
+        query
             .append_pair("response_type", "code")
             .append_pair("client_id", &self.client_id)
             .append_pair("redirect_uri", redirect_uri)
-            .append_pair("scope", SCOPES)
+            .append_pair("scope", &scope)
             .append_pair("state", &pending.state)
             .append_pair("nonce", &pending.nonce)
             .append_pair("code_challenge", &code_challenge(&pending.verifier))
-            .append_pair("code_challenge_method", "S256")
-            .finish();
+            .append_pair("code_challenge_method", "S256");
+        for (name, value) in &self.params {
+            query.append_pair(name, value);
+        }
+        let query = query.finish();
         let separator = if endpoints.authorization.contains('?') {
             '&'
         } else {
@@ -224,6 +274,9 @@ pub(super) struct Pending {
     pub(super) verifier: String,
     /// Where to land once signed in, already a same-origin path.
     pub(super) next: String,
+    /// When the sign-in started, in seconds since the epoch: the panel refuses an answer past
+    /// the sign-in's lifetime, whatever the browser kept.
+    pub(super) started: i64,
 }
 
 impl Pending {
@@ -236,6 +289,7 @@ impl Pending {
             nonce: secret(),
             verifier: secret(),
             next,
+            started: jiff::Timestamp::now().as_second(),
         }
     }
 }
@@ -287,13 +341,22 @@ async fn discover(issuer: String) -> Result<Endpoints, Failure> {
         authorization_endpoint: String,
         token_endpoint: String,
     }
-    let url = format!("{issuer}/.well-known/openid-configuration");
+    let url = format!(
+        "{}/.well-known/openid-configuration",
+        issuer.trim_end_matches('/')
+    );
     let document: Discovery = request(move |agent| agent.get(&url).call()).await?;
-    // OpenID Connect Discovery §4.3: a document naming another issuer is not this provider's.
+    // OpenID Connect Discovery §4.3: a document naming another issuer is not this provider's, to
+    // the character, since the ID tokens carry the same string.
     let endpoints_secure =
         secure_url(&document.authorization_endpoint) && secure_url(&document.token_endpoint);
-    if document.issuer.trim_end_matches('/') != issuer || !endpoints_secure {
-        tracing::error!(%issuer, "an OpenID Connect discovery document failed its checks");
+    if document.issuer != issuer || !endpoints_secure {
+        tracing::error!(
+            %issuer,
+            discovered = %document.issuer,
+            endpoints_secure,
+            "an OpenID Connect discovery document failed its checks"
+        );
         return Err(Failure::Refused);
     }
     Ok(Endpoints {
@@ -397,7 +460,8 @@ pub(super) fn identity(
     let payload = BASE64URL_NOPAD
         .decode(payload.trim_end_matches('=').as_bytes())
         .ok()?;
-    let claims: Claims = serde_json::from_slice(&payload).ok()?;
+    let all: serde_json::Map<String, serde_json::Value> = serde_json::from_slice(&payload).ok()?;
+    let claims: Claims = serde_json::from_value(serde_json::Value::Object(all.clone())).ok()?;
     let audience = match claims.aud {
         Audience::One(one) => vec![one],
         Audience::Many(many) => many,
@@ -428,5 +492,6 @@ pub(super) fn identity(
         email: claims.email.filter(|email| !email.is_empty()),
         email_verified,
         name: claims.name.filter(|name| !name.is_empty()),
+        claims: all,
     })
 }

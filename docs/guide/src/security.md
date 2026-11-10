@@ -65,7 +65,8 @@ What Tablo does by default, and what your deployment must provide for those defa
 - A Google or other OpenID Connect sign-in is bound to the browser that started it by a sealed
   cookie, its state and its PKCE verifier, and its ID token to the sign-in by its nonce. The token
   comes from the provider's token endpoint over TLS, and the app's linker decides which account
-  an identity is:
+  an identity is. A pending sign-in lasts ten minutes, and its callbacks count against the
+  sign-in throttle:
   [`Auth::oidc`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.oidc).
 - Acting as another user is off until the app gives a rule, which every request asks again. It
   lasts an hour by default, never nests, keeps the actor off the target's credential pages, and

@@ -260,6 +260,57 @@ async fn a_declined_sign_in_and_a_replayed_code_sign_nobody_in() {
     assert!(refused(&land(&router, &callback, &cookies).await));
 }
 
+/// The pending cookie stays good for its lifetime, so the sign-in throttle bounds the token
+/// requests one client makes the panel send by replaying it with made-up codes.
+#[tokio::test]
+async fn replaying_one_pending_sign_in_is_throttled() {
+    let (db, _) = db().await;
+    let fake = FakeProvider::start("client", "secret").await;
+    let router = router(db, &fake, false);
+    let (location, cookies) = leave(&router, "/admin/sign-in/fake").await;
+    let state = form_urlencoded::parse(location.split_once('?').unwrap().1.as_bytes())
+        .find(|(name, _)| name == "state")
+        .unwrap()
+        .1
+        .into_owned();
+    for attempt in 0..5 {
+        let made_up = format!("/admin/sign-in/fake/callback?code=made-up-{attempt}&state={state}");
+        assert!(refused(&land(&router, &made_up, &cookies).await));
+    }
+    let callback = fake.authorize(
+        &location,
+        &FakeAccount::verified("ada-1", "ada@example.com"),
+    );
+    assert!(refused(&land(&router, &callback, &cookies).await));
+    assert_eq!(
+        fake.redeemed(),
+        0,
+        "the sixth answer never reached the provider"
+    );
+}
+
+/// A provider's issuer is matched to the character: a discovery document naming another
+/// spelling of it is not that provider's.
+#[tokio::test]
+async fn a_discovery_document_naming_another_issuer_signs_nobody_in() {
+    let (db, _) = db().await;
+    let fake = FakeProvider::start("client", "secret").await;
+    let slashed = OidcProvider::new(
+        "fake",
+        "fake",
+        format!("{}/", fake.issuer()),
+        "client",
+        "secret",
+    );
+    let router = mount(
+        db,
+        Auth::password().oidc(Oidc::new(BASE_URL, Linker).provider(slashed)),
+    )
+    .expect("panel builds");
+    let response = TestClient::new(&router).get("/admin/sign-in/fake").await;
+    assert!(refused(&response));
+}
+
 #[tokio::test]
 async fn an_account_without_panel_access_is_refused() {
     let (db, ada) = db().await;
@@ -359,7 +410,12 @@ async fn mounting_refuses_a_provider_sign_in_it_cannot_serve() {
             "http://idp.test",
             "c",
             "s",
-        ));
+        ))
+        .provider(
+            OidcProvider::new("extra", "Extra", "https://idp.test", "c", "s")
+                .param("prompt", "login")
+                .param("redirect_uri", "https://elsewhere.test"),
+        );
     assert_eq!(
         faults(mount(db.clone(), Auth::password().oidc(mistakes))),
         [
@@ -367,6 +423,7 @@ async fn mounting_refuses_a_provider_sign_in_it_cannot_serve() {
             OidcFault::DuplicateProvider("google".to_string()),
             OidcFault::ProviderKey("Bad Key".to_string()),
             OidcFault::Issuer("plain".to_string()),
+            OidcFault::ReservedParam("extra".to_string(), "redirect_uri".to_string()),
         ]
     );
     assert_eq!(

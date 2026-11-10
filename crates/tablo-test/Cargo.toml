@@ -20,7 +20,7 @@ percent-encoding.workspace = true
 serde_json = "1"
 sha1 = "0.11"
 # The PKCE challenge `FakeProvider` checks a token request's verifier against.
-sha2 = "0.11"
+sha2.workspace = true
 # `FakeProvider` serves its endpoints on a loopback port.
 tokio = { workspace = true, features = ["net", "io-util"] }
 # `migrated_db` applies the app's embedded migrations.

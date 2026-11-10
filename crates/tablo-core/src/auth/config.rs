@@ -544,11 +544,12 @@ impl AuthConfig {
         self.authenticator.as_ref().and(self.two_factor.as_ref())
     }
 
-    /// The auth mail, or `None` when the panel mails nothing.
+    /// The provider sign-in, or `None` when the panel offers none.
     pub(crate) fn oidc(&self) -> Option<&super::oidc::Oidc<()>> {
         self.authenticator.as_ref().and(self.oidc.as_ref())
     }
 
+    /// The auth mail, or `None` when the panel mails nothing.
     pub(crate) fn auth_mail(&self) -> Option<&AuthMail> {
         self.authenticator.as_ref().and(self.mail.as_ref())
     }

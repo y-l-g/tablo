@@ -368,7 +368,19 @@ The linker is where the app decides who an identity is. Store the link as a row 
 by the identity's `issuer` and `subject`: an address can change hands at the provider, its
 `subject` cannot. Link a new identity to an existing account only through an address the provider
 verified, or anyone who registers that address with the provider signs in as its owner. Returning
-`None` refuses the sign-in; creating the account there makes the button a sign-up.
+`None` refuses the sign-in; creating the account there makes the button a sign-up. With several
+providers, linking by address trusts the least careful of them to verify it.
+
+To admit the accounts of one Google Workspace domain only, check the identity's `hd` claim in the
+linker, `identity.claims.get("hd")`; `.param("hd", "example.com")` on the provider only narrows the
+accounts Google's page offers. `.param("prompt", "select_account")` lets a browser signed in to
+several Google accounts pick one, and `.scope(..)` asks for more than the address and name.
+`ProviderIdentity::new` builds an identity for a test of the linker alone.
+
+Serve the panel on the base URL's host only, redirecting any other such as `www.` to it: the
+pending sign-in's cookie belongs to the host the browser started on, and the provider sends it
+back to the base URL. A browser holds one pending sign-in at a time, so a sign-in started in a
+second tab replaces the first's. Callbacks count against the panel's sign-in throttle.
 
 A Google sign-in ends as a password one does: an account with a second factor answers the
 challenge, and the browser gets a new session. An account that has only ever signed in with Google

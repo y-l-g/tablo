@@ -151,3 +151,54 @@ fn only_https_or_loopback_http_is_secure() {
         assert!(!secure_url(url), "{url}");
     }
 }
+
+/// An issuer is matched as the provider spells it: Auth0's ends in `/`, and so do its tokens.
+#[test]
+fn an_issuer_ending_in_a_slash_keeps_it() {
+    let auth0 = OidcProvider::new(
+        "auth0",
+        "Auth0",
+        "https://tenant.auth0.test/",
+        "client",
+        "secret",
+    );
+    let slashed = with(|c| drop(c.insert("iss".into(), json!("https://tenant.auth0.test/"))));
+    let identity = identity(&auth0, &token(&slashed), NONCE, NOW).expect("accepted");
+    assert_eq!(identity.issuer, "https://tenant.auth0.test/");
+    let bare = with(|c| drop(c.insert("iss".into(), json!("https://tenant.auth0.test"))));
+    assert_eq!(identity_of(&auth0, &bare), None);
+}
+
+fn identity_of(provider: &OidcProvider, claims: &Value) -> Option<super::ProviderIdentity> {
+    identity(provider, &token(claims), NONCE, NOW)
+}
+
+/// Every claim reaches the linker, such as Google's `hd`.
+#[test]
+fn the_identity_carries_every_claim() {
+    let claims = with(|c| drop(c.insert("hd".into(), json!("example.com"))));
+    let identity = identity_of(&provider(), &claims).expect("accepted");
+    assert_eq!(identity.claims.get("hd"), Some(&json!("example.com")));
+}
+
+#[tokio::test]
+async fn the_authorization_url_carries_extra_scopes_and_params() {
+    let google = OidcProvider::google("client", "secret")
+        .scope("https://www.googleapis.com/auth/calendar.readonly")
+        .param("prompt", "select_account");
+    let pending = super::Pending::new("/admin".into(), "google".into(), String::new());
+    let url = google
+        .authorization_url("https://app.test/admin/sign-in/google/callback", &pending)
+        .await
+        .expect("Google's endpoints are fixed");
+    let query: std::collections::HashMap<String, String> =
+        form_urlencoded::parse(url.split_once('?').expect("a query").1.as_bytes())
+            .into_owned()
+            .collect();
+    assert_eq!(
+        query["scope"],
+        "openid email profile https://www.googleapis.com/auth/calendar.readonly"
+    );
+    assert_eq!(query["prompt"], "select_account");
+    assert_eq!(query["state"], pending.state);
+}
