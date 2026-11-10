@@ -401,6 +401,45 @@ async fn an_impersonation_that_ends_on_its_own_is_audited() {
     assert_eq!(entries[1].actor_id, Some(app.support.id.to_string()));
 }
 
+/// Signing out while acting as another is written to the audit log as a stop, and the start names
+/// when it would have ended on its own.
+#[tokio::test]
+async fn signing_out_while_acting_as_another_is_audited_as_a_stop() {
+    let app = Fixture::with(Auth::password().impersonation(support_only()), |panel| {
+        panel.audit_log(|log| log.policy(Allow))
+    })
+    .await;
+    let client = app.as_user(&app.support).await;
+    let before = jiff::Timestamp::now();
+    client.submit("/admin/impersonate", &act_as(&app.bob)).await;
+    assert_eq!(client.submit("/admin/logout", "").await.status(), 303);
+
+    let mut entries = AuditEntry::all()
+        .exec(&mut app.db.clone())
+        .await
+        .expect("query entries");
+    entries.sort_by_key(|entry| entry.created_at);
+    let events: Vec<&str> = entries.iter().map(|entry| entry.event.as_str()).collect();
+    assert_eq!(events, ["impersonate", "stop_impersonating"]);
+    assert_eq!(entries[1].actor_id, Some(app.support.id.to_string()));
+    assert_eq!(entries[1].record, Some(app.bob.id.to_string()));
+
+    let until = entries[0]
+        .changes
+        .iter()
+        .find(|change| change.field == "until")
+        .and_then(|change| change.after.as_deref())
+        .expect("the start names its end");
+    let until: jiff::Timestamp = until.parse().expect("a timestamp");
+    // The default lifetime is an hour.
+    let hour = jiff::SignedDuration::from_hours(1);
+    assert!(until >= before.saturating_add(hour).unwrap(), "{until}");
+    assert!(
+        until <= jiff::Timestamp::now().saturating_add(hour).unwrap(),
+        "{until}"
+    );
+}
+
 /// On a panel that acts for tenants, the actor acts only as a user of their own tenants, unless
 /// the rule says `across_tenants`; acting as one starts with no tenant chosen.
 #[tokio::test]

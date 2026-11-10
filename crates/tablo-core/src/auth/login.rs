@@ -235,6 +235,9 @@ pub(super) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         }
         let parts = crate::auth::input::read_form(cx, body).await?;
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
+        if let Some(signed) = signed {
+            crate::auth::impersonation::stop_on_sign_out(cx, signed).await?;
+        }
         if let Some(hash) = stop(cx).await? {
             delete_session(cx, &hash).await?;
         }

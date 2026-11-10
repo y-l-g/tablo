@@ -482,6 +482,7 @@ tablo-impersonation-one = Act as one user at a time.
 tablo-impersonation-banner = You are acting as { $name }.
 tablo-impersonation-stop = Stop
 tablo-impersonation-user = User
+tablo-impersonation-until = Ends at the latest
 
 ## Sign-in
 
