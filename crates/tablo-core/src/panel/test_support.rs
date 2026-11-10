@@ -70,6 +70,7 @@ pub(crate) fn panel_state<U: crate::PanelUser>(
         mounts: std::sync::Arc::default(),
         root_redirect: None,
         user_menu: Vec::new(),
+        banners: Vec::new(),
         mounted_pages: std::collections::HashMap::new(),
         uploads: None,
         served_paths: Vec::new(),

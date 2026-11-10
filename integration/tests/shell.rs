@@ -2,10 +2,14 @@
 
 use http::header::COOKIE;
 use tablo::{
-    Brand, Color, DeclarationErrorKind, Environment, Panel, Radius, ReadOnly, Resource,
+    Banner, Brand, Color, DeclarationErrorKind, Environment, Panel, Radius, ReadOnly, Resource,
     ResourceDef, Table, TextColumn, lens,
 };
-use topcoat::router::{Body, Router};
+use topcoat::{
+    context::Cx,
+    router::{Body, Router, request::uri},
+    view::{View, view},
+};
 use uuid::Uuid;
 
 use crate::common::{body_string, mount, panel, refusal, test_db};
@@ -39,8 +43,13 @@ async fn books(panel: Panel) -> Router {
 
 /// The list page, its request carrying the raw `cookie` header.
 async fn list_page(router: &Router, cookie: &str) -> String {
+    page_at(router, "/admin/books", cookie).await
+}
+
+/// The page at `uri`, its request carrying the raw `cookie` header.
+async fn page_at(router: &Router, uri: &str, cookie: &str) -> String {
     let request = http::Request::builder()
-        .uri("/admin/books")
+        .uri(uri)
         .header(COOKIE, cookie)
         .body(Body::empty())
         .unwrap();
@@ -221,4 +230,48 @@ async fn an_environment_names_itself_on_every_page() {
         !html.contains("data-environment"),
         "no environment, no badge"
     );
+}
+
+/// Shows when the request asks for it, as a banner reading the user's billing state would.
+struct PaymentFailed;
+
+impl Banner for PaymentFailed {
+    async fn render(cx: &Cx) -> topcoat::Result<Option<impl View>> {
+        let late = uri(cx).query().is_some_and(|query| query.contains("late"));
+        Ok(late.then(|| view! { <div data-test-banner="payment">"Payment failed"</div> }))
+    }
+}
+
+/// Always shows.
+struct Maintenance;
+
+impl Banner for Maintenance {
+    // `view!` names the request as `cx`.
+    async fn render(cx: &Cx) -> topcoat::Result<Option<impl View>> {
+        Ok(Some(
+            view! { <div data-test-banner="maintenance">"Maintenance tonight"</div> },
+        ))
+    }
+}
+
+/// A panel's banners frame its pages in the order they were added, each only when it answers a
+/// strip.
+#[tokio::test]
+async fn banners_show_above_the_page_when_they_answer_one() {
+    let router = books(panel().banner::<PaymentFailed>().banner::<Maintenance>()).await;
+
+    let quiet = page_at(&router, "/admin/books", "").await;
+    assert!(!quiet.contains("data-test-banner=\"payment\""), "{quiet}");
+    assert!(
+        quiet.contains("data-test-banner=\"maintenance\""),
+        "{quiet}"
+    );
+
+    let late = page_at(&router, "/admin/books?late=1", "").await;
+    let payment = late
+        .find("data-test-banner=\"payment\"")
+        .expect("the banner shows");
+    let maintenance = late.find("data-test-banner=\"maintenance\"").unwrap();
+    let content = late.find("data-page-title").expect("the list renders");
+    assert!(payment < maintenance && maintenance < content, "{late}");
 }
