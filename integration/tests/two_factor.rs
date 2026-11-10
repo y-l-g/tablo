@@ -460,6 +460,28 @@ async fn a_required_authenticator_comes_before_the_panel() {
     assert_eq!(client.get("/admin/invoices").await.status(), 200);
 }
 
+/// A panel that requires it of some users diverts those without an authenticator, and lets the
+/// others in.
+#[tokio::test]
+async fn an_authenticator_required_of_some_users_comes_before_the_panel_for_them_alone() {
+    let (db, ada) = db().await;
+    let grace = create_admin(&mut db.clone(), "grace@staff.example", PASSWORD, "Grace")
+        .await
+        .unwrap();
+    let router = router(
+        db.clone(),
+        TwoFactor::new()
+            .required_for(|_cx, user: &AdminUser| user.email.ends_with("@staff.example")),
+    );
+
+    let staff = TestClient::new(&router).sign_in(&db, "admin", &grace).await;
+    let diverted = staff.get("/admin/invoices").await;
+    assert_eq!(diverted.headers().get(LOCATION).unwrap(), SETTINGS);
+
+    let customer = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
+    assert_eq!(customer.get("/admin/invoices").await.status(), 200);
+}
+
 /// Past its throttle the challenge answers 429, even to the right code.
 #[tokio::test]
 async fn the_challenge_throttles_its_codes() {
