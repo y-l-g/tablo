@@ -214,7 +214,7 @@ impl<R: PasswordResetter> DynPasswordResetter for R {
 /// authenticator loads.
 pub struct PasswordReset<U> {
     resetter: Box<dyn DynPasswordResetter>,
-    throttle: LoginThrottle,
+    pub(in crate::auth) throttle: LoginThrottle,
     user: PhantomData<fn() -> U>,
 }
 
@@ -306,7 +306,11 @@ pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             errors.add(EMAIL_FIELD, crate::text!("tablo-reset-enter-email"));
             return forgot_response(cx, email, &errors, None).await;
         }
-        if !reset.throttle.attempt(email, None) {
+        if !reset
+            .throttle
+            .attempt(cx, "password-reset", email, None)
+            .await?
+        {
             tracing::warn!(panel = %panel.prefix, "password reset request throttled");
             return forgot_response(cx, email, &FieldErrors::new(), Some(ForgotAlert::Throttled))
                 .await;

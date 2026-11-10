@@ -1,6 +1,8 @@
 //! [`LoginThrottle`]: counts sign-in attempts per login and client address, and refuses one past
 //! its limit.
 
+mod shared;
+
 use std::{
     collections::HashMap,
     hash::{BuildHasher, RandomState},
@@ -11,6 +13,10 @@ use std::{
     },
     time::{Duration, Instant},
 };
+
+use topcoat::context::Cx;
+
+pub use self::shared::AuthThrottle;
 
 /// The most counts a throttle keeps at once; past it, an expired count is dropped first, else the
 /// oldest under its limit, and the oldest refusing one only when every count refuses: a flood of
@@ -40,7 +46,7 @@ const MAX_TRACKED: usize = 10_000;
 /// spelled several ways that the authenticator's lookup treats as one, as MySQL's default
 /// collation does with accents: a per-IP limit at the proxy covers those. Counts live in the
 /// process and per panel, so each replica and each panel counts its own attempts, and a restart
-/// clears them.
+/// clears them; [`in_database`](Self::in_database) keeps them where every replica reads them.
 ///
 /// ```rust
 /// use std::time::Duration;
@@ -54,6 +60,7 @@ pub struct LoginThrottle {
     limit: Option<Limit>,
     hasher: RandomState,
     counts: Mutex<HashMap<u64, Count>>,
+    in_database: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -87,18 +94,55 @@ impl LoginThrottle {
         Self::with(None)
     }
 
+    /// Keeps the counts in the database, as [`AuthThrottle`] rows, rather than in the process:
+    /// every replica then counts against the same limit, and a restart forgets nothing. Each
+    /// attempt costs a serializable transaction, and mounting requires the model, which
+    /// [`models!`](crate::models!) registers.
+    ///
+    /// ```rust
+    /// use std::time::Duration;
+    ///
+    /// use tablo_core::{Auth, LoginThrottle};
+    ///
+    /// let auth =
+    ///     Auth::password().throttle(LoginThrottle::new(10, Duration::from_secs(300)).in_database());
+    /// # let _ = auth;
+    /// ```
+    #[must_use]
+    pub fn in_database(mut self) -> Self {
+        self.in_database = true;
+        self
+    }
+
     fn with(limit: Option<Limit>) -> Self {
         Self {
             limit,
             hasher: RandomState::new(),
             counts: Mutex::new(HashMap::new()),
+            in_database: false,
         }
     }
 
+    /// Whether the throttle counts in the database, which then needs [`AuthThrottle`].
+    pub(crate) fn counts_in_database(&self) -> bool {
+        self.limit.is_some() && self.in_database
+    }
+
     /// Counts an attempt for `login` from `client`, or answers `false` when the pair is past its
-    /// limit.
-    pub(crate) fn attempt(&self, login: &str, client: Option<IpAddr>) -> bool {
-        self.attempt_at(login, client, Instant::now())
+    /// limit. `scope` names what the throttle counts, so two throttles keep apart in the database.
+    pub(crate) async fn attempt(
+        &self,
+        cx: &Cx,
+        scope: &str,
+        login: &str,
+        client: Option<IpAddr>,
+    ) -> topcoat::Result<bool> {
+        match self.limit {
+            Some(limit) if self.in_database => {
+                shared::attempt(cx, limit, &shared::Slot::of(cx, scope, login, client)).await
+            }
+            _ => Ok(self.attempt_at(login, client, Instant::now())),
+        }
     }
 
     /// The window's length in whole seconds, rounded up: how long a refused client waits at
@@ -147,7 +191,22 @@ impl LoginThrottle {
     }
 
     /// Clears the count of `login` from `client` after it signs in there.
-    pub(crate) fn clear(&self, login: &str, client: Option<IpAddr>) {
+    pub(crate) async fn clear(
+        &self,
+        cx: &Cx,
+        scope: &str,
+        login: &str,
+        client: Option<IpAddr>,
+    ) -> topcoat::Result<()> {
+        if self.counts_in_database() {
+            return shared::clear(cx, &shared::Slot::of(cx, scope, login, client)).await;
+        }
+        self.clear_here(login, client);
+        Ok(())
+    }
+
+    /// Clears the count of `login` from `client` in the process.
+    fn clear_here(&self, login: &str, client: Option<IpAddr>) {
         if self.limit.is_some() {
             let key = self.key(login, client);
             self.counts
@@ -201,6 +260,7 @@ impl std::fmt::Debug for LoginThrottle {
                 .debug_struct("LoginThrottle")
                 .field("attempts", &attempts)
                 .field("window", &window)
+                .field("in_database", &self.in_database)
                 .finish(),
             None => f.write_str("LoginThrottle::off"),
         }

@@ -216,7 +216,11 @@ pub(in crate::auth) fn challenge_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             return pages::challenge(cx, &next, mailed, Notice::Sent).await;
         }
         // A request for a new code checks none: only a code counts against the throttle.
-        if !two_factor.throttle.attempt(&row.user_id, None) {
+        if !two_factor
+            .throttle
+            .attempt(cx, "two-factor", &row.user_id, None)
+            .await?
+        {
             tracing::warn!(
                 panel = %panel.prefix,
                 client = ?client_ip(cx),
@@ -267,7 +271,10 @@ pub(in crate::auth) fn challenge_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         }
         token::spend(&mut tx, &row).await?;
         tx.commit().await.map_err(infrastructure_failure)?;
-        two_factor.throttle.clear(&row.user_id, None);
+        two_factor
+            .throttle
+            .clear(cx, "two-factor", &row.user_id, None)
+            .await?;
         forget(cx);
         let session = fresh_session(cx).await?;
         record(cx, &session, &*user, panel).await?;

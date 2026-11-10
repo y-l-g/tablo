@@ -34,7 +34,7 @@ fn a_sign_in_clears_the_count() {
     let start = Instant::now();
     assert!(throttle.attempt_at("ada@example.com", HOME, start));
     assert!(throttle.attempt_at("ada@example.com", AWAY, start));
-    throttle.clear("Ada@Example.com", HOME);
+    throttle.clear_here("Ada@Example.com", HOME);
     assert!(throttle.attempt_at("ada@example.com", HOME, start));
     assert!(
         !throttle.attempt_at("ada@example.com", AWAY, start),

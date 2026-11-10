@@ -3,8 +3,10 @@
 
 use jiff::Timestamp;
 use tablo::{
-    Auth, LoginThrottle, Panel, PanelUser, RouterBuilderPanelExt,
-    auth::{AdminUser, AuthSession, create_admin, guard, require_user, session_cookie},
+    Auth, DeclarationErrorKind, LoginThrottle, Panel, PanelUser, RouterBuilderPanelExt,
+    auth::{
+        AdminUser, AuthSession, AuthThrottle, create_admin, guard, require_user, session_cookie,
+    },
 };
 use toasty::Db;
 use topcoat::{
@@ -14,7 +16,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::common::{mount, set_cookie_header, test_db};
+use crate::common::{mount, refusal, set_cookie_header, test_db};
 
 /// A database holding ada, whose password is `opensesame`.
 async fn db_with_ada() -> Db {
@@ -108,6 +110,62 @@ async fn the_account_throttle_counts_a_login_across_addresses() {
         http::StatusCode::FORBIDDEN,
         "the seventh attempt is refused from a fresh address"
     );
+}
+
+/// A throttle that counts in the database holds across replicas: two routers over one database
+/// share one limit, and a sign-in through either clears it for both.
+#[tokio::test]
+async fn a_throttle_in_the_database_counts_across_replicas() {
+    const CLIENT: [u8; 4] = [198, 51, 100, 7];
+    let mut db = test_db(toasty::models!(AdminUser, AuthSession, AuthThrottle)).await;
+    create_admin(&mut db, "ada@example.com", "opensesame", "Ada")
+        .await
+        .expect("seed ada");
+    let replica = || {
+        let throttle = LoginThrottle::new(3, std::time::Duration::from_mins(5)).in_database();
+        mount(
+            db.clone(),
+            Panel::new("admin").auth(Auth::password().throttle(throttle)),
+        )
+        .expect("panel builds")
+    };
+    let (one, two) = (replica(), replica());
+
+    sign_in_from(&one, CLIENT, "wrong").await;
+    sign_in_from(&two, CLIENT, "wrong").await;
+    assert_eq!(
+        sign_in_from(&one, CLIENT, "opensesame").await,
+        http::StatusCode::SEE_OTHER,
+        "the third attempt, counted on both replicas, signs in and clears the count"
+    );
+    for _ in 0..3 {
+        sign_in_from(&two, CLIENT, "wrong").await;
+    }
+    assert_eq!(
+        sign_in_from(&one, CLIENT, "opensesame").await,
+        http::StatusCode::FORBIDDEN,
+        "the fourth attempt in the window is refused, whichever replica counted the others"
+    );
+    let rows = AuthThrottle::all().exec(&mut db).await.unwrap();
+    assert_eq!(rows.len(), 1, "one count for the login and address");
+    assert!(
+        !rows[0].key.contains("ada"),
+        "the count holds no login in the clear"
+    );
+}
+
+/// Mounting refuses a throttle in the database without the model that holds its counts.
+#[tokio::test]
+async fn a_throttle_in_the_database_needs_its_model() {
+    let throttle = LoginThrottle::default().in_database();
+    let mounted = mount(
+        db_with_ada().await,
+        Panel::new("admin").auth(Auth::password().throttle(throttle)),
+    );
+    assert!(refusal(mounted).iter().any(|error| matches!(
+        &error.kind,
+        DeclarationErrorKind::MissingAuthModels { models } if models.contains(&"AuthThrottle")
+    )));
 }
 
 /// A login body past the credential cap answers 413 and starts no session; a normal one signs in.

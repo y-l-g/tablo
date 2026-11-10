@@ -3,13 +3,13 @@
 
 use crate::{
     audit::AuditEntry,
-    auth::{AdminUser, AuthFactor, AuthSession, AuthToken, ColumnPreference},
+    auth::{AdminUser, AuthFactor, AuthSession, AuthThrottle, AuthToken, ColumnPreference},
     notification::StoredNotification,
 };
 
 /// Register every model Tablo ships in `models`: [`AdminUser`], [`AuthSession`],
-/// [`ColumnPreference`], [`AuthToken`], [`AuthFactor`], [`StoredNotification`] and
-/// [`AuditEntry`].
+/// [`ColumnPreference`], [`AuthToken`], [`AuthFactor`], [`AuthThrottle`], [`StoredNotification`]
+/// and [`AuditEntry`].
 ///
 /// [`models!`](crate::models!) calls it; call it directly when the app builds its
 /// [`ModelSet`](toasty::schema::ModelSet) by hand. A model the panel never reads costs an empty
@@ -24,6 +24,7 @@ pub fn register_models(models: &mut toasty::schema::ModelSet) {
     <ColumnPreference as toasty::schema::Model>::register(models);
     <AuthToken as toasty::schema::Model>::register(models);
     <AuthFactor as toasty::schema::Model>::register(models);
+    <AuthThrottle as toasty::schema::Model>::register(models);
     <StoredNotification as toasty::schema::Model>::register(models);
     <AuditEntry as toasty::schema::Model>::register(models);
 }

@@ -94,6 +94,7 @@ fn missing_models(
         (toggles && !registered("ColumnPreference")).then_some("ColumnPreference"),
         (auth.issues_tokens() && !registered("AuthToken")).then_some("AuthToken"),
         (auth.two_factor.is_some() && !registered("AuthFactor")).then_some("AuthFactor"),
+        (auth.throttles_in_database() && !registered("AuthThrottle")).then_some("AuthThrottle"),
         (notifications && !registered("StoredNotification")).then_some("StoredNotification"),
     ]
     .into_iter()

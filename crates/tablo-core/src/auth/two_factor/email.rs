@@ -76,7 +76,11 @@ pub(super) async fn send(
     };
     let cx = &crate::i18n::addressed_to(cx, user.locale().as_ref());
     let user_id = user.user_id();
-    if !two_factor.mail_throttle.attempt(&user_id, None) {
+    if !two_factor
+        .mail_throttle
+        .attempt(cx, "two-factor-mail", &user_id, None)
+        .await?
+    {
         return Ok(Sent::Throttled);
     }
     let code = code();
