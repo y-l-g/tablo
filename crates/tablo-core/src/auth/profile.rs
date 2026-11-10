@@ -399,7 +399,10 @@ pub(super) fn profile_post(cx: &Cx, body: Body) -> BoxView<'_> {
         // Counted per user alone, from any address: a lockout only holds back profile saves,
         // never a sign-in.
         let throttle = signed.realm.auth.throttle_profile();
-        if !throttle.attempt(&signed.user.user_id(), None) {
+        if !throttle
+            .attempt(cx, "profile", &signed.user.user_id(), None)
+            .await?
+        {
             tracing::warn!(
                 panel = %signed.realm.prefix,
                 client = ?client_ip(cx),

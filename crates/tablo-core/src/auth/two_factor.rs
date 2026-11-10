@@ -42,8 +42,8 @@ use crate::auth::realm::{Realm, panel_prefix};
 pub struct TwoFactor {
     required: bool,
     email: bool,
-    throttle: LoginThrottle,
-    mail_throttle: LoginThrottle,
+    pub(in crate::auth) throttle: LoginThrottle,
+    pub(in crate::auth) mail_throttle: LoginThrottle,
 }
 
 impl TwoFactor {

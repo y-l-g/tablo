@@ -184,7 +184,7 @@ impl<V: EmailVerifier> DynEmailVerifier for V {
 /// authenticator loads.
 pub struct EmailVerification<U> {
     verifier: Box<dyn DynEmailVerifier>,
-    throttle: LoginThrottle,
+    pub(in crate::auth) throttle: LoginThrottle,
     user: PhantomData<fn() -> U>,
 }
 
@@ -328,7 +328,11 @@ pub(super) fn notice_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             return see_other(panel_root(cx)).into_response(cx);
         }
         let user_id = signed.user.user_id();
-        if !verification.throttle.attempt(&user_id, None) {
+        if !verification
+            .throttle
+            .attempt(cx, "verification", &user_id, None)
+            .await?
+        {
             tracing::warn!(panel = %signed.realm.prefix, "verification link request throttled");
             return Err(too_many_requests(verification.throttle.window_secs()).into());
         }

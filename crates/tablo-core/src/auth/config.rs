@@ -379,9 +379,9 @@ impl<U: PanelUser> Auth<U> {
     ///   fails leaves the challenge up, with its button to send another code.
     /// - Throttling. Each account may try five codes or passwords a minute, at sign-in and on the
     ///   settings page together; `TwoFactor::throttle` changes the limit. Past it the page answers
-    ///   429. The count lives in each process: behind several, the limit holds per process. Someone
-    ///   who knows the password can use up the owner's attempts, and each new sign-in replaces the
-    ///   last challenge.
+    ///   429. The count lives in each process, so behind several the limit holds per process,
+    ///   unless the throttle counts `in_database`. Someone who knows the password can use up the
+    ///   owner's attempts, and each new sign-in replaces the last challenge.
     /// - The cookie `Key` seals the secrets. Rotating it makes every app code fail until its owner
     ///   signs in with a recovery code and sets the app up again; a leaked key opens every secret.
     /// - Requiring it. `TwoFactor::new().required()` sends a signed-in user without a second factor
@@ -493,6 +493,30 @@ impl AuthConfig {
     /// The profile throttle, counted per user.
     pub(crate) fn throttle_profile(&self) -> &LoginThrottle {
         &self.profile_throttle
+    }
+
+    /// Whether any of the panel's throttles counts in the database, which then needs
+    /// [`AuthThrottle`](super::AuthThrottle).
+    pub(crate) fn throttles_in_database(&self) -> bool {
+        let reset = self.reset().map(|reset| &reset.throttle);
+        let verification = self
+            .verification()
+            .map(|verification| &verification.throttle);
+        let two_factor = self
+            .two_factor_config()
+            .into_iter()
+            .flat_map(|two_factor| [&two_factor.throttle, &two_factor.mail_throttle]);
+        [
+            &self.throttle,
+            &self.account_throttle,
+            &self.sign_up_throttle,
+            &self.profile_throttle,
+        ]
+        .into_iter()
+        .chain(reset)
+        .chain(verification)
+        .chain(two_factor)
+        .any(LoginThrottle::counts_in_database)
     }
 
     /// The password reset, or `None` without a forgot-password page.

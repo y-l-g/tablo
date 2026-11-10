@@ -363,7 +363,12 @@ pub(super) fn register_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let schema = registrar.schema();
         let values = schema.read_input(cx, &form.pairs, &RESERVED_KEYS)?;
         let client = client_ip(cx);
-        if !panel.auth.throttle_sign_ups().attempt("", client) {
+        if !panel
+            .auth
+            .throttle_sign_ups()
+            .attempt(cx, "sign-up", "", client)
+            .await?
+        {
             tracing::warn!(panel = %panel.prefix, client = ?client, "sign-up attempt throttled");
             return page_response(
                 cx,

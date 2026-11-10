@@ -178,7 +178,12 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
         let user_id = signed.user.user_id();
         // A stolen session must not guess codes at will to turn the second factor off, nor
         // passwords to turn it on.
-        if intent.checks_secret() && !two_factor.throttle.attempt(&user_id, None) {
+        if intent.checks_secret()
+            && !two_factor
+                .throttle
+                .attempt(cx, "two-factor", &user_id, None)
+                .await?
+        {
             tracing::warn!(
                 panel = %signed.realm.prefix,
                 client = ?client_ip(cx),
@@ -284,11 +289,17 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
             }
             Settled::Refused(enrolment) => standing(cx, signed, two_factor, &enrolment, true).await,
             Settled::Codes { codes, first } => {
-                two_factor.throttle.clear(&user_id, None);
+                two_factor
+                    .throttle
+                    .clear(cx, "two-factor", &user_id, None)
+                    .await?;
                 pages::settings(cx, Settings::Codes { codes, first }).await
             }
             Settled::Off => {
-                two_factor.throttle.clear(&user_id, None);
+                two_factor
+                    .throttle
+                    .clear(cx, "two-factor", &user_id, None)
+                    .await?;
                 set_notification(
                     cx,
                     Notification::success(crate::t!(cx, "tablo-two-factor-off-toast")),

@@ -57,6 +57,7 @@ pub use self::{
     },
     tenant_profile::TenantEditor,
     tenant_registration::TenantRegistrar,
+    throttle::AuthThrottle,
     token::{AuthToken, TokenPurpose},
     two_factor::{AuthFactor, FactorKind},
     verification::{EmailVerifier, VERIFICATION_LIFETIME},
