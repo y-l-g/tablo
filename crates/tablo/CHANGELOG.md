@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0](https://github.com/y-l-g/tablo/compare/v0.9.0...v0.10.0) - 2026-11-10
+
+### Added
+
+- *(auth)* sign in through Google and other OpenID Connect providers ([#992](https://github.com/y-l-g/tablo/pull/992))
+- *(panel)* place a page's header action in its content with a preset input ([#988](https://github.com/y-l-g/tablo/pull/988))
+- *(auth)* [**breaking**] let a sign-in throttle count in the database ([#987](https://github.com/y-l-g/tablo/pull/987))
+- *(panel)* show an app's banner above every page ([#986](https://github.com/y-l-g/tablo/pull/986))
+- *(auth)* record a stop when a user signs out while acting as another ([#985](https://github.com/y-l-g/tablo/pull/985))
+- *(auth)* require a second factor of the users a rule names ([#984](https://github.com/y-l-g/tablo/pull/984))
+
 ## [0.9.0](https://github.com/y-l-g/tablo/compare/v0.8.0...v0.9.0) - 2026-11-09
 
 ### Added
