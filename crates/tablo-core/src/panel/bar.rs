@@ -49,6 +49,8 @@ struct ActionButton {
     input: Option<Input>,
     /// The action's name and why the button shows disabled, when the record's state refuses it.
     disabled: Option<(&'static str, String)>,
+    /// The input the button posts as hidden fields, for an action whose input the page fills.
+    preset: Vec<(String, String)>,
 }
 
 /// What an action's input dialog renders.
@@ -99,9 +101,38 @@ pub(crate) fn header_bar(
             color: action.color,
             input: Input::of(action.input, action.confirm, url, action.name),
             disabled: None,
+            preset: Vec::new(),
         })
         .collect();
     ActionBar { buttons }
+}
+
+/// The button of the header `action` under `url`, posting `preset` as its input instead of asking
+/// for it, and confirming first when the action does; empty when its
+/// [`can_run`](crate::HeaderAction::can_run) refuses the request.
+pub(crate) fn preset_button(
+    cx: &Cx,
+    url: &str,
+    action: &HeaderEntry,
+    preset: Vec<(String, String)>,
+) -> ActionBar {
+    if !(action.can_run)(cx) {
+        return ActionBar::default();
+    }
+    let button = ActionButton {
+        label: (action.label)().localize(cx),
+        url: bulk_action_url(url.trim_end_matches('/'), action.name),
+        confirm: action.confirm.then(|| (action.prompt)().localize(cx)),
+        icon: (action.icon)(),
+        badge: None,
+        color: action.color,
+        input: None,
+        disabled: None,
+        preset,
+    };
+    ActionBar {
+        buttons: vec![button],
+    }
 }
 
 /// The bar of `record`'s actions placed at `place`, each landing back on `here`, then its Delete,
@@ -148,6 +179,7 @@ pub(crate) fn record_bar<R: Resource>(
                 badge: None,
                 input: Input::of(action.input, action.confirm, &resource.url, action.name),
                 disabled,
+                preset: Vec::new(),
             })
         })
         .collect();
@@ -164,6 +196,7 @@ pub(crate) fn record_bar<R: Resource>(
             badge: None,
             input: None,
             disabled: None,
+            preset: Vec::new(),
         });
     }
     ActionBar { buttons }
@@ -187,6 +220,7 @@ impl ActionBar {
                     options,
                 }),
                 disabled: None,
+                preset: Vec::new(),
             }],
         }
     }
@@ -252,7 +286,14 @@ impl ActionButton {
             color,
             input,
             disabled,
+            preset,
         } = self;
+        let preset = view! {
+            for (name, value) in preset {
+                <input type="hidden" name=(name) value=(value)>
+            }
+        }
+        .boxed();
         // A tinted button is outlined like its neighbors, so its colour marks it without
         // outweighing the page's primary action.
         let variant = ButtonVariant::Outline;
@@ -318,6 +359,7 @@ impl ActionButton {
             return view! {
                 <form method="post" action=(url) class="contents">
                     (token)
+                    (preset)
                     button(
                         variant: variant,
                         size: ButtonSize::Md,
@@ -357,6 +399,7 @@ impl ActionButton {
                 },
                 <form method="post" action=(url) class="contents">
                     (token)
+                    (preset)
                     <input type="hidden" name="confirm" value="1">
                     dialog_content(
                         dialog_header(
