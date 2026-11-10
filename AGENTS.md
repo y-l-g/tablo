@@ -14,3 +14,5 @@ only.
 6. Renovate groups coupled bumps (`renovate.json`). The lockfile carries `syn` 2 and 3 through
    upstream crates; do not force-unify them.
 7. Report what you ran and what you did not. Never claim a check passed that you did not run.
+
+This codebase is yours: what it's for and how it's built are your call, and you'll keep building on it.
