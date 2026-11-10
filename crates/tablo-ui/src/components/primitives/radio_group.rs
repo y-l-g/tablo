@@ -1,4 +1,4 @@
-// SYNC: topcoat-ui-registry@0.12.0 sha256:475b5a0dfda650e9998673d317302221c2904c1e0b6878612abb059c86a6fdeb — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+// SYNC: topcoat-ui-registry@0.12.1 sha256:475b5a0dfda650e9998673d317302221c2904c1e0b6878612abb059c86a6fdeb — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
 use topcoat::{
     Result,
     context::Cx,
