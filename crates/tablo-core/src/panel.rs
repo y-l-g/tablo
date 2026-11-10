@@ -3,6 +3,7 @@
 mod actions;
 pub(crate) mod area;
 mod audit;
+mod banner;
 mod bar;
 mod build;
 pub(crate) mod commit_hook;
@@ -36,6 +37,7 @@ use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 pub use self::{
     area::{Area, AreaGroup},
     audit::AuditLog,
+    banner::Banner,
     build::{PanelHandle, RouterBuilderPanelExt},
     commit_hook::{ChangedField, ChangedRecord, CommitHook, PanelChange},
     gate::{can_list, can_open, can_view_field},
@@ -138,6 +140,7 @@ pub struct Panel {
     login_hint: Option<crate::Text>,
     /// The app's entries in the user menu, above Sign out.
     user_menu: Vec<crate::NavigationItem>,
+    banners: Vec<banner::BannerFn>,
     auth: crate::auth::AuthConfig,
     /// The paths of the runtime endpoints that answer only this panel's sessions.
     endpoints: Vec<String>,
@@ -185,6 +188,7 @@ impl Panel {
             served_dirs: Vec::new(),
             login_hint: None,
             user_menu: Vec::new(),
+            banners: Vec::new(),
             auth: crate::auth::Auth::default().into_config(),
             endpoints: Vec::new(),
             notifications: false,
@@ -396,6 +400,13 @@ impl Panel {
     /// [`NavigationItem::at`](crate::NavigationItem::at); its badge shows in the sidebar only.
     pub fn user_menu_item(mut self, item: crate::NavigationItem) -> Self {
         self.user_menu.push(item);
+        self
+    }
+
+    /// Shows `B` above every page, under the bar that names whom a user acts as; several show in
+    /// the order they are added.
+    pub fn banner<B: Banner>(mut self) -> Self {
+        self.banners.push(banner::erased::<B>);
         self
     }
 

@@ -183,7 +183,7 @@ pub use notification::stored::Notifications;
 pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};
 pub use page::{Page, PageDef, PageFilter, PageFilters};
 pub use panel::{
-    Area, AreaGroup, AuditLog, Brand, ChangedField, ChangedRecord, CommitHook, Environment,
+    Area, AreaGroup, AuditLog, Banner, Brand, ChangedField, ChangedRecord, CommitHook, Environment,
     Impersonate, Panel, PanelChange, PanelHandle, Radius, RouterBuilderPanelExt, WiredTable,
     can_list, can_open, can_view_field, list_query, navigation_item, page_filter_bar, page_filters,
     pages::header_action_buttons, record_table, stats, url, widgets, wired_table,

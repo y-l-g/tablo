@@ -113,6 +113,8 @@ pub(crate) struct PanelState {
     pub(crate) root_redirect: Option<String>,
     /// The app's entries in the user menu.
     pub(crate) user_menu: Vec<NavigationItem>,
+    /// The app's banners, in the order the panel added them.
+    pub(crate) banners: Vec<super::banner::BannerFn>,
     pub(crate) uploads: Option<InstalledUploader>,
     /// The route patterns of the directories the panel serves.
     pub(crate) served_paths: Vec<String>,

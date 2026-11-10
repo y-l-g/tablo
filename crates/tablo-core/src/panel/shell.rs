@@ -188,6 +188,9 @@ impl Panel {
         };
         let back = area.map_or_else(|| ().boxed(), |(_, home)| area::back_link(cx, &home));
         let crumbs = breadcrumbs::render(cx, trail);
+        let banners: Vec<BoxView<'_>> = current(cx)
+            .map(|panel| panel.banners.iter().map(|banner| banner(cx)).collect())
+            .unwrap_or_default();
         // The user and tenant menus, present only with a session (ADR-0013). `ensure_token` runs
         // before any streaming starts so their forms, and the language menu's, always carry a
         // matching CSRF pair.
@@ -328,6 +331,9 @@ impl Panel {
                     // The page container (`tablo_ui::page`) owns the width
                     // and the padding.
                     (super::impersonation::banner(cx))
+                    for banner in banners {
+                        (banner)
+                    }
                     <div class="flex flex-1 flex-col">(slot)</div>
                 )
                 (toaster)
