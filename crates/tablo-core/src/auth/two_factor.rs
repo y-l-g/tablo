@@ -10,7 +10,7 @@ mod pages;
 mod settings;
 mod totp;
 
-use std::time::Duration;
+use std::{any::Any, sync::Arc, time::Duration};
 
 use jiff::Timestamp;
 use subtle::ConstantTimeEq;
@@ -40,7 +40,7 @@ use crate::auth::realm::{Realm, panel_prefix};
 /// ```
 #[derive(Debug)]
 pub struct TwoFactor {
-    required: bool,
+    required: Requirement,
     email: bool,
     throttle: LoginThrottle,
     mail_throttle: LoginThrottle,
@@ -51,7 +51,7 @@ impl TwoFactor {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            required: false,
+            required: Requirement::Nobody,
             email: false,
             throttle: LoginThrottle::new(5, Duration::from_mins(1)),
             mail_throttle: LoginThrottle::new(3, Duration::from_mins(15)),
@@ -63,7 +63,36 @@ impl TwoFactor {
     /// unverified address.
     #[must_use]
     pub fn required(mut self) -> Self {
-        self.required = true;
+        self.required = Requirement::Everyone;
+        self
+    }
+
+    /// Requires a second factor of the users `rule` answers `true` for, as
+    /// [`required`](Self::required) does of every user, and leaves it optional for the others:
+    /// staff, say, or the members of a tenant that asks it of them.
+    ///
+    /// The rule is asked on every request, so a user it starts to cover is sent to set up a
+    /// factor at their next one. A user of another type than `U` is required one: the panel
+    /// signs in no such user, so the rule cannot have meant to let them through.
+    ///
+    /// ```rust
+    /// use tablo_core::{Auth, TwoFactor, auth::AdminUser};
+    ///
+    /// let auth = Auth::password().two_factor(
+    ///     TwoFactor::new()
+    ///         .required_for(|_cx, user: &AdminUser| user.email.ends_with("@staff.example")),
+    /// );
+    /// # let _ = auth;
+    /// ```
+    #[must_use]
+    pub fn required_for<U: PanelUser>(
+        mut self,
+        rule: impl Fn(&Cx, &U) -> bool + Send + Sync + 'static,
+    ) -> Self {
+        self.required = Requirement::Some(Arc::new(move |cx, user| {
+            let user: &dyn Any = user;
+            user.downcast_ref::<U>().is_none_or(|user| rule(cx, user))
+        }));
         self
     }
 
@@ -94,9 +123,38 @@ impl TwoFactor {
 }
 
 impl TwoFactor {
+    /// Whether the panel asks `user` for a second factor before anything else.
+    fn requires(&self, cx: &Cx, user: &dyn PanelUser) -> bool {
+        match &self.required {
+            Requirement::Nobody => false,
+            Requirement::Everyone => true,
+            Requirement::Some(rule) => rule(cx, user),
+        }
+    }
+
     /// Whether the panel mails codes.
     pub(in crate::auth) fn mails(&self) -> bool {
         self.email
+    }
+}
+
+/// The rule of [`TwoFactor::required_for`], with its user type erased.
+type Rule = dyn Fn(&Cx, &dyn PanelUser) -> bool + Send + Sync;
+
+/// Whom a [`TwoFactor`] requires a second factor of.
+enum Requirement {
+    Nobody,
+    Everyone,
+    Some(Arc<Rule>),
+}
+
+impl std::fmt::Debug for Requirement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Nobody => "Nobody",
+            Self::Everyone => "Everyone",
+            Self::Some(_) => "Some(..)",
+        })
     }
 }
 
@@ -232,15 +290,15 @@ pub(crate) fn offered(cx: &Cx) -> bool {
     super::signed(cx).is_some_and(|signed| signed.realm.auth.two_factor_config().is_some())
 }
 
-/// Whether `panel` sends `user` to set up an authenticator before anything else: it requires one,
-/// and the user holds none.
+/// Whether `panel` sends `user` to set up an authenticator before anything else: it requires one
+/// of them, and the user holds none.
 pub(super) async fn setup_pending(
     cx: &Cx,
     panel: &Realm,
     user: &dyn PanelUser,
 ) -> topcoat::Result<bool> {
     match panel.auth.two_factor_config() {
-        Some(two_factor) if two_factor.required => {
+        Some(two_factor) if two_factor.requires(cx, user) => {
             let mut db = crate::db::db(cx)?;
             let enrolment = enrolment_on(&mut db, &panel.prefix, &user.user_id()).await?;
             Ok(enrolment.confirmed.is_none())

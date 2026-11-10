@@ -386,7 +386,8 @@ impl<U: PanelUser> Auth<U> {
     ///   signs in with a recovery code and sets the app up again; a leaked key opens every secret.
     /// - Requiring it. `TwoFactor::new().required()` sends a signed-in user without a second factor
     ///   to `{prefix}/two-factor` before anything else, as an unverified address does: a page
-    ///   redirects there and any other request answers 403.
+    ///   redirects there and any other request answers 403. `TwoFactor::required_for` does so for
+    ///   the users its rule names.
     /// - Mounting refuses two-factor sign-in on `Auth::disabled()`, a router without a cookie
     ///   `Key`, and codes by email without `Auth::mail`.
     #[must_use]
