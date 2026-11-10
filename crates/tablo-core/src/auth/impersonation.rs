@@ -111,7 +111,10 @@ impl<U: PanelUser> Auth<U> {
     ///   changes the target's credentials.
     /// - A panel that keeps an [audit log](crate::Panel::audit_log) records `impersonate` and
     ///   `stop_impersonating` for the actor, keyed by the target's id, and names the actor, not the
-    ///   target, on every write made meanwhile.
+    ///   target, on every write made meanwhile. `impersonate` names, as its `until` change, when it
+    ///   ends at the latest. Stop, a sign-out, and the first request past the end or after the rule
+    ///   refuses record `stop_impersonating`; a session that ends unseen records none, and its
+    ///   `until` says when it ended.
     ///
     /// The session row stores the target in two columns, see [`AuthSession`]. Mounting refuses it
     /// behind [`Auth::external`].
@@ -224,6 +227,7 @@ pub(super) async fn resolve(
             "stop_impersonating",
             &*actor,
             target,
+            None,
             None,
         )
         .await?;
@@ -342,6 +346,7 @@ pub(crate) async fn start(
         &*signed.user,
         &id,
         name,
+        Some(until),
     )
     .await?;
     crate::bus::bus(cx).wake(&signed.realm.prefix, &signed.user.user_id());
@@ -388,12 +393,25 @@ pub(super) fn stop_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             let (realm, tenant) = (&signed.realm, crate::tenant_id(cx));
             let (id, name) = (signed.user.user_id(), Some(signed.user.display_name()));
             let event = "stop_impersonating";
-            record(cx, &mut tx, realm, tenant, event, &**actor, &id, name).await?;
+            record(cx, &mut tx, realm, tenant, event, &**actor, &id, name, None).await?;
             tx.commit().await.map_err(infrastructure_failure)?;
             crate::bus::bus(cx).wake(&signed.realm.prefix, &actor.user_id());
         }
         see_other(panel_root(cx)).into_response(cx)
     })
+}
+
+/// Records that `signed` stops acting as another user, when they do, as they sign out: the stop a
+/// sign-out ends without the Stop button.
+pub(super) async fn stop_on_sign_out(cx: &Cx, signed: &SignedIn) -> topcoat::Result<()> {
+    let Some(actor) = &signed.impersonator else {
+        return Ok(());
+    };
+    let mut db = crate::db::db(cx)?;
+    let (realm, tenant) = (&signed.realm, crate::tenant_id(cx));
+    let (id, name) = (signed.user.user_id(), Some(signed.user.display_name()));
+    let event = "stop_impersonating";
+    record(cx, &mut db, realm, tenant, event, &**actor, &id, name, None).await
 }
 
 /// Where the banner's Stop button posts: `{prefix}/impersonate/stop`.
@@ -402,7 +420,8 @@ pub(crate) fn stop_url(cx: &Cx) -> String {
 }
 
 /// Records `event`, done by `actor` to the user of `target_id`, named `target_name` when known, in
-/// `panel`'s audit log for `tenant`, when it keeps one.
+/// `panel`'s audit log for `tenant`, when it keeps one; a start names `until`, when it ends on its
+/// own.
 #[expect(
     clippy::too_many_arguments,
     reason = "one call per event, each naming every part"
@@ -416,18 +435,30 @@ async fn record(
     actor: &dyn PanelUser,
     target_id: &str,
     target_name: Option<&str>,
+    until: Option<Timestamp>,
 ) -> topcoat::Result<()> {
     if !panel.audit_log {
         return Ok(());
     }
-    AuditEvent::new(event)
+    let mut entry = AuditEvent::new(event)
         .key(target_id.to_owned(), None)
         .change(
             "user",
             crate::t!(cx, "tablo-impersonation-user"),
             None,
             Some(target_name.unwrap_or(target_id).to_owned()),
-        )
+        );
+    // A session that runs out unseen records no stop, so a start names when it ends at the
+    // latest.
+    if let Some(until) = until {
+        entry = entry.change(
+            "until",
+            crate::t!(cx, "tablo-impersonation-until"),
+            None,
+            Some(until.to_string()),
+        );
+    }
+    entry
         .write(
             ex,
             panel.prefix.clone(),
