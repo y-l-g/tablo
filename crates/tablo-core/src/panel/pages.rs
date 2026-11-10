@@ -14,7 +14,10 @@ use topcoat::{
 };
 
 use super::actions::{input_options, run_header};
-use crate::{Page, page::MountedPage, topcoat_compat::async_page};
+use crate::{
+    FormInput, FormValue, FormValues, HeaderAction, Page, page::MountedPage,
+    topcoat_compat::async_page,
+};
 
 /// `P` as the request's panel mounted it, if it did.
 pub(crate) fn mounted_page<P: Page>(cx: &Cx) -> Option<&Arc<MountedPage>> {
@@ -173,6 +176,95 @@ pub fn header_action_buttons<P: Page>(cx: &Cx) -> BoxView<'_> {
         Some(mounted) => header_buttons(cx, page, mounted),
         None => ().boxed(),
     }
+}
+
+/// The button of `P`'s header action `A`, posting `input` instead of asking for it, to place in the
+/// page's content: a plan card's Subscribe, carrying the plan and the interval it offers.
+///
+/// ```rust
+/// # use tablo_core::{FormInput, HeaderAction, Page, PageDef};
+/// # use topcoat::{Result, context::Cx, view::{View, view}};
+/// #[derive(FormInput)]
+/// struct Plan {
+///     name: String,
+/// }
+///
+/// struct Subscribe;
+///
+/// impl HeaderAction for Subscribe {
+///     type Input = Plan;
+///     const NAME: &'static str = "subscribe";
+///     # async fn run(_: &Cx, _: Plan, _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<PlanField>> { Ok(tablo_core::Outcome::done()) }
+/// }
+///
+/// struct PlansPage;
+///
+/// impl Page for PlansPage {
+///     fn declare() -> PageDef {
+///         PageDef::new().header_action::<Subscribe>()
+///     }
+///
+///     async fn render(cx: &Cx) -> Result<impl View> {
+///         let plan = Plan { name: "pro".to_string() };
+///         Ok(view! {
+///             tablo_ui::page(
+///                 tablo_ui::page_content(
+///                     (tablo_core::header_action_button::<Self, Subscribe>(cx, &plan))
+///                 )
+///             )
+///         })
+///     }
+/// }
+/// ```
+///
+/// The POST runs as the header bar's would: `input` is parsed and checked again, and a refused one
+/// lands on the action's input page. `A` confirms first when it sets
+/// [`CONFIRM`](HeaderAction::CONFIRM). It renders nothing where
+/// [`header_action_buttons`] renders no button for `A`, when `P` does not declare `A`, and when
+/// `input` holds a repeater's rows, which no hidden field carries.
+pub fn header_action_button<'a, P: Page, A: HeaderAction>(
+    cx: &'a Cx,
+    input: &A::Input,
+) -> BoxView<'a> {
+    let mut values = FormValues::new();
+    input.write(&mut values);
+    preset_button(cx, TypeId::of::<P>(), A::NAME, values)
+}
+
+/// [`header_action_button`] past its types, so it compiles once.
+fn preset_button<'a>(
+    cx: &'a Cx,
+    page: TypeId,
+    name: &'static str,
+    values: FormValues,
+) -> BoxView<'a> {
+    let mut pairs = Vec::new();
+    for (key, value) in values {
+        match value {
+            FormValue::Text(text) => pairs.push((key, text)),
+            FormValue::List(items) => {
+                pairs.extend(items.into_iter().map(|item| (key.clone(), item)))
+            }
+            FormValue::Rows(_) => {
+                tracing::error!(
+                    action = name,
+                    key,
+                    "a preset input cannot post a repeater's rows"
+                );
+                return ().boxed();
+            }
+        }
+    }
+    let Some(mounted) = mounted_admitted(cx, page) else {
+        return ().boxed();
+    };
+    let (Some(action), Some(url)) = (
+        mounted.header_actions.find(name),
+        super::state::current(cx).and_then(|panel| panel.urls.get(&page)),
+    ) else {
+        return ().boxed();
+    };
+    super::bar::preset_button(cx, url, action, pairs).render(cx)
 }
 
 /// `P` as the request's panel mounted it, once the auth re-check every panel handler runs and the
