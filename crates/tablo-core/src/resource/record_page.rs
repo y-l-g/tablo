@@ -63,7 +63,8 @@ pub trait RecordPage<R: Resource>: Sized + Send + Sync + 'static {
     }
 
     /// Renders the page's body under the record's header, from the record as the resource's
-    /// [`query`](crate::ResourceDef::query) loads it, with no relation included.
+    /// [`query`](crate::ResourceDef::query) loads it, with the relations its
+    /// [`include_unscoped`](crate::ResourceDef::include_unscoped) names and no other.
     ///
     /// The record arrives whole: a field a [`ResourceDef::field_access`] rule hides from the
     /// request is still on it, so a page that shows such a field asks

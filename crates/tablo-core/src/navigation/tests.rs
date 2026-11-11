@@ -12,7 +12,7 @@ impl Resource for UserResource {
             .table(crate::table::Table::new(crate::TextColumn::new(lens!(
                 User.name
             ))))
-            .query(|_cx, query| query.filter(User::fields().name().eq("Ada")))
+            .query(User::fields().name().eq("Ada"))
     }
 }
 

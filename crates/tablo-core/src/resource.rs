@@ -401,12 +401,44 @@ impl<R: Resource> Mounted<R> {
         cx: &Cx,
         trashed: Trashed,
     ) -> Result<Query<List<R::Model>>> {
-        let query = self
-            .queries
-            .iter()
-            .fold(Query::<List<R::Model>>::all(), |query, narrow| {
-                narrow(cx, query)
-            });
+        self.narrowed(cx, trashed, |_| true)
+    }
+
+    /// The rows a unique index over the fields `index` names covers, of the ones the request
+    /// reads, trashed records included: the tenant's rows, under each
+    /// [`query`](ResourceDef::query) narrowing that reads a field of the index and so fixes it.
+    /// A narrowing that reads none hides rows the index still covers, so the probe leaves it out;
+    /// one whose reads the walk cannot tell stays.
+    pub(crate) fn unique_probe_query(
+        &self,
+        cx: &Cx,
+        index: &[&str],
+    ) -> Result<Query<List<R::Model>>> {
+        self.narrowed(cx, Trashed::With, |predicate| {
+            let (fields, unresolved) =
+                crate::toasty_compat::predicate::root_fields::<R::Model>(predicate);
+            unresolved || fields.iter().any(|field| index.contains(&field.as_str()))
+        })
+    }
+
+    /// Every row, under the [`query`](ResourceDef::query) narrowings `keep` admits, the tenant
+    /// filter and the `trashed` scope, with the relations
+    /// [`include_unscoped`](ResourceDef::include_unscoped) names.
+    fn narrowed(
+        &self,
+        cx: &Cx,
+        trashed: Trashed,
+        keep: impl Fn(&toasty::stmt::Expr<bool>) -> bool,
+    ) -> Result<Query<List<R::Model>>> {
+        let mut query = Query::<List<R::Model>>::all();
+        for predicate in self.queries.iter().filter_map(|narrow| narrow(cx)) {
+            if keep(&predicate) {
+                query = query.filter(predicate);
+            }
+        }
+        for include in &self.includes {
+            query = query.include(include.clone());
+        }
         let query = self.tenant_scope(cx, query)?;
         Ok(match &self.soft_delete {
             Some(soft_delete) => match soft_delete.filter(trashed) {

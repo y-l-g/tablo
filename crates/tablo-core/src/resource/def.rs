@@ -61,7 +61,9 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) navigation_badge: Option<Expr<bool>>,
     pub(crate) navigation_hidden: bool,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
-    pub(crate) queries: Vec<super::QueryFn<R::Model>>,
+    pub(crate) queries: Vec<super::QueryFn>,
+    /// The relations [`Self::include_unscoped`] loads with every row.
+    pub(crate) includes: crate::column::Includes<R::Model>,
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Option<Table<R::Model>>,
     pub(crate) form: Option<Schema<R::Form>>,
@@ -101,6 +103,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             navigation_hidden: false,
             policy: Arc::new(Deny),
             queries: Vec::new(),
+            includes: crate::column::Includes::new(),
             tenancy: Tenancy::undeclared(),
             table: None,
             form: None,

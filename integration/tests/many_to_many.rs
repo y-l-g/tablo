@@ -201,9 +201,7 @@ fn narrowed(db: &Db) -> Router {
         db.clone(),
         panel()
             .resource::<ShelfResource>()
-            .resource_with::<BookResource>(|def| {
-                def.query(|_cx, query| query.filter(Book::fields().title().ne("Hidden")))
-            }),
+            .resource_with::<BookResource>(|def| def.query(Book::fields().title().ne("Hidden"))),
     )
     .expect("the panel mounts")
 }

@@ -57,7 +57,7 @@ impl Resource for AuthorResource {
             .policy(closes_private)
             .table(Table::new(TextColumn::new(lens!(Author.name))))
             .record_title(lens!(Author.name))
-            .query(|_cx, query| query.filter(Author::fields().name().ne("Hidden")))
+            .query(Author::fields().name().ne("Hidden"))
     }
 }
 

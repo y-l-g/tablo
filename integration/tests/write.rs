@@ -169,12 +169,9 @@ async fn forged_delete_runs_no_record_query() {
     use tablo::{Resource, ResourceDef, Table, TextColumn};
 
     static QUERIES: AtomicUsize = AtomicUsize::new(0);
-    fn counted_query(
-        _cx: &topcoat::context::Cx,
-        query: toasty::stmt::Query<toasty::stmt::List<Dummy>>,
-    ) -> toasty::stmt::Query<toasty::stmt::List<Dummy>> {
+    fn counted_query(_cx: &topcoat::context::Cx) -> Option<toasty::stmt::Expr<bool>> {
         QUERIES.fetch_add(1, Ordering::SeqCst);
-        query
+        None
     }
 
     #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
@@ -202,7 +199,7 @@ async fn forged_delete_runs_no_record_query() {
                     )
                 })
                 .table(Table::new(TextColumn::new(lens!(Dummy.name))))
-                .query(counted_query)
+                .query_fn(counted_query)
         }
     }
 

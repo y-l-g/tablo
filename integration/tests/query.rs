@@ -1,10 +1,11 @@
 //! `ResourceDef::query`: each panel narrows the rows one resource type serves, after the
-//! resource's own narrowing, and every loader reads the narrowed rows.
+//! resource's own narrowing, and every loader reads the narrowed rows. `query_fn` narrows by the
+//! request, and `include_unscoped` loads a relation the policy reads.
 
 use tablo::{
-    Allow, Auth, NoForm, Panel, Resource, ResourceDef, RouterBuilderPanelExt, SelectFilter, Table,
-    TextColumn, lens,
-    testing::{body_string, filter_options, row_keys},
+    Ability, Allow, Auth, NoForm, Panel, Resource, ResourceDef, RouterBuilderPanelExt,
+    SelectFilter, Table, TextColumn, lens,
+    testing::{body_string, filter_options, row_keys, rows},
 };
 use toasty::Db;
 use topcoat::router::{Router, RouterBuilderDiscoverExt};
@@ -43,7 +44,7 @@ impl Resource for NoteResource {
             .policy(Allow)
             .table(Table::new(TextColumn::new(lens!(Note.title))))
             .record_title(lens!(Note.title))
-            .query(|_cx, query| query.filter(Note::fields().title().ne("Draft")))
+            .query(Note::fields().title().ne("Draft"))
     }
 }
 
@@ -105,9 +106,7 @@ async fn seeded() -> Seeded {
         .panel(
             Panel::new("portal")
                 .auth(Auth::disabled())
-                .resource_with::<NoteResource>(|def| {
-                    def.query(|_cx, query| query.filter(Note::fields().owner().eq("me")))
-                })
+                .resource_with::<NoteResource>(|def| def.query(Note::fields().owner().eq("me")))
                 .resource::<CommentResource>(),
         )
         .expect("portal panel builds")
@@ -179,4 +178,117 @@ async fn a_row_the_narrowing_leaves_out_reaches_no_loader() {
         .filter(|value| !value.is_empty())
         .collect();
     assert_eq!(offered, [mine.id.to_string()]);
+}
+
+/// A request its narrowing answers `None` for reads every row the other narrowings leave: here
+/// the resource's own, which still hides the draft.
+#[tokio::test]
+async fn a_request_narrowing_that_answers_none_narrows_nothing() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    static EDITOR: AtomicBool = AtomicBool::new(false);
+
+    let mut db: Db = test_db(toasty::models!(Note, Comment)).await;
+    for (owner, title) in [("me", "Mine"), ("them", "Theirs"), ("me", "Draft")] {
+        toasty::create!(Note {
+            owner: owner.to_string(),
+            title: title.to_string(),
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    let router = Router::builder()
+        .discover()
+        .with(db)
+        .panel(
+            Panel::new("desk")
+                .auth(Auth::disabled())
+                .resource_with::<NoteResource>(|def| {
+                    def.query_fn(|_cx| {
+                        (!EDITOR.load(Ordering::SeqCst)).then(|| Note::fields().owner().eq("me"))
+                    })
+                }),
+        )
+        .expect("desk panel builds")
+        .build();
+
+    assert_eq!(row_keys(&page(&router, "/desk/notes").await).len(), 1);
+    EDITOR.store(true, Ordering::SeqCst);
+    assert_eq!(row_keys(&page(&router, "/desk/notes").await).len(), 2);
+}
+
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct Folder {
+    #[key]
+    #[auto]
+    id: Uuid,
+    open: bool,
+}
+
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct Sheet {
+    #[key]
+    #[auto]
+    id: Uuid,
+    #[index]
+    folder_id: Uuid,
+    #[belongs_to(key = folder_id, references = id)]
+    folder: toasty::Deferred<Folder>,
+    name: String,
+}
+
+/// Sheets, each opened only while its folder is open: the policy reads the folder no column
+/// loads.
+struct SheetResource;
+
+impl Resource for SheetResource {
+    type Model = Sheet;
+    type Form = NoForm<Sheet>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("sheets")
+            .table(Table::new(TextColumn::new(lens!(Sheet.name))))
+            .include_unscoped(Sheet::fields().folder())
+            .policy_fn(|_cx, ability: Ability<'_, Sheet>| match ability {
+                Ability::ViewAny => true,
+                Ability::View(sheet) => sheet.folder.get().open,
+                _ => false,
+            })
+    }
+}
+
+/// The relation the def includes loads with the record every loader reads, so the policy
+/// answers from it on the detail page.
+#[tokio::test]
+async fn a_policy_reads_the_relation_the_def_includes() {
+    let mut db: Db = test_db(toasty::models!(Folder, Sheet)).await;
+    let mut sheets = Vec::new();
+    for open in [true, false] {
+        let folder = toasty::create!(Folder { open })
+            .exec(&mut db)
+            .await
+            .unwrap();
+        sheets.push(
+            toasty::create!(Sheet {
+                folder_id: folder.id,
+                name: "sheet".to_string(),
+            })
+            .exec(&mut db)
+            .await
+            .unwrap(),
+        );
+    }
+    let router = crate::common::panel_router::<SheetResource>(db);
+
+    assert_eq!(rows(&page(&router, "/admin/sheets").await).len(), 2);
+    for (sheet, status) in sheets.iter().zip([200, 403]) {
+        assert_eq!(
+            get(&router, &format!("/admin/sheets/{}", sheet.id))
+                .await
+                .status(),
+            status
+        );
+    }
 }

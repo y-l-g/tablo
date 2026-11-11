@@ -37,8 +37,10 @@ pub(crate) struct Mounted<R: Resource> {
     /// The rows [`ResourceDef::navigation_badge`] counts.
     navigation_badge: Option<toasty::stmt::Expr<bool>>,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
-    /// The [`ResourceDef::query`] narrowings, in declaration order.
-    pub(crate) queries: Vec<super::QueryFn<R::Model>>,
+    /// The [`ResourceDef::query`] and [`ResourceDef::query_fn`] narrowings, in declaration order.
+    pub(crate) queries: Vec<super::QueryFn>,
+    /// The relations [`ResourceDef::include_unscoped`] loads with every row.
+    pub(crate) includes: Vec<crate::toasty_compat::UntypedInclude>,
     pub(crate) tenancy: Tenancy<R::Model>,
     pub(crate) table: Arc<Table<R::Model>>,
     pub(crate) form: Arc<Schema>,
@@ -136,6 +138,7 @@ impl<R: Resource> Mounted<R> {
             header_badges: def.header_badges,
             policy: def.policy,
             queries: def.queries,
+            includes: def.includes.into_vec(),
             tenancy: def.tenancy,
             table: Arc::new(table),
             form: Arc::new(form),

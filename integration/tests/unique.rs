@@ -205,18 +205,13 @@ async fn an_edit_keeps_its_own_unique_value() {
 async fn a_value_taken_after_the_probe_renders_inline() {
     use std::sync::atomic::{AtomicBool, Ordering};
 
-    use toasty::stmt::{List, Query};
     use topcoat::context::Cx;
 
     const RIVAL: &str = "rival@example.com";
     static WRITING: AtomicBool = AtomicBool::new(false);
 
-    fn hide_rival(_cx: &Cx, query: Query<List<Subscriber>>) -> Query<List<Subscriber>> {
-        if WRITING.load(Ordering::SeqCst) {
-            query
-        } else {
-            query.filter(Subscriber::fields().email().ne(RIVAL))
-        }
+    fn hide_rival(_cx: &Cx) -> Option<toasty::stmt::Expr<bool>> {
+        (!WRITING.load(Ordering::SeqCst)).then(|| Subscriber::fields().email().ne(RIVAL))
     }
 
     struct RacedResource;
@@ -226,7 +221,7 @@ async fn a_value_taken_after_the_probe_renders_inline() {
         type Form = SubscriberForm;
 
         fn declare() -> ResourceDef<Self> {
-            subscribers().query(hide_rival)
+            subscribers().query_fn(hide_rival)
         }
 
         async fn create_record(
@@ -269,18 +264,13 @@ async fn a_value_taken_after_the_probe_renders_inline() {
 async fn an_edit_to_a_value_taken_after_the_probe_renders_inline() {
     use std::sync::atomic::{AtomicBool, Ordering};
 
-    use toasty::stmt::{List, Query};
     use topcoat::context::Cx;
 
     const RIVAL: &str = "rival@example.com";
     static WRITING: AtomicBool = AtomicBool::new(false);
 
-    fn hide_rival(_cx: &Cx, query: Query<List<Subscriber>>) -> Query<List<Subscriber>> {
-        if WRITING.load(Ordering::SeqCst) {
-            query
-        } else {
-            query.filter(Subscriber::fields().email().ne(RIVAL))
-        }
+    fn hide_rival(_cx: &Cx) -> Option<toasty::stmt::Expr<bool>> {
+        (!WRITING.load(Ordering::SeqCst)).then(|| Subscriber::fields().email().ne(RIVAL))
     }
 
     struct RacedResource;
@@ -292,7 +282,7 @@ async fn an_edit_to_a_value_taken_after_the_probe_renders_inline() {
         fn declare() -> ResourceDef<Self> {
             subscribers()
                 .policy_fn(|_cx, _ability| true)
-                .query(hide_rival)
+                .query_fn(hide_rival)
         }
 
         async fn update_record(
@@ -343,18 +333,13 @@ async fn an_edit_to_a_value_taken_after_the_probe_renders_inline() {
 async fn an_app_error_is_not_read_as_a_taken_value() {
     use std::sync::atomic::{AtomicBool, Ordering};
 
-    use toasty::stmt::{List, Query};
     use topcoat::context::Cx;
 
     const RIVAL: &str = "rival@example.com";
     static WRITING: AtomicBool = AtomicBool::new(false);
 
-    fn hide_rival(_cx: &Cx, query: Query<List<Subscriber>>) -> Query<List<Subscriber>> {
-        if WRITING.load(Ordering::SeqCst) {
-            query
-        } else {
-            query.filter(Subscriber::fields().email().ne(RIVAL))
-        }
+    fn hide_rival(_cx: &Cx) -> Option<toasty::stmt::Expr<bool>> {
+        (!WRITING.load(Ordering::SeqCst)).then(|| Subscriber::fields().email().ne(RIVAL))
     }
 
     struct Refusing;
@@ -364,7 +349,7 @@ async fn an_app_error_is_not_read_as_a_taken_value() {
         type Form = SubscriberForm;
 
         fn declare() -> ResourceDef<Self> {
-            subscribers().query(hide_rival)
+            subscribers().query_fn(hide_rival)
         }
 
         async fn create_record(
@@ -389,4 +374,64 @@ async fn an_app_error_is_not_read_as_a_taken_value() {
         .submit("/admin/subscribers/-/create", &format!("email={RIVAL}"))
         .await;
     assert_eq!(response.status(), 403);
+}
+
+#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+struct Handle {
+    #[key]
+    #[auto]
+    id: Uuid,
+    #[unique]
+    name: String,
+    #[default(false)]
+    retired: bool,
+}
+
+#[derive(tablo::RecordForm)]
+#[form(model = Handle)]
+struct HandleForm {
+    name: String,
+}
+
+/// The handles in use: a retired one is hidden, and still holds its name in the unique index.
+struct HandleResource;
+
+impl Resource for HandleResource {
+    type Model = Handle;
+    type Form = HandleForm;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("handles")
+            .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
+            .table(Table::new(TextColumn::new(lens!(Handle.name))))
+            .form(Schema::new(HandleForm::controls().name.unique()))
+            .query(Handle::fields().retired().eq(false))
+    }
+}
+
+/// A value held by a row the resource's narrowing hides is refused inline: the narrowing reads
+/// no field of the unique index, so the probe looks past it, as the index does.
+#[tokio::test]
+async fn a_value_a_hidden_row_holds_is_refused_inline() {
+    let mut db = test_db(toasty::models!(Handle)).await;
+    toasty::create!(Handle {
+        name: "ada".to_string(),
+        retired: true,
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let router = panel_router::<HandleResource>(db.clone());
+    let response = TestClient::new(&router)
+        .submit("/admin/handles/-/create", "name=ada")
+        .await;
+    assert_eq!(response.status(), 200);
+    let html = body_string(response).await;
+    assert_eq!(
+        field_error(&html, "name"),
+        Some(ErrorKind::Invalid),
+        "{html}"
+    );
+    assert_eq!(Handle::all().exec(&mut db).await.unwrap().len(), 1);
 }

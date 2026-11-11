@@ -49,7 +49,7 @@ impl Resource for AuthorResource {
             .table(Table::new(TextColumn::new(lens!(Author.name))))
             .record_title(lens!(Author.name))
             // Every author but the one named "Hidden", which the user may still create.
-            .query(|_cx, query| query.filter(Author::fields().name().ne("Hidden")))
+            .query(Author::fields().name().ne("Hidden"))
     }
 }
 
