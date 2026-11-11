@@ -40,7 +40,8 @@
 // * Multiple choices: a `ChoiceField::multiple().searchable()` renders an
 //   `input[data-choices-filter]` above its checkboxes, inside `[data-choices]`,
 //   each box in a `[data-choice]` row. Typing hides the rows whose label does
-//   not hold the needle (case-insensitive). Unlike a select's options, the rows
+//   not hold the needle (case-insensitive), and shows the field's
+//   `[data-choices-unmatched]` line when it hides them all. Unlike a select's options, the rows
 //   are page elements, so hiding them shows; a hidden box that is checked still
 //   posts. Enter in the filter submits nothing.
 //
@@ -438,11 +439,17 @@ function choiceMatches(label, needle) {
   return lowered === '' || label.toLowerCase().includes(lowered);
 }
 
-// Show only the rows of the multiple choice `field` that `needle` matches.
+// Show only the rows of the multiple choice `field` that `needle` matches, and
+// its server-rendered "No matching options" line when none does, rather than
+// an empty box.
 function filterChoices(field, needle) {
+  let shown = 0;
   field.querySelectorAll('[data-choice]').forEach((row) => {
     row.hidden = !choiceMatches((row.textContent || '').trim(), needle);
+    if (!row.hidden) shown += 1;
   });
+  const unmatched = field.querySelector('[data-choices-unmatched]');
+  if (unmatched) unmatched.hidden = shown > 0;
 }
 
 // --- the control the combobox replaces ---------------------------------------
@@ -681,6 +688,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     MAX_LIST_ITEMS,
     choiceMatches,
+    filterChoices,
     matchingOptions,
     preservedOption,
     shouldHideNativeSelect,

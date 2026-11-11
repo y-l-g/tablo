@@ -180,6 +180,7 @@ function plainField() {
 // script.
 const {
   choiceMatches,
+  filterChoices,
   matchingOptions,
   MAX_LIST_ITEMS,
   preservedOption,
@@ -249,6 +250,33 @@ test("a multiple choice's row shows while its label holds the trimmed needle, in
   assert.equal(choiceMatches('Databases', ''), true, 'an empty needle shows every row');
   assert.equal(choiceMatches('Databases', '  BASE '), true);
   assert.equal(choiceMatches('Databases', 'engineering'), false);
+});
+
+// A multiple choice: its rows, and the line saying none matches, hidden until
+// the filter hides every row.
+function choicesField(labels) {
+  const rows = labels.map((textContent) => ({ textContent, hidden: false }));
+  const unmatched = { hidden: true };
+  const field = {
+    querySelectorAll: (selector) => (selector === '[data-choice]' ? rows : []),
+    querySelector: (selector) => (selector === '[data-choices-unmatched]' ? unmatched : null),
+  };
+  return { field, rows, unmatched };
+}
+
+test("a multiple choice's filter says so when it hides every row", () => {
+  const { field, rows, unmatched } = choicesField(['Databases', 'Engineering']);
+  filterChoices(field, 'zzz');
+  assert.deepEqual(rows.map((row) => row.hidden), [true, true]);
+  assert.equal(unmatched.hidden, false, 'nothing matched, and the field says so');
+
+  filterChoices(field, 'base');
+  assert.deepEqual(rows.map((row) => row.hidden), [false, true]);
+  assert.equal(unmatched.hidden, true);
+
+  filterChoices(field, '');
+  assert.deepEqual(rows.map((row) => row.hidden), [false, false]);
+  assert.equal(unmatched.hidden, true);
 });
 
 test('the native select is hidden only when the combobox over it is wired', () => {
