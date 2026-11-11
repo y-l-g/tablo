@@ -49,6 +49,18 @@ pub fn two_factor_state(html: &str) -> Option<String> {
     .and_then(|(_, attrs, _)| attr_value(&attrs, "data-two-factor"))
 }
 
+/// Whether the page's submit button for `intent` skips the browser's checks of required fields,
+/// so it submits with them empty; `false` when the page has no such button.
+pub fn intent_skips_validation(html: &str, intent: &str) -> bool {
+    tags_where(html, |tag, attrs| {
+        tag == "button"
+            && attr_value(attrs, "name").as_deref() == Some("intent")
+            && attr_value(attrs, "value").as_deref() == Some(intent)
+    })
+    .iter()
+    .any(|(_, attrs, _)| attr_value(attrs, "formnovalidate").is_some())
+}
+
 /// The six-digit code an authenticator app holding the base32 `secret` shows at `unix_secs`.
 ///
 /// # Panics
