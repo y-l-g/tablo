@@ -52,7 +52,7 @@ async fn db() -> Db {
 }
 
 fn reset() -> PasswordReset<AdminUser> {
-    PasswordReset::new(PasswordAuth)
+    PasswordReset::new(PasswordAuth::new())
 }
 
 /// The shipped authenticator, mailing from a test sender with links to the admin host.
@@ -457,7 +457,11 @@ async fn a_changed_password_ends_the_reset_link() {
     let mail = MemoryTransport::new();
     let router = mount_with_mail(
         db.clone(),
-        panel(mailing().profile(PasswordAuth).password_reset(reset())),
+        panel(
+            mailing()
+                .profile(PasswordAuth::new())
+                .password_reset(reset()),
+        ),
         &mail,
     )
     .expect("panel builds");

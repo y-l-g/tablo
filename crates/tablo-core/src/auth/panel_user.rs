@@ -131,8 +131,9 @@ pub trait PanelUser: Any + Send + Sync {
 
 /// How a panel loads its users (ADR-0013).
 ///
-/// The default [`PasswordAuth`](crate::PasswordAuth) implements it against the shipped
-/// [`AdminUser`](super::AdminUser) model; an app with an existing user table implements it and
+/// [`PasswordAuth`](crate::PasswordAuth) implements it over a
+/// [`PasswordAccount`](crate::PasswordAccount): the shipped [`AdminUser`](super::AdminUser) by
+/// default, or the app's own model. An app whose users sign in some other way implements it and
 /// passes the value to [`Panel::auth`](crate::Panel::auth) via
 /// [`Auth::custom`](crate::Auth::custom). Sessions are the framework's, so an implementation only
 /// maps credentials to a user and a stored id back to one. An app that signs its users in itself

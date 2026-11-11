@@ -12,6 +12,7 @@
 )]
 mod common;
 
+mod account;
 mod admin_credentials;
 mod auth_override;
 mod email_change;

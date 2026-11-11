@@ -4,6 +4,7 @@
 //! [`Authenticator`], reads the signed-in
 //! user through [`user`] and [`require_user`], and keeps each panel's [`AuthSession`]s.
 
+pub(crate) mod account;
 mod columns;
 pub(crate) mod config;
 mod email_change;
@@ -45,6 +46,7 @@ use topcoat::{
 
 use self::realm::realms;
 pub use self::{
+    account::normalize_email,
     columns::ColumnPreference,
     email_change::{EmailChange, request_email_change},
     impersonation::{IMPERSONATE_FIELD, impersonate, impersonate_button, impersonator},
@@ -65,6 +67,7 @@ pub use self::{
 };
 // What the crate root exports, under the paths this module's own code names.
 pub(crate) use self::{
+    account::{PasswordAccount, PasswordAuth},
     columns::{load_choice, save_choice},
     config::{Auth, AuthConfig},
     gate::{PagePanelStamp, PanelGate, RuntimeGate, still_signed_in},
@@ -72,9 +75,12 @@ pub(crate) use self::{
     login::{logout_url, tenant_url},
     mail::AuthMail,
     panel_user::{Authenticator, PanelUser},
-    password::{PasswordAuth, end_changed_credentials},
+    password::end_changed_credentials,
     password_reset::PasswordReset,
-    profile::{Profile, ProfileEditor, ProfileUpdate, offered as profile_offered, profile_url},
+    profile::{
+        Profile, ProfileEditor, ProfileField, ProfileUpdate, offered as profile_offered,
+        profile_url,
+    },
     realm::{
         AuthHost, CurrentRealm, Host, Realm, SettingsPage, SettingsPaths, current_realm,
         panel_prefix,

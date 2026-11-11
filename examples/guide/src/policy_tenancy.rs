@@ -249,7 +249,7 @@ pub fn staff_sign_up_panel() -> Panel {
 
 // ANCHOR: policy-profile-password
 pub fn profile_panel() -> Panel {
-    Panel::new("admin").auth(Auth::password().profile(PasswordAuth))
+    Panel::new("admin").auth(Auth::password().profile(PasswordAuth::new()))
 }
 // ANCHOR_END: policy-profile-password
 
@@ -326,7 +326,7 @@ pub fn reset_router(db: toasty::Db) -> Result<Router> {
             Mailbox::named("Example", "no-reply@example.com")?,
             "https://admin.example.com",
         ))
-        .password_reset(PasswordReset::new(PasswordAuth));
+        .password_reset(PasswordReset::new(PasswordAuth::new()));
     Ok(Router::builder()
         .with(db)
         // Before the panel, which checks for it. `SmtpTransport`, behind Topcoat's `mail-smtp`
@@ -345,7 +345,7 @@ pub fn verified_auth() -> Result<Auth> {
             "https://admin.example.com",
         ))
         .registration(PasswordSignUp::open())
-        .email_verification(EmailVerification::new(PasswordAuth)))
+        .email_verification(EmailVerification::new(PasswordAuth::new())))
 }
 // ANCHOR_END: policy-email-verification
 

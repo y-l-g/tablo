@@ -34,8 +34,8 @@ pub const RESET_LIFETIME: Duration = Duration::from_hours(1);
 /// How a panel finds the account a password reset names and sets its new password, installed
 /// with [`Auth::password_reset`](super::Auth::password_reset) through a [`PasswordReset`].
 ///
-/// The shipped [`PasswordAuth`](super::PasswordAuth) resets an [`AdminUser`](super::AdminUser);
-/// an app with its own user table implements it beside its
+/// [`PasswordAuth`](super::PasswordAuth) resets a [`PasswordAccount`](super::PasswordAccount);
+/// an app whose user table is not one implements it beside its
 /// [`Authenticator`](super::Authenticator), for the same user type. The link goes to the address
 /// [`PanelUser::email`] answers, the one the account stores, never the one the visitor typed: a
 /// lookup that matches loosely, such as a collation folding accents, would otherwise mail one
@@ -204,7 +204,7 @@ impl<R: PasswordResetter> DynPasswordResetter for R {
 ///         Mailbox::new("no-reply@example.com")?,
 ///         "https://admin.example.com",
 ///     ))
-///     .password_reset(PasswordReset::new(PasswordAuth));
+///     .password_reset(PasswordReset::new(PasswordAuth::new()));
 /// # let _ = auth;
 /// # Ok(())
 /// # }

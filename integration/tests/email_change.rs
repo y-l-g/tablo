@@ -62,8 +62,8 @@ fn router(db: Db, mail: &MemoryTransport) -> Router {
             Mailbox::new("no-reply@example.com").unwrap(),
             BASE_URL,
         ))
-        .profile(PasswordAuth)
-        .email_verification(EmailVerification::new(PasswordAuth));
+        .profile(PasswordAuth::new())
+        .email_verification(EmailVerification::new(PasswordAuth::new()));
     Router::builder()
         .discover()
         .with(db)

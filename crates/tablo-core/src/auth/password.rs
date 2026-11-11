@@ -1,5 +1,4 @@
-//! The shipped credentials: the [`AdminUser`] model, Argon2id hashing, and the
-//! [`PasswordAuth`] authenticator over them.
+//! The shipped credentials: the [`AdminUser`] model, its sign-up, and Argon2id hashing.
 
 use std::sync::{Arc, LazyLock};
 
@@ -9,11 +8,11 @@ use topcoat::context::Cx;
 use uuid::Uuid;
 
 use super::{
-    Authenticator, EmailChange, EmailVerifier, PanelUser, PasswordResetter, Profile, ProfileEditor,
-    ProfileUpdate, Registrar, SignUp, infrastructure_failure, profile::CURRENT_PASSWORD_FIELD,
-    request_email_change,
+    PanelUser, PasswordAccount, Registrar, SignUp,
+    account::{email_taken, normalize_email},
+    infrastructure_failure,
 };
-use crate::FieldErrors;
+use crate::{FieldErrors, Lens};
 
 /// A dummy Argon2id PHC string verified against when the account does not
 /// exist, so unknown logins pay the same work as known ones (ADR-0013).
@@ -21,9 +20,9 @@ use crate::FieldErrors;
 const DUMMY_PASSWORD_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$h3oXdPBVwhcgZ1OTO/PuzQ$zLrHLgIkwhqu4ZlLTfSyB8mPuL6mAtaswv/eXJ5ADO8";
 
 /// Shipped credential model with unique email, Argon2id PHC hash, display name,
-/// and active flag; belongs to no tenant. [`PasswordAuth`] stores the email, and looks it up,
-/// trimmed and lowercased, so one address holds one account whatever case it is typed in; a
-/// resource that edits the email must store it the same way.
+/// and active flag; belongs to no tenant. [`PasswordAuth`](super::PasswordAuth) stores the email,
+/// and looks it up, trimmed and lowercased, so one address holds one account whatever case it is
+/// typed in; a resource that edits the email must store it the same way.
 /// Its [`ModelColumns`](crate::ModelColumns) leave out the hash, so a resource over the panel's
 /// admins lists them. A resource's edit form that changes an admin's email or password hash ends
 /// that admin's sessions, pending sign-ins, reset links and pending email change in the same
@@ -106,53 +105,37 @@ pub(crate) async fn end_changed_credentials(
     super::session::end_credentials(ex, &user_id, &panels, super::token::REVOCATION).await
 }
 
-/// Shipped default authenticator: Argon2id verification against [`AdminUser`].
-///
-/// An unknown email costs the same work as a wrong password, and every failure shows the same
-/// message. It stores an email trimmed and lowercased and looks it up the same way, so
-/// `Ada@Example.com` and `ada@example.com` are one account; a resource that edits an admin's
-/// email stores it the same way. A row stored with capitals cannot sign in or reset its password:
-/// list the accounts that differ only in case with `SELECT LOWER(TRIM(email)) FROM admin_users
-/// GROUP BY 1 HAVING COUNT(*) > 1`, merge or delete them, then run
-/// `UPDATE admin_users SET email = LOWER(TRIM(email))`. SQLite's `LOWER` folds ASCII letters
-/// only, so lowercase any other capital by hand.
-#[derive(Debug, Default, Clone, Copy)]
-pub struct PasswordAuth;
+/// The shipped account [`PasswordAuth`](super::PasswordAuth) signs in by default. An account
+/// whose `active` is `false` signs in nowhere and gets no reset link.
+impl PasswordAccount for AdminUser {
+    type User = Self;
 
-impl Authenticator for PasswordAuth {
-    type User = AdminUser;
-
-    async fn verify(
-        &self,
-        cx: &Cx,
-        login: &str,
-        password: &str,
-    ) -> topcoat::Result<Option<AdminUser>> {
-        let mut db = crate::db::db(cx)?;
-        let user = AdminUser::filter(AdminUser::fields().email().eq(normalize_email(login)))
-            .first()
-            .exec(&mut db)
-            .await
-            .map_err(infrastructure_failure)?;
-        let hash = user.as_ref().map(|user| user.password_hash.as_str());
-        if !verify_password(password, hash).await {
-            return Ok(None);
-        }
-        Ok(user)
+    fn name() -> Lens<Self, String> {
+        crate::lens!(AdminUser.display_name)
     }
 
-    async fn find_by_id(&self, cx: &Cx, id: &str) -> topcoat::Result<Option<AdminUser>> {
-        let Ok(id) = Uuid::parse_str(id) else {
-            return Ok(None);
-        };
-        let mut db = crate::db::db(cx)?;
-        let user = AdminUser::filter(AdminUser::fields().id().eq(id))
-            .first()
-            .exec(&mut db)
-            .await
-            .map_err(infrastructure_failure)?;
-        // A deactivated account stops resolving, so its live sessions purge.
-        Ok(user.filter(|user| user.active))
+    fn email() -> Lens<Self, String> {
+        crate::lens!(AdminUser.email)
+    }
+
+    fn password_hash() -> Lens<Self, String> {
+        crate::lens!(AdminUser.password_hash)
+    }
+
+    fn email_verified_at() -> Lens<Self, Option<Timestamp>> {
+        crate::lens!(AdminUser.email_verified_at)
+    }
+
+    fn account(user: &Self) -> &Self {
+        user
+    }
+
+    async fn sign_in(
+        self,
+        _cx: &Cx,
+        _ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<Option<Self>> {
+        Ok(self.active.then_some(self))
     }
 }
 
@@ -235,159 +218,6 @@ impl Registrar for PasswordSignUp {
     }
 }
 
-/// Edits the signed-in [`AdminUser`]'s name, email and password through a [`Profile`]. Changing
-/// the email or the password asks for the current password, and refuses a new password
-/// [`new_password_errors`](super::new_password_errors) refuses and, once the current password
-/// verifies, an email another account holds. A changed password is a
-/// [`ProfileUpdate::Credentials`]. A new email goes through [`request_email_change`]: on a panel
-/// with [`Auth::email_verification`](super::Auth::email_verification) it waits for its link,
-/// elsewhere it is stored at once, as a credential change. Install it with
-/// [`Auth::profile`](super::Auth::profile).
-impl ProfileEditor for PasswordAuth {
-    type Input = Profile;
-    type User = AdminUser;
-
-    fn fill(&self, _cx: &Cx, admin: &AdminUser) -> Profile {
-        Profile {
-            name: admin.display_name.clone(),
-            email: admin.email.clone(),
-            password: None,
-            password_confirmation: String::new(),
-            current_password: None,
-        }
-    }
-
-    async fn validate(
-        &self,
-        _cx: &Cx,
-        admin: &AdminUser,
-        profile: &Profile,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<FieldErrors> {
-        let mut errors = profile.password_errors();
-        let new_email = normalize_email(&profile.email) != admin.email;
-        if new_email || profile.password.is_some() {
-            match &profile.current_password {
-                None => errors.add(
-                    CURRENT_PASSWORD_FIELD,
-                    crate::text!("tablo-profile-current-password-needed"),
-                ),
-                Some(current) if !verify_password(current, Some(&admin.password_hash)).await => {
-                    errors.add(
-                        CURRENT_PASSWORD_FIELD,
-                        crate::text!("tablo-profile-current-password-wrong"),
-                    );
-                }
-                Some(_) => {}
-            }
-        }
-        // Only the account's owner learns whether another account holds an email: a stolen
-        // session without the password must not probe addresses.
-        if new_email && !errors.contains_key(CURRENT_PASSWORD_FIELD) {
-            let taken = AdminUser::filter(
-                AdminUser::fields()
-                    .email()
-                    .eq(normalize_email(&profile.email)),
-            )
-            .first()
-            .exec(ex)
-            .await
-            .map_err(infrastructure_failure)?;
-            if taken.is_some_and(|other| other.id != admin.id) {
-                errors.add("email", email_taken());
-            }
-        }
-        Ok(errors)
-    }
-
-    async fn save(
-        &self,
-        cx: &Cx,
-        admin: &AdminUser,
-        profile: Profile,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<ProfileUpdate> {
-        let email = normalize_email(&profile.email);
-        let stored = email != admin.email
-            && request_email_change(cx, &mut *ex, admin, &email).await? == EmailChange::Immediate;
-        let credentials = stored || profile.password.is_some();
-        let mut update = AdminUser::filter(AdminUser::fields().id().eq(admin.id))
-            .update()
-            .display_name(profile.name);
-        if stored {
-            update.set_email(email);
-            update.set_email_verified_at(None);
-        }
-        if let Some(password) = &profile.password {
-            update.set_password_hash(hash_password(password).await?);
-        }
-        update.exec(ex).await?;
-        Ok(if credentials {
-            ProfileUpdate::Credentials
-        } else {
-            ProfileUpdate::Details
-        })
-    }
-}
-
-/// Resets an [`AdminUser`]'s password, mailing the link to the email the account stores.
-/// Install it with [`Auth::password_reset`](super::Auth::password_reset).
-impl PasswordResetter for PasswordAuth {
-    type User = AdminUser;
-
-    async fn find_by_email(&self, cx: &Cx, email: &str) -> topcoat::Result<Option<AdminUser>> {
-        let mut db = crate::db::db(cx)?;
-        AdminUser::filter(AdminUser::fields().email().eq(normalize_email(email)))
-            .first()
-            .exec(&mut db)
-            .await
-            .map_err(infrastructure_failure)
-    }
-
-    async fn reset_password(
-        &self,
-        _cx: &Cx,
-        user_id: &str,
-        password: &str,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
-        let id = Uuid::parse_str(user_id).map_err(|_| topcoat::router::error::not_found())?;
-        AdminUser::filter(AdminUser::fields().id().eq(id))
-            .update()
-            .password_hash(hash_password(password).await?)
-            .exec(ex)
-            .await?;
-        Ok(())
-    }
-}
-
-/// Verifies an [`AdminUser`]'s address, storing the one the link proved. Install it with
-/// [`Auth::email_verification`](super::Auth::email_verification).
-impl EmailVerifier for PasswordAuth {
-    type User = AdminUser;
-
-    fn is_verified(&self, admin: &AdminUser) -> bool {
-        admin.email_verified_at.is_some()
-    }
-
-    async fn store_verified_email(
-        &self,
-        _cx: &Cx,
-        user_id: &str,
-        email: &str,
-        ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<()> {
-        let id = Uuid::parse_str(user_id).map_err(|_| topcoat::router::error::not_found())?;
-        AdminUser::filter(AdminUser::fields().id().eq(id))
-            .update()
-            .email(normalize_email(email))
-            .email_verified_at(Some(Timestamp::now()))
-            .exec(ex)
-            .await?;
-        Ok(())
-    }
-}
-
 /// Creates an active [`AdminUser`] that signs in with `email` and `password`, storing only the
 /// password's Argon2id hash: the account a new app seeds to reach its panel. The email is stored
 /// trimmed and lowercased, and verified: whoever seeds the account vouches for the address.
@@ -440,11 +270,6 @@ async fn insert_admin(
     .exec(ex)
     .await?;
     Ok(admin)
-}
-
-/// `email` as [`AdminUser`] stores it: trimmed and lowercased.
-fn normalize_email(email: &str) -> String {
-    email.trim().to_lowercase()
 }
 
 /// Hashes a password with Argon2id into a PHC string for storage; never stores
@@ -548,12 +373,4 @@ pub(super) async fn permitted<T: Send + 'static>(
         Ok(value) => value,
         Err(error) => std::panic::resume_unwind(error.into_panic()),
     }
-}
-
-/// The refusal of an email another account holds.
-fn email_taken() -> crate::Text {
-    crate::text!(
-        "tablo-field-taken",
-        label = crate::text!("tablo-auth-email")
-    )
 }

@@ -204,7 +204,7 @@ async fn the_profile_page_moves_into_the_area_that_holds_it() {
     let router = mount(
         db.clone(),
         tablo::Panel::new("admin")
-            .auth(Auth::password().profile(PasswordAuth))
+            .auth(Auth::password().profile(PasswordAuth::new()))
             .resource::<BookResource>()
             .area(Area::new("settings").group("Account", |group| group.profile())),
     )
@@ -277,7 +277,7 @@ async fn the_profile_page_in_an_area_runs_its_header_actions() {
     let router = mount(
         db.clone(),
         tablo::Panel::new("admin")
-            .auth(Auth::password().profile(PasswordAuth))
+            .auth(Auth::password().profile(PasswordAuth::new()))
             .resource::<BookResource>()
             .area(Area::new("settings").group("Account", |group| {
                 group.profile_with(|def| {

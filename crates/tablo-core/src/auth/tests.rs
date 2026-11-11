@@ -769,7 +769,7 @@ fn verification_holds_only_a_user_with_an_address() {
             true
         }
     }
-    let auth = Auth::password().email_verification(EmailVerification::new(PasswordAuth));
+    let auth = Auth::password().email_verification(EmailVerification::new(PasswordAuth::new()));
     let panel = crate::panel::test_support::panel_state("/admin", auth);
     assert!(!verification::pending(&panel.realm, &Nameless));
 }

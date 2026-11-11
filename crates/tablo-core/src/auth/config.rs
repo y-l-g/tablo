@@ -37,7 +37,7 @@ impl Auth {
     /// The shipped Argon2id + [`AdminUser`] authenticator.
     #[must_use]
     pub fn password() -> Self {
-        Self::custom(PasswordAuth)
+        Self::custom(PasswordAuth::new())
     }
 
     /// Explicit fail-open opt-out for public demos (ADR-0013): no gate, no
@@ -161,13 +161,13 @@ impl<U: PanelUser> Auth<U> {
     /// ```rust
     /// use tablo_core::{Auth, PasswordAuth};
     ///
-    /// let auth = Auth::password().profile(PasswordAuth);
+    /// let auth = Auth::password().profile(PasswordAuth::new());
     /// # let _ = auth;
     /// ```
     ///
-    /// [`PasswordAuth`] edits an [`AdminUser`](super::AdminUser)'s name, email and password through
-    /// a [`Profile`](super::Profile), asking for the current password before the email or the
-    /// password changes.
+    /// [`PasswordAuth`] edits a [`PasswordAccount`](super::PasswordAccount)'s name, email and
+    /// password through a [`Profile`](super::Profile), asking for the current password before the
+    /// email or the password changes.
     ///
     /// - The form is any `FormInput`, rendered in the panel's shell. The page shows what the
     ///   input's `write` writes, so `Profile` never shows a password. A disabled control keeps what

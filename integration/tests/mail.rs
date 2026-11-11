@@ -66,7 +66,7 @@ async fn faults(auth: Auth, with_mail: bool) -> Vec<DeclarationErrorKind> {
 /// that sends mail.
 #[tokio::test]
 async fn mounting_refuses_mail_the_panel_cannot_send() {
-    let reset = || PasswordReset::new(PasswordAuth);
+    let reset = || PasswordReset::new(PasswordAuth::new());
 
     assert_eq!(
         faults(Auth::password().password_reset(reset()), true).await,

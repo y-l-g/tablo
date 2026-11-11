@@ -24,7 +24,7 @@ use crate::auth::realm::{Realm, current_realm};
 ///         Mailbox::named("Example", "no-reply@example.com")?,
 ///         "https://admin.example.com",
 ///     ))
-///     .password_reset(PasswordReset::new(PasswordAuth));
+///     .password_reset(PasswordReset::new(PasswordAuth::new()));
 /// # let _ = auth;
 /// # Ok(())
 /// # }

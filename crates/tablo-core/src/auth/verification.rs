@@ -46,9 +46,9 @@ pub const VERIFICATION_LIFETIME: Duration = Duration::from_hours(24);
 /// [`EmailVerification`].
 ///
 /// The link goes to the address [`PanelUser::email`] answers. The shipped
-/// [`PasswordAuth`](super::PasswordAuth) verifies an [`AdminUser`](super::AdminUser); an app with
-/// its own user table implements it beside its [`Authenticator`](super::Authenticator), for the
-/// same user type:
+/// [`PasswordAuth`](super::PasswordAuth) verifies a [`PasswordAccount`](super::PasswordAccount);
+/// an app whose user table is not one implements it beside its
+/// [`Authenticator`](super::Authenticator), for the same user type:
 ///
 /// ```rust
 /// # use tablo_core::{PanelUser, auth::EmailVerifier};
@@ -174,7 +174,7 @@ impl<V: EmailVerifier> DynEmailVerifier for V {
 ///         "https://admin.example.com",
 ///     ))
 ///     .registration(PasswordSignUp::open())
-///     .email_verification(EmailVerification::new(PasswordAuth));
+///     .email_verification(EmailVerification::new(PasswordAuth::new()));
 /// # let _ = auth;
 /// # Ok(())
 /// # }

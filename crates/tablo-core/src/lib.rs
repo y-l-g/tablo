@@ -140,15 +140,16 @@ pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Se
 
 pub use audit::{AuditChange, AuditEntry, AuditEvent};
 pub use auth::{
+    account::{PasswordAccount, PasswordAuth},
     config::Auth,
     external::ExternalAuth,
     impersonation::Impersonation,
     mail::AuthMail,
     oidc::{IdentityLinker, Oidc, OidcProvider, ProviderIdentity},
     panel_user::{Authenticator, PanelUser},
-    password::{PasswordAuth, PasswordSignUp},
+    password::PasswordSignUp,
     password_reset::PasswordReset,
-    profile::{Profile, ProfileEditor, ProfileUpdate},
+    profile::{Profile, ProfileEditor, ProfileField, ProfileUpdate},
     registration::{Registrar, SignUp},
     tenant_registration::TenantRegistration,
     throttle::LoginThrottle,

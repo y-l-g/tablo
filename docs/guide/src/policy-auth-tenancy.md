@@ -210,7 +210,28 @@ above when nobody is signed in. `auth::signed_in(cx)` answers whether anyone is.
 
 ### Your own user table
 
-Implement `PanelUser` for the type the panel signs in, and `Authenticator` to load it:
+A table that signs in by email and password needs no seam of its own. Implement `PasswordAccount`
+for the model: four lenses name its name, email, password hash and verification time, and
+`sign_in` turns a row into the user the panel signs in, here the member with their workspaces:
+
+```rust
+{{#include ../../../examples/guide/src/password_account.rs:policy-password-account}}
+```
+
+`PasswordAuth::<Member>` is then the panel's authenticator, and its profile editor, password
+resetter and email verifier too:
+
+```rust
+{{#include ../../../examples/guide/src/password_account.rs:policy-password-account-panel}}
+```
+
+It signs in, edits, resets and verifies as it does for `AdminUser`, and stores each email trimmed
+and lowercased, so a sign-up that writes the table stores it as `auth::normalize_email` spells it.
+[`PasswordAccount`](https://y-l.fr/tablo/nightly/api/tablo/trait.PasswordAccount.html) lists its
+hooks: a profile change the app refuses, and where a picked locale is stored.
+
+A table that signs in some other way implements `PanelUser` for the type the panel signs in, and
+`Authenticator` to load it:
 
 ```rust
 use tablo::{Authenticator, Membership, PanelUser, auth::verify_password};
@@ -238,8 +259,8 @@ use tablo::{Authenticator, Membership, PanelUser, auth::verify_password};
   match. See [Translations](./translations.md#the-users-locale).
 
 Sessions stay in `AuthSession`, which `tablo::models!` registers. It registers the shipped
-`AdminUser` too, which only `PasswordAuth` reads: with another authenticator its table stays
-empty.
+`AdminUser` too, which only `PasswordAuth::new()` reads: with another authenticator its table
+stays empty.
 
 An app with a sign-in of its own, such as SSO, keeps it through `Auth::external`: see
 [Adding a panel to an existing app](./existing-app.md#signing-in-through-the-app).
@@ -290,7 +311,8 @@ It asks for the current password before the email or the password changes, refus
 `new_password_errors` refuses and, once the current password verifies, an email another account
 holds, and leaves the password as it is when the new-password field is blank.
 
-Your own user table edits through a `ProfileEditor` beside its `Authenticator`, which works like a
+A `PasswordAccount` table edits through its `PasswordAuth` as above. Another table edits through
+a `ProfileEditor` beside its `Authenticator`, which works like a
 `Registrar`: `fill` seeds the form from the signed-in user, `validate` refuses a submission field by
 field, and `save` writes it. `validate` and `save` run in one transaction the framework opens. The
 shipped `Profile` input fits any table with a name, an email and a password:
@@ -317,7 +339,8 @@ before mounting the panel, and add `AuthToken` to the `Db`'s models:
 The base URL is the scheme and host the app answers on. Reset links start with it rather than with
 the request's `Host` header, which the client chooses and could point at another host.
 
-Your own user table resets through a `PasswordResetter` beside its `Authenticator`:
+Another user table than a `PasswordAccount` resets through a `PasswordResetter` beside its
+`Authenticator`:
 `find_by_email` loads the account an address signs in as, and `reset_password` sets the new
 password inside the reset's transaction. The link goes to the address `PanelUser::email` answers;
 an account that answers none gets no link.
@@ -336,7 +359,8 @@ answers the same whether an account uses the address or not, so it never reveals
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-email-verification}}
 ```
 
-Your own user table verifies through an `EmailVerifier` beside its `Authenticator`: `is_verified`
+Another user table than a `PasswordAccount` verifies through an `EmailVerifier` beside its
+`Authenticator`: `is_verified`
 says whether the user has proved their address, and `store_verified_email` stores the address a
 link proved and marks it verified, inside the link's transaction. `PasswordAuth` keeps the proof in
 `AdminUser::email_verified_at`; `create_admin` seeds a verified account.
