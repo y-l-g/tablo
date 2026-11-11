@@ -375,6 +375,31 @@ async fn only_a_record_the_policy_allows_shows_its_state_refusal() {
     assert_eq!(reply.status(), 403, "the route refuses a disabled record");
 }
 
+/// `can` answers for an action what its button and its route answer: the policy and the
+/// action's own `can_run`.
+#[tokio::test]
+async fn can_answers_what_the_actions_button_and_route_answer() {
+    let db = db().await;
+    let open = seed(&db, "Open").await;
+    let mut done = seed(&db, "Done").await;
+    done.closed = true;
+    let cx = panel()
+        .resource_with::<TicketResource>(|def| def.action::<Answer>())
+        .handle(&db)
+        .expect("panel builds")
+        .context();
+    let answer = |record| Ability::Run {
+        action: Answer::NAME,
+        record,
+    };
+
+    assert!(tablo::can::<TicketResource>(&cx, answer(&open)));
+    assert!(
+        !tablo::can::<TicketResource>(&cx, answer(&done)),
+        "the policy allows it and `can_run` refuses a closed ticket"
+    );
+}
+
 /// A policy that allows every ability but closing a ticket titled "Locked". It matches the
 /// action `Close`, so a `Run` asked under another name would let the locked ticket through.
 fn all_but_locked(_cx: &Cx, ability: Ability<'_, Ticket>) -> bool {

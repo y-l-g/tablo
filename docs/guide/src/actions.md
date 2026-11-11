@@ -52,19 +52,23 @@ to [`Limits::bulk_records`](https://y-l.fr/tablo/nightly/api/tablo/struct.Limits
 
 ### Who runs it
 
-Three checks decide, each asked for its own reason:
+One question decides, `Run` on the record, and two parties answer it:
 
-- the policy's `RunAny { action: NAME }` decides whether the resource offers the action at all;
-- the policy's `Run` decides who may run it on a given record;
-- the action's `can_run` reads the record's state: a published post refuses "publish".
+- the policy, which each panel mounts its own, says who may run the action: `RunAny { action:
+  NAME }` for the resource at all, then `Run` for a given record;
+- the action's `can_run` says what the action itself takes, on every panel: a published post
+  refuses "publish".
+
+The button, the route and `can::<R>(cx, Ability::Run { .. })` in your own code all ask both, so
+they agree.
 
 A record `can_run` refuses hides the button, unless `disabled_reason` says why: the button then
 shows disabled, with the reason on hover. A record the policy refuses never shows it, so the
 reason never tells a user what the policy refuses them.
 
-`can_run` sees no user, so it never decides who may act. A panel that mounts the resource with
-`ReadOnly` therefore offers none of its actions and refuses their POSTs
-([Policy](./policy-auth-tenancy.md#policy)).
+Put who may act in the policy: a rule in `can_run` holds on every panel and no panel can lift it.
+A panel that mounts the resource with `ReadOnly` offers none of its actions and refuses their
+POSTs ([Policy](./policy-auth-tenancy.md#policy)).
 
 ### What a run returns
 

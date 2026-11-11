@@ -330,15 +330,31 @@ impl<R: Resource> Mounted<R> {
         self.public_link.as_ref().and_then(|link| link(cx, record))
     }
 
-    /// Whether the policy allows `ability`. A force delete is a delete too, so the policy must
-    /// also allow the delete: a policy that keeps a record from the trash keeps it whole.
+    /// Whether the request may do `ability`: what its button and its route both ask.
+    ///
+    /// The policy allows it, and what the ability rests on holds too. A force delete is a delete,
+    /// so the policy must also allow the delete: a policy that keeps a record from the trash
+    /// keeps it whole. Running an action the resource declares takes a record the action takes,
+    /// live or trashed, that its own `can_run` admits.
+    ///
+    /// A header action's `can_run` stays its route's to ask: a page's action asks a resource's
+    /// policy for `RunHeader` from its `can_run`, which would ask itself here.
     pub(crate) fn can(&self, cx: &Cx, ability: Ability<'_, R::Model>) -> bool {
-        let implied = match ability {
+        let rests = match ability {
             Ability::ForceDeleteAny => self.policy.allows(cx, Ability::DeleteAny),
             Ability::ForceDelete(record) => self.policy.allows(cx, Ability::Delete(record)),
+            Ability::Run { action, record } => self.actions.find(action).is_none_or(|entry| {
+                entry.trashed.admits(self.is_trashed(record)) && (entry.state)(cx, record)
+            }),
             _ => true,
         };
-        implied && self.policy.allows(cx, ability)
+        rests && self.policy_allows(cx, ability)
+    }
+
+    /// Whether the policy alone allows `ability`, whatever the record's state: what tells a
+    /// record the user may not act on from one the action refuses for now.
+    pub(crate) fn policy_allows(&self, cx: &Cx, ability: Ability<'_, R::Model>) -> bool {
+        self.policy.allows(cx, ability)
     }
 }
 
