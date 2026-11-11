@@ -7,7 +7,9 @@ inside the same transaction.
 
 A custom `Action` is authorized by the policy the panel mounted, through abilities of its own:
 `RunAny` with its `NAME` before the body is read, then `View` and `Run` on each loaded record.
-`can_run` is a state predicate on the record, asked after the policy. An action's input is parsed
+`Run` has one answer, which the button, the route and `can` all read: the mounted policy allows
+it and the action's own `can_run` admits the record. `can_run` is what the action takes on every
+panel; who may act is the policy's. An action's input is parsed
 and validated before the transaction opens, as a record form is, so no option query waits on the
 connection the transaction holds. A record action's `Places` are presentation only: the routes
 serve an action through the same checks wherever it shows.
@@ -33,6 +35,12 @@ for effects outside the database. An action's `Outcome` applies only after both.
 - Authorizing an action through `View` and `can_run`: `can_run` is a static fn on the action
   type and never sees the mounted def's policy, so a panel that mounts the resource `ReadOnly`
   could not revoke its actions.
+- `can` answering the policy alone, with `can_run` asked beside it by each caller: an app's own
+  page asking `can` showed a button the route refused, and each of the framework's callers had
+  to remember the second check. Dropping `can_run`'s `Cx` to keep it to the record's state: an
+  action that carries its own rule wherever it is mounted, as `Impersonate` does, reads the
+  request. `RunHeader` answered with the header action's `can_run` too: a page's action asks a
+  resource's policy for it from its `can_run`, which would then ask itself.
 - `ViewAny` as an action's resource-wide ability: reading the list is not permission to write.
 - Failing a whole selection on a record refused `Run`: the bulk bar offers a row a checkbox when
   any bulk write allows it, so a selection can mix records offered different actions.

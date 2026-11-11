@@ -180,8 +180,9 @@ impl<'a, M> Ability<'a, M> {
 ///   record inside the write's transaction and ask about that row, not the submitted key. A bulk
 ///   delete or bulk action fails as a whole when any selected record is refused `View`, and skips
 ///   the records refused `Delete` or `Run`;
-/// - an action's [`can_run`](crate::Action::can_run) reads the record's state and sees no policy,
-///   so a panel that mounts the resource with [`ReadOnly`] offers and runs none of its actions;
+/// - running an action takes the policy and the action's own [`can_run`](crate::Action::can_run)
+///   together, so a panel that mounts the resource with [`ReadOnly`] offers and runs none of its
+///   actions, and [`can`](crate::can) answers what the button shows;
 /// - a relationship choice asks the related resource's policy for `ViewAny` and `View`;
 /// - a policy is asked once per row and once per button, so it cannot query: the panel reads what
 ///   it needs once for the request, as a [`Load`](crate::Load) value [`loaded`](crate::loaded)

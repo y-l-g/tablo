@@ -493,8 +493,14 @@ impl<R: Resource> Mounted<R> {
     }
 }
 
-/// Whether `R`'s policy, as the context's panel mounted it, allows `ability`; `false` when the
-/// panel does not mount `R`. Does not check sign-in or tenant scope.
+/// Whether the request may do `ability` on `R` as the context's panel mounted it: what the
+/// ability's button and route ask. `false` when the panel does not mount `R`. Does not check
+/// sign-in or tenant scope.
+///
+/// It is the policy's answer and what the ability rests on: [`Run`](crate::Ability::Run) also
+/// takes a record the action's [`can_run`](crate::Action::can_run) admits, and a force delete
+/// the delete it implies. [`RunHeader`](crate::Ability::RunHeader) is the policy's answer alone:
+/// a header action's `can_run` may be what asks it.
 pub fn can<R: Resource>(cx: &Cx, ability: crate::Ability<'_, R::Model>) -> bool {
     mounted::<R>(cx).is_some_and(|resource| resource.can(cx, ability))
 }

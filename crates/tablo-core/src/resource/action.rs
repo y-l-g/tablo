@@ -85,8 +85,8 @@ pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm",
 /// - the policy: [`Ability::RunAny`] with the action's `NAME`, asked before the body is read, then
 ///   [`Ability::View`] and [`Ability::Run`] on every loaded record before `run`. A record `View`
 ///   refuses fails the whole POST with 403;
-/// - the refusal: a row that `Run` or [`can_run`](Self::can_run) refuses answers 403, and a bulk
-///   selection runs the records that pass both and reports the refused count as skipped. A
+/// - the refusal: a row refused `Run`, by the policy or by [`can_run`](Self::can_run), answers 403,
+///   and a bulk selection runs the records that pass and reports the refused count as skipped. A
 ///   selection that passes on none writes nothing and answers with an error notification;
 /// - the hooks, with [`Change::Action`](super::Change::Action): [`Resource::before_commit`] in the
 ///   transaction after `run`, then [`Resource::after_commit`] once it commits; and the success
@@ -227,12 +227,14 @@ pub trait Action<R: Resource>: 'static {
         None
     }
 
-    /// Whether `record`'s state lets the action run on it: a published post refuses "publish".
-    /// Defaults to `true`.
+    /// Whether the action itself runs on `record`, wherever it is mounted: a published post
+    /// refuses "publish". Defaults to `true`.
     ///
-    /// It sees no policy, so it decides no authorization: the resource's policy answers
-    /// [`Ability::Run`] for that, and a panel that mounts the resource with another policy
-    /// changes who may run the action.
+    /// It is one half of [`Ability::Run`], which the resource allows only when both this and its
+    /// policy do: [`can`](crate::can) answers the two together. Who may run the action belongs
+    /// in the policy, which each panel mounts its own; a rule written here holds on every
+    /// panel and cannot be lifted by one. Asking `can` for this action's own `Run` from here
+    /// would ask this function again.
     fn can_run(_cx: &Cx, _record: &R::Model) -> bool {
         true
     }
@@ -386,6 +388,7 @@ impl<R: Resource> Actions<R> {
             places: A::PLACES,
             resource_wide: Ability::RunAny { action: A::NAME },
             can_run: can_run_erased::<R, A>,
+            state: A::can_run,
             disabled: disabled_erased::<R, A>,
             input: InputSpec::of::<A::Input>(parse_input_erased::<R, A>),
             run: run_erased::<R, A>,
@@ -434,6 +437,8 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) resource_wide: Ability<'static, R::Model>,
     /// Whether the mutation may write `record`, which already passed `View`.
     pub(crate) can_run: fn(&Mounted<R>, &Cx, &R::Model) -> bool,
+    /// A declared action's own [`Action::can_run`], which [`Ability::Run`] is allowed only with.
+    pub(crate) state: fn(&Cx, &R::Model) -> bool,
     /// Why its button shows disabled on `record`, which already passed `View`, when the policy
     /// allows it and the record's state refuses it.
     pub(crate) disabled: fn(&Mounted<R>, &Cx, &R::Model) -> Option<crate::Text>,
@@ -487,7 +492,8 @@ impl<R: Resource> ActionEntry<R> {
     }
 }
 
-/// The mounted policy's [`Ability::Run`] and [`Action::can_run`] behind a function pointer.
+/// [`Ability::Run`] as the resource answers it, [`Action::can_run`] included, behind a function
+/// pointer.
 fn can_run_erased<R: Resource, A: Action<R>>(
     resource: &Mounted<R>,
     cx: &Cx,
@@ -499,7 +505,7 @@ fn can_run_erased<R: Resource, A: Action<R>>(
             action: A::NAME,
             record,
         },
-    ) && A::can_run(cx, record)
+    )
 }
 
 /// [`Action::disabled_reason`] for a record the mounted policy allows [`Ability::Run`] on and
@@ -513,7 +519,7 @@ fn disabled_erased<R: Resource, A: Action<R>>(
         action: A::NAME,
         record,
     };
-    if !resource.can(cx, run) || A::can_run(cx, record) {
+    if !resource.policy_allows(cx, run) || A::can_run(cx, record) {
         return None;
     }
     A::disabled_reason(cx, record)
