@@ -47,7 +47,7 @@ use self::realm::realms;
 pub use self::{
     columns::ColumnPreference,
     email_change::{EmailChange, request_email_change},
-    impersonation::{IMPERSONATE_FIELD, impersonate_button, impersonator},
+    impersonation::{IMPERSONATE_FIELD, impersonate, impersonate_button, impersonator},
     login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD, safe_next},
     password::{AdminUser, create_admin, hash_password, verify_password},
     password_reset::{PasswordResetter, RESET_LIFETIME},
@@ -68,7 +68,7 @@ pub(crate) use self::{
     columns::{load_choice, save_choice},
     config::{Auth, AuthConfig},
     gate::{PagePanelStamp, PanelGate, RuntimeGate, still_signed_in},
-    impersonation::{may_impersonate, start as impersonate, stop_url as stop_impersonating_url},
+    impersonation::{may_impersonate, stop_url as stop_impersonating_url},
     login::{logout_url, tenant_url},
     mail::AuthMail,
     panel_user::{Authenticator, PanelUser},
