@@ -255,7 +255,11 @@ pub(super) async fn serializable(db: &mut toasty::Db) -> topcoat::Result<toasty:
 }
 
 /// How many times [`run_serializable!`] runs its transaction before it gives up on a conflict.
-const ATTEMPTS: u32 = 5;
+///
+/// PostgreSQL scans a small table whole, so concurrent transactions on different accounts abort
+/// each other too: five runs left one of eight concurrent recovery-code renewals failing now and
+/// then, where ten carried thirty-two through.
+const ATTEMPTS: u32 = 10;
 
 /// Runs `$body`, an async block answering a `topcoat::Result`, in a serializable transaction it
 /// reaches as `$tx` (a `&mut toasty::Transaction`), and commits when `$body` answers `Ok`. When the
