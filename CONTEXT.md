@@ -53,6 +53,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Creatable choice | A relationship choice whose dialog frames the related resource's create page, so the record a save there writes becomes its value while the form keeps what was typed in it. | Inline create, Quick add, Create option form |
 | Condition | What shows a field or a layout block, or disables a field's control, only while another field posts one of the listed values. | Visibility rule, Dependency, Reactive field |
 | Policy | A resource's authorization, answering one ability at a time. | Guard, Permission, Gate, Rule |
+| Loaded value | A value a panel reads once for each request it admits, a type implementing `Load` registered by `Panel::load`: a policy, a query and a condition read it with `loaded` instead of awaiting. | Request data, Preload, Context value |
 | Ability | One thing a policy is asked to allow. | Permission, Action, Verb |
 | Tenancy | How a resource's rows belong to a tenant, through a `TenantId` column. | Tenant scope, Multi-tenancy mode |
 | Relation | A related resource's rows that belong to a record, rendered as that resource's table: its rows holding the record's key, or the records a join model links the record to, which the table attaches and detaches. A `has_one` relation renders a related form instead. | Relation manager, Sub-table |

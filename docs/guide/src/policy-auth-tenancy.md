@@ -118,6 +118,25 @@ a closure `|cx, ability| -> bool`. Within `declare`, the def learns its resource
 type only after the closure is checked, so a closure that reads the record names the ability's
 type, `ability: Ability<'_, User>`, or the chain starts from `ResourceDef::<Self>::new()`.
 
+### Loading what a policy reads
+
+A policy is asked once per row and once per button, so it does not await: it reads the request.
+What it needs beyond the signed-in user, such as a plan's limit or a count, the panel loads once
+for the request with `Panel::load`, and `loaded::<T>(cx)` reads it back:
+
+```rust
+{{#include ../../../examples/guide/src/policy_tenancy.rs:policy-load}}
+```
+
+`load` runs after the auth gate admitted the request, so it reads the user and the tenant the
+request acts for. It runs on every request the panel answers, the runtime requests of its pages
+included: keep it to one or two statements. `loaded` answers `None` on a panel that does not load
+the type and on a signed-out page, which a policy reads as a refusal. A `query_fn`, a `when`
+predicate and a column's or an action's condition read it the same way.
+
+A policy hides the button; a limit that must hold under two concurrent writes is checked again in
+`Resource::create_record` or `before_commit`, inside the write's transaction.
+
 ### In your own code
 
 `can::<R>(cx, ability)` asks `R`'s policy, for a page or route that renders or writes `R`'s

@@ -46,6 +46,10 @@ impl Host for PanelHost {
         Some(enter(cx, panel))
     }
 
+    fn load(&self, cx: Cx) -> BoxFuture<'static, topcoat::Result<Cx>> {
+        Box::pin(super::load::load(cx))
+    }
+
     fn answer(&self, cx: &Cx, error: topcoat::Error) -> topcoat::Error {
         super::error_page::answer(cx, error)
     }

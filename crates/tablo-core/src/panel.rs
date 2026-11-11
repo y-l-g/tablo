@@ -17,6 +17,7 @@ mod host;
 mod impersonation;
 mod input;
 mod list;
+mod load;
 mod page_filters;
 pub(crate) mod pages;
 mod record_nav;
@@ -43,6 +44,7 @@ pub use self::{
     gate::{can_list, can_open, can_view_field},
     impersonation::Impersonate,
     list::{WiredTable, list_query, wired_table},
+    load::{Load, loaded},
     page_filters::page_filters,
     pages::page_filter_bar,
     shell::{Brand, Environment, Radius},
@@ -160,6 +162,8 @@ pub struct Panel {
     /// How [`audit_log`](Self::audit_log) adjusts the [`AuditLog`] resource's def, when the panel
     /// keeps one: it registers in the area group that places it, else in the panel.
     audit_log: Option<audit::CustomizeAuditLog>,
+    /// What the panel loads for each request it admits, in registration order.
+    loads: Vec<load::LoadFn>,
 }
 
 impl Panel {
@@ -199,6 +203,7 @@ impl Panel {
             limits: crate::Limits::default(),
             commit_hooks: Vec::new(),
             audit_log: None,
+            loads: Vec::new(),
         }
     }
 

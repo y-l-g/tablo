@@ -133,6 +133,8 @@ pub(crate) struct PanelState {
     pub(crate) limits: crate::Limits,
     /// The hooks every write of the panel runs before it commits, in registration order.
     pub(crate) commit_hooks: Vec<super::commit_hook::CommitHookFn>,
+    /// What the panel loads for each request it admits, in registration order.
+    pub(crate) loads: Vec<super::load::LoadFn>,
 }
 
 /// Whether `path` is `prefix` or sits below it, segment by segment: `/admin`

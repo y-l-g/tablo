@@ -158,6 +158,7 @@ impl Panel {
             limits,
             commit_hooks,
             audit_log,
+            loads,
         } = self;
         let (mounts, mut errors) =
             registry.register_all(registrations, audit_log, configuration_errors);
@@ -281,6 +282,7 @@ impl Panel {
             searches,
             limits,
             commit_hooks,
+            loads,
         });
         let prefix_path = route_path(&prefix);
         builder = builder.layer(limits.body_cap(prefix_path.clone()));

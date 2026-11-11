@@ -27,6 +27,33 @@ pub fn editors_only(cx: &Cx) -> bool {
 }
 // ANCHOR_END: policy-editors-only
 
+// ANCHOR: policy-load
+/// How many posts the request's workspace holds, counted once for the request.
+pub struct PostCount(pub usize);
+
+impl tablo::Load for PostCount {
+    async fn load(cx: &Cx) -> Result<Self> {
+        let Some(workspace) = tablo::tenant_id(cx) else {
+            return Ok(Self(0));
+        };
+        let mut db = tablo::db::db(cx)?;
+        let posts = Post::filter(Post::fields().tenant_id().eq(workspace))
+            .exec(&mut db)
+            .await?;
+        Ok(Self(posts.len()))
+    }
+}
+
+/// Offers Create while the workspace holds fewer than ten posts.
+pub fn under_quota(cx: &Cx) -> bool {
+    tablo::loaded::<PostCount>(cx).is_some_and(|count| count.0 < 10)
+}
+
+pub fn quota_panel() -> Panel {
+    Panel::new("admin").load::<PostCount>()
+}
+// ANCHOR_END: policy-load
+
 // ANCHOR: policy-action
 pub fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
     match ability {
