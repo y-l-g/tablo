@@ -474,7 +474,7 @@ pub(crate) fn check_filters<R: Resource>(
                     what: "filter",
                     name,
                 }),
-                reads => relation_fault(cx, name, reads),
+                reads => relation_fault(cx, || name, reads),
             }
         };
         errors.extend(fault.map(|fault| {
@@ -482,14 +482,15 @@ pub(crate) fn check_filters<R: Resource>(
         }));
     }
     for tab in declared.table.declared_tabs() {
-        let name = tab.key().to_string();
-        let fault = relation_fault(cx, name, Some(tab.reads()));
+        let fault = relation_fault(cx, || tab.key().to_string(), Some(tab.reads()));
         errors.extend(fault.map(|fault| {
             DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
         }));
     }
     for summary in declared.table.declared_summaries() {
-        let fault = relation_fault(cx, summary.name(), Some(summary.reads()));
+        // The label is the app's text, which Tablo's own English cannot spell: naming it only
+        // for a fault keeps a sound summary from warning of a missing message.
+        let fault = relation_fault(cx, || summary.name(), Some(summary.reads()));
         errors.extend(fault.map(|fault| {
             DeclarationError::of::<R>(Site::Table, DeclarationErrorKind::FieldAccess { fault })
         }));
@@ -498,9 +499,10 @@ pub(crate) fn check_filters<R: Resource>(
 
 /// The relation a filter's, a tab's or a summary's `reads`, named `name`, reach that no mount may
 /// read: one whose model a mounted resource restricts a field of, or one the mount cannot resolve.
+/// `name` runs only for a fault.
 fn relation_fault<M: toasty::schema::Model>(
     cx: &Cx,
-    name: String,
+    name: impl FnOnce() -> String,
     reads: Option<crate::Reads<M>>,
 ) -> Option<FieldAccessFault> {
     let reads = reads?;
@@ -508,7 +510,10 @@ fn relation_fault<M: toasty::schema::Model>(
         Some(models) if !reads.is_unresolved() => models
             .into_iter()
             .find(|(model, _)| is_restricted_model(cx, *model))
-            .map(|(_, model)| FieldAccessFault::UnmaskedRelation { name, model }),
-        _ => Some(FieldAccessFault::UnresolvedRelation { name }),
+            .map(|(_, model)| FieldAccessFault::UnmaskedRelation {
+                name: name(),
+                model,
+            }),
+        _ => Some(FieldAccessFault::UnresolvedRelation { name: name() }),
     }
 }
