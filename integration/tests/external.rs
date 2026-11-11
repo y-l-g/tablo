@@ -600,8 +600,8 @@ async fn the_mount_refuses_the_features_that_own_credentials() {
     let db = db().await;
     let auth = Auth::external(AdminSession)
         .registration(PasswordSignUp::pending())
-        .password_reset(PasswordReset::new(PasswordAuth))
-        .email_verification(EmailVerification::new(PasswordAuth))
+        .password_reset(PasswordReset::new(PasswordAuth::new()))
+        .email_verification(EmailVerification::new(PasswordAuth::new()))
         .two_factor(TwoFactor::new())
         .impersonation(Impersonation::new(|_, _: &AdminUser, _: &AdminUser| true));
 

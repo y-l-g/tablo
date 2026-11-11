@@ -16,6 +16,8 @@
 //! - [`case_insensitive_search`]: a search predicate's `LIKE` matches run as `ILIKE` where the
 //!   driver has it.
 //! - [`count`]: a count that reads 0 where Toasty answers no value.
+//! - [`RowUpdate`]: an update setting fields by typed path, for code generic over its model, which
+//!   has no generated update builder.
 //! - [`UntypedInclude`], [`Assignments`] and [`IsolationLevel`]: the `toasty_core` types a public
 //!   Toasty API takes without re-exporting them.
 //! - [`VariantId`]: an embedded enum variant's id, re-exported for the derives.
@@ -26,7 +28,7 @@ pub(crate) mod model;
 pub(crate) mod pk;
 pub(crate) mod predicate;
 
-use toasty::stmt::{Expr, Value};
+use toasty::stmt::{Expr, IntoExpr, Value};
 use toasty_core::stmt::{ExprLike, VisitMut, visit_mut};
 
 /// An include with its model and target types erased, which `Query::include` takes.
@@ -80,6 +82,52 @@ pub(crate) fn value_text(value: &Value) -> Option<String> {
         Value::Bytes(v) => String::from_utf8(v.clone()).ok()?,
         _ => return None,
     })
+}
+
+/// An update of the `M` rows a filter selects, setting the root fields typed paths name: what a
+/// model's generated update builder writes, for code generic over the model, which cannot name
+/// the builder's setters.
+///
+/// It starts from that builder, so the fields the model stamps on every update, such as an
+/// `#[update(Timestamp::now())]` column, are set too.
+pub(crate) struct RowUpdate {
+    update: toasty_core::stmt::Update,
+}
+
+impl RowUpdate {
+    /// An update of the `M` rows `filter` selects, setting nothing yet but the model's own
+    /// update stamps, and returning nothing.
+    pub(crate) fn new<M>(filter: Expr<bool>) -> Self
+    where
+        M: toasty::schema::Model<
+                UpdateQuery: From<toasty::stmt::Query<toasty::stmt::List<M>>>
+                                 + toasty::stmt::IntoStatement<Returning = ()>,
+            >,
+    {
+        let query = toasty::stmt::Query::<toasty::stmt::List<M>>::all().filter(filter);
+        let builder = M::UpdateQuery::from(query);
+        let toasty_core::stmt::Statement::Update(mut update) =
+            toasty::stmt::IntoStatement::into_statement(builder).into_untyped()
+        else {
+            unreachable!("a model's update builder builds an update statement");
+        };
+        update.returning = None;
+        Self { update }
+    }
+
+    /// Sets the root field `path` names to `value`.
+    pub(crate) fn set<M, T: IntoExpr<T>>(&mut self, path: &toasty::stmt::Path<M, T>, value: T) {
+        let path: toasty_core::stmt::Path = path.clone().into();
+        let value: toasty_core::stmt::Expr = value.into_expr().into();
+        self.update.assignments.set(path.projection, value);
+    }
+
+    /// Runs the update through `ex`.
+    pub(crate) async fn exec(self, ex: &mut dyn toasty::Executor) -> toasty::Result<()> {
+        toasty::stmt::Statement::<()>::from_untyped_stmt(self.update.into())
+            .exec(ex)
+            .await
+    }
 }
 
 /// A filter no record matches.

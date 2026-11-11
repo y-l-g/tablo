@@ -131,8 +131,9 @@ pub trait PanelUser: Any + Send + Sync {
 
 /// How a panel loads its users (ADR-0013).
 ///
-/// The default [`PasswordAuth`](crate::PasswordAuth) implements it against the shipped
-/// [`AdminUser`](super::AdminUser) model; an app with an existing user table implements it and
+/// [`PasswordAuth`](crate::PasswordAuth) implements it over a
+/// [`PasswordAccount`](crate::PasswordAccount): the shipped [`AdminUser`](super::AdminUser) by
+/// default, or the app's own model. An app whose users sign in some other way implements it and
 /// passes the value to [`Panel::auth`](crate::Panel::auth) via
 /// [`Auth::custom`](crate::Auth::custom). Sessions are the framework's, so an implementation only
 /// maps credentials to a user and a stored id back to one. An app that signs its users in itself
@@ -209,5 +210,18 @@ pub trait Authenticator: Send + Sync + 'static {
     ) -> impl Future<Output = topcoat::Result<()>> + Send {
         let _ = (cx, user, locale);
         async { Ok(()) }
+    }
+
+    /// The [`user_id`](PanelUser::user_id) of the user whose sign-in details a panel's edit form
+    /// changed from `before` to `after`, two records of the resource's model, or `None` when the
+    /// model is not this authenticator's or the edit left the details alone.
+    ///
+    /// The panel then ends that user's sessions, pending sign-ins, reset links and pending email
+    /// change in the edit's transaction, on every panel whose authenticator loads its type.
+    /// [`PasswordAuth`](super::PasswordAuth) answers for its account's email and password hash; it
+    /// defaults to `None`.
+    fn changed_credentials(&self, before: &dyn Any, after: &dyn Any) -> Option<String> {
+        let _ = (before, after);
+        None
     }
 }

@@ -290,7 +290,7 @@ async fn the_rule_and_the_panel_refuse_alike() {
 async fn acting_as_another_reaches_no_credential_page_and_no_third_user() {
     let app = Fixture::new(
         Auth::password()
-            .profile(tablo::PasswordAuth)
+            .profile(tablo::PasswordAuth::new())
             .impersonation(support_only()),
     )
     .await;
@@ -513,11 +513,11 @@ impl tablo::Authenticator for RecordingAuth {
         login: &str,
         password: &str,
     ) -> topcoat::Result<Option<AdminUser>> {
-        tablo::Authenticator::verify(&tablo::PasswordAuth, cx, login, password).await
+        tablo::Authenticator::verify(&tablo::PasswordAuth::new(), cx, login, password).await
     }
 
     async fn find_by_id(&self, cx: &Cx, id: &str) -> topcoat::Result<Option<AdminUser>> {
-        tablo::Authenticator::find_by_id(&tablo::PasswordAuth, cx, id).await
+        tablo::Authenticator::find_by_id(&tablo::PasswordAuth::new(), cx, id).await
     }
 
     async fn store_locale(

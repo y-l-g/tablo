@@ -76,7 +76,12 @@ fn mount(db: Db, auth: Auth, mail: &MemoryTransport) -> topcoat::Result<Router> 
 }
 
 fn router(db: Db, mail: &MemoryTransport) -> Router {
-    mount(db, verifying(EmailVerification::new(PasswordAuth)), mail).expect("panel builds")
+    mount(
+        db,
+        verifying(EmailVerification::new(PasswordAuth::new())),
+        mail,
+    )
+    .expect("panel builds")
 }
 
 async fn admin(db: &Db, email: &str) -> AdminUser {
@@ -200,13 +205,13 @@ async fn a_link_verifies_only_the_address_it_was_mailed_to_while_it_lasts() {
         .with(Mailer::new(mail.clone()))
         .panel(
             Panel::new("admin")
-                .auth(verifying(EmailVerification::new(PasswordAuth)))
+                .auth(verifying(EmailVerification::new(PasswordAuth::new())))
                 .resource::<TicketResource>(),
         )
         .unwrap()
         .panel(
             Panel::new("staff")
-                .auth(verifying(EmailVerification::new(PasswordAuth)))
+                .auth(verifying(EmailVerification::new(PasswordAuth::new())))
                 .resource::<TicketResource>(),
         )
         .unwrap()
@@ -260,7 +265,7 @@ async fn link_requests_past_the_throttle_answer_429() {
     let db = db().await;
     let ada = unverified(&db, "ada@example.com").await;
     let mail = MemoryTransport::new();
-    let verification = EmailVerification::new(PasswordAuth)
+    let verification = EmailVerification::new(PasswordAuth::new())
         .throttle(LoginThrottle::new(1, Duration::from_mins(1)));
     let router = mount(db.clone(), verifying(verification), &mail).expect("panel builds");
     let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
@@ -281,7 +286,7 @@ fn kinds(mounted: topcoat::Result<Router>) -> Vec<DeclarationErrorKind> {
 #[tokio::test]
 async fn mounting_refuses_a_verification_the_panel_cannot_serve() {
     let mail = MemoryTransport::new();
-    let verification = || EmailVerification::new(PasswordAuth);
+    let verification = || EmailVerification::new(PasswordAuth::new());
 
     assert_eq!(
         kinds(mount(

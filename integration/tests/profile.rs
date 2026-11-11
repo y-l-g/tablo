@@ -87,7 +87,7 @@ fn profile(pairs: &[(&str, &str)]) -> String {
 async fn the_profile_page_shows_the_signed_in_account() {
     let db = db().await;
     let admin = ada(&db).await;
-    let router = router(db.clone(), Auth::password().profile(PasswordAuth));
+    let router = router(db.clone(), Auth::password().profile(PasswordAuth::new()));
     let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
 
     let home = body_string(client.get("/admin/notes").await).await;
@@ -115,7 +115,7 @@ async fn the_profile_page_shows_the_signed_in_account() {
 async fn renaming_keeps_the_sessions() {
     let db = db().await;
     let admin = ada(&db).await;
-    let router = router(db.clone(), Auth::password().profile(PasswordAuth));
+    let router = router(db.clone(), Auth::password().profile(PasswordAuth::new()));
     let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
     let elsewhere = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
 
@@ -137,7 +137,7 @@ async fn renaming_keeps_the_sessions() {
 async fn a_new_password_needs_the_current_one() {
     let db = db().await;
     let admin = ada(&db).await;
-    let router = router(db.clone(), Auth::password().profile(PasswordAuth));
+    let router = router(db.clone(), Auth::password().profile(PasswordAuth::new()));
     let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
     let new = [
         ("password", "new password"),
@@ -161,7 +161,7 @@ async fn a_new_password_needs_the_current_one() {
 async fn a_changed_password_ends_the_other_sessions() {
     let db = db().await;
     let admin = ada(&db).await;
-    let router = router(db.clone(), Auth::password().profile(PasswordAuth));
+    let router = router(db.clone(), Auth::password().profile(PasswordAuth::new()));
     let saving = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
     let elsewhere = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
 
@@ -196,7 +196,7 @@ async fn a_new_email_is_checked() {
     create_admin(&mut db.clone(), "grace@example.com", "secret", "Grace")
         .await
         .unwrap();
-    let router = router(db.clone(), Auth::password().profile(PasswordAuth));
+    let router = router(db.clone(), Auth::password().profile(PasswordAuth::new()));
     let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
 
     // Without the current password, a taken address reads like a free one.
@@ -241,7 +241,7 @@ async fn the_profile_throttle_refuses_a_user_past_its_limit() {
     let db = db().await;
     let admin = ada(&db).await;
     let auth = Auth::password()
-        .profile(PasswordAuth)
+        .profile(PasswordAuth::new())
         .profile_throttle(LoginThrottle::new(1, Duration::from_secs(60)));
     let router = router(db.clone(), auth);
     let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
@@ -262,7 +262,7 @@ async fn the_profile_throttle_refuses_a_user_past_its_limit() {
 #[tokio::test]
 async fn the_profile_page_needs_a_session() {
     let db = db().await;
-    let router = router(db.clone(), Auth::password().profile(PasswordAuth));
+    let router = router(db.clone(), Auth::password().profile(PasswordAuth::new()));
     let client = TestClient::new(&router);
 
     assert_eq!(client.get("/admin/profile").await.status(), 307);
@@ -289,7 +289,7 @@ async fn mounting_refuses_a_profile_the_panel_cannot_serve() {
     let errors = refusal(mount(
         db().await,
         tablo::Panel::new("admin")
-            .auth(Auth::disabled().profile(PasswordAuth))
+            .auth(Auth::disabled().profile(PasswordAuth::new()))
             .resource::<NoteResource>(),
     ));
     let kinds: Vec<_> = errors.iter().map(|error| error.kind.clone()).collect();
@@ -306,7 +306,7 @@ fn two_panels(db: Db) -> Router {
         .with(db)
         .panel(
             tablo::Panel::new("admin")
-                .auth(Auth::password().profile(PasswordAuth))
+                .auth(Auth::password().profile(PasswordAuth::new()))
                 .resource::<NoteResource>(),
         )
         .expect("the admin panel mounts")

@@ -49,6 +49,14 @@ is the explicit opt-out.
   authenticator's user type until `Panel::auth` erases it, so a seam over another type does not
   compile. Each validates and writes in one transaction. A credential change ends the user's sessions and links on every panel that loads
   the same user type, in the transaction that saves it.
+- A table that signs in by email and password needs none of those seams but sign-up: the app's
+  model implements `PasswordAccount`, whose lenses name the name, email, hash and verification
+  columns and whose `sign_in` turns a row into the panel user, and `PasswordAuth<A>` is its
+  authenticator, profile editor, password resetter and email verifier. `AdminUser` is one such
+  model. The current-password check, the address probe and the email's spelling then exist once.
+  A resource's edit form ends the sessions of the account whose email or hash it changed through
+  `Authenticator::changed_credentials`, which `PasswordAuth<A>` answers for `A` and any other
+  authenticator may answer for its own table.
 - A mailed link never acts on a `GET` a mail scanner would follow when acting signs someone out;
   one that only proves an address does, since a click less is worth more.
 - Two-factor sign-in needs no seam: Tablo stores each account's factor as `AuthFactor` rows, per
@@ -121,6 +129,16 @@ is the explicit opt-out.
   auth has no place for it. A loader declared per resource: the sidebar asks every resource's
   `ViewAny` on each page, so each would run on every request anyway, and two resources sharing a
   value would load it twice.
+- The account seams written by each app over its own table: two apps carried the same profile
+  editor, current-password check included, and their emails' spellings had already drifted. A
+  `PasswordAccount` with a method per query (by email, by key, set the hash): each app would still
+  write the lookup that must spell the email as sign-in does. An associated id type: the key
+  already parses from the session's id through the model's schema. Sign-up in `PasswordAccount`:
+  an app's sign-up asks for more and writes more, such as a first tenant, so it stays a
+  `Registrar`.
+- Auth in a crate of its own, or behind a Cargo feature: it reads the panel's CSRF, database,
+  catalog and form modules, so their items would turn `#[doc(hidden)] pub`, as ADR-0024 says of
+  the declaration model; and auth is on by default, so a feature would rarely be off.
 - A table per mailed link, and a sender and base URL per feature: each feature repeated the
   hashing, expiry and revocation, and an app repeated its sender. An address method on each
   seam: every seam that mails asks the same question of the same user type.

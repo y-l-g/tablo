@@ -34,6 +34,6 @@ impl Authenticator for StaffAuth {
 fn main() {
     // Each seam registers, edits or resets an `AdminUser`; the authenticator loads `Staff`.
     let _ = Auth::custom(StaffAuth).registration(PasswordSignUp::open());
-    let _ = Auth::custom(StaffAuth).profile(PasswordAuth);
-    let _ = Auth::custom(StaffAuth).password_reset(PasswordReset::new(PasswordAuth));
+    let _ = Auth::custom(StaffAuth).profile(PasswordAuth::new());
+    let _ = Auth::custom(StaffAuth).password_reset(PasswordReset::new(PasswordAuth::new()));
 }

@@ -38,9 +38,9 @@ use crate::{
 /// submission field by field, and [`save`](Self::save) writes it. `validate` and `save` run in one
 /// transaction the framework opens.
 ///
-/// The shipped [`PasswordAuth`](super::PasswordAuth) edits an [`AdminUser`](super::AdminUser)
-/// through a [`Profile`]; an app with its own user table implements it beside its
-/// [`Authenticator`](super::Authenticator), for the same user type:
+/// [`PasswordAuth`](super::PasswordAuth) edits a [`PasswordAccount`](super::PasswordAccount)
+/// through a [`Profile`]; an app whose user table is not one, or whose page asks for more,
+/// implements it beside its [`Authenticator`](super::Authenticator), for the same user type:
 ///
 /// ```rust
 /// # use tablo_core::{PanelUser, ProfileEditor, ProfileUpdate};
@@ -236,9 +236,9 @@ fn write_failure(error: topcoat::Error) -> topcoat::Error {
     crate::error::driver_failure(error, crate::error::DATABASE_UNAVAILABLE)
 }
 
-/// The profile form [`PasswordAuth`](super::PasswordAuth) edits an
-/// [`AdminUser`](super::AdminUser) through, and a custom [`ProfileEditor`] can take as its
-/// input: a name, an email address, an optional new password typed twice, and the current
+/// The profile form [`PasswordAuth`](super::PasswordAuth) edits a
+/// [`PasswordAccount`](super::PasswordAccount) through, and a custom [`ProfileEditor`] can take as
+/// its input: a name, an email address, an optional new password typed twice, and the current
 /// password.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Profile {
@@ -283,19 +283,43 @@ impl std::fmt::Debug for Profile {
     }
 }
 
-impl FormInput for Profile {
-    type Field = std::convert::Infallible;
+/// A field of [`Profile`], which a [`PasswordAccount`](super::PasswordAccount) refuses a change
+/// under.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ProfileField {
+    /// The display name, posted as `name`.
+    Name,
+    /// The email address, posted as `email`.
+    Email,
+    /// The new password, posted as `password`.
+    Password,
+    /// The new password typed again, posted as `password_confirmation`.
+    PasswordConfirmation,
+    /// The current password, posted as `current_password`.
+    CurrentPassword,
+}
 
-    fn key(field: Self::Field) -> &'static str {
-        match field {}
+impl FormInput for Profile {
+    type Field = ProfileField;
+
+    fn key(field: ProfileField) -> &'static str {
+        match field {
+            ProfileField::Name => NAME_FIELD,
+            ProfileField::Email => EMAIL_FIELD,
+            ProfileField::Password => PASSWORD_FIELD,
+            ProfileField::PasswordConfirmation => CONFIRMATION_FIELD,
+            ProfileField::CurrentPassword => CURRENT_PASSWORD_FIELD,
+        }
     }
 
     fn schema() -> Schema {
         let required = crate::form::required_input;
         Schema::new((
-            required(Field::text_input::<String>("name").label(crate::text!("tablo-auth-name"))),
             required(
-                Field::text_input::<String>("email")
+                Field::text_input::<String>(NAME_FIELD).label(crate::text!("tablo-auth-name")),
+            ),
+            required(
+                Field::text_input::<String>(EMAIL_FIELD)
                     .email()
                     .label(crate::text!("tablo-auth-email")),
             ),
@@ -316,8 +340,8 @@ impl FormInput for Profile {
     fn parse(_cx: &Cx, values: &FormValues) -> Result<Self, Vec<FieldError>> {
         let mut errors = Vec::new();
         let mut keep = |read: Result<String, FieldError>| read.map_err(|error| errors.push(error));
-        let name = keep(parse_scalar::<String>("name", values, None));
-        let email = keep(parse_scalar::<String>("email", values, None));
+        let name = keep(parse_scalar::<String>(NAME_FIELD, values, None));
+        let email = keep(parse_scalar::<String>(EMAIL_FIELD, values, None));
         // A blank password is no password; any other keeps every character it was typed with.
         let mut optional = |key| {
             keep(parse_password(key, values, Some(String::new())))
@@ -340,11 +364,15 @@ impl FormInput for Profile {
     }
 
     fn write(&self, out: &mut FormValues) {
-        out.insert("name".to_string(), self.name.clone());
-        out.insert("email".to_string(), self.email.clone());
+        out.insert(NAME_FIELD.to_string(), self.name.clone());
+        out.insert(EMAIL_FIELD.to_string(), self.email.clone());
     }
 }
 
+/// The key [`Profile`]'s display name posts under.
+const NAME_FIELD: &str = "name";
+/// The key [`Profile`]'s email address posts under.
+const EMAIL_FIELD: &str = "email";
 /// The key [`Profile`]'s new password posts under.
 const PASSWORD_FIELD: &str = "password";
 /// The key [`Profile`]'s repeated new password posts under.
