@@ -320,8 +320,26 @@ pub(crate) fn may_impersonate(cx: &Cx, target: &dyn PanelUser) -> bool {
 }
 
 /// Makes the request's session act as `target` through `ex`, and records it through `ex` too, so
-/// a transaction commits both or neither; 403 when the signed-in user may not.
-pub(crate) async fn start(
+/// a transaction commits both or neither; 403 when the signed-in user may not under the panel's
+/// [`Impersonation`] rule, or acts as someone already.
+///
+/// It is what the [`Impersonate`](crate::Impersonate) action runs, for an action of the app's own
+/// where that one cannot go: a resource whose model is not the panel's user type, such as the
+/// record a [`PanelUser`] wraps. The action loads the user it acts as, since `target` is what the
+/// rule reads.
+///
+/// ```rust
+/// # use tablo_core::{PanelUser, auth};
+/// # use topcoat::context::Cx;
+/// async fn act_as(
+///     cx: &Cx,
+///     ex: &mut dyn toasty::Executor,
+///     target: &dyn PanelUser,
+/// ) -> topcoat::Result<()> {
+///     auth::impersonate(cx, ex, target).await
+/// }
+/// ```
+pub async fn impersonate(
     cx: &Cx,
     ex: &mut dyn toasty::Executor,
     target: &dyn PanelUser,
@@ -372,7 +390,7 @@ pub(super) fn start_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             .ok_or_else(forbidden)?;
         let mut db = crate::db::db(cx)?;
         let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
-        start(cx, &mut tx, &*target).await?;
+        impersonate(cx, &mut tx, &*target).await?;
         tx.commit().await.map_err(infrastructure_failure)?;
         see_other(panel_root(cx)).into_response(cx)
     })
