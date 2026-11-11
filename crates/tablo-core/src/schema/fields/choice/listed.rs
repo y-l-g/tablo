@@ -217,6 +217,16 @@ impl Field {
                             (crate::t!(cx, "tablo-field-no-options"))
                         </p>
                     }
+                    // The filter shows it when it hides every option.
+                    if searchable && !empty {
+                        <p
+                            class="px-2 py-1.5 text-sm text-muted-foreground"
+                            data-choices-unmatched=""
+                            hidden=""
+                        >
+                            (crate::t!(cx, "tablo-field-no-matching-options"))
+                        </p>
+                    }
                 </div>
                 if let Some((new_id, new_name, placeholder, new_described_by)) = tags {
                     <input
