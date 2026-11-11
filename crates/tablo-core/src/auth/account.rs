@@ -1,7 +1,7 @@
 //! [`PasswordAccount`], the user model the stock password sign-in reads, and [`PasswordAuth`],
 //! the sign-in, profile, password reset and email verification over one.
 
-use std::{future::Future, marker::PhantomData};
+use std::{any::Any, future::Future, marker::PhantomData};
 
 use derive_where::derive_where;
 use jiff::Timestamp;
@@ -16,7 +16,7 @@ use crate::{
     FieldErrors, FormInput, Lens,
     toasty_compat::{
         RowUpdate,
-        pk::{pk_eq_expr, pk_filter, pk_text},
+        pk::{canonical_key, pk_eq_expr, pk_filter, pk_text},
     },
 };
 
@@ -106,6 +106,11 @@ use crate::{
 /// field, and the `User`'s [`PanelUser::user_id`] spells it as its `Display` does, such as
 /// `self.id.to_string()`: a sign-in whose id spells another key is refused as a declaration
 /// error.
+///
+/// A panel's edit form over the model that changes an account's email or password hash ends its
+/// sessions, pending sign-ins, reset links and pending email change on every panel that signs in
+/// `Self::User`, as it does an [`AdminUser`]'s; a custom action calls
+/// [`revoke_sessions_for_user`](super::revoke_sessions_for_user) itself.
 pub trait PasswordAccount:
     toasty::schema::Model<
         UpdateQuery: From<toasty::stmt::Query<toasty::stmt::List<Self>>>
@@ -129,8 +134,8 @@ pub trait PasswordAccount:
     fn password_hash() -> Lens<Self, String>;
 
     /// When the account proved it reads its email; `None` until it does, and again after the
-    /// email changes. Read only by a panel with
-    /// [`Auth::email_verification`](crate::Auth::email_verification).
+    /// email changes. Every email change writes it; only a panel with
+    /// [`Auth::email_verification`](crate::Auth::email_verification) reads it.
     fn email_verified_at() -> Lens<Self, Option<Timestamp>>;
 
     /// The account `user` signs in as.
@@ -141,8 +146,7 @@ pub trait PasswordAccount:
     /// sessions end at their next request, and it gets no reset link.
     ///
     /// It runs on every request of a signed-in session, so a removed membership or a deactivation
-    /// takes effect at once. It reads through `ex` rather than a new handle, since a reset runs it
-    /// inside a transaction a single-connection pool would wait on.
+    /// takes effect at once. It reads through `ex`, the connection the caller already holds.
     fn sign_in(
         self,
         cx: &Cx,
@@ -151,7 +155,9 @@ pub trait PasswordAccount:
 
     /// Refuses a profile change the app does not allow `user`, such as a new email on an account
     /// whose sign-in details are locked. Defaults to none. It runs before the current password is
-    /// checked, and the page renders each error under its field's control.
+    /// checked, and the page renders each error under its field's control. `profile.email` is as
+    /// typed: compare it through [`normalize_email`](super::normalize_email), as the stored email
+    /// is spelled.
     fn profile_errors(user: &Self::User, profile: &Profile) -> FieldErrors<ProfileField> {
         let _ = (user, profile);
         FieldErrors::new()
@@ -253,8 +259,27 @@ impl<A: PasswordAccount> Authenticator for PasswordAuth<A> {
         }
     }
 
+    /// Checks `password` against the account's own hash, whatever [`PanelUser::email`] answers.
+    async fn confirm_password(
+        &self,
+        _cx: &Cx,
+        user: &A::User,
+        password: &str,
+    ) -> topcoat::Result<bool> {
+        let hash = A::password_hash().read(A::account(user));
+        Ok(verify_password(password, Some(hash)).await)
+    }
+
     async fn store_locale(&self, cx: &Cx, user: &A::User, locale: &Locale) -> topcoat::Result<()> {
         A::store_locale(cx, user, locale).await
+    }
+
+    /// The account's key when an edit changed its email or its password hash.
+    fn changed_credentials(&self, before: &dyn Any, after: &dyn Any) -> Option<String> {
+        let (before, after) = (before.downcast_ref::<A>()?, after.downcast_ref::<A>()?);
+        let changed = A::email().read(before) != A::email().read(after)
+            || A::password_hash().read(before) != A::password_hash().read(after);
+        changed.then(|| pk_text(before))
     }
 }
 
@@ -328,7 +353,7 @@ impl<A: PasswordAccount> ProfileEditor for PasswordAuth<A> {
         let stored = email != *A::email().read(account)
             && request_email_change(cx, &mut *ex, user, &email).await? == EmailChange::Immediate;
         let mut update = RowUpdate::new::<A>(pk_filter(account));
-        update.set(A::name().path(), profile.name.trim().to_string());
+        update.set(A::name().path(), profile.name);
         if stored {
             update.set(A::email().path(), email);
             update.set(A::email_verified_at().path(), None);
@@ -411,7 +436,8 @@ fn by_user_id<A: PasswordAccount>(user_id: &str) -> topcoat::Result<toasty::stmt
 }
 
 /// `account` as the panel signs it in, refusing a user whose id spells another key than the
-/// account's: the session would store an id no later request finds.
+/// account's, or a key no later request can parse: the session would store an id no later request
+/// finds.
 async fn signed_in<A: PasswordAccount>(
     account: A,
     cx: &Cx,
@@ -420,11 +446,12 @@ async fn signed_in<A: PasswordAccount>(
     let key = pk_text(&account);
     let user = account.sign_in(cx, ex).await?;
     if let Some(user) = &user
-        && user.user_id() != key
+        && canonical_key::<A>(&user.user_id()).as_deref() != Some(key.as_str())
     {
         return Err(crate::error::declaration(format!(
             "`PanelUser::user_id` answers '{}' for the account whose key is '{key}': a \
-             `PasswordAccount`'s user spells its primary key as its `Display` does",
+             `PasswordAccount` has a single primitive key, and its user spells it as its \
+             `Display` does",
             user.user_id()
         )));
     }

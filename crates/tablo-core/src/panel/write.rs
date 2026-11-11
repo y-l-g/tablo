@@ -83,7 +83,7 @@ pub(crate) async fn commit_write_then<'a, R: Resource, T>(
     .await
 }
 
-/// Ends the sessions of the admin `change` gave a new email or password, inside the write's
+/// Ends the sessions of the user `change` gave a new email or password, inside the write's
 /// transaction, so a committed credential change leaves no session alive.
 pub(crate) async fn end_changed_credentials<M: Send + Sync + 'static>(
     cx: &Cx,

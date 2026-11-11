@@ -67,35 +67,32 @@ impl PanelUser for AdminUser {
     }
 }
 
-/// Ends the sessions, pending sign-ins, reset links and pending email change of the
-/// [`AdminUser`] a panel write changed, through `ex`, when the write changed its email or its
-/// password hash, on every panel whose authenticator loads `AdminUser`s. An admin editing their
-/// own account moves to a fresh session, as on the profile page. Any other model, and an edit
-/// that leaves both alone, passes through.
+/// Ends the sessions, pending sign-ins, reset links and pending email change of the user a panel
+/// write changed the sign-in details of, through `ex`: the first mounted authenticator whose
+/// [`changed_credentials`](super::Authenticator::changed_credentials) names one, on every panel
+/// whose authenticator loads its type. A user editing their own account moves to a fresh session,
+/// as on the profile page. A write no authenticator answers for passes through.
 pub(crate) async fn end_changed_credentials(
     cx: &Cx,
     ex: &mut dyn toasty::Executor,
     before: &(dyn std::any::Any + Send + Sync),
     after: &(dyn std::any::Any + Send + Sync),
 ) -> topcoat::Result<()> {
-    let (Some(before), Some(after)) = (
-        before.downcast_ref::<AdminUser>(),
-        after.downcast_ref::<AdminUser>(),
-    ) else {
-        return Ok(());
-    };
-    if before.email == after.email && before.password_hash == after.password_hash {
-        return Ok(());
-    }
     let Some(panel) = super::realm::current_realm(cx) else {
         return Ok(());
     };
-    let user_type = std::any::TypeId::of::<AdminUser>();
-    let panels = super::session::credential_panels(cx, user_type, panel);
-    if panels.is_empty() {
-        return Ok(());
+    let mut realms = super::realm::realms(cx);
+    if realms.is_empty() {
+        realms.push(Arc::clone(panel));
     }
-    let user_id = before.id.to_string();
+    let Some((user_type, user_id)) = realms.iter().find_map(|realm| {
+        let auth = realm.auth.authenticator()?;
+        let user_id = auth.changed_credentials(before, after)?;
+        Some((auth.user_type(), user_id))
+    }) else {
+        return Ok(());
+    };
+    let panels = super::session::credential_panels(cx, user_type, panel);
     if let Some(signed) = super::signed(cx).filter(|signed| {
         signed.user.user_id() == user_id && panels.iter().any(|p| Arc::ptr_eq(p, &signed.realm))
     }) {

@@ -227,6 +227,8 @@ resetter and email verifier too:
 
 It signs in, edits, resets and verifies as it does for `AdminUser`, and stores each email trimmed
 and lowercased, so a sign-up that writes the table stores it as `auth::normalize_email` spells it.
+A resource's edit form that changes a member's email or password hash ends their sessions, as it
+does an admin's.
 [`PasswordAccount`](https://y-l.fr/tablo/nightly/api/tablo/trait.PasswordAccount.html) lists its
 hooks: a profile change the app refuses, and where a picked locale is stored.
 
@@ -363,7 +365,7 @@ Another user table than a `PasswordAccount` verifies through an `EmailVerifier` 
 `Authenticator`: `is_verified`
 says whether the user has proved their address, and `store_verified_email` stores the address a
 link proved and marks it verified, inside the link's transaction. `PasswordAuth` keeps the proof in
-`AdminUser::email_verified_at`; `create_admin` seeds a verified account.
+the account's `email_verified_at` column; `create_admin` seeds a verified `AdminUser`.
 
 Accounts that predate verification are unverified, seeded admins included: backfill
 `email_verified_at` for the addresses you already trust before turning it on. A new email waits

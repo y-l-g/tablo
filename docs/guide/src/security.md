@@ -20,8 +20,8 @@ What Tablo does by default, and what your deployment must provide for those defa
 - **Session revocation.** Call
   [`auth::revoke_sessions_for_user`](https://y-l.fr/tablo/nightly/api/tablo/auth/fn.revoke_sessions_for_user.html) when a password
   changes outside the panel's edit form, in a custom action, or a custom user's credentials
-  change. An edit form that changes an `AdminUser`'s email or password hash ends that admin's
-  sessions itself, and deactivating one
+  change. An edit form that changes an `AdminUser`'s, or another `PasswordAccount`'s, email or
+  password hash ends that user's sessions itself, and deactivating one
   ends them at its next request.
 
 ## Requests and writes

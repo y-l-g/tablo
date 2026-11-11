@@ -211,4 +211,17 @@ pub trait Authenticator: Send + Sync + 'static {
         let _ = (cx, user, locale);
         async { Ok(()) }
     }
+
+    /// The [`user_id`](PanelUser::user_id) of the user whose sign-in details a panel's edit form
+    /// changed from `before` to `after`, two records of the resource's model, or `None` when the
+    /// model is not this authenticator's or the edit left the details alone.
+    ///
+    /// The panel then ends that user's sessions, pending sign-ins, reset links and pending email
+    /// change in the edit's transaction, on every panel whose authenticator loads its type.
+    /// [`PasswordAuth`](super::PasswordAuth) answers for its account's email and password hash; it
+    /// defaults to `None`.
+    fn changed_credentials(&self, before: &dyn Any, after: &dyn Any) -> Option<String> {
+        let _ = (before, after);
+        None
+    }
 }

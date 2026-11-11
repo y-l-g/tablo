@@ -131,6 +131,8 @@ pub(crate) trait DynAuthenticator: Send + Sync {
     fn user_type(&self) -> TypeId;
     /// The name of [`Authenticator::User`], for a message that names it.
     fn user_type_name(&self) -> &'static str;
+    /// [`Authenticator::changed_credentials`].
+    fn changed_credentials(&self, before: &dyn Any, after: &dyn Any) -> Option<String>;
 }
 
 impl<A: Authenticator> DynAuthenticator for A {
@@ -193,6 +195,10 @@ impl<A: Authenticator> DynAuthenticator for A {
 
     fn user_type_name(&self) -> &'static str {
         std::any::type_name::<A::User>()
+    }
+
+    fn changed_credentials(&self, before: &dyn Any, after: &dyn Any) -> Option<String> {
+        Authenticator::changed_credentials(self, before, after)
     }
 }
 

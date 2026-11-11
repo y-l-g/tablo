@@ -54,6 +54,9 @@ is the explicit opt-out.
   columns and whose `sign_in` turns a row into the panel user, and `PasswordAuth<A>` is its
   authenticator, profile editor, password resetter and email verifier. `AdminUser` is one such
   model. The current-password check, the address probe and the email's spelling then exist once.
+  A resource's edit form ends the sessions of the account whose email or hash it changed through
+  `Authenticator::changed_credentials`, which `PasswordAuth<A>` answers for `A` and any other
+  authenticator may answer for its own table.
 - A mailed link never acts on a `GET` a mail scanner would follow when acting signs someone out;
   one that only proves an address does, since a click less is worth more.
 - Two-factor sign-in needs no seam: Tablo stores each account's factor as `AuthFactor` rows, per
