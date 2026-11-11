@@ -1,15 +1,24 @@
-# 0002 `ResourceDef::query` scopes rows per panel; the framework owns tenancy
+# 0002 `ResourceDef::query` scopes rows per panel with a predicate; the framework owns tenancy
 
 `ResourceDef::query` is a resource's own row scoping (row visibility), and every list, form and
 record loader reads through it. It is a setting of the def rather than a method of the
 `Resource` trait, so each panel narrows the rows it serves (ADR-0023): a portal panel lists an
-author's own posts where an admin panel lists every post, from one resource type. Each call
-receives the query the calls before it return, so `Panel::resource_with` narrows what
-`Resource::declare` narrows. Soft deletes are declared on the `ResourceDef` instead
-(ADR-0029), and `scoped_query` leaves the trashed records out after `query` as it ANDs the tenant
-filter. Tenancy is declared on the `ResourceDef`
-(`Tenancy::column` or `Tenancy::via`), and `scoped_query` ANDs the tenant predicate after
-the narrowings, so none can drop it. App code loading rows outside the framework's loaders calls
+author's own posts where an admin panel lists every post, from one resource type.
+
+A narrowing is a predicate, the same `Expr<bool>` a list tab, a summary and a query filter take:
+`query` takes one that holds for every request, and `query_fn` builds one from the request, or
+answers `None` to narrow nothing there. `scoped_query` ANDs every narrowing, so
+`Panel::resource_with` narrows what `Resource::declare` narrows and none widens another. A
+predicate says which rows and nothing else: it cannot order, limit or drop a filter, and the
+framework reads the fields it names. The unique pre-check does: it keeps a narrowing that reads
+a field of the index it probes, which fixes that field, and looks past one that reads none, since
+the index covers the rows it hides. A relation every loader reads, such as one the policy checks,
+is declared beside it with `ResourceDef::include_unscoped`.
+
+Soft deletes are declared on the `ResourceDef` instead (ADR-0029), and `scoped_query` leaves the
+trashed records out beside `query` as it ANDs the tenant filter. Tenancy is declared on the
+`ResourceDef` (`Tenancy::column` or `Tenancy::via`), and `scoped_query` ANDs the tenant predicate
+onto the narrowings. App code loading rows outside the framework's loaders calls
 `scoped_query`, not `Query::all()`. A resource serving several tenants declares `Tenancy::none()`
 and scopes in `ResourceDef::query`, giving up the 403 when a request has no tenant.
 
@@ -39,6 +48,10 @@ from any other UUID column, so a lens to an unmarked column does not compile.
   the rows it drops still count toward the page, the option cap and the totals, and each loader
   would have to drop them itself. `View` decides who opens a record; reading rows asks `ViewAny`
   only, and every loader shows the rows of the scoped query.
+- A narrowing as a closure over the query, `|cx, query| query.filter(..)`: it could also order,
+  limit and include, which every loader then had to undo or document, and its filters could not
+  be read, so the unique pre-check missed a value held by a row the narrowing hid and the write
+  failed with a 500.
 - `Resource::query(cx)`, a static method of the trait: one resource type scopes its rows the same
   way on every panel, so a panel that serves fewer rows needs a second resource type.
 - A `#[tenant]` field attribute: `toasty::Model` derives only its own attributes.

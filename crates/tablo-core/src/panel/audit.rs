@@ -41,7 +41,7 @@ impl Resource for AuditLog {
             .tenancy(Tenancy::none())
             .table(columns::table())
             .detail(columns::detail())
-            .query(scope)
+            .query_fn(scope)
     }
 
     // The log keeps what happened: even registered by hand, past [`Panel::audit_log`]'s policy,
@@ -78,12 +78,9 @@ fn immutable() -> crate::WriteError {
 
 /// The entries `cx` may read: its panel's, for the tenant it acts for, about the resources it
 /// may list or about none.
-fn scope(
-    cx: &Cx,
-    query: toasty::stmt::Query<toasty::stmt::List<AuditEntry>>,
-) -> toasty::stmt::Query<toasty::stmt::List<AuditEntry>> {
+fn scope(cx: &Cx) -> toasty::stmt::Expr<bool> {
     let Some(panel) = current(cx) else {
-        return query.filter(crate::toasty_compat::never());
+        return crate::toasty_compat::never();
     };
     let fields = AuditEntry::fields();
     let tenant = match crate::tenant_id(cx) {
@@ -99,13 +96,11 @@ fn scope(
             .is_none()
             .or(fields.resource().in_list(listable))
     };
-    query.filter(
-        fields
-            .panel()
-            .eq(panel.realm.prefix.clone())
-            .and(tenant)
-            .and(resource),
-    )
+    fields
+        .panel()
+        .eq(panel.realm.prefix.clone())
+        .and(tenant)
+        .and(resource)
 }
 
 /// The slugs of the panel's resources `cx` may list. A slug two resources share, in two areas,

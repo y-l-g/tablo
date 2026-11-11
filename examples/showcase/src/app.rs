@@ -403,7 +403,7 @@ impl Resource for CommentResource {
             .navigation_group("Blog")
             .policy(Allow)
             // A removed comment reaches no loader: no list, count, export or choice.
-            .query(|_cx, query| query.filter(Comment::fields().body().ne(REMOVED_COMMENT_BODY)))
+            .query(Comment::fields().body().ne(REMOVED_COMMENT_BODY))
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
             // A cursor-paged table: Previous and Next by row, without a count.
             .table(

@@ -281,7 +281,7 @@ async fn an_index_member_the_form_does_not_post_is_left_to_the_scope() {
                 .table(crate::table::Table::new(crate::TextColumn::new(lens!(
                     Post.slug
                 ))))
-                .query(|_cx, query| query.filter(Post::fields().owner().eq("me")))
+                .query(Post::fields().owner().eq("me"))
         }
     }
 

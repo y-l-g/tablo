@@ -7,7 +7,7 @@ use topcoat::{Result, context::Cx};
 use crate::{
     db::db,
     form::{FieldErrors, FormValues},
-    resource::{Mounted, Resource, Trashed},
+    resource::{Mounted, Resource},
 };
 
 /// Refuses duplicated `unique()` values with `<Label> has already been taken`, skipping empty
@@ -15,8 +15,10 @@ use crate::{
 ///
 /// A composite index is probed on all the fields the form posts, each through the value its own
 /// text field posts. A field the form has no control for, the tenant column among them, is left to
-/// the scoped query, as the resource's [`query`](crate::ResourceDef::query) fixes it. An index with
-/// a field whose control posts no value, or is not a text field, is left to the database.
+/// the tenant filter and to each [`query`](crate::ResourceDef::query) narrowing that reads it; a
+/// narrowing that reads no field of the index hides rows the index covers, and stays out of the
+/// probe. An index with a field whose control posts no value, or is not a text field, is left to
+/// the database.
 pub(super) async fn check_unique<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
@@ -50,10 +52,12 @@ pub(super) async fn check_unique<R: Resource>(
                 continue;
             };
             probed.insert(members);
-            // Probes inside the write transaction through the tenant-scoped query, trashed records
-            // included: the index covers them.
+            // Probes inside the write transaction, over the rows the index covers. Its fields the
+            // form does not post, the tenant column among them, are left to the tenant filter
+            // and to the narrowings that read them.
+            let index: Vec<&str> = others.iter().map(String::as_str).chain([name]).collect();
             let rows = resource
-                .scoped_query_in(cx, Trashed::With)?
+                .unique_probe_query(cx, &index)?
                 .filter(filter)
                 .limit(1)
                 .exec(&mut *ex)

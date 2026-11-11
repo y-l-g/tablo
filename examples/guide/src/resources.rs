@@ -262,10 +262,26 @@ impl Resource for OrderResource {
 // ANCHOR: published-query
 pub fn blog() -> Panel {
     Panel::new("blog").resource_with::<PostResource>(|def| {
-        def.query(|_cx, query| query.filter(Post::fields().status().eq(PostStatus::Published)))
+        def.query(Post::fields().status().eq(PostStatus::Published))
     })
 }
 // ANCHOR_END: published-query
+
+/// The author the request signs in as.
+fn signed_in_author(_cx: &Cx) -> uuid::Uuid {
+    uuid::Uuid::nil()
+}
+
+// ANCHOR: own-query
+pub fn desk() -> Panel {
+    Panel::new("desk").resource_with::<PostResource>(|def| {
+        def.query_fn(|cx| {
+            // An editor reads every post, an author their own.
+            (!editors_only(cx)).then(|| Post::fields().author_id().eq(signed_in_author(cx)))
+        })
+    })
+}
+// ANCHOR_END: own-query
 
 // ANCHOR: audit-before-commit
 pub async fn before_commit(

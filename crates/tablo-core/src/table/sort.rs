@@ -187,9 +187,8 @@ impl<M> Table<M> {
     }
 
     /// Order `query` as `state` sorts it, replacing any ordering `query` carries: Toasty appends
-    /// an `order_by` after the existing ones, so a
-    /// [`ResourceDef::query`](crate::ResourceDef::query) ordering would otherwise outrank the
-    /// user's sort.
+    /// an `order_by` after the existing ones, so an ordering app code set on a
+    /// [`list_query`](crate::list_query) would otherwise outrank the user's sort.
     pub(crate) fn order(
         &self,
         mut query: toasty::stmt::Query<List<M>>,

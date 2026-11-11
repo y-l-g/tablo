@@ -70,24 +70,31 @@ rename a record, and `plural_label` only when the rules guess wrong;
 
 ## Scoping the query
 
-`ResourceDef::query` narrows the rows every loader reads: the list, the export, the edit and
-delete handlers, relationship options and the detail page. Use it for the resource's own row
-scoping. Each panel mounts its own def, so one panel can narrow a resource that another serves
-whole, such as a blog that serves the published posts only:
+`ResourceDef::query` narrows the rows every loader reads to the ones a predicate matches: the
+list, the export, the edit and delete handlers, relationship options and the detail page. Use it
+for the resource's own row scoping. Each panel mounts its own def, so one panel can narrow a
+resource that another serves whole, such as a blog that serves the published posts only:
 
 ```rust
 {{#include ../../../examples/guide/src/resources.rs:published-query}}
 ```
 
-Three things do not belong in a `query` narrowing:
+`ResourceDef::query_fn` builds the predicate from the request, to narrow the rows to the
+signed-in user's own, and answers `None` for a request that reads them all:
 
-- **The tenant filter.** For a tenant-owned resource the framework adds it after the narrowings
+```rust
+{{#include ../../../examples/guide/src/resources.rs:own-query}}
+```
+
+A narrowing says which rows, and nothing else:
+
+- **The tenant filter.** For a tenant-owned resource the framework adds it beside the narrowings
   at every loader. See [Tenancy](./policy-auth-tenancy.md#tenancy).
 - **Soft deletes.** Declare the column instead; see [Soft deletes](#soft-deletes).
 - **Relations.** The list, the export and the detail page load the relations their columns
   declare: a `RelationColumn` or `CountColumn` declares its own, and a `ComputedColumn` declares
-  one with `include`. Include a relation in `query` only when every loader
-  reads it, for example because the policy does.
+  one with `include_unscoped`. `ResourceDef::include_unscoped` loads a relation with every row,
+  for one every loader reads, for example because the policy does.
 
 In your own code, load a resource's rows with
 [`scoped_query::<R>(cx)?`](https://y-l.fr/tablo/nightly/api/tablo/fn.scoped_query.html), not `Query::all()`: it applies the
@@ -95,9 +102,11 @@ panel's narrowings, adds the tenant filter and leaves out the trashed records, a
 error rather than an unscoped query. A background job builds its context from the mounted panel's `PanelHandle`; see
 [Outside a request](./data-access.md#outside-a-request).
 
-The unique-value check on forms probes through the same scoped query, so a `#[unique]` index
-wider than the scope is invisible to it: the check misses the collision and the database refuses
-the write with a 500. Scope such indexes to match, as in `#[unique(tenant_id, email)]`.
+The unique-value check on forms reads each narrowing: one that names a field of the `#[unique]`
+index stays in its probe, and one that names none is left out, so a value held by a row the
+narrowing hides is refused under its field. The
+[`query` rustdoc](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.query)
+has the rule.
 
 ## Soft deletes
 

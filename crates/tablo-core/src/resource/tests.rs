@@ -24,7 +24,7 @@ impl Resource for OwnedResource {
             .table(crate::table::Table::new(crate::TextColumn::new(lens!(
                 Owned.name
             ))))
-            .query(|_cx, query| query.filter(Owned::fields().name().ne("Hidden")))
+            .query(Owned::fields().name().ne("Hidden"))
     }
 }
 
