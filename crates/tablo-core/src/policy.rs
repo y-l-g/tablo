@@ -22,6 +22,9 @@
 //! [`Ability::written_record`] to refuse writes by the record, or build with [`Abilities`], which
 //! denies what it does not declare.
 //!
+//! A policy does not await: it reads the request. What it needs beyond the signed-in user, a
+//! plan's limit say, the panel loads once per request as a [`Load`](crate::Load) value.
+//!
 //! [`can`](crate::can) asks a resource's policy from app code, and [`can_list`](crate::can_list)
 //! answers whether the current request may open a resource's list at all.
 
@@ -179,7 +182,10 @@ impl<'a, M> Ability<'a, M> {
 ///   the records refused `Delete` or `Run`;
 /// - an action's [`can_run`](crate::Action::can_run) reads the record's state and sees no policy,
 ///   so a panel that mounts the resource with [`ReadOnly`] offers and runs none of its actions;
-/// - a relationship choice asks the related resource's policy for `ViewAny` and `View`.
+/// - a relationship choice asks the related resource's policy for `ViewAny` and `View`;
+/// - a policy is asked once per row and once per button, so it cannot query: the panel reads what
+///   it needs once for the request, as a [`Load`](crate::Load) value [`loaded`](crate::loaded)
+///   answers.
 ///
 /// A closure `|cx: &Cx, ability: Ability<'_, M>| -> bool` is a policy, and the
 /// building blocks combine with `and` and `or`.

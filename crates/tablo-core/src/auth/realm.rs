@@ -93,6 +93,9 @@ pub(crate) trait Host: Send + Sync {
     /// `cx` as a request to `realm`'s panel; `None` when no mounted panel has `realm`.
     fn enter(&self, cx: &Cx, realm: &Arc<Realm>) -> Option<Cx>;
 
+    /// `cx`, an admitted request to its panel, with what the panel loads for each request.
+    fn load(&self, cx: Cx) -> BoxFuture<'static, topcoat::Result<Cx>>;
+
     /// What a request to the panel answers in place of `error`: the panel's error page for a page
     /// load, else `error`.
     fn answer(&self, cx: &Cx, error: topcoat::Error) -> topcoat::Error;

@@ -36,6 +36,12 @@ is the explicit opt-out.
   Argon2id, and login verifies even for an unknown user.
 - A user has tenant memberships; the session selects one. Core auth never requires a tenant; a
   panel that registers tenants does.
+- A policy, a `query_fn` and a condition are asked many times per request, per row and per
+  button, from code that renders: they stay synchronous and read the request. What they need
+  from the database beyond the user, the panel loads once per admitted request, right after the
+  gate resolved the user and the tenant: a `Load` type registered with `Panel::load`, read back
+  with `loaded::<T>`. It is keyed by its type, as the user is, and absent wherever the gate
+  admitted no one, so a policy reading it fails closed.
 - Every other feature is opt-in, through a seam for the same user type when it writes the app's
   own rows: sign-up (`Registrar`), the profile page (`ProfileEditor`), password reset
   (`PasswordResetter`), email verification (`EmailVerifier`), tenant registration
@@ -108,6 +114,13 @@ is the explicit opt-out.
   policy, by verified address or by invitation, decides its shape. A pending sign-in as an
   `AuthToken` row: it names no account yet, and the browser must carry it either way. A button
   that posts: the panel's `form-action 'self'` stops a form's redirect to the provider.
+- An async `Policy::allows`: a list would await once per row and per button, a query each, and
+  every view that hides a button would have to resolve its abilities before rendering. Carrying
+  the data on the `PanelUser`: the authenticator loads the user before the session's tenant is
+  known, so it reads every tenant's data on every request, and a panel with external or disabled
+  auth has no place for it. A loader declared per resource: the sidebar asks every resource's
+  `ViewAny` on each page, so each would run on every request anyway, and two resources sharing a
+  value would load it twice.
 - A table per mailed link, and a sender and base URL per feature: each feature repeated the
   hashing, expiry and revocation, and an app repeated its sender. An address method on each
   seam: every seam that mails asks the same question of the same user type.

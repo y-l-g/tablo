@@ -71,6 +71,10 @@ impl Layer for PanelGate {
                 headers.append(http::header::VARY, http::HeaderValue::from_static("cookie"));
             }
             let Some(authenticator) = self.realm.auth.authenticator() else {
+                let cx = host
+                    .load(cx.clone())
+                    .await
+                    .map_err(|error| answer(&cx, error))?;
                 return next
                     .run(&cx, body)
                     .await
@@ -156,7 +160,16 @@ impl Layer for PanelGate {
             }
             match signed {
                 Some(signed) if signed.may_enter() || logout_route => {
-                    let cx = signed.sign_into(&cx);
+                    // A user the panel refuses reaches the logout route alone, which reads
+                    // nothing the panel loads.
+                    let admitted = signed.may_enter();
+                    let mut cx = signed.sign_into(&cx);
+                    if admitted {
+                        cx = host
+                            .load(cx.clone())
+                            .await
+                            .map_err(|error| answer(&cx, error))?;
+                    }
                     next.run(&cx, body)
                         .await
                         .map_err(|error| answer(&cx, error))
@@ -354,7 +367,7 @@ impl Layer for RuntimeGate {
                 return match signed {
                     Some(signed) if admitted => {
                         let entered = enter(cx, &signed.realm)?;
-                        let cx = signed.sign_into(&entered);
+                        let cx = host.load(signed.sign_into(&entered)).await?;
                         next.run(&cx, body).await
                     }
                     Some(_) => Err(forbidden().into()),
@@ -366,12 +379,12 @@ impl Layer for RuntimeGate {
             match signed.filter(|signed| declaring.iter().any(|p| Arc::ptr_eq(p, &signed.realm))) {
                 Some(signed) if admitted => {
                     let entered = enter(cx, &signed.realm)?;
-                    let cx = signed.sign_into(&entered);
+                    let cx = host.load(signed.sign_into(&entered)).await?;
                     next.run(&cx, body).await
                 }
                 Some(_) => Err(forbidden().into()),
                 None => match declaring.iter().find(|realm| !realm.gates()) {
-                    Some(open) => next.run(&enter(cx, open)?, body).await,
+                    Some(open) => next.run(&host.load(enter(cx, open)?).await?, body).await,
                     None => Err(unauthorized().into()),
                 },
             }

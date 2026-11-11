@@ -96,7 +96,9 @@ impl<R: Resource> ResourceDef<R> {
     /// ```
     ///
     /// The closure runs once per query a request makes, reads the request alone and cannot fail:
-    /// the [`policy`](Self::policy) refuses a request that may read no row.
+    /// the [`policy`](Self::policy) refuses a request that may read no row. A predicate over
+    /// rows the request must first read, the teams a user sits on say, reads them from a
+    /// [`Load`](crate::Load) value the panel loaded.
     #[must_use]
     pub fn query_fn<F, P>(mut self, predicate: F) -> Self
     where
