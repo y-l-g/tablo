@@ -244,6 +244,28 @@ impl Resource for PredicateCard {
     }
 }
 
+/// A count of the cards with one code, under the app's own message: a summary that reads only the
+/// card's fields, with a label Tablo's English does not hold.
+pub(super) struct CountedCard;
+
+impl Resource for CountedCard {
+    type Model = Card;
+    type Form = NoForm<Card>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("counted-cards")
+            .policy(ReadOnly)
+            .tenancy(Tenancy::column(Card::fields().tenant_id()))
+            .table(
+                Table::new(TextColumn::new(lens!(Card.code))).summary(
+                    Summary::count(tablo::text!("summary-first-cards"))
+                        .query(Card::fields().code().eq("C-1")),
+                ),
+            )
+    }
+}
+
 /// The cards whose member holds the highest salary.
 fn high() -> toasty::stmt::Expr<bool> {
     Card::fields().member().salary().eq("S-900")

@@ -558,6 +558,74 @@ async fn a_count_shows_no_field_so_it_mounts_over_any_source() {
     .expect("a count over a mounted resource mounts");
 }
 
+/// Mounting names a summary only to refuse it: a sound one, labelled by a message of the app's
+/// own, logs no missing message, though Tablo's English does not hold it.
+#[tokio::test]
+async fn a_sound_summary_mounts_without_naming_its_label() {
+    let db = db().await;
+    let warnings = logged(|| {
+        mount(
+            db,
+            panel()
+                .resource::<MemberResource>()
+                .resource::<CountedCard>(),
+        )
+        .expect("a summary reading the card's own fields mounts");
+    });
+    assert!(
+        !warnings
+            .iter()
+            .any(|w| w.contains("no catalog holds the message")),
+        "{warnings:?}"
+    );
+}
+
+/// The messages of the events `run` logs.
+fn logged(run: impl FnOnce()) -> Vec<String> {
+    use std::sync::{Arc, Mutex};
+
+    use tracing::{
+        Event, Metadata, Subscriber,
+        field::{Field, Visit},
+        span::{Attributes, Id, Record},
+    };
+
+    #[derive(Default)]
+    struct Recorder(Arc<Mutex<Vec<String>>>);
+
+    struct Message<'a>(&'a mut String);
+
+    impl Visit for Message<'_> {
+        fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
+            use std::fmt::Write;
+            let _ = write!(self.0, "{}={value:?} ", field.name());
+        }
+    }
+
+    impl Subscriber for Recorder {
+        fn enabled(&self, _: &Metadata<'_>) -> bool {
+            true
+        }
+        fn new_span(&self, _: &Attributes<'_>) -> Id {
+            Id::from_u64(1)
+        }
+        fn record(&self, _: &Id, _: &Record<'_>) {}
+        fn record_follows_from(&self, _: &Id, _: &Id) {}
+        fn event(&self, event: &Event<'_>) {
+            let mut line = String::new();
+            event.record(&mut Message(&mut line));
+            self.0.lock().unwrap().push(line);
+        }
+        fn enter(&self, _: &Id) {}
+        fn exit(&self, _: &Id) {}
+    }
+
+    let recorder = Recorder::default();
+    let lines = Arc::clone(&recorder.0);
+    tracing::subscriber::with_default(recorder, run);
+    lines.lock().unwrap().clone()
+}
+
 /// A computed column including a member an enum variant holds is refused as one including a member
 /// held directly.
 #[tokio::test]

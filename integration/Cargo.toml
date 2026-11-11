@@ -53,6 +53,8 @@ toasty = { workspace = true, features = ["sqlite"] }
 tokio = { workspace = true, features = ["net", "sync", "time"] }
 tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect"] }
 topcoat = { workspace = true, features = ["mail", "serve", "l10n"] }
+# A test records what the mount logs.
+tracing = "0.1"
 uuid.workspace = true
 
 [lints]
