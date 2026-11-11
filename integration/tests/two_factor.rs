@@ -11,8 +11,8 @@ use tablo::{
     },
     lens,
     testing::{
-        TestClient, authenticator_code_at, body_string, form_body, now, recovery_codes, refusal,
-        session_cookie_value, two_factor_secret, two_factor_state,
+        TestClient, authenticator_code_at, body_string, form_body, intent_skips_validation, now,
+        recovery_codes, refusal, session_cookie_value, two_factor_secret, two_factor_state,
     },
 };
 use toasty::Db;
@@ -281,6 +281,39 @@ async fn a_set_up_takes_the_current_password() {
         assert_eq!(two_factor_state(&page).as_deref(), Some("off"));
         assert!(two_factor_secret(&page).is_none());
     }
+    assert!(
+        AuthFactor::all()
+            .exec(&mut db.clone())
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+/// Cancelling a set-up takes no code: the browser lets the button through with the code field
+/// empty, and the panel leaves two-factor off.
+#[tokio::test]
+async fn a_set_up_cancels_without_a_code() {
+    let (db, ada) = db().await;
+    let router = router(db.clone(), TwoFactor::new());
+    let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
+    let started = client
+        .submit(
+            SETTINGS,
+            &form_body(&[("intent", "start"), ("current_password", PASSWORD)]),
+        )
+        .await;
+    let page = body_string(started).await;
+    assert_eq!(two_factor_state(&page).as_deref(), Some("setup"));
+    assert!(intent_skips_validation(&page, "cancel"));
+    assert!(!intent_skips_validation(&page, "confirm"));
+
+    let cancelled = client
+        .submit(SETTINGS, &form_body(&[("intent", "cancel")]))
+        .await;
+    assert_eq!(cancelled.status(), 303);
+    let page = body_string(client.get(SETTINGS).await).await;
+    assert_eq!(two_factor_state(&page).as_deref(), Some("off"));
     assert!(
         AuthFactor::all()
             .exec(&mut db.clone())

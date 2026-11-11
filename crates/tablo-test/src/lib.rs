@@ -36,8 +36,8 @@ use tablo_core::{
 };
 use topcoat::router::{Body, Router, RouterBuilderDiscoverExt};
 pub use two_factor::{
-    authenticator_code, authenticator_code_at, now, recovery_codes, two_factor_secret,
-    two_factor_state,
+    authenticator_code, authenticator_code_at, intent_skips_validation, now, recovery_codes,
+    two_factor_secret, two_factor_state,
 };
 
 /// `panel` mounted on a router holding `db`, beside the app's own discovered pages and routes:

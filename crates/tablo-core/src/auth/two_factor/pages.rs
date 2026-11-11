@@ -234,6 +234,22 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
         }
         .boxed()
     };
+    // Abandons the setup; like `send`, it skips the code field's `required`.
+    let cancel = move || {
+        view! {
+            tablo_ui::button(
+                variant: tablo_ui::ButtonVariant::Outline,
+                attrs: attributes! {
+                    type="submit"
+                    name=(INTENT_FIELD)
+                    value="cancel"
+                    formnovalidate=""
+                },
+                (t!(cx, "tablo-cancel"))
+            )
+        }
+        .boxed()
+    };
     let body = match settings {
         Settings::Off { email, refused } => view! {
             <p class="text-sm text-muted-foreground">
@@ -293,7 +309,7 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
                         tablo_ui::ButtonVariant::Primary,
                     ))
                     (send())
-                    (intent("cancel", "tablo-cancel", tablo_ui::ButtonVariant::Outline))
+                    (cancel())
                 </div>
             </form>
         }
@@ -325,7 +341,7 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
                         "tablo-two-factor-turn-on",
                         tablo_ui::ButtonVariant::Primary,
                     ))
-                    (intent("cancel", "tablo-cancel", tablo_ui::ButtonVariant::Outline))
+                    (cancel())
                 </div>
             </form>
         }
