@@ -23,7 +23,7 @@ pub use builders::{
 };
 pub(crate) use check::Items;
 pub(crate) use choice::{ChoiceControl, Relationship, option_view};
-pub(crate) use chrome::{FieldChrome, error_kind, render_field};
+pub(crate) use chrome::{FieldChrome, error_kind, render_field, render_inline_field};
 pub(crate) use custom::{Control, ControlInput};
 pub use custom::{Switch, Toggle};
 pub(crate) use file::{FileControl, is_linkable, is_rooted, stored_upload};

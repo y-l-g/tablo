@@ -225,7 +225,7 @@ impl Field {
                             for tool in group {
                                 <button
                                     type="button"
-                                    class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-pressed:bg-accent aria-pressed:text-foreground [&>svg]:size-4"
+                                    class="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-40 aria-pressed:bg-foreground/10 aria-pressed:text-foreground [&>svg]:size-4"
                                     tabindex="-1"
                                     title=(crate::t!(cx, tool.label()))
                                     aria-label=(crate::t!(cx, tool.label()))
