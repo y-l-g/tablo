@@ -38,7 +38,7 @@ pub use self::{
         DateFilter, FilterValue, IntoFilters, NumberFilter, PresenceFilter, QueryFilter,
         SelectFilter, TernaryFilter, TextFilter, TextMatch,
     },
-    model::PanelModel,
+    model::{FieldColumn, PanelModel},
     page::{DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, PagePosition, Pagination, TablePage},
     row_link::RowLink,
     state::{Cursor, Sort, TableState},

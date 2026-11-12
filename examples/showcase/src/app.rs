@@ -3,15 +3,14 @@
 use std::path::PathBuf;
 
 use tablo::{
-    Ability, ActionLayout, Allow, Auth, AuthMail, BooleanColumn, Brand, Change, Color,
-    ComputedColumn, CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification,
-    EmbeddedColumn, Environment, FieldErrors, FontWeight, GlobalSearch, Grid, Group, HeaderAction,
-    NavigationItem, Notification, Notifications, NumberFilter, Pagination, Panel, PanelHandle,
-    PanelModel, PanelUser, PasswordReset, PresenceFilter, PublicLink, QueryFilter, Reads, Relation,
-    RelationColumn, RepeaterColumn, Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt,
-    RowLink, Schema, Section, SelectFilter, Step, Tab, Table, Tabs, Tenancy, TenantRegistration,
-    TernaryFilter, TextColumn, TextFilter, TextMatch, ToggleColumn, TwoFactor, Wizard, lens,
-    relation, tenant_id, when,
+    Ability, ActionLayout, Allow, Auth, AuthMail, Brand, Change, Color, ComputedColumn,
+    CountColumn, DateFilter, Detail, DirUploader, EmailVerification, Environment, FieldErrors,
+    FontWeight, GlobalSearch, Grid, Group, HeaderAction, NavigationItem, Notification,
+    Notifications, NumberFilter, Pagination, Panel, PanelHandle, PanelModel, PanelUser,
+    PasswordReset, PresenceFilter, PublicLink, QueryFilter, Reads, Relation, RelationColumn,
+    Resource, ResourceDef, RouterBuilderPanelExt, RowLink, Schema, Section, SelectFilter, Step,
+    Tab, Table, Tabs, Tenancy, TenantRegistration, TernaryFilter, TextFilter, TextMatch, TwoFactor,
+    Wizard, lens, relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
@@ -120,13 +119,17 @@ impl Resource for AuthorResource {
                 Step::new("Name").schema(c.name),
                 Step::new("Contact").schema(c.email.email()),
             ])))
-            .table(Table::new((
-                TextColumn::new(lens!(Author.name)).weight(FontWeight::Medium),
-                // A mail link, and a button copying the address.
-                TextColumn::new(lens!(Author.email))
-                    .url(|_, author: &Author| Some(format!("mailto:{}", author.email)))
-                    .copyable(),
-            )))
+            .table({
+                let col = Author::columns();
+                Table::new((
+                    col.name.text().weight(FontWeight::Medium),
+                    // A mail link, and a button copying the address.
+                    col.email
+                        .text()
+                        .url(|_, author: &Author| Some(format!("mailto:{}", author.email)))
+                        .copyable(),
+                ))
+            })
             .detail(Detail::new(
                 Section::new("Profile").columns(Author::detail()),
             ))
@@ -245,34 +248,33 @@ fn post_form() -> Schema<PostForm> {
 
 /// The post detail page.
 fn post_detail() -> Detail<Post> {
+    // Each field placed as it is reads as the default detail page shows it.
+    let col = Post::columns();
     Detail::new((
         Section::new("Post").columns((
-            TextColumn::new(lens!(Post.title)),
-            RichTextColumn::new(lens!(Post.body)),
+            col.title,
+            col.body.rich_text(),
             ComputedColumn::new("Reading", |_, p: &Post| {
                 let words = word_count(&tablo::rich_text::text(&p.body));
                 format!("{words} words · {} min read", read_minutes(words))
             }),
         )),
         Section::new("Details").columns(Group::new().columns((
-            Grid::new(2).columns((
-                TextColumn::new(lens!(Post.status)),
-                BooleanColumn::new(lens!(Post.featured)),
-            )),
+            Grid::new(2).columns((col.status, col.featured)),
             post_author_column(),
             RelationColumn::list::<CategoryResource>(relation!(Post.categories)),
-            TextColumn::new(lens!(Post.tags)),
+            col.tags,
         ))),
         Tabs::new([
             Tab::new("SEO")
                 .icon(tablo::ui::icons::SEARCH)
-                .columns(EmbeddedColumn::new(lens!(Post.seo))),
+                .columns(col.seo),
             Tab::new("Publication")
                 .icon(tablo::ui::icons::EYE)
-                .columns(EmbeddedColumn::new(lens!(Post.publication))),
+                .columns(col.publication),
             Tab::new("Further reading")
                 .icon(tablo::ui::icons::LINK)
-                .columns(RepeaterColumn::new(lens!(Post.links))),
+                .columns(col.links),
         ]),
     ))
 }
@@ -284,19 +286,17 @@ fn post_author_column() -> RelationColumn<Post> {
 
 /// The post list.
 fn post_table() -> Table<Post> {
+    let col = Post::columns();
     Table::new((
         // A long title shows its first words, and the rest when the pointer rests on it.
-        TextColumn::new(lens!(Post.title))
-            .searchable()
-            .sortable()
-            .limit(60),
+        col.title.text().searchable().sortable().limit(60),
         // Each reader picks whether the status and the creation date show.
-        TextColumn::new(lens!(Post.status)).badge().toggleable(),
+        col.status.text().badge().toggleable(),
         // An editor features a post from the list: the switch saves the post as it flips.
-        ToggleColumn::new(lens!(Post.featured)),
+        col.featured.toggle(),
         post_author_column(),
         CountColumn::of::<CommentResource>(relation!(Post.comments)),
-        DateColumn::new(lens!(Post.created_at)).hidden_by_default(),
+        col.created_at.date().hidden_by_default(),
     ))
     // Publish and Tag join View, Edit and Delete behind one button.
     .action_layout(ActionLayout::Menu)
@@ -407,16 +407,13 @@ impl Resource for CommentResource {
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
             // A cursor-paged table: Previous and Next by row, without a count.
             .table(
-                Table::new((
-                    TextColumn::new(lens!(Comment.body)).searchable().sortable(),
-                    comment_post_column(),
-                ))
-                .pagination(Pagination::Cursor),
+                // The body as the default table shows it: searchable and sortable.
+                Table::new((Comment::columns().body, comment_post_column()))
+                    .pagination(Pagination::Cursor),
             )
-            .detail(Detail::new(Section::new("Comment").columns((
-                TextColumn::new(lens!(Comment.body)),
-                comment_post_column(),
-            ))))
+            .detail(Detail::new(
+                Section::new("Comment").columns((Comment::columns().body, comment_post_column())),
+            ))
             .form(Schema::new(Section::new("Comment").schema((
                 c.body.multiline(4).placeholder("Write a reply…"),
                 c.post_id.searchable().label("Post"),

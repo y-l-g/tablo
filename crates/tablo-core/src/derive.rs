@@ -385,6 +385,33 @@ pub use tablo_macros::Options;
 /// which adds its filters after the derived ones; mounting refuses two filters on one field. A
 /// declared table is also the detail page's default: a resource that declares a table and no
 /// detail page shows the table's columns there.
+///
+/// # The model's columns
+///
+/// The derive also writes `User::columns()`, returning a `UserColumns` struct with one
+/// [`FieldColumn`](crate::FieldColumn) per field the default table or detail page shows, named
+/// like the field: the read-side twin of a record form's `controls()`. Placed as it is, each
+/// is the column the derive picks for the field there, with its keys; a kind method, such as
+/// [`text`](crate::FieldColumn::text) or [`toggle`](crate::FieldColumn::toggle), makes it that
+/// column type's own builder over the field instead.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+/// # pub struct User {
+/// #     #[key] #[auto] pub id: uuid::Uuid,
+/// #     pub name: String, pub active: bool, pub created_at: jiff::Timestamp,
+/// # }
+/// use tablo_core::{Detail, Table};
+///
+/// let col = User::columns();
+/// Table::new((
+///     col.name.clone(),
+///     col.active.clone().toggle(),
+///     col.created_at.clone().date().hidden_by_default(),
+/// ));
+/// // The detail page's own picks: `created_at` keeps its time.
+/// Detail::new((col.name, col.active, col.created_at));
+/// ```
 pub use tablo_macros::PanelModel;
 /// Derive `RecordForm` for the typed value a resource's form writes.
 ///

@@ -247,7 +247,7 @@ impl Resource for CountryResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .table(Table::new(TextColumn::new(lens!(Country.name))))
+            .table(Table::new(Country::columns().name))
             .record_title(lens!(Country.name))
     }
 }
@@ -260,7 +260,7 @@ impl Resource for CityResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .table(Table::new(TextColumn::new(lens!(City.name))))
+            .table(Table::new(City::columns().name))
             .record_title(lens!(City.name))
     }
 }
@@ -434,7 +434,7 @@ pub struct RecipeStep {
     pub minutes: i64,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Recipe {
     #[key]
     #[auto]
@@ -461,7 +461,7 @@ pub fn recipe_form() -> Schema<RecipeForm> {
 }
 
 pub fn recipe_view() -> Detail<Recipe> {
-    Detail::new(RepeaterColumn::new(lens!(Recipe.steps)).label("Method"))
+    Detail::new(Recipe::columns().steps.repeater().label("Method"))
 }
 // ANCHOR_END: forms-repeater-layout
 
@@ -543,7 +543,7 @@ impl Resource for TagResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .table(Table::new(TextColumn::new(lens!(Tag.name)).searchable()))
+            .table(Table::new(Tag::columns().name))
             .record_title(lens!(Tag.name))
             // ANCHOR: tag-relations
             // The tag's `via` field: its articles, which its page attaches and detaches.

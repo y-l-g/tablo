@@ -25,15 +25,12 @@ impl Resource for UserResource {
         let c = UserForm::controls();
         ResourceDef::new()
             // ANCHOR: user-table
-            .table(
-                Table::new((
-                    TextColumn::new(lens!(User.name)).searchable().sortable(),
-                    TextColumn::new(lens!(User.email)).searchable(),
-                    TextColumn::new(lens!(User.age)).sortable(),
-                    BooleanColumn::new(lens!(User.active)),
-                ))
-                .page_size(20),
-            )
+            .table({
+                // Each field as the default table shows it: a searchable, sortable text, a
+                // sortable number and a yes or no.
+                let col = User::columns();
+                Table::new((col.name, col.email, col.age, col.active)).page_size(20)
+            })
             // ANCHOR_END: user-table
             // ANCHOR: user-policy
             .policy(
@@ -100,7 +97,7 @@ impl Resource for PostResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .table(Table::new(TextColumn::new(lens!(Post.title))))
+            .table(Table::new(Post::columns().title))
             // ANCHOR: post-policy-editors
             .policy(ReadOnly.or(when(editors_only)))
             // ANCHOR_END: post-policy-editors
@@ -113,12 +110,15 @@ impl Resource for PostResource {
             .soft_delete(lens!(Post.deleted_at))
             // ANCHOR_END: post-soft-delete
             // ANCHOR: post-view
-            .detail(Detail::new(Section::new("Post").columns((
-                TextColumn::new(lens!(Post.title)),
-                TextColumn::new(lens!(Post.body)),
-                TextColumn::new(lens!(Post.status)),
-                RelationColumn::of::<AuthorResource>(relation!(Post.author)),
-            ))))
+            .detail({
+                let col = Post::columns();
+                Detail::new(Section::new("Post").columns((
+                    col.title,
+                    col.body,
+                    col.status,
+                    RelationColumn::of::<AuthorResource>(relation!(Post.author)),
+                )))
+            })
             // ANCHOR_END: post-view
             // ANCHOR: post-record-title
             .record_title(lens!(Post.title))
@@ -166,7 +166,7 @@ impl Resource for CommentResource {
     fn declare() -> ResourceDef<Self> {
         let c = CommentForm::controls();
         ResourceDef::new()
-            .table(Table::new(TextColumn::new(lens!(Comment.body))))
+            .table(Table::new(Comment::columns().body))
             // ANCHOR: comment-tenancy-via
             .tenancy(Tenancy::via(Comment::fields().post().tenant_id()))
             // ANCHOR_END: comment-tenancy-via
@@ -218,7 +218,7 @@ impl Resource for AuthorResource {
         ResourceDef::new()
             // Authors write for every tenant.
             .tenancy(Tenancy::none())
-            .table(Table::new(TextColumn::new(lens!(Author.name))))
+            .table(Table::new(Author::columns().name))
             // Titles the detail page, the post form's author options and the post's author column.
             .record_title(lens!(Author.name))
             // ANCHOR: author-policy-editors
@@ -243,7 +243,7 @@ impl Resource for AuditResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .policy(ReadOnly)
-            .table(Table::new(TextColumn::new(lens!(Audit.action))))
+            .table(Table::new(Audit::columns().action))
     }
 }
 // ANCHOR_END: audit-resource
@@ -255,6 +255,7 @@ impl Resource for OrderResource {
     type Form = NoForm<Order>;
 
     fn declare() -> ResourceDef<Self> {
+        // The derive leaves out a key Toasty generates, so `lens!` names it.
         ResourceDef::new().table(Table::new(TextColumn::new(lens!(Order.id))))
     }
 }

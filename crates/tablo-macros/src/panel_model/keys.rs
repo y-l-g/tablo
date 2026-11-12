@@ -78,6 +78,16 @@ impl ColumnKeys {
         Ok(keys)
     }
 
+    /// The `label = ".."` key, as an `Option<Text>` expression.
+    pub fn label(&self, krate: &TokenStream2) -> TokenStream2 {
+        match &self.label {
+            Some(label) => quote_spanned! {label.span()=>
+                ::core::option::Option::Some(<#krate::Text as ::core::convert::From<&str>>::from(#label))
+            },
+            None => quote!(::core::option::Option::None),
+        }
+    }
+
     /// The span of the first presentation key, if any.
     pub fn presentation(&self) -> Option<Span> {
         [

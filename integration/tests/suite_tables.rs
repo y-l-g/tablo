@@ -14,6 +14,7 @@ mod common;
 mod column;
 mod contradiction;
 mod export;
+mod field_columns;
 mod grouping;
 mod import;
 mod inline_edit;

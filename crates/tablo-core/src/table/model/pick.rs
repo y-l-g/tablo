@@ -17,6 +17,7 @@ use toasty::{
 use crate::{
     BooleanColumn, Currency, DateColumn, DateValue, Detail, EmbeddedColumn, Lens, ListColumn,
     Numeric, RepeaterColumn, Table, Text, TextColumn,
+    column::BoxColumn,
     schema::{EmbeddedForm, FormInput, Options},
     table::filter::{DateFilter, FilterDate, SelectFilter, TernaryFilter},
     values::FormScalar,
@@ -308,6 +309,8 @@ impl<M, T, P> PickNoFilter<M> for ModelField<M, T, P> {
 pub trait Place<M> {
     fn place_in_table(self, table: Table<M>) -> Table<M>;
     fn place_in_detail(self, detail: Detail<M>) -> Detail<M>;
+    /// The table columns a [`FieldColumn`](crate::FieldColumn) places: this one, or none.
+    fn into_table_columns(self) -> Vec<BoxColumn<M>>;
 }
 
 /// Places a picked filter in the table.
@@ -375,6 +378,10 @@ macro_rules! column_keys {
             fn place_in_detail(self, detail: Detail<M>) -> Detail<M> {
                 detail.column(self)
             }
+
+            fn into_table_columns(self) -> Vec<BoxColumn<M>> {
+                vec![Arc::new(self)]
+            }
         }
 
         impl<$($generic),+> Label for $column
@@ -417,6 +424,10 @@ impl<M> Place<M> for Absent {
     fn place_in_detail(self, detail: Detail<M>) -> Detail<M> {
         detail
     }
+
+    fn into_table_columns(self) -> Vec<BoxColumn<M>> {
+        Vec::new()
+    }
 }
 
 /// The table leaves the field out, and the detail page's column takes the label.
@@ -433,6 +444,10 @@ impl<M> Place<M> for NoColumn {
 
     fn place_in_detail(self, detail: Detail<M>) -> Detail<M> {
         detail
+    }
+
+    fn into_table_columns(self) -> Vec<BoxColumn<M>> {
+        Vec::new()
     }
 }
 

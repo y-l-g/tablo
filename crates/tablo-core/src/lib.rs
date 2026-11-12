@@ -63,7 +63,7 @@ pub mod __macro {
     pub use topcoat::{context::Cx, icon::IconData};
 
     pub use crate::{
-        Color, Lens, Text,
+        Color, FieldColumn, Lens, Text,
         detail::Detail,
         extend::{Includes, OptionSource},
         form::{
@@ -210,10 +210,10 @@ pub use schema::{
     input::FormInput, parse_items, write_items,
 };
 pub use table::{
-    ActionLayout, Cursor, DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, DateFilter, FilterValue,
-    IntoFilters, ListTab, NumberFilter, PagePosition, Pagination, PanelModel, PresenceFilter,
-    QueryFilter, RowLink, SelectFilter, Sort, Summary, Table, TablePage, TableState, TernaryFilter,
-    TextFilter, TextMatch,
+    ActionLayout, Cursor, DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, DateFilter, FieldColumn,
+    FilterValue, IntoFilters, ListTab, NumberFilter, PagePosition, Pagination, PanelModel,
+    PresenceFilter, QueryFilter, RowLink, SelectFilter, Sort, Summary, Table, TablePage,
+    TableState, TernaryFilter, TextFilter, TextMatch,
 };
 pub use tenancy::{
     ClaimedTenant, Membership, Tenancy, Tenant, TenantColumn, TenantId, require_tenant, tenant_id,

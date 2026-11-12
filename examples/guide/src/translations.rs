@@ -19,7 +19,7 @@ pub fn panel() -> Panel {
 
 pub fn title() -> TextColumn<Post, String> {
     // ANCHOR: label
-    TextColumn::new(lens!(Post.title)).label(text!("post-headline"))
+    Post::columns().title.text().label(text!("post-headline"))
     // ANCHOR_END: label
 }
 

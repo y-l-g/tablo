@@ -19,11 +19,11 @@ pub(super) fn table() -> Table<AuditEntry> {
         TextColumn::new(crate::lens!(AuditEntry.actor))
             .label(Text::message("tablo-audit-actor"))
             .searchable(),
-        Event,
-        ResourceName,
-        record(),
-        Changes,
     ))
+    .column(Event)
+    .column(ResourceName)
+    .column(record())
+    .column(Changes)
     .default_sort_desc(AuditEntry::fields().created_at())
 }
 

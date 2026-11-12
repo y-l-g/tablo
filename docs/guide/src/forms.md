@@ -606,7 +606,7 @@ A Toasty `#[derive(Embed)]` struct or enum is stored in its parent's row as flat
 
 Every field of the value is a scalar, or a nested value marked `#[form(embed)]`; an enum renders
 a choice of variant and the chosen variant's fields. On the detail page,
-`EmbeddedColumn::new(lens!(Post.seo))` shows each field under its own label.
+`Post::columns().seo` shows each field under its own label.
 [`EmbeddedForm`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.EmbeddedForm.html) has the rules: which fields are required,
 which variant a submission reads, the attributes, and what a value cannot hold.
 

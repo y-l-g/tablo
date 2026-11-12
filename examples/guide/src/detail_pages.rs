@@ -15,10 +15,8 @@ use crate::{
 
 // ANCHOR: detail-no-form
 pub fn audit_view() -> Detail<Audit> {
-    Detail::new((
-        TextColumn::new(lens!(Audit.action)),
-        TextColumn::new(lens!(Audit.created_at)),
-    ))
+    let col = Audit::columns();
+    Detail::new((col.action, col.created_at))
 }
 // ANCHOR_END: detail-no-form
 
