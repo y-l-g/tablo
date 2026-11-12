@@ -1,13 +1,13 @@
-error[E0277]: `#[columns(filter)]` has no filter for this field: `tablo_core::__macro::pick::NoFilter<std::string::String>`
- --> tests/compile_fail/model_columns_filter_on_string.rs:6:15
+error[E0277]: `#[columns(filter)]` has no filter for this field: `tablo_core::__macro::pick::NoFilter<Option<bool>>`
+ --> tests/compile_fail/panel_model_filter_on_optional_bool.rs:6:15
   |
-1 | #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-  |                                       ------------------------ required by a bound introduced by this call
+1 | #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+  |                                       ---------------------- required by a bound introduced by this call
 ...
 6 |     #[columns(filter)]
   |               ^^^^^^ no built-in filter matches the field's type
   |
-  = help: the trait `tablo_core::__macro::pick::PlaceFilter<_>` is not implemented for `tablo_core::__macro::pick::NoFilter<std::string::String>`
+  = help: the trait `tablo_core::__macro::pick::PlaceFilter<_>` is not implemented for `tablo_core::__macro::pick::NoFilter<Option<bool>>`
   = note: a `bool` takes a `TernaryFilter`, a date or timestamp a `DateFilter`, and an `Options` enum a `SelectFilter`; declare any other filter on the resource's table
 help: the following other types implement trait `tablo_core::__macro::pick::PlaceFilter<M>`
  --> src/table/model/pick.rs

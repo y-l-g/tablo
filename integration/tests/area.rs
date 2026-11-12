@@ -6,8 +6,8 @@ use http::header::LOCATION;
 use tablo::{
     Allow, Area, AreaFault, AuditEntry, Auth, DeclarationErrorKind, FieldErrors, FormInput,
     HeaderAction, Membership, NoForm, Outcome, Page, PageDef, PasswordAuth, ReadOnly, Resource,
-    ResourceDef, RouterBuilderPanelExt, Table, TextColumn, WriteError,
-    auth::{AdminUser, AuthSession, TenantEditor, create_admin},
+    ResourceDef, RouterBuilderPanelExt, Table, TenantEditor, TextColumn, WriteError,
+    auth::{AdminUser, AuthSession, create_admin},
     lens,
     testing::{
         NavGroup, TestClient, action_label, area_back_link, find_href_with, form_body,
@@ -29,7 +29,7 @@ use crate::common::{
     mount, panel, refusal, test_db,
 };
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Book {
     #[key]
     #[auto]

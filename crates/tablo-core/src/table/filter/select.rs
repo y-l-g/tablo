@@ -29,7 +29,7 @@ impl<T: FormScalar + IntoExpr<T> + Send + Sync + 'static> FilterKey for T {}
 /// ```rust
 /// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
 /// # enum Status { Draft, Published }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, kind: String, status: Status }
 /// # use tablo_core::{SelectFilter, lens};
 /// SelectFilter::new(lens!(Post.kind), ["news", "review"]);
@@ -106,9 +106,9 @@ where
     /// row holds.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, author_id: uuid::Uuid }
     /// # struct AuthorResource;
     /// # impl tablo_core::extend::OptionSource for AuthorResource {

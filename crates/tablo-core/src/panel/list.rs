@@ -174,7 +174,7 @@ pub(crate) fn wire_table_over<R: Resource>(
         let mask = resource.form_mask(cx);
         table = table.with_edit(resource.url.clone()).editing_cells(
             move |key| mask.writes(key).is_none(),
-            <R::Model as crate::ModelColumns>::version,
+            <R::Model as crate::PanelModel>::version,
         );
     }
     if chrome.view {

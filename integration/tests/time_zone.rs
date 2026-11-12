@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, input_value, mount, rows, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Shift {
     #[key]
     #[auto]

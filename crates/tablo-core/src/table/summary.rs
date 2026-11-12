@@ -20,7 +20,7 @@ use crate::{Text, lens::Reads};
 /// the panel reading the fields off the predicate.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, published: bool }
 /// use tablo_core::{Summary, Table, TextColumn, lens};
 ///

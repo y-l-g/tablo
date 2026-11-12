@@ -27,7 +27,7 @@ impl<M> Table<M> {
     /// sort by it all the same, and no header marks the sort.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
     /// use tablo_core::{Table, TextColumn, lens};
     ///
@@ -44,7 +44,7 @@ impl<M> Table<M> {
     /// [`default_sort`](Self::default_sort) does ascending.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, published_at: jiff::Timestamp }
     /// use tablo_core::{DateColumn, Table, TextColumn, lens};
     ///
@@ -68,7 +68,7 @@ impl<M> Table<M> {
     /// to compile.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
     /// use tablo_core::{Sort, Table, TextColumn, lens};
     ///

@@ -248,7 +248,7 @@ mod sealed {
 /// the record, and its query predicates.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # use tablo_core::{Text, extend::Column};
 /// # use topcoat::context::Cx;
@@ -497,7 +497,7 @@ pub enum ColumnWidth {
 /// [`wired_table`](crate::wired_table), render no menu and show the defaults.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, slug: String }
 /// use tablo_core::{TextColumn, lens};
 ///

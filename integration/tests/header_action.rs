@@ -20,7 +20,7 @@ use crate::common::{
     test_db,
 };
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Ticket {
     #[key]
     #[auto]

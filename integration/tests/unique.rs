@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, panel_router, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Subscriber {
     #[key]
     #[auto]
@@ -70,7 +70,7 @@ async fn an_empty_unique_value_is_required_and_writes_nothing() {
 
 /// A unique column the database types as a `Uuid`: SQLite's INTEGER affinity would coerce `01`
 /// to `1`, so a whole number would let a text probe pass.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Tagged {
     #[key]
     #[auto]
@@ -376,7 +376,7 @@ async fn an_app_error_is_not_read_as_a_taken_value() {
     assert_eq!(response.status(), 403);
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Handle {
     #[key]
     #[auto]

@@ -34,7 +34,7 @@ enum Genre {
     Essay,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Book {
     #[key]
     #[auto]
@@ -68,7 +68,7 @@ impl Resource for BookResource {
     }
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Invoice {
     #[key]
     #[auto]

@@ -34,7 +34,7 @@ use crate::{
 /// transaction the framework opens.
 ///
 /// ```rust
-/// # use tablo_core::{Membership, PanelUser, auth::TenantEditor};
+/// # use tablo_core::{Membership, PanelUser, TenantEditor};
 /// # use topcoat::context::Cx;
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct Team { #[key] id: uuid::Uuid, name: String }

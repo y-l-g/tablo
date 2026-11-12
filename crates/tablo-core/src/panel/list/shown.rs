@@ -47,7 +47,7 @@ impl ShownList {
 /// [`db::count`](crate::db::count).
 ///
 /// ```rust,no_run
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, published: bool }
 /// # struct PostResource;
 /// # impl tablo_core::Resource for PostResource {

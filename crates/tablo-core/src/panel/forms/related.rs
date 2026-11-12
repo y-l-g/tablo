@@ -25,7 +25,7 @@ use super::{
     unique::check_unique,
 };
 use crate::{
-    BoxFuture, ModelColumns as _,
+    BoxFuture, PanelModel as _,
     form::{FieldErrors, FormValue, FormValues, Posted, RecordForm},
     panel::{gate::enforce_tenant, state::current},
     policy::Ability,

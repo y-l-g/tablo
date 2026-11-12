@@ -4,9 +4,9 @@
 use http::header::LOCATION;
 use tablo::{
     Auth, DeclarationErrorKind, FieldErrors, FormInput, Membership, NotificationStatus, Panel,
-    ReadOnly, Resource, ResourceDef, RouterBuilderPanelExt, Table, TenancyFault,
+    ReadOnly, Resource, ResourceDef, RouterBuilderPanelExt, Table, TenancyFault, TenantRegistrar,
     TenantRegistration, TenantRegistrationFault, TextColumn,
-    auth::{AdminUser, TenantRegistrar},
+    auth::AdminUser,
     lens,
     testing::{ErrorKind, field_error, form_body},
 };

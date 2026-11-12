@@ -48,9 +48,9 @@ use self::handle::request_mounts;
 /// ```rust,no_run
 /// # use tablo_core::{Auth, Authenticator, NoForm, Panel, PanelUser, Resource, RouterBuilderPanelExt};
 /// # use topcoat::{context::Cx, router::{Router, RouterBuilderDiscoverExt}};
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Order { #[key] #[auto] id: uuid::Uuid, total: i64 }
 /// # struct UserResource;
 /// # impl Resource for UserResource { type Model = User; type Form = NoForm<User>; }

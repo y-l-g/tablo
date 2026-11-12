@@ -26,7 +26,7 @@ pub enum PostStatus {
     Published,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns, tablo::ModelForm)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel, tablo::ModelForm)]
 pub struct User {
     #[key]
     #[auto]
@@ -45,7 +45,7 @@ pub struct User {
     pub created_at: Timestamp,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns, tablo::ModelForm)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel, tablo::ModelForm)]
 // Scoped unique index avoids a 500 on cross-tenant emails.
 #[unique(tenant_id, email)]
 pub struct Author {
@@ -103,7 +103,7 @@ pub enum Publication {
     },
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Post {
     #[key]
     #[auto]
@@ -140,7 +140,7 @@ pub struct Post {
 }
 
 /// A topic posts are filed under: a post takes several, and a category holds several posts.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns, tablo::ModelForm)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel, tablo::ModelForm)]
 pub struct Category {
     #[key]
     #[auto]
@@ -168,7 +168,7 @@ pub struct PostCategory {
     pub category: Deferred<Category>,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Comment {
     #[key]
     #[auto]
@@ -181,7 +181,7 @@ pub struct Comment {
 }
 
 /// One stored file in the media library.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 #[table = "medias"]
 pub struct MediaAsset {
     #[key]

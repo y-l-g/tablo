@@ -19,7 +19,7 @@ impl<R: Resource> ResourceDef<R> {
     /// does not exist for the request: its pages answer 404.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, published: bool }
     /// # struct PostResource;
     /// # impl tablo_core::Resource for PostResource {
@@ -73,7 +73,7 @@ impl<R: Resource> ResourceDef<R> {
     /// it returns matches, or not at all when it returns `None`.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, author: String }
     /// # struct PostResource;
     /// # impl tablo_core::Resource for PostResource {

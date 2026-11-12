@@ -24,7 +24,7 @@ use uuid::Uuid;
 
 use crate::common::{TestClient, body_bytes, body_string, mount, panel, refusal, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub(super) struct Member {
     #[key]
     #[auto]
@@ -34,7 +34,7 @@ pub(super) struct Member {
     salary: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub(super) struct Card {
     #[key]
     #[auto]
@@ -48,7 +48,7 @@ pub(super) struct Card {
 }
 
 /// A card whose member loads eagerly, on every query.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct EagerCard {
     #[key]
     #[auto]
@@ -67,7 +67,7 @@ struct Assignment {
     member: toasty::Deferred<Member>,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Dossier {
     #[key]
     #[auto]
@@ -77,7 +77,7 @@ struct Dossier {
     assignment: Assignment,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Warehouse {
     #[key]
     #[auto]
@@ -87,7 +87,7 @@ struct Warehouse {
     pickers: toasty::Deferred<Vec<Picker>>,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Picker {
     #[key]
     #[auto]
@@ -113,7 +113,7 @@ pub(super) enum Holder {
     Unassigned,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub(super) struct Ticket {
     #[key]
     #[auto]
@@ -534,8 +534,8 @@ async fn a_row_closure_reading_own_fields_mounts_beside_a_restricted_load() {
 // A copy of a card without its deferred member leaves the member out; an eager member loads with
 // every card, so no copy leaves it out, and a closure over such a row is refused as before.
 const _: () = {
-    assert!(<Card as tablo::ModelColumns>::UNLOADS_RELATIONS);
-    assert!(!<EagerCard as tablo::ModelColumns>::UNLOADS_RELATIONS);
+    assert!(<Card as tablo::PanelModel>::UNLOADS_RELATIONS);
+    assert!(!<EagerCard as tablo::PanelModel>::UNLOADS_RELATIONS);
 };
 
 /// A count shows no field of the records it counts, so it mounts over a source that is not a

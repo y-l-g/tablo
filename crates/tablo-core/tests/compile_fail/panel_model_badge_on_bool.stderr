@@ -1,8 +1,8 @@
 error[E0277]: `#[columns(badge)]` shows a text column's value as a badge, and this field's column is a `BooleanColumn<User>`
- --> tests/compile_fail/model_columns_badge_on_bool.rs:6:15
+ --> tests/compile_fail/panel_model_badge_on_bool.rs:6:15
   |
-1 | #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-  |                                       ------------------------ required by a bound introduced by this call
+1 | #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+  |                                       ---------------------- required by a bound introduced by this call
 ...
 6 |     #[columns(badge)]
   |               ^^^^^ the field's type picks a column that renders no badge

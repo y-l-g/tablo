@@ -4,7 +4,7 @@
 //! `and`/`or`.
 //!
 //! ```rust
-//! # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+//! # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 //! # struct Post { #[key] #[auto] id: uuid::Uuid, locked: bool }
 //! # use tablo_core::{Ability, Policy, when};
 //! # use topcoat::context::Cx;
@@ -140,7 +140,7 @@ impl<'a, M> Ability<'a, M> {
     /// it is handed, so such a policy allows it unless it matches `RunHeader` too:
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
     /// # use tablo_core::Ability;
     /// # use topcoat::context::Cx;
@@ -259,7 +259,7 @@ impl<M> Policy<M> for ReadOnly {
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct Staff { #[key] #[auto] id: uuid::Uuid, editor: bool }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid }
 /// # use tablo_core::{PanelUser, Policy, ReadOnly, auth, when};
 /// # use topcoat::context::Cx;

@@ -81,7 +81,7 @@ async fn record_loads_skip_the_detail_pages_includes() {
         name: String,
     }
 
-    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, crate::PanelModel, Clone)]
     struct Child {
         #[key]
         #[auto]

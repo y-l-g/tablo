@@ -1,7 +1,7 @@
 use super::*;
 use crate::{ComputedColumn, TextColumn, lens, test_support::memory_db};
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 struct Shelf {
     #[key]
     #[auto]
@@ -9,7 +9,7 @@ struct Shelf {
     name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 struct Book {
     #[key]
     #[auto]

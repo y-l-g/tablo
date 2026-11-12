@@ -9,7 +9,7 @@ use crate::Lens;
 /// A column of a `String` field holding an uploaded file's path, rendered as a link to the file.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Doc { #[key] #[auto] id: uuid::Uuid, path: String }
 /// tablo_core::FileColumn::new(tablo_core::lens!(Doc.path));
 /// ```

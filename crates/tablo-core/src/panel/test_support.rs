@@ -9,7 +9,7 @@ use topcoat::router::{Router, RouterBuilderDiscoverExt};
 use crate::{Panel, RouterBuilderPanelExt, Table, TextColumn, lens, resource::Resource};
 
 /// The two-column model a panel test's resource renders.
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 pub(crate) struct Dummy {
     #[key]
     #[auto]
@@ -23,7 +23,7 @@ pub(crate) fn dummy_table() -> Table<Dummy> {
 }
 
 /// The unique-email model form tests submit.
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 pub(crate) struct Subscriber {
     #[key]
     #[auto]

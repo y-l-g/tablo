@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 struct Post {
     #[key]
     #[auto]
@@ -9,7 +9,7 @@ struct Post {
     tags: toasty::Deferred<Vec<Tag>>,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 struct Tag {
     #[key]
     #[auto]

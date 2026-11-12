@@ -266,7 +266,7 @@ A decimal gets a number input and keeps the scale it was typed with, so `12.50` 
 
 A decimal column is not sortable by default: SQLite, MySQL and Turso store a `Decimal` as text, and
 every driver stores a `BigDecimal` as text, so the database would order `10.00` before `9.50`. The
-`ModelColumns` derive leaves it unsortable; declare `.sortable()` only on PostgreSQL with
+`PanelModel` derive leaves it unsortable; declare `.sortable()` only on PostgreSQL with
 `Decimal`.
 
 Implement [`tablo::extend::TypedValue`](https://y-l.fr/tablo/nightly/api/tablo/extend/trait.TypedValue.html) to bind your own

@@ -16,7 +16,7 @@ impl<F> TextField<F> {
     /// number, or a `jiff` date, time, date and time, or timestamp.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Trip {
     /// #     #[key] #[auto] id: uuid::Uuid,
     /// #     starts_on: jiff::civil::Date,

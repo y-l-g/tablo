@@ -27,13 +27,13 @@ use crate::{
 ///
 /// ```rust
 /// # use tablo_core::{NoForm, Relation, Resource, ResourceDef, lens};
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     #[has_many]
 /// #     comments: toasty::Deferred<Vec<Comment>>,
 /// # }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Comment {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     #[index]
@@ -180,13 +180,13 @@ where
     ///
     /// ```rust
     /// # use tablo_core::{NoForm, Relation, Resource, ResourceDef, lens};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post {
     /// #     #[key] #[auto] id: uuid::Uuid,
     /// #     #[has_many]
     /// #     comments: toasty::Deferred<Vec<Comment>>,
     /// # }
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Comment {
     /// #     #[key] #[auto] id: uuid::Uuid,
     /// #     #[index]
@@ -213,14 +213,14 @@ where
     ///
     /// ```rust
     /// # use tablo_core::{Relation, Resource, ResourceDef, lens};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns, tablo_core::ModelForm)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel, tablo_core::ModelForm)]
     /// # struct User {
     /// #     #[key] #[auto] id: uuid::Uuid,
     /// #     name: String,
     /// #     #[has_one]
     /// #     profile: toasty::Deferred<Option<Profile>>,
     /// # }
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns, tablo_core::ModelForm)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel, tablo_core::ModelForm)]
     /// # struct Profile {
     /// #     #[key] #[auto] id: uuid::Uuid,
     /// #     #[unique]
@@ -302,7 +302,7 @@ where
     ///
     /// ```rust
     /// # use tablo_core::{NoForm, Relation, Resource, ResourceDef};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post {
     /// #     #[key] #[auto] id: uuid::Uuid,
     /// #     #[has_many]
@@ -310,7 +310,7 @@ where
     /// #     #[has_many(via = taggings.tag)]
     /// #     tags: toasty::Deferred<Vec<Tag>>,
     /// # }
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Tag { #[key] #[auto] id: uuid::Uuid, name: String }
     /// # #[derive(Debug, Clone, toasty::Model)]
     /// # struct Tagging {

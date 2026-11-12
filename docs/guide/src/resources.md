@@ -11,7 +11,7 @@ The smallest resource lists rows and shows each one, and writes nothing:
 {{#include ../../../examples/guide/src/resources.rs:audit-resource}}
 ```
 
-The model derives `ModelColumns`, which reads what a person sees: a table column and a detail page
+The model derives `PanelModel`, which reads what a person sees: a table column and a detail page
 column per field a column can show, whoever writes it. A resource with create and edit pages names
 a [record form](./forms.md) as its `Form`, which writes: the one `#[derive(ModelForm)]` writes for
 the model, or a `#[derive(RecordForm)]` struct, with one form control per field. Set the def's
@@ -24,9 +24,9 @@ the model, or a `#[derive(RecordForm)]` struct, with one form control per field.
 
 | `ResourceDef` method | Default | Purpose |
 | --- | --- | --- |
-| `table(..)` | the model's `ModelColumns::table()` | the list's columns, filters and options: [Tables](./tables.md) |
+| `table(..)` | the model's `PanelModel::table()` | the list's columns, filters and options: [Tables](./tables.md) |
 | `form(..)` | every control, in declaration order | how the create and edit forms arrange the record form's controls: [Forms](./forms.md) |
-| `detail(..)` | the declared table's columns, else the model's `ModelColumns::detail()` | the detail page's columns: [Detail pages](./detail-pages.md) |
+| `detail(..)` | the declared table's columns, else the model's `PanelModel::detail()` | the detail page's columns: [Detail pages](./detail-pages.md) |
 | `without_page(ResourcePage::..)` | the list, the view page, and the create and edit pages of a resource with a record form | turns the create or the view page off; the policy decides who may open a page, never whether it exists |
 | `record_title(lens!(..))` | the label and the record's key | the detail page's heading, each relationship option over the resource, which also searches the column, each [global search](./panel-and-routing.md#global-search) result, and a `RelationColumn::of` cell |
 | `global_search(..)`, `without_global_search()` | searched, each result titled alone | the details under each result in the panel's [global search](./panel-and-routing.md#global-search), or the resource left out of it |
@@ -153,7 +153,7 @@ A related record shows through the resource it names, which applies the restrict
 shows the record's title. A declaration that would show a restricted record the panel cannot mask,
 such as `RelationColumn::unscoped`, fails to mount. So does a closure over the row beside a
 column loading such a record, unless it declares it reads only the row's own fields: it then reads
-a copy of the row without its relations, which the derived `ModelColumns` builds;
+a copy of the row without its relations, which the derived `PanelModel` builds;
 [`FieldAccessFault`](https://y-l.fr/tablo/nightly/api/tablo/enum.FieldAccessFault.html) lists each case.
 
 ## Writes

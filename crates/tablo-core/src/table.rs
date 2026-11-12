@@ -38,7 +38,7 @@ pub use self::{
         DateFilter, FilterValue, IntoFilters, NumberFilter, PresenceFilter, QueryFilter,
         SelectFilter, TernaryFilter, TextFilter, TextMatch,
     },
-    model::ModelColumns,
+    model::PanelModel,
     page::{DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, PagePosition, Pagination, TablePage},
     row_link::RowLink,
     state::{Cursor, Sort, TableState},
@@ -57,7 +57,7 @@ pub(crate) use crate::{
 /// Where a table puts a row's actions: its custom actions, View, Edit and Delete.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
 /// use tablo_core::{ActionLayout, Table, TextColumn, lens};
 ///

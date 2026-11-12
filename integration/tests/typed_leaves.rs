@@ -2,7 +2,7 @@
 //! value is a field error on the page, and an untouched value keeps what the control cannot show.
 
 use tablo::{
-    Ability, Allow, Auth, ModelColumns, Panel, Resource, ResourceDef, Table, TextColumn, lens,
+    Ability, Allow, Auth, Panel, PanelModel, Resource, ResourceDef, Table, TextColumn, lens,
 };
 
 use crate::common::{
@@ -10,7 +10,7 @@ use crate::common::{
     test_db,
 };
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Measurement {
     #[key]
     #[auto]
@@ -120,7 +120,7 @@ async fn a_typed_field_renders_its_input_and_the_stored_value() {
 async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     use topcoat::router::{Body, Router};
 
-    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
     struct Reading {
         #[key]
         #[auto]
@@ -204,7 +204,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     );
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Invoice {
     #[key]
     #[auto]
@@ -309,7 +309,7 @@ async fn a_decimal_round_trips_through_the_form() {
     );
 }
 
-/// The invoices table the `ModelColumns` derive gives.
+/// The invoices table the `PanelModel` derive gives.
 struct DerivedInvoiceResource;
 
 impl Resource for DerivedInvoiceResource {
@@ -382,7 +382,7 @@ async fn a_megabyte_decimal_is_a_field_error() {
 /// stored seconds, and a changed minute is written as posted.
 #[tokio::test]
 async fn an_untouched_timestamp_keeps_its_seconds() {
-    #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+    #[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
     struct Shift {
         #[key]
         #[auto]

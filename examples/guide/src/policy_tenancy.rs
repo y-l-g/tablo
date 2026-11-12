@@ -3,9 +3,9 @@
 use tablo::{
     AuthMail, Authenticator, EmailVerification, IdentityLinker, Impersonation, Membership, Oidc,
     OidcProvider, PanelUser, PasswordAuth, PasswordReset, PasswordSignUp, Profile, ProfileEditor,
-    ProfileUpdate, ProviderIdentity, Registrar, RouterBuilderPanelExt, TenantRegistration,
-    TwoFactor,
-    auth::{TenantEditor, TenantRegistrar, hash_password, new_password_errors, verify_password},
+    ProfileUpdate, ProviderIdentity, Registrar, RouterBuilderPanelExt, TenantEditor,
+    TenantRegistrar, TenantRegistration, TwoFactor,
+    auth::{hash_password, new_password_errors, verify_password},
     prelude::*,
 };
 use topcoat::{

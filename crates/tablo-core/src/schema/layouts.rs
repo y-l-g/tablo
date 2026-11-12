@@ -99,7 +99,7 @@ impl Group<Schema> {
 /// child spans more than one column through its `span`.
 ///
 /// ```rust
-/// # #[derive(Debug, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, toasty::Model, tablo_core::PanelModel)]
 /// # struct Product {
 /// #     #[key] #[auto] id: uuid::Uuid, name: String, description: String, visible: bool,
 /// # }
@@ -260,7 +260,7 @@ const TAB_TRIGGER: StaticClass = class!(
 /// ([`Tab::schema`]) or a detail page's columns ([`Tab::columns`]).
 ///
 /// ```rust
-/// # #[derive(Debug, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, toasty::Model, tablo_core::PanelModel)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String, email: String, bio: String }
 /// use tablo_core::{Field, Schema, Tab, Tabs};
 ///
@@ -317,7 +317,7 @@ impl<C> Tabs<C> {
 /// One tab of a [`Tabs`] block: a titled trigger and the fields or columns it shows.
 ///
 /// ```rust
-/// # #[derive(Debug, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, toasty::Model, tablo_core::PanelModel)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String, bio: String }
 /// use tablo_core::{Color, Field, Tab};
 ///

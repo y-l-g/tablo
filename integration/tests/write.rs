@@ -9,7 +9,7 @@ use crate::common::{TestClient, body_string, flash, mount, set_cookie_header, te
 async fn create_policy_deny() {
     use tablo::{Resource, ResourceDef, Table, TextColumn};
 
-    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
     struct DummyUser {
         #[key]
         #[auto]
@@ -78,7 +78,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
     use tablo::{Resource, ResourceDef, Table, TextColumn};
     use topcoat::context::Cx;
 
-    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
     struct Widget {
         #[key]
         #[auto]
@@ -174,7 +174,7 @@ async fn forged_delete_runs_no_record_query() {
         None
     }
 
-    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
     struct Dummy {
         #[key]
         #[auto]
@@ -265,7 +265,7 @@ async fn forged_delete_runs_no_record_query() {
 async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
     use tablo::{Resource, ResourceDef, Table, TextColumn};
 
-    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
     struct DummyUser {
         #[key]
         #[auto]
@@ -359,7 +359,7 @@ async fn bulk_delete_hand_crafted_partial_deny_skips_the_refused_row() {
 async fn an_edit_needs_view_as_well_as_update() {
     use tablo::{Resource, ResourceDef, Table, TextColumn};
 
-    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
     struct Dummy {
         #[key]
         #[auto]
@@ -414,7 +414,7 @@ async fn an_edit_needs_view_as_well_as_update() {
 async fn a_write_needs_its_csrf_token_with_auth_disabled() {
     use tablo::{Resource, ResourceDef, Table, TextColumn};
 
-    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
     struct Dummy {
         #[key]
         #[auto]

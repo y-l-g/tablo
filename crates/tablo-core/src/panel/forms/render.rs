@@ -110,7 +110,7 @@ impl<'a> FormChrome<'a> {
     /// The edit page's: its header carries the record's actions placed on [`Places::EDIT`], each
     /// landing back on the page, and its Delete, and its form the record's version.
     pub(super) fn edit<R: Resource>(cx: &Cx, resource: &Mounted<R>, record: &R::Model) -> Self {
-        use crate::ModelColumns as _;
+        use crate::PanelModel as _;
         let hidden = record
             .version()
             .map(|version| (VERSION_FIELD.to_string(), version.to_string()))

@@ -8,7 +8,7 @@ use crate::toasty_compat::pk::pk_set_filter;
 /// same change to all of them in one statement rather than one per record:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     title: String,

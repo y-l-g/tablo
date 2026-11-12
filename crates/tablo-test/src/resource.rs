@@ -29,7 +29,7 @@ pub type FieldOf<R> = <<R as Resource>::Form as RecordForm>::Field;
 ///
 /// ```rust,no_run
 /// # use tablo_core::Resource;
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns, tablo_core::ModelForm)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel, tablo_core::ModelForm)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
 /// # struct PostResource;
 /// # impl Resource for PostResource { type Model = Post; type Form = PostForm; }

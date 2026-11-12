@@ -49,7 +49,7 @@ pub struct AuditEntry {
 // By hand, naming no tenant column: the log keeps every tenant's entries and its resource narrows
 // them to the reader's own, so mounting it must neither mark the panel as acting for tenants nor
 // ask it for a tenancy. Its resource declares its own table and detail page.
-impl crate::ModelColumns for AuditEntry {
+impl crate::PanelModel for AuditEntry {
     const TENANT_COLUMNS: &'static [&'static str] = &[];
 }
 

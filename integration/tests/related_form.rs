@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::common::{body_string, get, mount, panel, post_fields, refusal, test_db};
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Member {
     #[key]
     #[auto]
@@ -21,7 +21,7 @@ struct Member {
     name: String,
 }
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Profile {
     #[key]
     #[auto]
@@ -341,7 +341,7 @@ async fn the_child_policy_gates_the_section() {
 /// to edit.
 #[tokio::test]
 async fn a_record_with_two_children_renders_no_section() {
-    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
     struct Note {
         #[key]
         #[auto]
@@ -607,7 +607,7 @@ async fn a_child_created_since_the_read_refuses_as_stale() {
 /// name, so the browser updates the condition as the user types.
 #[tokio::test]
 async fn a_condition_inside_a_related_form_watches_the_posted_name() {
-    #[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
     struct Card {
         #[key]
         #[auto]

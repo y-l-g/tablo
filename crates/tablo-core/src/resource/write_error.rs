@@ -27,7 +27,7 @@ use crate::form::FieldErrors;
 /// [`FieldErrors`] into [`Refused`](Self::Refused):
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Order { #[key] #[auto] id: uuid::Uuid, sku: String, quantity: i64 }
 /// # #[derive(Debug, toasty::Model)]
 /// # struct Stock { #[key] sku: String, level: i64 }

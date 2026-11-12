@@ -14,7 +14,7 @@ use crate::{
 /// One table filter declares a control and its predicate.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, age: i64 }
 /// # use tablo_core::{FilterValue, Text, extend::{Filter, FilterInput}};
 /// # use toasty::stmt::Expr;

@@ -340,7 +340,7 @@ pub const MAX_RECORD_ROWS: usize = 50;
 /// loads and renders it.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, created_at: jiff::Timestamp }
 /// use tablo_core::{RecordTable, lens};
 ///

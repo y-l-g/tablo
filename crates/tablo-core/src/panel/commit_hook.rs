@@ -8,7 +8,7 @@ use topcoat::{Result, context::Cx};
 
 use super::{Panel, state::current};
 use crate::{
-    BoxFuture, ModelColumns, Text,
+    BoxFuture, PanelModel, Text,
     resource::{Change, Resource, require_mounted},
 };
 
@@ -102,7 +102,7 @@ impl ChangedRecord {
 
     /// The fields the write changed on this record, each with its value before and after it.
     ///
-    /// They are the fields the model's [`ModelColumns::table`] lists, each spelled as that column
+    /// They are the fields the model's [`PanelModel::table`] lists, each spelled as that column
     /// spells it in an export, in the request's locale, then its foreign keys and
     /// [`TenantId`](crate::TenantId) fields, which the table leaves out, spelled as the database
     /// stores them: a field marked `#[columns(skip)]`, such as a password hash, never appears. A
@@ -148,8 +148,8 @@ impl ChangedField {
 }
 
 /// The fields `before` and `after` spell differently, by the columns of `M`'s default table and
-/// its [`references`](ModelColumns::references); a record that is absent spells every field empty.
-fn changed_fields<M: ModelColumns>(
+/// its [`references`](PanelModel::references); a record that is absent spells every field empty.
+fn changed_fields<M: PanelModel>(
     cx: &Cx,
     before: Option<&M>,
     after: Option<&M>,
@@ -177,7 +177,7 @@ fn changed_fields<M: ModelColumns>(
             })
         })
         .collect();
-    let references = |record: Option<&M>| record.map(ModelColumns::references);
+    let references = |record: Option<&M>| record.map(PanelModel::references);
     let (was, is) = (references(before_record), references(after_record));
     let names = is.as_ref().or(was.as_ref()).cloned().unwrap_or_default();
     for (index, (name, _)) in names.into_iter().enumerate() {

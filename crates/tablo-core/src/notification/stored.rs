@@ -158,7 +158,7 @@ impl Notifications {
     /// ```rust
     /// # use tablo_core::{Change, NoForm, Notification, Notifications, Resource};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, author: String }
     /// # struct PostResource;
     /// # impl Resource for PostResource {

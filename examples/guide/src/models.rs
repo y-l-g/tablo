@@ -1,7 +1,7 @@
 //! The guide's demo world: one small blog plus the supporting models the
 //! chapters reference.
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct User {
     #[key]
     #[auto]
@@ -44,7 +44,7 @@ pub struct Seo {
 }
 // ANCHOR_END: seo-struct
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Author {
     #[key]
     #[auto]
@@ -52,7 +52,7 @@ pub struct Author {
     pub name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Post {
     #[key]
     #[auto]
@@ -72,7 +72,7 @@ pub struct Post {
     pub deleted_at: Option<jiff::Timestamp>,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Comment {
     #[key]
     #[auto]
@@ -84,7 +84,7 @@ pub struct Comment {
     pub body: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Audit {
     #[key]
     #[auto]
@@ -101,7 +101,7 @@ pub struct Theme {
     pub accent: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Order {
     #[key]
     #[auto]

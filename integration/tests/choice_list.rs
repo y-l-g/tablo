@@ -20,7 +20,7 @@ enum Channel {
     Push,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Contact {
     #[key]
     #[auto]
@@ -246,7 +246,7 @@ async fn mounting_refuses_a_relationships_multiple_choice_over_a_list_column() {
     );
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Note {
     #[key]
     #[auto]

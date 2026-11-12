@@ -27,7 +27,7 @@ use super::{
     unique::{check_unique, taken_since},
 };
 use crate::{
-    ModelColumns as _,
+    PanelModel as _,
     db::{WriteTx, db},
     form::{FieldErrors, FormValues, Posted, RecordForm},
     panel::state::uploader,

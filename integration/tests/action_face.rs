@@ -12,7 +12,7 @@ use crate::common::{
     action_label, action_tooltip, body_string, disabled_actions, get, mount, panel, test_db,
 };
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Account {
     #[key]
     #[auto]

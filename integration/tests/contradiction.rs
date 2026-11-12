@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::common::{body_string, get, mount, panel, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Shelf {
     #[key]
     #[auto]
@@ -22,7 +22,7 @@ struct Shelf {
     boxes: toasty::Deferred<Vec<Crate>>,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Crate {
     #[key]
     #[auto]

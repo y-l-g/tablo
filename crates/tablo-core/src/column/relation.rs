@@ -71,9 +71,9 @@ impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
 /// page that renders it loads them.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     author_id: uuid::Uuid,
@@ -163,9 +163,9 @@ where
     /// [`record_title`](crate::ResourceDef::record_title) its detail page is titled with.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post {
     /// #     #[key] #[auto] id: uuid::Uuid,
     /// #     author_id: uuid::Uuid,
@@ -212,7 +212,7 @@ where
     /// [`label`](OptionSource::label), joined by commas.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post {
     /// #     #[key] #[auto] id: uuid::Uuid,
     /// #     #[has_many]
@@ -220,7 +220,7 @@ where
     /// #     #[has_many(via = taggings.tag)]
     /// #     tags: toasty::Deferred<Vec<Tag>>,
     /// # }
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Tag { #[key] #[auto] id: uuid::Uuid, name: String }
     /// # #[derive(Debug, Clone, toasty::Model)]
     /// # struct Tagging {
@@ -305,13 +305,13 @@ impl<M> RelationColumn<M> {
 /// declares the field's include so every page that renders it loads the records.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     #[has_many]
 /// #     comments: toasty::Deferred<Vec<Comment>>,
 /// # }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Comment {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     #[index]

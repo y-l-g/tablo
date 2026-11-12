@@ -16,7 +16,7 @@ use crate::common::{
     TestClient, body_string, field_error, form_body, input_values, mount, panel, refusal, test_db,
 };
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Album {
     #[key]
     #[auto]
@@ -470,7 +470,7 @@ async fn a_delete_deletes_every_file_of_the_list() {
 
 #[tokio::test]
 async fn max_files_on_a_single_file_refuses_the_mount() {
-    #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+    #[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
     struct Cover {
         #[key]
         #[auto]

@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, field_error, mount, refusal, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Stay {
     #[key]
     #[auto]

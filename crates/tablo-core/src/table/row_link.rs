@@ -13,7 +13,7 @@ use crate::{Reads, Text};
 /// the user may already open.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Product { #[key] #[auto] id: uuid::Uuid, name: String, slug: String }
 /// use tablo_core::{Reads, RowLink, Table, TextColumn, lens};
 ///

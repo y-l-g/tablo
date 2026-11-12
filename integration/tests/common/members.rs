@@ -24,7 +24,7 @@ pub struct Member {
 }
 
 /// A member's seat in one tenant, the tenant's name with it.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Seat {
     #[key]
     #[auto]
@@ -114,7 +114,7 @@ pub async fn seats(ex: &mut dyn toasty::Executor, member: Uuid) -> toasty::Resul
 }
 
 /// A tenant-owned note.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Note {
     #[key]
     #[auto]

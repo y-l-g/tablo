@@ -26,7 +26,7 @@ enum Stage {
     Done,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Task {
     #[key]
     #[auto]

@@ -17,7 +17,7 @@ use crate::{
 /// [`ResourceDef::global_search`] declares it: the details listed under each result's title.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String, email: String }
 /// # struct UserResource;
 /// # impl tablo_core::Resource for UserResource {

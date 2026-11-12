@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::common::{import_csv, panel_router, post_fields, test_db};
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Note {
     #[key]
     #[auto]

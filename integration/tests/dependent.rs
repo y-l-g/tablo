@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::common::{body_string, get, mount, panel, post_fields, refusal, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Country {
     #[key]
     #[auto]
@@ -19,7 +19,7 @@ struct Country {
     name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct City {
     #[key]
     #[auto]
@@ -28,7 +28,7 @@ struct City {
     name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Address {
     #[key]
     #[auto]

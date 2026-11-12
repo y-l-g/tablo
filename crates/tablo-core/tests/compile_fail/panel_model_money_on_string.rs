@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 struct User {
     #[key]
     #[auto]

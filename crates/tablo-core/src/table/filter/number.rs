@@ -89,7 +89,7 @@ type ReversedFn = Arc<dyn Fn(&str, &str) -> bool + Send + Sync>;
 /// open. A record whose optional field holds nothing matches no bound.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Book { #[key] #[auto] id: uuid::Uuid, pages: i64 }
 /// # use tablo_core::{NumberFilter, lens};
 /// NumberFilter::new(lens!(Book.pages)).range();

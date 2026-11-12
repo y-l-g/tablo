@@ -152,7 +152,7 @@ fn control<'a>(cx: &'a Cx, filter: &PageFilter, held: &PageFilters) -> BoxView<'
 /// Outside such a page, as in a resource list's widgets, it holds none.
 ///
 /// ```rust,no_run
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Order { #[key] #[auto] id: uuid::Uuid, channel: String }
 /// # struct OrderResource;
 /// # impl tablo_core::Resource for OrderResource {

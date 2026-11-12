@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::common::{TestClient, mount, panel, post_fields, refusal, test_db};
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Memo {
     #[key]
     #[auto]
@@ -43,7 +43,7 @@ impl Resource for MemoResource {
     }
 }
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Vault {
     #[key]
     #[auto]

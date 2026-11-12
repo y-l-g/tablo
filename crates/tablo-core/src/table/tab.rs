@@ -21,7 +21,7 @@ use crate::{DeclarationErrorKind, lens::Reads, schema::Options, values::FormScal
 /// the panel reads the fields off the query.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, published: bool }
 /// use tablo_core::{ListTab, Table, TextColumn, lens};
 ///
@@ -109,7 +109,7 @@ impl<M> Table<M> {
     /// ```rust
     /// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
     /// # enum Status { Draft, Published }
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, status: Status }
     /// use tablo_core::{Table, TextColumn, lens};
     ///

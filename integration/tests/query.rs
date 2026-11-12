@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::common::{get, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Note {
     #[key]
     #[auto]
@@ -22,7 +22,7 @@ struct Note {
     title: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Comment {
     #[key]
     #[auto]
@@ -218,7 +218,7 @@ async fn a_request_narrowing_that_answers_none_narrows_nothing() {
     assert_eq!(row_keys(&page(&router, "/desk/notes").await).len(), 2);
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Folder {
     #[key]
     #[auto]
@@ -226,7 +226,7 @@ struct Folder {
     open: bool,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Sheet {
     #[key]
     #[auto]

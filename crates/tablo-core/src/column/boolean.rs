@@ -10,7 +10,7 @@ use crate::Lens;
 /// A column of a `bool` field rendered as an icon.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, featured: bool }
 /// tablo_core::BooleanColumn::new(tablo_core::lens!(Post.featured)).sortable();
 /// ```

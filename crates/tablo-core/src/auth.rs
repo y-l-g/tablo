@@ -24,7 +24,7 @@ pub(crate) mod profile;
 mod realm;
 pub(crate) mod registration;
 mod session;
-mod tenant_profile;
+pub(crate) mod tenant_profile;
 pub(crate) mod tenant_registration;
 pub(crate) mod throttle;
 mod token;
@@ -58,8 +58,6 @@ pub use self::{
         AuthSession, SESSION_COOKIE_PREFIX, SESSION_LIFETIME, mint_session,
         revoke_sessions_for_user, session_cookie,
     },
-    tenant_profile::TenantEditor,
-    tenant_registration::TenantRegistrar,
     throttle::AuthThrottle,
     token::{AuthToken, TokenPurpose},
     two_factor::{AuthFactor, FactorKind},
@@ -86,7 +84,7 @@ pub(crate) use self::{
         panel_prefix,
     },
     registration::{Registrar, SignUp},
-    tenant_profile::{offered as tenant_profile_offered, tenant_profile_url},
+    tenant_profile::{TenantEditor, offered as tenant_profile_offered, tenant_profile_url},
     tenant_registration::{
         TenantRegistration, offered as tenant_registration_offered, register_tenant_url,
     },

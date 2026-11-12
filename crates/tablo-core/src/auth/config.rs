@@ -279,7 +279,7 @@ impl<U: PanelUser> Auth<U> {
     }
 
     /// Lets the signed-in user create a tenant to act for at `{prefix}/register-tenant`, through
-    /// `registration`'s [`TenantRegistrar`](super::TenantRegistrar); the tenant menu links to
+    /// `registration`'s [`TenantRegistrar`](crate::TenantRegistrar); the tenant menu links to
     /// it from one membership on. [`TenantRegistration::required`] sends a user who acts for no
     /// tenant there first.
     ///
@@ -288,7 +288,7 @@ impl<U: PanelUser> Auth<U> {
     /// that [`Membership`](crate::Membership). The session then acts for the new tenant, and the
     /// next request's [`find_by_id`](crate::Authenticator::find_by_id) must list it.
     ///
-    /// The registrar's [`User`](super::TenantRegistrar::User) is `U`. Mounting refuses a
+    /// The registrar's [`User`](crate::TenantRegistrar::User) is `U`. Mounting refuses a
     /// registration on [`Auth::disabled`], a form field named `csrf_token`, a file field and a
     /// relationship choice.
     #[must_use]

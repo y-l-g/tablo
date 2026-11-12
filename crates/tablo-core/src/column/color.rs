@@ -9,7 +9,7 @@ use crate::{Lens, values::FormScalar};
 /// A column of a `String` field holding a CSS color, rendered as a swatch beside the value.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Team { #[key] #[auto] id: uuid::Uuid, color: String }
 /// tablo_core::ColorColumn::new(tablo_core::lens!(Team.color));
 /// ```

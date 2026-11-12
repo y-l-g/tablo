@@ -20,7 +20,7 @@ pub const DEFAULT_PER_PAGE_OPTIONS: [usize; 4] = [10, 25, 50, 100];
 /// How a table pages through its rows.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Event { #[key] #[auto] id: uuid::Uuid, name: String }
 /// use tablo_core::{Pagination, Table, TextColumn, lens};
 ///

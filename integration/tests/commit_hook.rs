@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::common::{mount, panel, post_fields, test_db};
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Memo {
     #[key]
     #[auto]
@@ -18,7 +18,7 @@ struct Memo {
     secret: String,
 }
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Label {
     #[key]
     #[auto]

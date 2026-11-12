@@ -15,7 +15,7 @@ use crate::{
 /// [`excerpt`](Self::excerpt) characters; an export holds the text.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, body: String }
 /// tablo_core::RichTextColumn::new(tablo_core::lens!(Post.body));
 /// ```

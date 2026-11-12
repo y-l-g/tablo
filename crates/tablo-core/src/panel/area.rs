@@ -16,7 +16,7 @@ use crate::{Page, PageDef, Resource, ResourceDef};
 ///
 /// ```rust
 /// # use tablo_core::{Area, NoForm, Panel, Resource};
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Member { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # struct MemberResource;
 /// # impl Resource for MemberResource { type Model = Member; type Form = NoForm<Member>; }

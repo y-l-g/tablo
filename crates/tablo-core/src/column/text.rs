@@ -21,7 +21,7 @@ use crate::{
 /// A column of one field, rendered as text and bound through a [`Lens`] for sorting and search.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct User {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     name: String,
@@ -42,7 +42,7 @@ use crate::{
 ///
 /// [`sortable`](Self::sortable) orders by the stored column, so a type a driver stores as text
 /// sorts by its spelling: a decimal column on SQLite, MySQL or Turso lists `10.00`, `100`, `9.50`.
-/// The [`ModelColumns`](derive@crate::ModelColumns) derive leaves a type that is not
+/// The [`PanelModel`](derive@crate::PanelModel) derive leaves a type that is not
 /// [`SORTABLE`](crate::extend::TypedValue::SORTABLE) unsortable.
 ///
 /// A column presents its value as a [`badge`](Self::badge), in a [`color`](Self::color), with a
@@ -50,7 +50,7 @@ use crate::{
 /// [`numeric`](Self::numeric) or [`money`](Self::money) amount:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Order {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     number: String,
@@ -73,7 +73,7 @@ use crate::{
 /// one:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, email: String, bio: String, phone: String }
 /// use tablo_core::{Reads, TextColumn, lens};
 ///

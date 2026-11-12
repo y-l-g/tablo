@@ -1,7 +1,7 @@
 //! A column outside tablo cannot claim it shows no field a related resource hides: the
 //! framework's own column methods are sealed, so it answers their safe defaults.
 
-#[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 struct User {
     #[key]
     #[auto]

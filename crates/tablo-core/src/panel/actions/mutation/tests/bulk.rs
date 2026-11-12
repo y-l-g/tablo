@@ -228,7 +228,7 @@ async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
 async fn bulk_delete_keeps_a_key_holding_the_separator_whole() {
     use crate::resource::Resource;
 
-    #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+    #[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
     struct Tag {
         #[key]
         code: String,

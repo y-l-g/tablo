@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::common::{body_string, get, mount, panel, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Author {
     #[key]
     #[auto]
@@ -22,7 +22,7 @@ struct Author {
     name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Book {
     #[key]
     #[auto]

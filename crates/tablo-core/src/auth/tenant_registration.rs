@@ -43,7 +43,7 @@ use crate::{
 /// [`tenants`](PanelUser::tenants) must then list the new one.
 ///
 /// ```rust
-/// # use tablo_core::{Membership, PanelUser, auth::TenantRegistrar};
+/// # use tablo_core::{Membership, PanelUser, TenantRegistrar};
 /// # use topcoat::context::Cx;
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct Team { #[key] #[auto] id: uuid::Uuid, name: String }
@@ -130,7 +130,7 @@ pub trait TenantRegistrar: Send + Sync + 'static {
 /// creates tenants, and whether a user who acts for none must create one first.
 ///
 /// ```rust
-/// # use tablo_core::{Auth, Authenticator, Membership, PanelUser, TenantRegistration, auth::TenantRegistrar};
+/// # use tablo_core::{Auth, Authenticator, Membership, PanelUser, TenantRegistrar, TenantRegistration};
 /// # use topcoat::context::Cx;
 /// # struct Staff;
 /// # impl PanelUser for Staff {

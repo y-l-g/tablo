@@ -26,7 +26,7 @@ pub(crate) fn cx_with_cookie(name: &str, value: Option<&str>) -> Cx {
 }
 
 /// Names a row for tests that only need one.
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 pub(crate) struct User {
     #[key]
     #[auto]

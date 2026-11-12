@@ -16,7 +16,7 @@ type PresenceFn = std::sync::Arc<dyn Fn(bool) -> Expr<bool> + Send + Sync>;
 /// the posts with no author, without naming any related record.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, cover: Option<String> }
 /// # use tablo_core::{PresenceFilter, lens};
 /// PresenceFilter::new(lens!(Post.cover)).labels("With a cover", "Without a cover");

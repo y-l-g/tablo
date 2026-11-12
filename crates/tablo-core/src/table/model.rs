@@ -1,25 +1,27 @@
-//! [`ModelColumns`]: the table and detail page a model reads as by default.
+//! [`PanelModel`]: what a panel needs from a model a resource serves.
 
 use toasty::{schema::Model, stmt::IntoExpr};
 
 use crate::{Detail, Table};
 
-/// The table and detail page a model reads as when its resource declares none: what a
-/// [`ResourceDef`](crate::ResourceDef) without a [`table`](crate::ResourceDef::table) lists and
-/// without a [`detail`](crate::ResourceDef::detail) shows.
+/// What a panel needs from a model a resource serves: its tenant columns, its version counter,
+/// how to copy a record without its relations, and the table and detail page it reads as when its
+/// resource declares none, which a [`ResourceDef`](crate::ResourceDef) without a
+/// [`table`](crate::ResourceDef::table) lists and without a [`detail`](crate::ResourceDef::detail)
+/// shows.
 ///
-/// Derive it with [`ModelColumns`](derive@crate::ModelColumns), which gives a column to each field
+/// Derive it with [`PanelModel`](derive@crate::PanelModel), which gives a column to each field
 /// a person reads, whether a form or Toasty writes it. An impl by hand names the model's tenant
 /// columns; one that keeps the defaults here lists no column, for a resource that declares its own
 /// table and detail page, or turns the view page off.
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` declares no default columns",
-    label = "a resource's model implements `ModelColumns`",
-    note = "add `#[derive(tablo::ModelColumns)]` to `{Self}`, or `impl tablo::ModelColumns for \
+    message = "`{Self}` is not a panel model",
+    label = "a resource's model implements `PanelModel`",
+    note = "add `#[derive(tablo::PanelModel)]` to `{Self}`, or `impl tablo::PanelModel for \
             {Self} {{ const TENANT_COLUMNS: &[&str] = &[..]; }}`, naming its `TenantId` fields, \
             when its resources declare their own table and detail page"
 )]
-pub trait ModelColumns: Model + IntoExpr<Self> + Sized {
+pub trait PanelModel: Model + IntoExpr<Self> + Sized {
     /// The model's [`TenantId`](crate::TenantId) fields, by name: the derive lists each field
     /// typed `TenantId` or `Option<TenantId>`. Mounting a panel refuses a resource over a model
     /// that lists one and declares no [`tenancy`](crate::ResourceDef::tenancy), which would serve
@@ -81,7 +83,7 @@ pub trait ModelColumns: Model + IntoExpr<Self> + Sized {
     }
 }
 
-/// A foreign key or tenant field's type, spelled for [`ModelColumns::references`].
+/// A foreign key or tenant field's type, spelled for [`PanelModel::references`].
 #[doc(hidden)]
 pub trait Reference {
     /// The value as the database stores it, `None` for an empty optional one.
@@ -123,8 +125,8 @@ reference!(
     usize,
 );
 
-/// A copy of `row` without its relations: see [`ModelColumns::UNLOADS_RELATIONS`].
-pub(crate) fn bare<M: ModelColumns + Clone>(row: &M) -> M {
+/// A copy of `row` without its relations: see [`PanelModel::UNLOADS_RELATIONS`].
+pub(crate) fn bare<M: PanelModel + Clone>(row: &M) -> M {
     row.bare()
 }
 

@@ -20,7 +20,7 @@ use crate::common::{
 };
 
 /// A custom user table.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Member {
     #[key]
     #[auto]
@@ -144,7 +144,7 @@ impl Resource for MemberResource {
 }
 
 /// A tenant-owned note.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Note {
     #[key]
     #[auto]

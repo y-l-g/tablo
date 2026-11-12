@@ -9,7 +9,7 @@ use crate::schema::Binding;
 /// Ternary filter matching a `bool` field.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, featured: bool }
 /// # use tablo_core::{TernaryFilter, lens};
 /// TernaryFilter::new(lens!(Post.featured)).labels("Featured", "Not featured");

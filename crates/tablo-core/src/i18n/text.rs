@@ -17,7 +17,7 @@ use crate::naming::{capitalize, derived_id, pluralize, sentence_case, slug_case,
 ///
 /// ```rust
 /// # use tablo_core::{Text, TextColumn, lens, text};
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
 /// TextColumn::new(lens!(Post.title)).label("Headline"); // plain: every locale reads "Headline"
 /// TextColumn::new(lens!(Post.title)).label(Text::message("post-headline"));

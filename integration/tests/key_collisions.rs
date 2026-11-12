@@ -9,7 +9,7 @@ use toasty::Db;
 
 use crate::common::{TestClient, body_string, get, panel_router, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Tag {
     #[key]
     code: String,
@@ -92,7 +92,7 @@ async fn a_dash_key_reaches_its_edit_and_delete_routes() {
     assert_eq!(gone.status(), StatusCode::NOT_FOUND);
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 #[key(owner, slot)]
 struct Seat {
     owner: String,

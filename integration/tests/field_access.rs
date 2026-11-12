@@ -26,7 +26,7 @@ use crate::common::{
     TestClient, body_bytes, body_string, control, input_value, mount, panel, refusal, test_db,
 };
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Employee {
     #[key]
     #[auto]
@@ -558,7 +558,7 @@ async fn a_create_the_user_cannot_complete_is_refused() {
 }
 
 /// A box accepting the terms, which a create must check.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Pledge {
     #[key]
     #[auto]

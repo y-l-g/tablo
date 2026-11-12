@@ -66,7 +66,7 @@ impl<M> Table<M> {
     /// without it.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, status: String, author: String }
     /// use tablo_core::{Table, TextColumn, lens};
     ///
