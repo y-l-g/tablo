@@ -2,9 +2,9 @@
 //! form posts, and the [`Reply`] each request answers with.
 //!
 //! The client reads every URL from [`tablo_core::url`] and every form key from the resource's
-//! [`RecordForm::fields`]: a test follows a renamed slug or form key, fails to compile on a
-//! renamed field or action, and panics naming the resource when the panel serves no such page,
-//! instead of asserting on a 404.
+//! [`RecordForm::fields`](tablo_core::RecordForm::fields): a test follows a renamed slug or form
+//! key, fails to compile on a renamed field or action, and panics naming the resource when the
+//! panel serves no such page, instead of asserting on a 404.
 
 use std::{any::type_name, convert::Infallible, marker::PhantomData};
 
@@ -22,7 +22,7 @@ use crate::{
 };
 
 /// The field enum of `R`'s record form, e.g. `PostFormField`.
-pub type FieldOf<R> = <<R as Resource>::Form as RecordForm>::Field;
+pub type FieldOf<R> = <<R as Resource>::Form as tablo_core::FormFields>::Field;
 
 /// Requests to `R` in the panel [`TestClient::panel`] names, built by
 /// [`TestClient::resource`].

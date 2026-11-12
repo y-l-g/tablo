@@ -66,10 +66,10 @@ impl Resource for UserResource {
     }
 
     // ANCHOR: user-validate
-    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors<UserFormField> {
-        let mut errors = FieldErrors::new();
+    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors<UserForm> {
+        let mut errors = FieldErrors::<UserForm>::new();
         if form.age < 0 {
-            errors.add(UserFormField::Age, "Age must be zero or more");
+            errors.add(|f| f.age, "Age must be zero or more");
         }
         errors
     }
@@ -181,8 +181,8 @@ impl Resource for CommentResource {
         record: Comment,
         posted: Posted<CommentForm>,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Comment, WriteError<CommentFormField>> {
-        if !posted.named(CommentFormField::PostId) || posted.post_id == record.post_id {
+    ) -> Result<Comment, WriteError<CommentForm>> {
+        if !posted.named(|f| f.post_id) || posted.post_id == record.post_id {
             return tablo::write_update::<Self>(cx, record, posted, ex).await;
         }
         let post = Post::filter_by_id(posted.post_id)
@@ -190,8 +190,8 @@ impl Resource for CommentResource {
             .exec(&mut *ex)
             .await?;
         if !post.is_some_and(|post| post.status == PostStatus::Published) {
-            return Err(WriteError::field(
-                CommentFormField::PostId,
+            return Err(WriteError::<CommentForm>::field(
+                |f| f.post_id,
                 "Comments go on published posts",
             ));
         }

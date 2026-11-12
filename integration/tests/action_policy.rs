@@ -41,7 +41,7 @@ impl Action<TicketResource> for Close {
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<()>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -134,7 +134,7 @@ impl Action<TicketResource> for Reopen {
         _: &[Ticket],
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<()>> {
         Ok(tablo::Outcome::done())
     }
 }
@@ -155,7 +155,7 @@ impl Action<TicketResource> for Archive {
         _: &[Ticket],
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<()>> {
         Ok(tablo::Outcome::done())
     }
 }
@@ -313,7 +313,7 @@ impl Action<TicketResource> for Answer {
         _: &[Ticket],
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<()>> {
         Ok(tablo::Outcome::done())
     }
 }

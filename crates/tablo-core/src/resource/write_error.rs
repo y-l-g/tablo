@@ -1,6 +1,8 @@
 //! [`WriteError`]: why a record fn or an action's run wrote nothing.
 
-use crate::form::FieldErrors;
+use derive_where::derive_where;
+
+use crate::form::{FieldErrors, FormFields};
 
 /// Why a record fn or an action's run wrote nothing: a refusal the page shows, or a failure.
 ///
@@ -9,8 +11,8 @@ use crate::form::FieldErrors;
 ///
 /// - [`Refused`](Self::Refused) renders the form again with status 200, each error under the
 ///   control of the field it names, as a [`validate_record`](crate::Resource::validate_record)
-///   error does. A record fn keys its errors by the record form's field enum, an action's run by
-///   its input's, so a renamed field fails to compile rather than render no message.
+///   error does. A record fn keys its errors by its record form, an action's run by its input, and
+///   picks a field by its name, so a renamed field fails to compile rather than render no message.
 /// - [`Declined`](Self::Declined) refuses with a message that belongs to no field: a paid invoice
 ///   that cannot be deleted. A record form renders again with the message above its fields; a
 ///   delete, a restore or an action flashes it and lands back where it started.
@@ -35,7 +37,7 @@ use crate::form::FieldErrors;
 /// # #[form(model = Order)]
 /// # struct OrderForm { sku: String, quantity: i64 }
 /// # struct OrderResource;
-/// use tablo_core::{FieldErrors, RecordForm, Resource, WriteError, write_create};
+/// use tablo_core::{RecordForm, Resource, WriteError, write_create};
 /// use topcoat::context::Cx;
 ///
 /// impl Resource for OrderResource {
@@ -46,36 +48,37 @@ use crate::form::FieldErrors;
 ///         cx: &Cx,
 ///         form: OrderForm,
 ///         ex: &mut dyn toasty::Executor,
-///     ) -> Result<Order, WriteError<OrderFormField>> {
+///     ) -> Result<Order, WriteError<OrderForm>> {
 ///         let stock = Stock::filter_by_sku(&form.sku)
 ///             .first()
 ///             .exec(&mut *ex)
 ///             .await?;
 ///         if stock.is_none_or(|stock| stock.level < form.quantity) {
-///             let mut errors = FieldErrors::new();
-///             errors.add(OrderFormField::Quantity, "Not enough in stock");
-///             return Err(errors.into());
+///             return Err(WriteError::<OrderForm>::field(
+///                 |f| f.quantity,
+///                 "Not enough in stock",
+///             ));
 ///         }
 ///         write_create::<Self>(cx, form, ex).await
 ///     }
 /// }
 /// ```
-#[derive(Debug)]
+#[derive_where(Debug; F::Field)]
 #[non_exhaustive]
-pub enum WriteError<K = String> {
+pub enum WriteError<F: FormFields = String> {
     /// The submission cannot stand: render the form again with these errors.
-    Refused(FieldErrors<K>),
+    Refused(FieldErrors<F>),
     /// The write cannot stand, for a reason that names no field: show this message.
     Declined(crate::Text),
     /// The write failed: answer with this error and the failure toast.
     Failed(topcoat::Error),
 }
 
-impl<K> WriteError<K> {
-    /// Refuse the submission with `message` under `key`.
-    pub fn field(key: impl Into<K>, message: impl Into<crate::Text>) -> Self {
+impl<F: FormFields> WriteError<F> {
+    /// Refuse the submission with `message` under `field`: `WriteError::field(|f| f.room, ..)`.
+    pub fn field(pick: impl FnOnce(F::Keys) -> F::Field, message: impl Into<crate::Text>) -> Self {
         let mut errors = FieldErrors::new();
-        errors.add(key, message);
+        errors.add(pick, message);
         Self::Refused(errors)
     }
 
@@ -85,7 +88,7 @@ impl<K> WriteError<K> {
     }
 
     /// This error, its refusal keyed by the form key `key` gives each field.
-    pub(crate) fn keyed(self, key: fn(K) -> &'static str) -> WriteError {
+    pub(crate) fn keyed(self, key: fn(F::Field) -> &'static str) -> WriteError {
         match self {
             Self::Refused(errors) => WriteError::Refused(errors.keyed(key)),
             Self::Declined(message) => WriteError::Declined(message),
@@ -94,13 +97,13 @@ impl<K> WriteError<K> {
     }
 }
 
-impl<K> From<FieldErrors<K>> for WriteError<K> {
-    fn from(errors: FieldErrors<K>) -> Self {
+impl<F: FormFields> From<FieldErrors<F>> for WriteError<F> {
+    fn from(errors: FieldErrors<F>) -> Self {
         Self::Refused(errors)
     }
 }
 
-impl<K, E: Into<topcoat::Error>> From<E> for WriteError<K> {
+impl<F: FormFields, E: Into<topcoat::Error>> From<E> for WriteError<F> {
     fn from(error: E) -> Self {
         Self::Failed(error.into())
     }

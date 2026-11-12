@@ -367,9 +367,14 @@ async fn a_write_of_a_field_another_resource_hides_is_refused() {
 /// The member an action's input chooses, labelled by the salary a source no panel mounts gives.
 struct Choosing;
 
-impl FormInput for Choosing {
+impl tablo::FormFields for Choosing {
     type Field = std::convert::Infallible;
+    type Keys = ();
 
+    fn keys() -> Self::Keys {}
+}
+
+impl FormInput for Choosing {
     fn key(field: Self::Field) -> &'static str {
         match field {}
     }
@@ -405,7 +410,7 @@ impl Action<PickCards> for Pick {
         _cards: &[Card],
         _choosing: Choosing,
         _ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<Outcome, tablo::WriteError<Choosing>> {
         Ok(Outcome::done())
     }
 }

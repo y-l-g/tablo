@@ -64,7 +64,7 @@ pub(super) async fn check_unique<R: Resource>(
                 .await
                 .map_err(crate::error::unavailable)?;
             if !rows.is_empty() {
-                errors.add(
+                errors.add_field(
                     name,
                     crate::text!("tablo-field-taken", label = field.label()),
                 );

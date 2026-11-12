@@ -81,7 +81,7 @@ pub(in crate::panel::forms) fn parse_form<R: Resource>(
 fn form_keyed<R: Resource>(
     resource: &Mounted<R>,
     source: &str,
-    errors: FieldErrors<<R::Form as RecordForm>::Field>,
+    errors: FieldErrors<R::Form>,
 ) -> Result<FieldErrors, topcoat::Error> {
     let mut keyed = FieldErrors::new();
     for FieldError { key, kind } in errors {
@@ -110,7 +110,7 @@ fn form_keyed<R: Resource>(
 pub(in crate::panel::forms) fn refusal<R: Resource>(
     resource: &Mounted<R>,
     source: &str,
-    errors: FieldErrors<<R::Form as RecordForm>::Field>,
+    errors: FieldErrors<R::Form>,
 ) -> Result<FieldErrors, topcoat::Error> {
     if errors.is_empty() {
         return Err(crate::error::declaration(format!(
@@ -162,7 +162,7 @@ pub(in crate::panel::forms) async fn recheck_relationships(
 pub(in crate::panel::forms) fn named_fields<R: Resource>(
     resource: &Mounted<R>,
     named: &HashSet<String>,
-) -> Vec<<R::Form as RecordForm>::Field> {
+) -> Vec<<R::Form as crate::FormFields>::Field> {
     resource
         .fields
         .iter()

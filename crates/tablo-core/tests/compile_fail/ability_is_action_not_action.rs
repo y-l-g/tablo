@@ -34,7 +34,7 @@ impl Action<PostResource> for Publish {
         _: &[Post],
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> {
+    ) -> Result<tablo_core::Outcome, tablo_core::WriteError<()>> {
         Ok(tablo_core::Outcome::done())
     }
 }

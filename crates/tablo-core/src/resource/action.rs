@@ -66,7 +66,7 @@ pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm",
 ///         posts: &[Post],
 ///         _: (),
 ///         ex: &mut dyn Executor,
-///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> {
+///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError<()>> {
 ///         Post::filter(tablo_core::filter_keys(posts))
 ///             .update()
 ///             .status("published".to_string())
@@ -150,7 +150,7 @@ pub trait Action<R: Resource>: 'static {
     /// impl Action<PostResource> for Archive {
     ///     type Input = ();
     ///     const NAME: &'static str = "archive/all";
-    /// #   async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> { Ok(tablo_core::Outcome::done()) }
+    /// #   async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<()>> { Ok(tablo_core::Outcome::done()) }
     /// }
     ///
     /// let def = ResourceDef::<PostResource>::new().action::<Archive>();
@@ -170,17 +170,17 @@ pub trait Action<R: Resource>: 'static {
     }
 
     /// Refuse an input [`run`](Self::run) should not receive, such as a reason too short to
-    /// act on: each error names a field of the input's [`Field`](FormInput::Field) enum and
-    /// renders under its control. Defaults to none.
+    /// act on: each error names a field of the input, picked off its
+    /// [`Keys`](crate::FormFields::Keys), and renders under its control. Defaults to none.
     ///
     /// ```rust
     /// # use tablo_core::{FieldErrors, FormInput};
     /// # #[derive(tablo_core::FormInput)]
     /// # struct Closing { reason: String }
-    /// # fn validate_input(_cx: &topcoat::context::Cx, closing: &Closing) -> FieldErrors<ClosingField> {
-    /// let mut errors = FieldErrors::new();
+    /// # fn validate_input(_cx: &topcoat::context::Cx, closing: &Closing) -> FieldErrors<Closing> {
+    /// let mut errors = FieldErrors::<Closing>::new();
     /// if closing.reason.trim().len() < 10 {
-    ///     errors.add(ClosingField::Reason, "Say why in ten characters or more");
+    ///     errors.add(|f| f.reason, "Say why in ten characters or more");
     /// }
     /// # errors
     /// # }
@@ -188,10 +188,7 @@ pub trait Action<R: Resource>: 'static {
     ///
     /// It runs after the input parses and before the transaction opens, so it sees no record; a
     /// rule that reads the database refuses from [`run`](Self::run).
-    fn validate_input(
-        _cx: &Cx,
-        _input: &Self::Input,
-    ) -> FieldErrors<<Self::Input as FormInput>::Field> {
+    fn validate_input(_cx: &Cx, _input: &Self::Input) -> FieldErrors<Self::Input> {
         FieldErrors::new()
     }
 
@@ -203,16 +200,16 @@ pub trait Action<R: Resource>: 'static {
     /// change to every record in one statement.
     ///
     /// A rule that reads the database refuses the input with [`WriteError::Refused`], keyed by
-    /// the input's field enum, as [`validate_input`](Self::validate_input) is: the transaction
+    /// the input, as [`validate_input`](Self::validate_input) is: the transaction
     /// rolls back and the input page renders with the errors. An action that asks for nothing has
-    /// no field to refuse, its `WriteError<Infallible>`, and declines with
+    /// no field to refuse, its `WriteError<()>`, and declines with
     /// [`WriteError::declined`] instead, which rolls back and flashes the message.
     fn run(
         cx: &Cx,
         records: &[R::Model],
         input: Self::Input,
         ex: &mut dyn toasty::Executor,
-    ) -> impl Future<Output = Result<crate::Outcome, WriteError<<Self::Input as FormInput>::Field>>> + Send;
+    ) -> impl Future<Output = Result<crate::Outcome, WriteError<Self::Input>>> + Send;
 }
 
 /// An erased action's body: it acts on the records with the parsed input inside the transaction.
@@ -485,7 +482,7 @@ fn parse_input_erased<R: Resource, A: Action<R>>(cx: &Cx, values: &FormValues) -
 pub(crate) fn parse_validated<I: FormInput>(
     cx: &Cx,
     values: &FormValues,
-    validate: fn(&Cx, &I) -> FieldErrors<I::Field>,
+    validate: fn(&Cx, &I) -> FieldErrors<I>,
 ) -> InputResult {
     let input = I::parse(cx, values)?;
     let refused: Vec<FieldError> = validate(cx, &input)

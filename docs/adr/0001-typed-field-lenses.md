@@ -31,9 +31,17 @@ function per place instead, and a table and a detail page each call their own: a
 sortable day in a table and the stored instant on a detail page. A table's tuple therefore takes
 anything `IntoColumns`, as a detail page's takes anything `IntoDetail`.
 
-A form's field enum (`ProductFormField`) is transport: it keys a posted value and an error. A
-column never reads it. It stays in an app's code only where an error names a field, in
-`FieldErrors` and `WriteError`, until those key by the form instead.
+A form's field enum (`ProductFormField`) is transport: the key a value posts and an error
+renders under, which an app's code never spells. A column never reads it, and an error is keyed
+by its form, `FieldErrors<ProductForm>` and `WriteError<ProductForm>`, through the form's
+`FormFields`: the enum, and a keys struct the derive writes beside it with one field per form
+field. An error picks its field off those keys by name, `errors.add(|f| f.qty, ..)`, as
+`posted.named(|f| f.qty)` and `WriteError::<ProductForm>::field(|f| f.qty, ..)` do, so a renamed
+field fails to compile and no signature names the enum. The closure's argument is inferred from
+the form type, so a `FieldErrors::new()` or a `WriteError::field` whose form only the return type
+gives names it, `FieldErrors::<ProductForm>::new()`. An action with no input is keyed by `()`. The panel's
+own errors stay keyed by the form key, `FieldErrors<String>`, and a test client posts by the
+enum, the transport it drives.
 
 A closed set of values is a unit enum field deriving `toasty::Embed` and `Options`, so a choice
 field, a select filter, a column and a group header read its options and labels from the type, and
@@ -66,4 +74,8 @@ leaves are spelled through its form schema, as its form spells them.
   detail page the same column, where they pick differently.
 - Picking by the field's spelled type in the derive: an `Options` enum and an embedded struct are
   both a bare path, and an alias hides a date.
-
+- Keying a refusal by the field enum (`FieldErrors<ProductFormField>`,
+  `errors.add(ProductFormField::Qty, ..)`): every signature and call site spells a transport type
+  the derive names, not the form the app declared.
+- A key accessor beside the enum (`ProductForm::keys().qty`): it still names the form at every
+  call, where the closure takes it from the type the error is already keyed by.

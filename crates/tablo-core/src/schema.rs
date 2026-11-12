@@ -498,7 +498,7 @@ impl<F> Schema<F> {
                 .validate_exists(cx, value, parent, stored.get(name))
                 .await
             {
-                errors.add(name, message);
+                errors.add_field(name, message);
             }
         }
     }
@@ -555,7 +555,7 @@ impl<F> Schema<F> {
                 .recheck(cx, value, parent, stored.get(name), &mut *ex)
                 .await
             {
-                errors.add(name, message);
+                errors.add_field(name, message);
             }
         }
         errors

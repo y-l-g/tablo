@@ -280,7 +280,7 @@ impl Registrar for Misspelled {
         _ex: &mut dyn toasty::Executor,
     ) -> topcoat::Result<FieldErrors> {
         let mut errors = FieldErrors::new();
-        errors.add("e-mail", "No control renders this");
+        errors.add_field("e-mail", "No control renders this");
         Ok(errors)
     }
 

@@ -112,7 +112,7 @@ pub use tablo_macros::EmbeddedForm;
 ///         posts: &[Post],
 ///         rejection: Rejection,
 ///         ex: &mut dyn toasty::Executor,
-///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError<RejectionField>> {
+///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError<Rejection>> {
 ///         // Store `rejection.reason`, notify when `rejection.notify_author` holds…
 ///         # let _ = (posts, rejection.reason, rejection.notify_author, ex);
 ///         Ok(tablo_core::Outcome::done())
@@ -125,12 +125,13 @@ pub use tablo_macros::EmbeddedForm;
 /// [`Options`](derive@crate::Options), `#[form(options = T)]` one over `T`'s, and any other
 /// [`FormScalar`](crate::FormScalar) a text input of the type's input type.
 ///
-/// Beside the struct, the derive declares its [`Field`](crate::FormInput::Field) enum with the
-/// struct's visibility: `RejectionField`, one variant per field in Pascal case
-/// (`RejectionField::NotifyAuthor`), which
-/// [`Action::validate_input`](crate::Action::validate_input) refuses a value under. Two fields
-/// whose names make one variant, such as `foo_bar` and `foo__bar`, fail to compile at the
-/// second.
+/// Beside the struct, the derive declares its [`FormFields`](crate::FormFields) with the
+/// struct's visibility: the keys `RejectionKeys`, one field per field, which
+/// [`Action::validate_input`](crate::Action::validate_input) picks the field it refuses off,
+/// `errors.add(|f| f.notify_author, ..)`, and the transport enum `RejectionField`, one variant
+/// per field in Pascal case (`RejectionField::NotifyAuthor`), the key the error posts under.
+/// Two fields whose names make one variant, such as `foo_bar` and `foo__bar`, fail to compile
+/// at the second.
 ///
 /// One item of a repeater is an embedded struct a `#[document]` list stores, which a
 /// [`RecordForm`](derive@crate::RecordForm) edits with `#[form(repeat)]`:
@@ -197,7 +198,7 @@ pub use tablo_macros::EmbeddedForm;
 /// input with a field named `csrf_token`, `confirm` or `ids`, and a sign-up's with one named
 /// `csrf_token` or `next`: the keys each POST carries besides its input.
 ///
-/// A hand-written impl names its own [`Field`](crate::FormInput::Field) type, or
+/// A hand-written impl names its own [`Field`](crate::FormFields::Field) type, or
 /// [`Infallible`](std::convert::Infallible) when no hook refuses it by field, and builds its
 /// fields with [`Field::text_input`](crate::Field::text_input),
 /// [`Field::choice_input`](crate::Field::choice_input)
@@ -221,7 +222,7 @@ pub use tablo_macros::FormInput;
 ///     pub created_at: jiff::Timestamp,
 /// }
 ///
-/// // The derive wrote `BookForm { title, subtitle }`, with `BookFormField` and
+/// // The derive wrote `BookForm { title, subtitle }`, with `BookFormKeys`, `BookFormField` and
 /// // `BookFormControls`, as `#[derive(RecordForm)]` would.
 /// let form = BookForm {
 ///     title: "Dune".into(),
@@ -439,10 +440,12 @@ pub use tablo_macros::PanelModel;
 /// }
 /// ```
 ///
-/// The derive also emits `UserFormField`, one variant per field in Pascal case, which
-/// `Posted` and `Resource::validate_record`'s `FieldErrors` key on and
-/// `RecordForm::fields` answers with each variant's keys. Two fields whose names make one
-/// variant, such as `foo_bar` and `foo__bar`, fail to compile at the second.
+/// The derive also emits the form's [`FormFields`](crate::FormFields): `UserFormKeys`, one
+/// field per field, which an error picks its field off by name (`errors.add(|f| f.age, ..)`,
+/// `posted.named(|f| f.age)`), and the transport enum `UserFormField`, one variant per field
+/// in Pascal case, which a posted key and an error render under and `RecordForm::fields`
+/// answers with each variant's keys. Two fields whose names make one variant, such as
+/// `foo_bar` and `foo__bar`, fail to compile at the second.
 /// It emits `UserFormControls`, one control per field chosen from the field —
 /// a `bool` is a toggle, `#[form(options = T)]` a choice over `T`'s options,
 /// `#[form(options)]` a choice over the field type's options (a multiple choice over a `Vec`
@@ -538,11 +541,11 @@ pub use tablo_macros::PanelModel;
 /// - Validation runs in one round. The record form's parse (required fields and typed values),
 ///   email, relationships and uniqueness are checked together, and the form re-renders with
 ///   every error inline, with status 200 and nothing written. `validate_record` needs the
-///   parsed form, so it runs only when every field parses. It returns
-///   `FieldErrors<UserFormField>`, keyed by the record form's field enum
-///   (`errors.add(UserFormField::Age, "Age must be zero or more")`), so every error renders
-///   under its field's control, or an embedded value's first control. A rule that reads the
-///   database refuses from `create_record` or `update_record` instead, which render their
+///   parsed form, so it runs only when every field parses. It returns `FieldErrors<UserForm>`,
+///   keyed by the record form, each error naming a field (`errors.add(|f| f.age, "Age must be
+///   zero or more")`), so every error renders under its field's control, or an embedded
+///   value's first control. A rule that reads the database refuses from `create_record` or
+///   `update_record` instead, which render their
 ///   [`WriteError::Refused`](crate::WriteError::Refused) errors the same way.
 /// - Unknown keys are refused. A POST carrying a key the form does not declare answers 400, so
 ///   a client cannot write `role` or `tenant_id`. The CSRF token, the edit form's

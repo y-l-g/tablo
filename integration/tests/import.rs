@@ -64,11 +64,11 @@ impl Resource for EmployeeResource {
     }
 
     /// Refuses a row named `Hidden` twice under the salary, which a sales request cannot see.
-    fn validate_record(_cx: &Cx, form: &EmployeeForm) -> FieldErrors<EmployeeFormField> {
-        let mut errors = FieldErrors::new();
+    fn validate_record(_cx: &Cx, form: &EmployeeForm) -> FieldErrors<EmployeeForm> {
+        let mut errors = FieldErrors::<EmployeeForm>::new();
         if form.name == "Hidden" {
-            errors.add(EmployeeFormField::Salary, "Salary is out of range");
-            errors.add(EmployeeFormField::Salary, "Salary is not on the grid");
+            errors.add(|f| f.salary, "Salary is out of range");
+            errors.add(|f| f.salary, "Salary is not on the grid");
         }
         errors
     }

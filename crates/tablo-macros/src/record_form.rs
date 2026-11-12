@@ -374,6 +374,16 @@ fn expand_struct(
         .iter()
         .map(|name| format_ident!("__read_{}", name))
         .collect();
+    let form_fields = form_fields(
+        krate,
+        vis,
+        ident,
+        &field_enum,
+        &fields
+            .iter()
+            .map(|field| (&field.ident, &field.variant))
+            .collect::<Vec<_>>(),
+    );
 
     quote! {
         #[doc = #enum_doc]
@@ -405,9 +415,10 @@ fn expand_struct(
             }
         }
 
+        #form_fields
+
         impl #krate::__macro::RecordForm for #ident {
             type Model = #model;
-            type Field = #field_enum;
 
             fn control(field: #field_enum) -> #krate::__macro::Schema<Self> {
                 match field {
@@ -483,6 +494,50 @@ fn expand_struct(
                    + ::std::marker::Send
                    + 'a {
                 update.exec(ex)
+            }
+        }
+    }
+}
+
+/// The `FormFields` impl of the form `ident`, whose field enum is `field_enum`, and the keys
+/// struct its errors pick a field from: one `name: field_enum::Variant` per field.
+pub(crate) fn form_fields(
+    krate: &TokenStream2,
+    vis: &syn::Visibility,
+    ident: &syn::Ident,
+    field_enum: &syn::Ident,
+    fields: &[(&syn::Ident, &syn::Ident)],
+) -> TokenStream2 {
+    let keys_ident = format_ident!("{}Keys", ident);
+    let keys_doc = format!(
+        "The fields of [`{ident}`], each named like the field: what an error picks a field from, \
+         `errors.add(|f| f.name, ..)`."
+    );
+    let key_fields = fields.iter().map(|(name, _)| {
+        let doc = format!("The `{}` field.", name.to_string().trim_start_matches("r#"));
+        quote! {
+            #[doc = #doc]
+            pub #name: #field_enum
+        }
+    });
+    let key_inits = fields
+        .iter()
+        .map(|(name, variant)| quote! { #name: #field_enum::#variant });
+    quote! {
+        #[doc = #keys_doc]
+        #[derive(Debug, Clone, Copy)]
+        #vis struct #keys_ident {
+            #(#key_fields,)*
+        }
+
+        impl #krate::__macro::FormFields for #ident {
+            type Field = #field_enum;
+            type Keys = #keys_ident;
+
+            fn keys() -> #keys_ident {
+                #keys_ident {
+                    #(#key_inits,)*
+                }
             }
         }
     }

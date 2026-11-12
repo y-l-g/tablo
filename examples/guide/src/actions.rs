@@ -24,7 +24,7 @@ impl Action<PostResource> for Publish {
         posts: &[Post],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> Result<tablo::Outcome, tablo::WriteError<()>> {
         Post::filter(filter_keys(posts))
             .update()
             .status(PostStatus::Published)
@@ -60,13 +60,10 @@ impl Action<PostResource> for ChangeStatus {
     }
     // ANCHOR_END: places
 
-    fn validate_input(_cx: &Cx, change: &StatusChange) -> FieldErrors<StatusChangeField> {
-        let mut errors = FieldErrors::new();
+    fn validate_input(_cx: &Cx, change: &StatusChange) -> FieldErrors<StatusChange> {
+        let mut errors = FieldErrors::<StatusChange>::new();
         if change.featured && change.status == PostStatus::Draft {
-            errors.add(
-                StatusChangeField::Featured,
-                "Only a published post is featured",
-            );
+            errors.add(|f| f.featured, "Only a published post is featured");
         }
         errors
     }
@@ -76,7 +73,7 @@ impl Action<PostResource> for ChangeStatus {
         posts: &[Post],
         change: StatusChange,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, tablo::WriteError<StatusChangeField>> {
+    ) -> Result<tablo::Outcome, tablo::WriteError<StatusChange>> {
         Post::filter(filter_keys(posts))
             .update()
             .status(change.status)
@@ -108,7 +105,7 @@ impl HeaderAction for PublishDrafts {
         cx: &Cx,
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> Result<tablo::Outcome, tablo::WriteError<()>> {
         // No record is loaded: the action scopes its own query to the request's tenant.
         let drafts = scoped_query::<PostResource>(cx)?
             .filter(Post::fields().status().eq(PostStatus::Draft))

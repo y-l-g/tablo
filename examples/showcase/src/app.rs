@@ -29,7 +29,7 @@ use crate::{
     media::{MediaLibrary, MediaLibraryPage},
     models::{
         Author, AuthorForm, BLOCKED_TENANT, Category, CategoryForm, Comment, Link, Post,
-        PostStatus, Publication, REMOVED_COMMENT_BODY, Seo, User, UserForm, UserFormField,
+        PostStatus, Publication, REMOVED_COMMENT_BODY, Seo, User, UserForm,
     },
     post_actions::{PublishAllDrafts, PublishPosts, TagPosts},
     post_pages::{PostPreviewPage, read_minutes, word_count},
@@ -91,10 +91,10 @@ impl Resource for UserResource {
     }
 
     /// Refuses a negative age.
-    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors<UserFormField> {
-        let mut errors = FieldErrors::new();
+    fn validate_record(_cx: &Cx, form: &UserForm) -> FieldErrors<UserForm> {
+        let mut errors = FieldErrors::<UserForm>::new();
         if form.age < 0 {
-            errors.add(UserFormField::Age, "Age must be zero or more");
+            errors.add(|f| f.age, "Age must be zero or more");
         }
         errors
     }

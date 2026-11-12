@@ -1,20 +1,15 @@
-error[E0277]: the trait bound `NoteField: From<&str>` is not satisfied
+error[E0277]: expected an `FnOnce(_)` closure, found `&str`
   --> tests/compile_fail/action_refuses_a_string_key.rs:36:31
    |
 36 |         Err(WriteError::field("bdy", "Too short"))
-   |             ----------------- ^^^^^ unsatisfied trait bound
+   |             ----------------- ^^^^^ expected an `FnOnce(_)` closure, found `&str`
    |             |
    |             required by a bound introduced by this call
    |
-help: the trait `From<&str>` is not implemented for `NoteField`
-  --> tests/compile_fail/action_refuses_a_string_key.rs:18:10
-   |
-18 | #[derive(FormInput)]
-   |          ^^^^^^^^^
-   = note: required for `&str` to implement `Into<NoteField>`
-note: required by a bound in `WriteError::<K>::field`
+   = help: the trait `Fn(_)` is not implemented for `str`
+   = note: required for `&str` to implement `FnOnce(_)`
+note: required by a bound in `WriteError::<F>::field`
   --> src/resource/write_error.rs
    |
-   |     pub fn field(key: impl Into<K>, message: impl Into<crate::Text>) -> Self {
-   |                            ^^^^^^^ required by this bound in `WriteError::<K>::field`
-   = note: this error originates in the derive macro `FormInput` (in Nightly builds, run with -Z macro-backtrace for more info)
+   |     pub fn field(pick: impl FnOnce(F::Keys) -> F::Field, message: impl Into<crate::Text>) -> Self {
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `WriteError::<F>::field`

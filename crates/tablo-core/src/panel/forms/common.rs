@@ -239,7 +239,7 @@ impl FilePosts {
                 file.count_refusal(&field.label(), paths.len())
             });
             if let Some(refusal) = refusal.filter(|_| !errors.contains_key(&post.name)) {
-                errors.add(post.name.clone(), refusal);
+                errors.add_field(post.name.clone(), refusal);
             }
             values.insert(&post.name, FormValue::List(paths));
         }
@@ -271,7 +271,7 @@ pub(super) fn refuse_too_many_files(
         let chosen = files.get(field.name()).map_or(0, Vec::len);
         if let Some(refusal) = file.count_refusal(&field.label(), chosen) {
             files.remove(field.name());
-            errors.add(field.name(), refusal);
+            errors.add_field(field.name(), refusal);
         }
     }
     errors

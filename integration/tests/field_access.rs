@@ -117,10 +117,10 @@ impl Resource for DefaultedResource {
             )))
     }
 
-    fn validate_record(_cx: &Cx, form: &EmployeeForm) -> FieldErrors<EmployeeFormField> {
-        let mut errors = FieldErrors::new();
+    fn validate_record(_cx: &Cx, form: &EmployeeForm) -> FieldErrors<EmployeeForm> {
+        let mut errors = FieldErrors::<EmployeeForm>::new();
         if form.salary == "S-bad" {
-            errors.add(EmployeeFormField::Salary, "Salary S-bad is out of range");
+            errors.add(|f| f.salary, "Salary S-bad is out of range");
         }
         errors
     }

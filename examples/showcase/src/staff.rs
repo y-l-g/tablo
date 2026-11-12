@@ -177,7 +177,7 @@ impl Registrar for StaffAuth {
             .exec(ex)
             .await?;
         if taken.is_some() {
-            errors.add("email", "Email has already been taken");
+            errors.add_field("email", "Email has already been taken");
         }
         Ok(errors)
     }
@@ -316,7 +316,7 @@ impl ProfileEditor for StaffAuth {
         if new_email || profile.password.is_some() {
             let current = profile.current_password.as_deref().unwrap_or_default();
             if !verify_password(current, Some(&staff.password_hash)).await {
-                errors.add("current_password", "The current password is incorrect");
+                errors.add_field("current_password", "The current password is incorrect");
             }
         }
         // Only the account's owner learns whether another account holds an email.
@@ -326,7 +326,7 @@ impl ProfileEditor for StaffAuth {
                 .exec(ex)
                 .await?;
             if taken.is_some() {
-                errors.add("email", "Email has already been taken");
+                errors.add_field("email", "Email has already been taken");
             }
         }
         Ok(errors)

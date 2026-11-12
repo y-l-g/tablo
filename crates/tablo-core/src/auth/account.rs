@@ -158,7 +158,7 @@ pub trait PasswordAccount:
     /// checked, and the page renders each error under its field's control. `profile.email` is as
     /// typed: compare it through [`normalize_email`](super::normalize_email), as the stored email
     /// is spelled.
-    fn profile_errors(user: &Self::User, profile: &Profile) -> FieldErrors<ProfileField> {
+    fn profile_errors(user: &Self::User, profile: &Profile) -> FieldErrors<Profile> {
         let _ = (user, profile);
         FieldErrors::new()
     }
@@ -313,12 +313,12 @@ impl<A: PasswordAccount> ProfileEditor for PasswordAuth<A> {
         if new_email || profile.password.is_some() {
             let hash = A::password_hash().read(account);
             match &profile.current_password {
-                None => errors.add(
+                None => errors.add_field(
                     CURRENT_PASSWORD_FIELD,
                     crate::text!("tablo-profile-current-password-needed"),
                 ),
                 Some(current) if !verify_password(current, Some(hash)).await => {
-                    errors.add(
+                    errors.add_field(
                         CURRENT_PASSWORD_FIELD,
                         crate::text!("tablo-profile-current-password-wrong"),
                     );
@@ -336,7 +336,7 @@ impl<A: PasswordAccount> ProfileEditor for PasswordAuth<A> {
                 .await?
                 .is_some_and(|other| pk_text(&other) != pk_text(account))
         {
-            errors.add(email_key, email_taken());
+            errors.add_field(email_key, email_taken());
         }
         Ok(errors)
     }

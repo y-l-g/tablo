@@ -25,7 +25,7 @@ impl HeaderAction for Drain {
         _: &Cx,
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<()>> {
         Ok(tablo::Outcome::done())
     }
 }

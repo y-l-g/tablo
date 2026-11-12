@@ -13,7 +13,7 @@ mod zone;
 use std::collections::BTreeMap;
 
 pub(crate) use error::unreadable;
-pub use error::{FieldError, FieldErrorKind, FieldErrors};
+pub use error::{FieldError, FieldErrorKind, FieldErrors, FormFields};
 pub use parse::{parse_list, parse_password, parse_scalar, write_list};
 pub use scalar::{FormScalar, NullableScalar, assert_form_scalar};
 pub use typed::TypedValue;

@@ -353,9 +353,14 @@ struct LockedEmail {
     email: String,
 }
 
-impl FormInput for LockedEmail {
+impl tablo::FormFields for LockedEmail {
     type Field = std::convert::Infallible;
+    type Keys = ();
 
+    fn keys() -> Self::Keys {}
+}
+
+impl FormInput for LockedEmail {
     fn key(field: Self::Field) -> &'static str {
         match field {}
     }
@@ -443,9 +448,14 @@ struct Shift {
 /// The instant [`ShiftProfile`] fills, with seconds its control does not show.
 const STARTS_AT: &str = "2026-03-04T05:06:07.5Z";
 
-impl FormInput for Shift {
+impl tablo::FormFields for Shift {
     type Field = std::convert::Infallible;
+    type Keys = ();
 
+    fn keys() -> Self::Keys {}
+}
+
+impl FormInput for Shift {
     fn key(field: Self::Field) -> &'static str {
         match field {}
     }

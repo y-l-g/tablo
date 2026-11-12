@@ -67,9 +67,9 @@ pub mod __macro {
         detail::Detail,
         extend::{Includes, OptionSource},
         form::{
-            FieldError, FormField, FormInput, FormScalar, FormValues, NullableScalar, RecordForm,
-            assert_form_scalar, links_include, links_key, parse_list, parse_password, parse_scalar,
-            required_input, write_links,
+            FieldError, FormField, FormFields, FormInput, FormScalar, FormValues, NullableScalar,
+            RecordForm, assert_form_scalar, links_include, links_key, parse_list, parse_password,
+            parse_scalar, required_input, write_links,
         },
         i18n::option_label,
         schema::{
@@ -147,7 +147,7 @@ pub use auth::{
     panel_user::{Authenticator, PanelUser},
     password::PasswordSignUp,
     password_reset::{PasswordReset, PasswordResetter},
-    profile::{Profile, ProfileEditor, ProfileField, ProfileUpdate},
+    profile::{Profile, ProfileEditor, ProfileField, ProfileKeys, ProfileUpdate},
     registration::{Registrar, SignUp},
     tenant_profile::TenantEditor,
     tenant_registration::{TenantRegistrar, TenantRegistration},
@@ -220,8 +220,8 @@ pub use tenancy::{
 };
 pub use upload::{DirUploader, Uploader, sanitize_filename};
 pub use values::{
-    FieldError, FieldErrorKind, FieldErrors, FormField, FormScalar, FormValue, FormValues,
-    parse_list, parse_password, parse_scalar, time_zone, write_list,
+    FieldError, FieldErrorKind, FieldErrors, FormField, FormFields, FormScalar, FormValue,
+    FormValues, parse_list, parse_password, parse_scalar, time_zone, write_list,
 };
 pub use widget::{
     DEFAULT_RECORD_ROWS, MAX_RECORD_ROWS, RecordTable, Stat, Trend, Widget, WidgetDef,

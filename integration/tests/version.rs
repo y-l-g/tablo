@@ -129,7 +129,7 @@ async fn a_write_the_version_condition_refuses_re_renders_the_form() {
             record: Note,
             posted: tablo::Posted<NoteForm>,
             ex: &mut dyn toasty::Executor,
-        ) -> Result<Note, tablo::WriteError<NoteFormField>> {
+        ) -> Result<Note, tablo::WriteError<NoteForm>> {
             // Another save, after the load: `record` now holds the version it replaced.
             record
                 .clone()
@@ -172,12 +172,12 @@ async fn a_refused_save_carries_the_version_it_opened_on() {
             record: Note,
             posted: tablo::Posted<NoteForm>,
             ex: &mut dyn toasty::Executor,
-        ) -> Result<Note, tablo::WriteError<NoteFormField>> {
+        ) -> Result<Note, tablo::WriteError<NoteForm>> {
             let refused = posted.title == "refused";
             let written = tablo::write_update::<Self>(cx, record, posted, ex).await?;
             if refused {
-                return Err(tablo::WriteError::field(
-                    NoteFormField::Title,
+                return Err(tablo::WriteError::<NoteForm>::field(
+                    |f| f.title,
                     "Not that one",
                 ));
             }
@@ -244,7 +244,7 @@ async fn a_failed_condition_on_an_unversioned_model_is_no_stale_form() {
             _record: Plain,
             _posted: tablo::Posted<PlainForm>,
             _ex: &mut dyn toasty::Executor,
-        ) -> Result<Plain, tablo::WriteError<PlainFormField>> {
+        ) -> Result<Plain, tablo::WriteError<PlainForm>> {
             Err(toasty::Error::condition_failed("an app's own condition").into())
         }
     }

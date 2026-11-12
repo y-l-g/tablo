@@ -166,10 +166,10 @@ impl HeaderAction for FeatureTagged {
             .can_run(|cx| tablo::can::<PostResource>(cx, Ability::RunHeader { action: Self::NAME }))
     }
 
-    fn validate_input(_cx: &Cx, input: &FeatureTag) -> FieldErrors<FeatureTagField> {
-        let mut errors = FieldErrors::new();
+    fn validate_input(_cx: &Cx, input: &FeatureTag) -> FieldErrors<FeatureTag> {
+        let mut errors = FieldErrors::<FeatureTag>::new();
         if input.tag.contains(',') {
-            errors.add(FeatureTagField::Tag, "One tag, without commas");
+            errors.add(|f| f.tag, "One tag, without commas");
         }
         errors
     }
@@ -178,7 +178,7 @@ impl HeaderAction for FeatureTagged {
         cx: &Cx,
         input: FeatureTag,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, tablo::WriteError<FeatureTagField>> {
+    ) -> Result<tablo::Outcome, tablo::WriteError<FeatureTag>> {
         let tag = input.tag.trim();
         let mut posts = scoped_query::<PostResource>(cx)?.exec(&mut *ex).await?;
         posts.retain(|post| post.tags.split(',').any(|t| t.trim() == tag));

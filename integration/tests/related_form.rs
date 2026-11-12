@@ -69,13 +69,10 @@ impl Resource for ProfileResource {
         })
     }
 
-    fn validate_record(
-        _cx: &Cx,
-        form: &ProfileForm,
-    ) -> FieldErrors<<ProfileForm as tablo::RecordForm>::Field> {
-        let mut errors = FieldErrors::new();
+    fn validate_record(_cx: &Cx, form: &ProfileForm) -> FieldErrors<ProfileForm> {
+        let mut errors = FieldErrors::<ProfileForm>::new();
         if form.bio == "refused" {
-            errors.add(ProfileFormField::Bio, "Refused");
+            errors.add(|f| f.bio, "Refused");
         }
         errors
     }
@@ -84,7 +81,7 @@ impl Resource for ProfileResource {
         cx: &Cx,
         form: ProfileForm,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Profile, WriteError<ProfileFormField>> {
+    ) -> Result<Profile, WriteError<ProfileForm>> {
         if form.bio == "declined" {
             return Err(WriteError::declined(DECLINED));
         }
@@ -567,7 +564,7 @@ async fn a_child_created_since_the_read_refuses_as_stale() {
             record: Member,
             posted: tablo::Posted<MemberForm>,
             ex: &mut dyn toasty::Executor,
-        ) -> Result<Member, tablo::WriteError<MemberFormField>> {
+        ) -> Result<Member, tablo::WriteError<MemberForm>> {
             // Another save, after the submission was read: the record now holds a child.
             toasty::create!(Profile {
                 member_id: record.id,

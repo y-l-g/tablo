@@ -146,12 +146,13 @@ each field's control and its required mark as a record form does; `FormInput` li
 attributes and the names an input may not use.
 
 A refusal lands on the input, never on a half-written record. `validate_input` refuses before the
-transaction opens and sees no record, as `ChangeStatus` refuses to feature a draft. It names the
-field it refuses by the enum the derive declares beside the input, `StatusChangeField`, so a
-renamed field fails to compile rather than render no message. A rule that reads the database
-refuses from `run` with `Err(WriteError::field(StatusChangeField::Featured, ".."))`, keyed by the
-same enum, and the transaction rolls back what `run` wrote. Either way the input renders as a page with the
-error under its control. A reason that names no field declines instead, with
+transaction opens and sees no record, as `ChangeStatus` refuses to feature a draft. Its errors
+are keyed by the input, `FieldErrors::<StatusChange>::new()`, and each picks the field it refuses
+by name, `errors.add(|f| f.featured, "..")`, so a renamed field fails to compile rather than render
+no message. A rule that reads the database refuses from `run` with
+`Err(WriteError::<StatusChange>::field(|f| f.featured, ".."))`, keyed by the input too, and the
+transaction rolls back what `run` wrote. Either way the input renders as a page with the error
+under its control. A reason that names no field declines instead, with
 `Err(WriteError::declined(".."))`: the transaction rolls back and the message flashes.
 
 ## Names

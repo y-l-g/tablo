@@ -39,7 +39,7 @@ impl HeaderAction for Subscribe {
         _cx: &Cx,
         choice: Choice,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<ChoiceField>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<Choice>> {
         toasty::create!(Subscription {
             plan: choice.plan,
             yearly: choice.yearly,

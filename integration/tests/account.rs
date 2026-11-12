@@ -6,8 +6,8 @@
 use jiff::Timestamp;
 use tablo::{
     Auth, AuthMail, EmailVerification, FieldErrors, Lens, Membership, NoForm, PanelUser,
-    PasswordAccount, PasswordAuth, PasswordReset, Profile, ProfileField, ReadOnly, Resource,
-    ResourceDef, ResourcePage, RouterBuilderPanelExt, Table, TextColumn,
+    PasswordAccount, PasswordAuth, PasswordReset, Profile, ReadOnly, Resource, ResourceDef,
+    ResourcePage, RouterBuilderPanelExt, Table, TextColumn,
     auth::{AuthSession, AuthToken, hash_password, normalize_email, verify_password},
     lens,
     testing::{form_body, response_cookies},
@@ -115,10 +115,10 @@ impl PasswordAccount for Customer {
         }))
     }
 
-    fn profile_errors(user: &SignedCustomer, profile: &Profile) -> FieldErrors<ProfileField> {
-        let mut errors = FieldErrors::new();
+    fn profile_errors(user: &SignedCustomer, profile: &Profile) -> FieldErrors<Profile> {
+        let mut errors = FieldErrors::<Profile>::new();
         if user.customer.locked && normalize_email(&profile.email) != user.customer.email {
-            errors.add(ProfileField::Email, "locked");
+            errors.add(|f| f.email, "locked");
         }
         errors
     }
