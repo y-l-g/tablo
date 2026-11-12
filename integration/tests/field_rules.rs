@@ -3,9 +3,9 @@
 
 use jiff::civil::date;
 use tablo::{
-    Action, Allow, Auth, DeclarationErrorKind, Field, FieldError, FieldRuleFault, FormInput,
-    FormValues, Panel, Resource, ResourceDef, Schema, Table, TextColumn, Toggle, lens, parse_list,
-    parse_scalar, testing::ErrorKind,
+    Action, ActionDef, Allow, Auth, DeclarationErrorKind, Field, FieldError, FieldRuleFault,
+    FormInput, FormValues, Panel, Resource, ResourceDef, Schema, Table, TextColumn, Toggle, lens,
+    parse_list, parse_scalar, testing::ErrorKind,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -100,8 +100,8 @@ impl Action<TicketResource> for Book {
     type Input = Booking;
     const NAME: &'static str = "book";
 
-    fn label() -> tablo::Text {
-        "Book".into()
+    fn declare() -> ActionDef<TicketResource> {
+        ActionDef::new().label("Book")
     }
 
     async fn run(
@@ -565,8 +565,8 @@ async fn a_misdeclared_list_or_checkbox_rule_refuses_the_mount() {
         type Input = Misdeclared;
         const NAME: &'static str = "run";
 
-        fn label() -> tablo::Text {
-            "Run".into()
+        fn declare() -> ActionDef<Trips> {
+            ActionDef::new().label("Run")
         }
 
         async fn run(

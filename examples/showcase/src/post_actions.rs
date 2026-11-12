@@ -1,8 +1,8 @@
 //! The post list's actions: publishing, from a row, for the selection or from the header, and
 //! tagging.
 
-use tablo::{Action, HeaderAction, filter_keys, scoped_query};
-use topcoat::{Result, context::Cx, icon::IconData};
+use tablo::{Action, ActionDef, HeaderAction, HeaderActionDef, filter_keys, scoped_query};
+use topcoat::{Result, context::Cx};
 
 use crate::{
     app::PostResource,
@@ -15,14 +15,12 @@ pub struct PublishPosts;
 impl Action<PostResource> for PublishPosts {
     type Input = ();
     const NAME: &'static str = "publish";
-    const ICON: Option<IconData> = Some(tablo::ui::icons::CHECK);
 
-    fn can_run(_cx: &Cx, post: &Post) -> bool {
-        post.status != PostStatus::Published
-    }
-
-    fn disabled_reason(_cx: &Cx, _post: &Post) -> Option<tablo::Text> {
-        Some("Already published".into())
+    fn declare() -> ActionDef<PostResource> {
+        ActionDef::new()
+            .icon(tablo::ui::icons::CHECK)
+            .can_run(|_cx, post: &Post| post.status != PostStatus::Published)
+            .disabled_reason(|_cx, _post| Some("Already published".into()))
     }
 
     async fn run(
@@ -46,10 +44,9 @@ pub struct PublishAllDrafts;
 impl HeaderAction for PublishAllDrafts {
     type Input = ();
     const NAME: &'static str = "publish-all-drafts";
-    const CONFIRM: bool = true;
 
-    fn confirmation() -> tablo::Text {
-        "Publish every draft?".into()
+    fn declare() -> HeaderActionDef {
+        HeaderActionDef::new().confirmation("Publish every draft?")
     }
 
     async fn run(
@@ -89,7 +86,10 @@ pub struct TagPosts;
 impl Action<PostResource> for TagPosts {
     type Input = Tagging;
     const NAME: &'static str = "tag";
-    const ICON: Option<IconData> = Some(tablo::ui::icons::TAG);
+
+    fn declare() -> ActionDef<PostResource> {
+        ActionDef::new().icon(tablo::ui::icons::TAG)
+    }
 
     async fn run(
         _cx: &Cx,

@@ -4,7 +4,7 @@
 //! and a write of a field another resource's form hides.
 
 use tablo::{
-    Action, Allow, Field, FieldAccessFault, FieldError, FormInput, FormValues, Outcome,
+    Action, ActionDef, Allow, Field, FieldAccessFault, FieldError, FormInput, FormValues, Outcome,
     QueryFilter, Resource, ResourceDef, Schema, SelectFilter, Site, Table, Tenancy, TextColumn,
     lens,
 };
@@ -396,8 +396,8 @@ impl Action<PickCards> for Pick {
     type Input = Choosing;
     const NAME: &'static str = "pick";
 
-    fn label() -> tablo::Text {
-        "Pick".into()
+    fn declare() -> ActionDef<PickCards> {
+        ActionDef::new().label("Pick")
     }
 
     async fn run(

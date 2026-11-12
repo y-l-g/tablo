@@ -75,7 +75,7 @@ impl Input {
 }
 
 /// The bar of `actions` under `url`, a list's or a page's, each the request may run: one that
-/// `allowed` and its own [`can_run`](crate::HeaderAction::can_run) admit.
+/// `allowed` and its own [`can_run`](crate::HeaderActionDef::can_run) admit.
 pub(crate) fn header_bar(
     cx: &Cx,
     url: &str,
@@ -109,7 +109,7 @@ pub(crate) fn header_bar(
 
 /// The button of the header `action` under `url`, posting `preset` as its input instead of asking
 /// for it, and confirming first when the action does; empty when its
-/// [`can_run`](crate::HeaderAction::can_run) refuses the request.
+/// [`can_run`](crate::HeaderActionDef::can_run) refuses the request.
 pub(crate) fn preset_button(
     cx: &Cx,
     url: &str,

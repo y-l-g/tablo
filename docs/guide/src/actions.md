@@ -8,7 +8,10 @@ list or of a custom [page](./panel-and-routing.md#pages).
 ## Record actions
 
 A record action is a type implementing [`Action<R>`](https://y-l.fr/tablo/nightly/api/tablo/trait.Action.html),
-added to the def with `ResourceDef::action`:
+added to the def with `ResourceDef::action`. Its `NAME` is its URL segment and the name policies
+answer for, `run` holds the write, and `declare` returns an
+[`ActionDef`](https://y-l.fr/tablo/nightly/api/tablo/struct.ActionDef.html) with everything else,
+each setting defaulted, as a resource's `declare` returns its `ResourceDef`:
 
 ```rust
 {{#include ../../../examples/guide/src/actions.rs:publish-action}}
@@ -32,7 +35,7 @@ what a refused record or selection answers.
 
 ### Where it shows
 
-`const PLACES` says where the button renders: each row, the detail and edit pages' headers, the
+`ActionDef::places` says where the button renders: each row, the detail and edit pages' headers, the
 bulk bar, or any combination of them, by default all four. An action for the detail page and the
 bulk bar only declares:
 
@@ -41,7 +44,7 @@ bulk bar only declares:
 ```
 
 [`Places`](https://y-l.fr/tablo/nightly/api/tablo/struct.Places.html) names each place, and
-[`Action::PLACES`](https://y-l.fr/tablo/nightly/api/tablo/trait.Action.html#associatedconstant.PLACES)
+[`ActionDef::places`](https://y-l.fr/tablo/nightly/api/tablo/struct.ActionDef.html#method.places)
 says which routes serve an action and which places no page renders. A run from a record's page
 lands back on it, so an action that hides the record from the list, such as an archive, belongs
 on rows and the bulk bar.
@@ -56,7 +59,7 @@ One question decides, `Run` on the record, and two parties answer it:
 
 - the policy, which each panel mounts its own, says who may run the action: `RunAny { action:
   NAME }` for the resource at all, then `Run` for a given record;
-- the action's `can_run` says what the action itself takes, on every panel: a published post
+- the def's `can_run` says what the action itself takes, on every panel: a published post
   refuses "publish".
 
 The button, the route and `can::<R>(cx, Ability::Run { .. })` in your own code all ask both, so
@@ -87,10 +90,13 @@ Ok(match tablo::url::edit::<PostResource>(cx, &copy) {
 
 A file to download is a redirect to an app route that serves it.
 
-A destructive action declares `const CONFIRM: bool = true` to ask first through the delete's
-confirmation dialog, and `fn confirmation()` words its question. `const ICON` puts an icon before
-the button's label wherever it renders, and `const COLOR: Color = Color::Danger` tints the button
-as Delete's is. A header action declares the same three.
+A destructive action's def calls `confirm()` to ask first through the delete's confirmation
+dialog, or `confirmation(question)` to word its question too. `icon` puts an icon before the
+button's label wherever it renders, and `color(Color::Danger)` tints the button as Delete's is.
+`label` replaces the text derived from `NAME`, and `label_for` and `icon_for` change them on one
+record, such as "Deactivate" on an active account and "Activate" on another. A header action's
+[`HeaderActionDef`](https://y-l.fr/tablo/nightly/api/tablo/struct.HeaderActionDef.html) declares
+the same, without the per-record closures.
 
 ## Header actions
 

@@ -5,8 +5,9 @@
 use http::header::LOCATION;
 use tablo::{
     Allow, Area, AreaFault, AuditEntry, Auth, DeclarationErrorKind, FieldErrors, FormInput,
-    HeaderAction, Membership, NoForm, Outcome, Page, PageDef, PasswordAuth, ReadOnly, Resource,
-    ResourceDef, RouterBuilderPanelExt, Table, TenantEditor, TextColumn, WriteError,
+    HeaderAction, HeaderActionDef, Membership, NoForm, Outcome, Page, PageDef, PasswordAuth,
+    ReadOnly, Resource, ResourceDef, RouterBuilderPanelExt, Table, TenantEditor, TextColumn,
+    WriteError,
     auth::{AdminUser, AuthSession, create_admin},
     lens,
     testing::{
@@ -253,8 +254,8 @@ impl HeaderAction for Never {
     type Input = ();
     const NAME: &'static str = "never";
 
-    fn can_run(_cx: &Cx) -> bool {
-        false
+    fn declare() -> HeaderActionDef {
+        HeaderActionDef::new().can_run(|_cx| false)
     }
 
     async fn run(

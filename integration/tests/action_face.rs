@@ -3,7 +3,7 @@
 //!
 //! One resource declares a toggle whose `label_for` reads the account's `active` flag.
 
-use tablo::{Action, Allow, NoForm, Resource, ResourceDef, Table, TextColumn, lens};
+use tablo::{Action, ActionDef, Allow, NoForm, Resource, ResourceDef, Table, TextColumn, lens};
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
@@ -28,16 +28,16 @@ impl Action<AccountResource> for Toggle {
     type Input = ();
     const NAME: &'static str = "toggle";
 
-    fn label() -> tablo::Text {
-        "Toggle".into()
-    }
-
-    fn label_for(_cx: &Cx, account: &Account) -> tablo::Text {
-        if account.active {
-            "Deactivate".into()
-        } else {
-            "Activate".into()
-        }
+    fn declare() -> ActionDef<AccountResource> {
+        ActionDef::new()
+            .label("Toggle")
+            .label_for(|_cx, account: &Account| {
+                if account.active {
+                    "Deactivate".into()
+                } else {
+                    "Activate".into()
+                }
+            })
     }
 
     async fn run(
@@ -58,20 +58,12 @@ impl Action<AccountResource> for Notify {
     type Input = ();
     const NAME: &'static str = "notify";
 
-    fn label() -> tablo::Text {
-        "Notify".into()
-    }
-
-    fn tooltip() -> Option<tablo::Text> {
-        Some("Sends the welcome mail".into())
-    }
-
-    fn can_run(_cx: &Cx, account: &Account) -> bool {
-        account.active
-    }
-
-    fn disabled_reason(_cx: &Cx, _account: &Account) -> Option<tablo::Text> {
-        Some("Reactivate the account first".into())
+    fn declare() -> ActionDef<AccountResource> {
+        ActionDef::new()
+            .label("Notify")
+            .tooltip("Sends the welcome mail")
+            .can_run(|_cx, account: &Account| account.active)
+            .disabled_reason(|_cx, _account| Some("Reactivate the account first".into()))
     }
 
     async fn run(

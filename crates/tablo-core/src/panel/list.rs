@@ -200,7 +200,12 @@ fn wire_custom_actions<R: Resource>(
         .iter()
         .filter(|action| resource.can(cx, action.resource_wide))
         .map(|action| {
-            let action = *action;
+            let action = Arc::new(action.clone());
+            let (face, allow, refuse) = (
+                Arc::clone(&action),
+                Arc::clone(&action),
+                Arc::clone(&action),
+            );
             let (policy_cx, policy) = (cx.clone(), Arc::clone(resource));
             let face_cx = cx.clone();
             let (reason_cx, reasons) = (cx.clone(), Arc::clone(resource));
@@ -216,8 +221,8 @@ fn wire_custom_actions<R: Resource>(
                 tooltip: (action.tooltip)().map(|text| text.localize(cx)),
                 record_face: Arc::new(move |record: &R::Model| {
                     (
-                        (action.label_for)(&face_cx, record).localize(&face_cx),
-                        (action.icon_for)(&face_cx, record),
+                        (face.label_for)(&face_cx, record).localize(&face_cx),
+                        (face.icon_for)(&face_cx, record),
                     )
                 }),
                 color: action.color,
@@ -225,13 +230,13 @@ fn wire_custom_actions<R: Resource>(
                 trashed: action.trashed,
                 allowed: Arc::new(move |record: &R::Model| {
                     policy.can(&policy_cx, Ability::View(record))
-                        && action.allows(&policy, &policy_cx, record)
+                        && allow.allows(&policy, &policy_cx, record)
                 }),
                 disabled: Arc::new(move |record: &R::Model| {
                     if !reasons.can(&reason_cx, Ability::View(record)) {
                         return None;
                     }
-                    let reason = action.disabled_on(&reasons, &reason_cx, record)?;
+                    let reason = refuse.disabled_on(&reasons, &reason_cx, record)?;
                     Some(reason.localize(&reason_cx))
                 }),
             }

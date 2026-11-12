@@ -1,5 +1,7 @@
 //! The built-in entries: delete, and the restore and force delete of a soft-deleting resource.
 
+use std::sync::Arc;
+
 use topcoat::context::Cx;
 
 use super::{ActionEntry, ErasedInput, InputSpec, Places};
@@ -15,31 +17,31 @@ impl<R: Resource> ActionEntry<R> {
     pub(super) fn restore() -> Self {
         Self {
             name: "restore",
-            label: || text!("tablo-action-restore"),
+            label: Arc::new(|| text!("tablo-action-restore")),
             places: Places::ALL,
             resource_wide: Ability::RestoreAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::Restore(record)),
-            state: |_, _| true,
-            disabled: |_, _, _| None,
+            state: Arc::new(|_, _| true),
+            disabled: Arc::new(|_, _, _| None),
             input: InputSpec::none(),
             run: restore_erased::<R>,
-            success: |count| text!("tablo-action-restored", count = count),
+            success: Arc::new(|count| text!("tablo-action-restored", count = count)),
             change: Change::Restore,
             failure: "tablo-failed-restore",
             confirm: false,
             trashed: Trashed::Only,
             removes: false,
-            prompt: |bulk| {
+            prompt: Arc::new(|bulk| {
                 if bulk {
                     text!("tablo-confirm-restore-selected")
                 } else {
                     text!("tablo-confirm-restore")
                 }
-            },
-            icon: || None,
-            label_for: |_, _| text!("tablo-action-restore"),
-            icon_for: |_, _| None,
-            tooltip: || None,
+            }),
+            icon: Arc::new(|| None),
+            label_for: Arc::new(|_, _| text!("tablo-action-restore")),
+            icon_for: Arc::new(|_, _| None),
+            tooltip: Arc::new(|| None),
             color: Color::Gray,
         }
     }
@@ -48,31 +50,31 @@ impl<R: Resource> ActionEntry<R> {
     pub(super) fn force_delete() -> Self {
         Self {
             name: "force-delete",
-            label: || text!("tablo-action-force-delete"),
+            label: Arc::new(|| text!("tablo-action-force-delete")),
             places: Places::ALL,
             resource_wide: Ability::ForceDeleteAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::ForceDelete(record)),
-            state: |_, _| true,
-            disabled: |_, _, _| None,
+            state: Arc::new(|_, _| true),
+            disabled: Arc::new(|_, _, _| None),
             input: InputSpec::none(),
             run: force_delete_erased::<R>,
-            success: |count| text!("tablo-action-force-deleted", count = count),
+            success: Arc::new(|count| text!("tablo-action-force-deleted", count = count)),
             change: Change::ForceDelete,
             failure: "tablo-failed-force-delete",
             confirm: true,
             trashed: Trashed::Only,
             removes: true,
-            prompt: |bulk| {
+            prompt: Arc::new(|bulk| {
                 if bulk {
                     text!("tablo-confirm-force-delete-selected")
                 } else {
                     text!("tablo-confirm-force-delete")
                 }
-            },
-            icon: || None,
-            label_for: |_, _| text!("tablo-action-force-delete"),
-            icon_for: |_, _| None,
-            tooltip: || None,
+            }),
+            icon: Arc::new(|| None),
+            label_for: Arc::new(|_, _| text!("tablo-action-force-delete")),
+            icon_for: Arc::new(|_, _| None),
+            tooltip: Arc::new(|| None),
             color: Color::Danger,
         }
     }
@@ -92,19 +94,19 @@ impl<R: Resource> ActionEntry<R> {
     fn deleting(bulk: bool) -> Self {
         Self {
             name: "delete",
-            label: || text!("tablo-action-delete"),
+            label: Arc::new(|| text!("tablo-action-delete")),
             places: if bulk { Places::BULK } else { Places::RECORD },
             resource_wide: Ability::DeleteAny,
             can_run: |resource, cx, record| resource.can(cx, Ability::Delete(record)),
-            state: |_, _| true,
-            disabled: |_, _, _| None,
+            state: Arc::new(|_, _| true),
+            disabled: Arc::new(|_, _, _| None),
             input: InputSpec::none(),
             run: if bulk {
                 bulk_delete_erased::<R>
             } else {
                 delete_erased::<R>
             },
-            success: |count| text!("tablo-action-deleted", count = count),
+            success: Arc::new(|count| text!("tablo-action-deleted", count = count)),
             change: Change::Delete,
             failure: if bulk {
                 "tablo-failed-bulk-delete"
@@ -114,17 +116,17 @@ impl<R: Resource> ActionEntry<R> {
             confirm: true,
             trashed: Trashed::Without,
             removes: true,
-            prompt: |bulk| {
+            prompt: Arc::new(|bulk| {
                 if bulk {
                     text!("tablo-confirm-delete-selected")
                 } else {
                     text!("tablo-confirm-delete-record")
                 }
-            },
-            icon: || None,
-            label_for: |_, _| text!("tablo-action-delete"),
-            icon_for: |_, _| None,
-            tooltip: || None,
+            }),
+            icon: Arc::new(|| None),
+            label_for: Arc::new(|_, _| text!("tablo-action-delete")),
+            icon_for: Arc::new(|_, _| None),
+            tooltip: Arc::new(|| None),
             color: Color::Danger,
         }
     }

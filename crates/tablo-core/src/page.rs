@@ -257,7 +257,7 @@ impl PageDef {
     ///
     /// The actions run for whoever may open the page: a page has no policy. An action that writes
     /// a resource's records asks that resource's policy in its own
-    /// [`can_run`](crate::HeaderAction::can_run).
+    /// [`can_run`](crate::HeaderActionDef::can_run).
     #[must_use]
     pub fn header_action<A: HeaderAction>(mut self) -> Self {
         self.header_actions = self.header_actions.add::<A>();

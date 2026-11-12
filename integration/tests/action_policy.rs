@@ -4,8 +4,8 @@
 //! `Panel::resource_with`, the guide's way to serve a resource read-only in a second panel.
 
 use tablo::{
-    Ability, Action, Allow, NoForm, NotificationStatus, Places, Policy, ReadOnly, Resource,
-    ResourceDef, ResourcePage, Table, TextColumn, lens, url,
+    Ability, Action, ActionDef, Allow, NoForm, NotificationStatus, Places, Policy, ReadOnly,
+    Resource, ResourceDef, ResourcePage, Table, TextColumn, lens, url,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -32,8 +32,8 @@ impl Action<TicketResource> for Close {
     type Input = ();
     const NAME: &'static str = "close";
 
-    fn label() -> tablo::Text {
-        "Close".into()
+    fn declare() -> ActionDef<TicketResource> {
+        ActionDef::new().label("Close")
     }
 
     async fn run(
@@ -125,8 +125,8 @@ impl Action<TicketResource> for Reopen {
     type Input = ();
     const NAME: &'static str = "reopen";
 
-    fn label() -> tablo::Text {
-        "Reopen".into()
+    fn declare() -> ActionDef<TicketResource> {
+        ActionDef::new().label("Reopen")
     }
 
     async fn run(
@@ -145,10 +145,9 @@ struct Archive;
 impl Action<TicketResource> for Archive {
     type Input = ();
     const NAME: &'static str = "archive";
-    const PLACES: Places = Places::BULK;
 
-    fn label() -> tablo::Text {
-        "Archive".into()
+    fn declare() -> ActionDef<TicketResource> {
+        ActionDef::new().places(Places::BULK).label("Archive")
     }
 
     async fn run(
@@ -303,12 +302,10 @@ impl Action<TicketResource> for Answer {
     type Input = ();
     const NAME: &'static str = "answer";
 
-    fn can_run(_cx: &Cx, ticket: &Ticket) -> bool {
-        !ticket.closed
-    }
-
-    fn disabled_reason(_cx: &Cx, _ticket: &Ticket) -> Option<tablo::Text> {
-        Some("Closed".into())
+    fn declare() -> ActionDef<TicketResource> {
+        ActionDef::new()
+            .can_run(|_cx, ticket: &Ticket| !ticket.closed)
+            .disabled_reason(|_cx, _ticket| Some("Closed".into()))
     }
 
     async fn run(

@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    Ability, Action, ResourceDef,
+    Ability, Action, ActionDef, ResourceDef,
     panel::test_support::{Dummy, dummy_table, mount, panel_for},
     test_support::memory_db,
 };
@@ -11,8 +11,8 @@ impl Action<Hidden> for Rename {
     type Input = ();
     const NAME: &'static str = "rename";
 
-    fn label() -> crate::Text {
-        "Rename".into()
+    fn declare() -> ActionDef<Hidden> {
+        ActionDef::new().label("Rename")
     }
 
     async fn run(

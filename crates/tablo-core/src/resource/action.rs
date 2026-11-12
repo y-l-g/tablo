@@ -1,16 +1,18 @@
 //! Custom actions: the [`Action`] trait, and the [`Actions`] list a
 //! [`ResourceDef`](super::ResourceDef) declares them in.
 
-use std::{any::Any, future::Future};
+use std::{any::Any, future::Future, sync::Arc};
 
 use derive_where::derive_where;
 use topcoat::{Result, context::Cx, icon::IconData};
 
 mod abilities;
 mod builtin;
+mod def;
 mod keys;
 mod places;
 
+pub use def::ActionDef;
 pub use keys::filter_keys;
 pub use places::Places;
 
@@ -30,7 +32,7 @@ pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm",
 /// "resend the invite".
 ///
 /// An action runs on one record, from a button in its table row or in the header of its detail or
-/// edit page, or on the selection, from the bulk bar: [`PLACES`](Self::PLACES) says which.
+/// edit page, or on the selection, from the bulk bar: [`ActionDef::places`] says which.
 /// [`ResourceDef::action`](super::ResourceDef::action) declares it:
 ///
 /// ```rust
@@ -40,7 +42,7 @@ pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm",
 /// #     title: String,
 /// #     status: String,
 /// # }
-/// # use tablo_core::{Action, NoForm, Resource};
+/// # use tablo_core::{Action, ActionDef, NoForm, Resource};
 /// # use toasty::Executor;
 /// # use topcoat::{Result, context::Cx};
 /// # struct PostResource;
@@ -55,8 +57,8 @@ pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm",
 ///     type Input = ();
 ///     const NAME: &'static str = "publish";
 ///
-///     fn can_run(_cx: &Cx, post: &Post) -> bool {
-///         post.status != "published"
+///     fn declare() -> ActionDef<PostResource> {
+///         ActionDef::new().can_run(|_cx, post: &Post| post.status != "published")
 ///     }
 ///
 ///     async fn run(
@@ -85,8 +87,8 @@ pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm",
 /// - the policy: [`Ability::RunAny`] with the action's `NAME`, asked before the body is read, then
 ///   [`Ability::View`] and [`Ability::Run`] on every loaded record before `run`. A record `View`
 ///   refuses fails the whole POST with 403;
-/// - the refusal: a row refused `Run`, by the policy or by [`can_run`](Self::can_run), answers 403,
-///   and a bulk selection runs the records that pass and reports the refused count as skipped. A
+/// - the refusal: a row refused `Run`, by the policy or by [`ActionDef::can_run`], answers 403, and
+///   a bulk selection runs the records that pass and reports the refused count as skipped. A
 ///   selection that passes on none writes nothing and answers with an error notification;
 /// - the hooks, with [`Change::Action`](super::Change::Action): [`Resource::before_commit`] in the
 ///   transaction after `run`, then [`Resource::after_commit`] once it commits; and the success
@@ -118,7 +120,7 @@ pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm",
 ///
 /// No place renders a button for an action the policy refuses `RunAny`, and no row or page renders
 /// one for a record that fails `View` or `Run`. A record `can_run` refuses shows its button
-/// disabled, saying why, when [`disabled_reason`](Self::disabled_reason) gives a reason, and none
+/// disabled, saying why, when [`ActionDef::disabled_reason`] gives a reason, and none
 /// otherwise. A row that no bulk action and no delete allows renders no checkbox.
 pub trait Action<R: Resource>: 'static {
     /// What the action asks for before it runs: `()` for nothing, or an
@@ -148,7 +150,6 @@ pub trait Action<R: Resource>: 'static {
     /// impl Action<PostResource> for Archive {
     ///     type Input = ();
     ///     const NAME: &'static str = "archive/all";
-    /// #   fn can_run(_: &Cx, _: &Post) -> bool { true }
     /// #   async fn run(_: &Cx, _: &[Post], _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> { Ok(tablo_core::Outcome::done()) }
     /// }
     ///
@@ -156,97 +157,16 @@ pub trait Action<R: Resource>: 'static {
     /// ```
     const NAME: &'static str;
 
-    /// Where the action's button renders. Defaults to [`Places::ALL`]: each row, the detail and
-    /// edit pages' headers, and the bulk bar.
+    /// Where the action's button renders, how it reads on each record, and which records it runs
+    /// on. Defaults to [`ActionDef::new`]: a gray button on each row, page header and the bulk
+    /// bar, labelled after [`NAME`](Self::NAME), running without confirmation on every record the
+    /// policy allows.
     ///
-    /// It decides where the button shows, not who may run it: the record route serves an action
-    /// placed on any of [`Places::RECORD`], and the bulk route one placed on
-    /// [`Places::BULK`]; any other POST answers 404. A place no page renders shows the button
-    /// nowhere: [`Places::EDIT`] on a resource without a form, or [`Places::DETAIL`] on one that
-    /// turns its view page off ([`ResourcePage::View`](crate::ResourcePage::View)).
-    const PLACES: Places = Places::ALL;
-
-    /// Whether the action asks first through a confirmation dialog sharing the
-    /// delete dialog's mechanism and destructive wording. Defaults to `false`.
-    ///
-    /// An action with input confirms in its input dialog, or on its input page, instead, which
-    /// say the action cannot be undone and whose submit renders destructive. An unconfirmed POST
-    /// that would write answers 400. Both dialogs need JavaScript: without it their buttons do
-    /// nothing.
-    const CONFIRM: bool = false;
-
-    /// The icon before the button's label, in every place. Defaults to none.
-    ///
-    /// ```rust
-    /// # use topcoat::icon::IconData;
-    /// const ICON: Option<IconData> = Some(tablo_ui::icons::CHECK);
-    /// ```
-    const ICON: Option<IconData> = None;
-
-    /// The colour the button is tinted in, as Delete's is in [`Color::Danger`]. Defaults to
-    /// [`Color::Gray`], the untinted button.
-    ///
-    /// It changes how the button looks, not what it asks: [`CONFIRM`](Self::CONFIRM) asks first.
-    const COLOR: Color = Color::Gray;
-
-    /// The question the confirmation dialog asks when [`CONFIRM`](Self::CONFIRM) is set. Defaults
-    /// to the message `tablo-confirm-run`, "Run this action?". An action with input confirms in
-    /// its input dialog instead, which its label titles.
-    fn confirmation() -> crate::Text {
-        crate::text!("tablo-confirm-run")
-    }
-
-    /// The button text. Defaults to the message `action-{NAME}` of the panel's catalogs, else
-    /// [`NAME`](Self::NAME) in sentence case: `"publish"` reads "Publish", and `"send-invite"`
-    /// reads "Send invite".
-    fn label() -> crate::Text {
-        crate::Text::derived(derived_id("action", Self::NAME), sentence_case(Self::NAME))
-    }
-
-    /// The text of the button on one `record`: its row's, or its record page's. Defaults to
-    /// [`label`](Self::label), which the bulk bar, the input dialogs and the messages use.
-    ///
-    /// Override it when the record's state changes what the action reads: "Deactivate" on an
-    /// active employee, "Activate" on one that is not.
-    fn label_for(_cx: &Cx, _record: &R::Model) -> crate::Text {
-        Self::label()
-    }
-
-    /// The icon of the button on one `record`, in its row and on its record page. Defaults to
-    /// [`ICON`](Self::ICON).
-    fn icon_for(_cx: &Cx, _record: &R::Model) -> Option<IconData> {
-        Self::ICON
-    }
-
-    /// The hint a row's button shows on hover, for an action whose label says too little.
-    /// Defaults to none.
-    ///
-    /// A button refused on its record shows its [`disabled_reason`](Self::disabled_reason)
-    /// instead.
-    fn tooltip() -> Option<crate::Text> {
-        None
-    }
-
-    /// Whether the action itself runs on `record`, wherever it is mounted: a published post
-    /// refuses "publish". Defaults to `true`.
-    ///
-    /// It is one half of [`Ability::Run`], which the resource allows only when both this and its
-    /// policy do: [`can`](crate::can) answers the two together. Who may run the action belongs
-    /// in the policy, which each panel mounts its own; a rule written here holds on every
-    /// panel and cannot be lifted by one. Asking `can` for this action's own `Run` from here
-    /// would ask this function again.
-    fn can_run(_cx: &Cx, _record: &R::Model) -> bool {
-        true
-    }
-
-    /// Why the button shows disabled on a record [`can_run`](Self::can_run) refuses, rather than
-    /// hidden: "Already published" for a published post. Defaults to none, which hides it.
-    ///
-    /// It is asked only of a record the policy lets the user view and run the action on, so the
-    /// reason speaks to the record's state and never tells a user what the policy refuses them.
-    /// The route refuses a disabled record as it refuses one `can_run` hides.
-    fn disabled_reason(_cx: &Cx, _record: &R::Model) -> Option<crate::Text> {
-        None
+    /// The resource builds it once, when [`ResourceDef::action`](super::ResourceDef::action)
+    /// adds the action, so it takes no request: what changes per record is a closure, such as
+    /// [`ActionDef::label_for`] or [`ActionDef::can_run`], which receives `cx`.
+    fn declare() -> ActionDef<R> {
+        ActionDef::new()
     }
 
     /// Refuse an input [`run`](Self::run) should not receive, such as a reason too short to
@@ -276,9 +196,9 @@ pub trait Action<R: Resource>: 'static {
     }
 
     /// Perform the action on `records`, the records of the row or selection that
-    /// passed [`Ability::Run`] and [`can_run`](Self::can_run), with the parsed `input`, through
+    /// passed [`Ability::Run`] and [`ActionDef::can_run`], with the parsed `input`, through
     /// the framework's transaction `ex`, and say what the response does once it commits:
-    /// [`Outcome::done`](crate::Outcome::done) for the [`success`](Self::success) notification,
+    /// [`Outcome::done`](crate::Outcome::done) for the [`ActionDef::success`] notification,
     /// landing back where the action ran from. [`filter_keys`](crate::filter_keys) writes one
     /// change to every record in one statement.
     ///
@@ -293,18 +213,6 @@ pub trait Action<R: Resource>: 'static {
         input: Self::Input,
         ex: &mut dyn toasty::Executor,
     ) -> impl Future<Output = Result<crate::Outcome, WriteError<<Self::Input as FormInput>::Field>>> + Send;
-
-    /// The success notification after a commit. Defaults to the label and
-    /// the record count: `"Publish: 3 records"`. A bulk run the action refused
-    /// on some records appends their count out of the selection:
-    /// `"Publish: 3 records (2 of 5 skipped)"`.
-    fn success(count: usize) -> crate::Text {
-        crate::text!(
-            "tablo-action-on-records",
-            action = Self::label(),
-            count = count
-        )
-    }
 }
 
 /// An erased action's body: it acts on the records with the parsed input inside the transaction.
@@ -382,28 +290,61 @@ impl<R: Resource> Actions<R> {
                 "`Action::NAME` must be a single path segment"
             );
         }
+        let def = A::declare();
+        let label = def.label.unwrap_or_else(|| {
+            crate::Text::derived(derived_id("action", A::NAME), sentence_case(A::NAME))
+        });
+        let state = def.can_run.unwrap_or_else(|| Arc::new(|_, _| true));
+        let success = def.success.unwrap_or_else(|| {
+            let label = label.clone();
+            Arc::new(move |count| {
+                crate::text!(
+                    "tablo-action-on-records",
+                    action = label.clone(),
+                    count = count
+                )
+            })
+        });
+        let confirmation = def
+            .confirmation
+            .unwrap_or_else(|| crate::text!("tablo-confirm-run"));
+        let icon = def.icon;
+        let label_for = def.label_for.unwrap_or_else(|| {
+            let label = label.clone();
+            Arc::new(move |_, _| label.clone())
+        });
+        let icon_for = def.icon_for.unwrap_or_else(|| {
+            let icon = icon.clone();
+            Arc::new(move |_, _| icon.clone())
+        });
         self.entries.push(ActionEntry {
             name: A::NAME,
-            label: A::label,
-            places: A::PLACES,
+            label: Arc::new({
+                let label = label.clone();
+                move || label.clone()
+            }),
+            places: def.places,
             resource_wide: Ability::RunAny { action: A::NAME },
             can_run: can_run_erased::<R, A>,
-            state: A::can_run,
-            disabled: disabled_erased::<R, A>,
+            disabled: disabled_erased::<R>(A::NAME, state.clone(), def.disabled_reason),
+            state,
             input: InputSpec::of::<A::Input>(parse_input_erased::<R, A>),
             run: run_erased::<R, A>,
-            success: A::success,
+            success,
             change: super::acted::<R, A>,
             failure: "tablo-failed-run",
-            confirm: A::CONFIRM,
+            confirm: def.confirm,
             trashed: super::Trashed::Without,
             removes: false,
-            prompt: |_| A::confirmation(),
-            icon: || A::ICON,
-            label_for: A::label_for,
-            icon_for: A::icon_for,
-            tooltip: A::tooltip,
-            color: A::COLOR,
+            prompt: Arc::new(move |_| confirmation.clone()),
+            icon: Arc::new(move || icon.clone()),
+            label_for,
+            icon_for,
+            tooltip: Arc::new({
+                let tooltip = def.tooltip;
+                move || tooltip.clone()
+            }),
+            color: def.color,
         });
         self
     }
@@ -428,23 +369,24 @@ impl<R: Resource> Actions<R> {
 
 /// One mutation of a record or a selection with its type erased: a declared action, or the
 /// built-in delete. The panel runs every one through the same pipeline.
-#[derive_where(Clone, Copy)]
+#[derive_where(Clone)]
 pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) name: &'static str,
-    pub(crate) label: fn() -> crate::Text,
+    pub(crate) label: Arc<dyn Fn() -> crate::Text + Send + Sync>,
     pub(crate) places: Places,
     /// The resource-wide ability checked before the body is read.
     pub(crate) resource_wide: Ability<'static, R::Model>,
     /// Whether the mutation may write `record`, which already passed `View`.
     pub(crate) can_run: fn(&Mounted<R>, &Cx, &R::Model) -> bool,
-    /// A declared action's own [`Action::can_run`], which [`Ability::Run`] is allowed only with.
-    pub(crate) state: fn(&Cx, &R::Model) -> bool,
+    /// A declared action's own [`ActionDef::can_run`], which [`Ability::Run`] is allowed only
+    /// with.
+    pub(crate) state: def::RecordFn<R::Model, bool>,
     /// Why its button shows disabled on `record`, which already passed `View`, when the policy
     /// allows it and the record's state refuses it.
-    pub(crate) disabled: fn(&Mounted<R>, &Cx, &R::Model) -> Option<crate::Text>,
+    pub(crate) disabled: DisabledFn<R>,
     pub(crate) input: InputSpec,
     pub(crate) run: RunAction<R>,
-    pub(crate) success: fn(usize) -> crate::Text,
+    pub(crate) success: def::CountFn,
     /// What a run on the records changed, for the hooks.
     pub(crate) change: fn(Vec<R::Model>) -> super::Change<R::Model>,
     /// The message the failure toast's title reads.
@@ -456,15 +398,15 @@ pub(crate) struct ActionEntry<R: Resource> {
     /// the page of a record that no longer exists.
     pub(crate) removes: bool,
     /// The question the dialog confirming it asks, of one record or, when `bulk`, of a selection.
-    pub(crate) prompt: fn(bool) -> crate::Text,
+    pub(crate) prompt: Arc<dyn Fn(bool) -> crate::Text + Send + Sync>,
     /// The icon before its button's label.
-    pub(crate) icon: fn() -> Option<IconData>,
+    pub(crate) icon: Arc<dyn Fn() -> Option<IconData> + Send + Sync>,
     /// The text of its button on one record, in the record's row or on its record page.
-    pub(crate) label_for: fn(&Cx, &R::Model) -> crate::Text,
+    pub(crate) label_for: def::RecordFn<R::Model, crate::Text>,
     /// The icon of its button on one record.
-    pub(crate) icon_for: fn(&Cx, &R::Model) -> Option<IconData>,
+    pub(crate) icon_for: def::RecordFn<R::Model, Option<IconData>>,
     /// The hint its row's button shows on hover.
-    pub(crate) tooltip: fn() -> Option<crate::Text>,
+    pub(crate) tooltip: Arc<dyn Fn() -> Option<crate::Text> + Send + Sync>,
     /// The colour its button is tinted in.
     pub(crate) color: Color,
 }
@@ -492,7 +434,7 @@ impl<R: Resource> ActionEntry<R> {
     }
 }
 
-/// [`Ability::Run`] as the resource answers it, [`Action::can_run`] included, behind a function
+/// [`Ability::Run`] as the resource answers it, [`ActionDef::can_run`] included, behind a function
 /// pointer.
 fn can_run_erased<R: Resource, A: Action<R>>(
     resource: &Mounted<R>,
@@ -508,21 +450,30 @@ fn can_run_erased<R: Resource, A: Action<R>>(
     )
 }
 
-/// [`Action::disabled_reason`] for a record the mounted policy allows [`Ability::Run`] on and
-/// [`Action::can_run`] refuses, behind a function pointer.
-fn disabled_erased<R: Resource, A: Action<R>>(
-    resource: &Mounted<R>,
-    cx: &Cx,
-    record: &R::Model,
-) -> Option<crate::Text> {
-    let run = Ability::Run {
-        action: A::NAME,
-        record,
+/// Why a mutation's button shows disabled on a record, which already passed `View`.
+pub(crate) type DisabledFn<R> =
+    Arc<dyn Fn(&Mounted<R>, &Cx, &<R as Resource>::Model) -> Option<crate::Text> + Send + Sync>;
+
+/// [`ActionDef::disabled_reason`] for a record the mounted policy allows [`Ability::Run`] on and
+/// [`ActionDef::can_run`] refuses.
+fn disabled_erased<R: Resource>(
+    name: &'static str,
+    state: def::RecordFn<R::Model, bool>,
+    reason: Option<def::RecordFn<R::Model, Option<crate::Text>>>,
+) -> DisabledFn<R> {
+    let Some(reason) = reason else {
+        return Arc::new(|_, _, _| None);
     };
-    if !resource.policy_allows(cx, run) || A::can_run(cx, record) {
-        return None;
-    }
-    A::disabled_reason(cx, record)
+    Arc::new(move |resource, cx, record| {
+        let run = Ability::Run {
+            action: name,
+            record,
+        };
+        if !resource.policy_allows(cx, run) || state(cx, record) {
+            return None;
+        }
+        reason(cx, record)
+    })
 }
 
 /// [`FormInput::parse`], then [`Action::validate_input`], behind a function pointer.

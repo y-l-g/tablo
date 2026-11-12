@@ -1,6 +1,6 @@
 //! The Actions chapter's snippets.
 
-use tablo::{HeaderAction, Places, prelude::*};
+use tablo::{ActionDef, HeaderAction, HeaderActionDef, Places, prelude::*};
 use topcoat::{Result, context::Cx};
 
 use crate::{
@@ -15,8 +15,8 @@ impl Action<PostResource> for Publish {
     type Input = ();
     const NAME: &'static str = "publish";
 
-    fn can_run(_cx: &Cx, post: &Post) -> bool {
-        post.status != PostStatus::Published
+    fn declare() -> ActionDef<PostResource> {
+        ActionDef::new().can_run(|_cx, post: &Post| post.status != PostStatus::Published)
     }
 
     async fn run(
@@ -50,14 +50,15 @@ pub(crate) struct ChangeStatus;
 impl Action<PostResource> for ChangeStatus {
     type Input = StatusChange;
     const NAME: &'static str = "change-status";
-    // ANCHOR: places
-    // On the detail page and the bulk bar, not on each row or the edit page.
-    const PLACES: Places = Places::DETAIL.with(Places::BULK);
-    // ANCHOR_END: places
 
-    fn label() -> Text {
-        "Change status".into()
+    // ANCHOR: places
+    fn declare() -> ActionDef<PostResource> {
+        ActionDef::new()
+            // On the detail page and the bulk bar, not on each row or the edit page.
+            .places(Places::DETAIL.with(Places::BULK))
+            .label("Change status")
     }
+    // ANCHOR_END: places
 
     fn validate_input(_cx: &Cx, change: &StatusChange) -> FieldErrors<StatusChangeField> {
         let mut errors = FieldErrors::new();
@@ -94,11 +95,13 @@ pub(crate) struct PublishDrafts;
 impl HeaderAction for PublishDrafts {
     type Input = ();
     const NAME: &'static str = "publish-drafts";
-    const CONFIRM: bool = true;
 
-    /// A page has no policy: the action asks the post resource's own, wherever it is declared.
-    fn can_run(cx: &Cx) -> bool {
-        can::<PostResource>(cx, Ability::RunHeader { action: Self::NAME })
+    fn declare() -> HeaderActionDef {
+        HeaderActionDef::new()
+            .confirm()
+            // A page has no policy: the action asks the post resource's own, wherever it is
+            // declared.
+            .can_run(|cx| can::<PostResource>(cx, Ability::RunHeader { action: Self::NAME }))
     }
 
     async fn run(

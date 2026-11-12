@@ -26,7 +26,7 @@ mod soft_delete;
 mod write;
 mod write_error;
 
-pub use action::{Action, Places, filter_keys};
+pub use action::{Action, ActionDef, Places, filter_keys};
 pub(crate) use action::{
     ActionEntry, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS, parse_validated,
 };
@@ -39,7 +39,7 @@ pub(crate) use field_access::{FieldMask, FieldRule};
 pub use global_search::GlobalSearch;
 pub(crate) use global_search::{Opens, SearchHit, search, searchable};
 pub(crate) use header_action::HeaderEntry;
-pub use header_action::{HeaderAction, HeaderActions};
+pub use header_action::{HeaderAction, HeaderActionDef, HeaderActions};
 pub(crate) use mounted::{
     MountScope, Mounted, Mounts, is_mounted, is_restricted_model, is_tenant_model, model_rules,
     mounted, require_mounted, restricts_any,
@@ -498,7 +498,7 @@ impl<R: Resource> Mounted<R> {
 /// sign-in or tenant scope.
 ///
 /// It is the policy's answer and what the ability rests on: [`Run`](crate::Ability::Run) also
-/// takes a record the action's [`can_run`](crate::Action::can_run) admits, and a force delete
+/// takes a record the action's [`can_run`](crate::ActionDef::can_run) admits, and a force delete
 /// the delete it implies. [`RunHeader`](crate::Ability::RunHeader) is the policy's answer alone:
 /// a header action's `can_run` may be what asks it.
 pub fn can<R: Resource>(cx: &Cx, ability: crate::Ability<'_, R::Model>) -> bool {
