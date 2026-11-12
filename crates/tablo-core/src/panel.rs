@@ -153,15 +153,15 @@ pub struct Panel {
     locales: Vec<topcoat::l10n::Locale>,
     /// The app's catalogs, by locale, over Tablo's.
     translations: Vec<(topcoat::l10n::Locale, String)>,
-    /// The catalogs of crates that extend the panel, between Tablo's and the app's.
+    /// The catalogs of crates that extend the panel, under Tablo's and the app's.
     default_translations: Vec<(topcoat::l10n::Locale, String)>,
     /// Whether the topbar shows the global search box.
     global_search: bool,
     limits: crate::Limits,
-    /// The hooks every write of the panel runs before it commits, in registration order.
-    commit_hooks: Vec<commit_hook::CommitHookFn>,
-    /// The hooks auth runs on each of its events, in registration order.
-    auth_hooks: Vec<crate::auth::hook::AuthHookFn>,
+    /// The hooks every write of the panel runs before it commits, each type once, in order.
+    commit_hooks: Vec<(std::any::TypeId, commit_hook::CommitHookFn)>,
+    /// The hooks auth runs on each of its events, each type once, in order.
+    auth_hooks: Vec<(std::any::TypeId, crate::auth::hook::AuthHookFn)>,
     /// The models [`require_model`](Self::require_model) names, as Toasty names them.
     required_models: Vec<String>,
     /// What the panel loads for each request it admits, in registration order.

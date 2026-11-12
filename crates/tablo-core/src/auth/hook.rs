@@ -12,8 +12,10 @@ use crate::{BoxFuture, PanelId, TenantId};
 /// Work a panel does inside the transaction of each [`AuthEvent`], registered by
 /// [`Panel::auth_hook`](crate::Panel::auth_hook): an audit trail of who acted as whom.
 ///
-/// Run every statement through `ex`; an `Err` rolls the event back, so the session stays as it
-/// was, and fails the request.
+/// Run every statement through `ex`. An `Err` on [`Impersonate`](AuthEventKind::Impersonate)
+/// rolls the start back and fails the request. An `Err` on a stop rolls back what the hooks wrote
+/// and is logged, and the stop happens anyway: a session that cannot stop acting as someone else,
+/// or sign out, is worse than a stop the trail misses.
 ///
 /// ```rust
 /// # use tablo_core::{AuthEvent, AuthEventKind, AuthHook};
@@ -156,7 +158,9 @@ pub(crate) async fn run(
     ex: &mut dyn Executor,
 ) -> Result<()> {
     for hook in hooks {
-        hook(cx, event, &mut *ex).await?;
+        hook(cx, event, &mut *ex).await.map_err(|error| {
+            crate::error::driver_failure(error, crate::error::DATABASE_UNAVAILABLE)
+        })?;
     }
     Ok(())
 }

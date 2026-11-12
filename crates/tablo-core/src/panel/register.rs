@@ -123,6 +123,7 @@ pub(super) struct Registered {
     ///
     /// [`ColumnPreference`]: crate::auth::ColumnPreference
     pub(super) toggles: bool,
+    pub(super) required_hooks: Vec<(TypeId, &'static str)>,
     relations: Vec<Link>,
     /// The slugs of the resource's record pages, which its relation tabs may not take.
     record_page_slugs: Vec<String>,
@@ -367,6 +368,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
             url: mounted.url.clone(),
             check: check_resource::<R>,
             toggles,
+            required_hooks: mounted.required_hooks.clone(),
             file_fields: mounted
                 .form
                 .fields()

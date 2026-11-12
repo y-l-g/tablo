@@ -20,8 +20,7 @@ use crate::{
 
 mod header_actions;
 
-/// What a [`Resource`] declares: its names, navigation, policy, tenancy, table, list widgets, form,
-/// detail page, record pages, relations and actions.
+/// What a [`Resource`] declares, from its names, policy and tenancy to its pages and actions.
 ///
 /// [`Resource::declare`] returns one, and [`Panel::resource_with`](crate::Panel::resource_with)
 /// adjusts it for one panel. Every setting has a default, so a resource sets only what differs:
@@ -63,6 +62,7 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
     /// The policies [`Self::restrict`] adds, which every later [`Self::policy`] must pass too.
     restrictions: Vec<Arc<dyn Policy<R::Model>>>,
+    pub(crate) required_hooks: Vec<(std::any::TypeId, &'static str)>,
     pub(crate) queries: Vec<super::QueryFn>,
     /// The relations [`Self::include_unscoped`] loads with every row.
     pub(crate) includes: crate::column::Includes<R::Model>,
@@ -105,6 +105,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             navigation_hidden: false,
             policy: Arc::new(Deny),
             restrictions: Vec::new(),
+            required_hooks: Vec::new(),
             queries: Vec::new(),
             includes: crate::column::Includes::new(),
             tenancy: Tenancy::undeclared(),

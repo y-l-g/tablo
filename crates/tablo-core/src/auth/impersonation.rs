@@ -213,22 +213,32 @@ pub(super) async fn resolve(
             impersonator: Some(actor),
         });
     }
-    // Ended by its lifetime, the rule or either user: cleared and recorded together.
+    // Ended by its lifetime, the rule or either user: cleared and recorded together, or cleared
+    // alone when a hook fails to record it.
     let mut db = crate::db::db(cx)?;
     let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
     session::set_impersonation(&mut tx, &row.token_hash, None).await?;
-    if let Some(target) = row.impersonating.as_deref() {
-        let event = AuthEvent::new(
-            AuthEventKind::StopImpersonating,
-            &panel.id,
-            row.tenant,
-            &*actor,
-            target,
-            None,
-        );
-        hook::run(cx, &panel.auth_hooks, &event, &mut tx).await?;
+    let recorded = match row.impersonating.as_deref() {
+        Some(target) => {
+            let event = AuthEvent::new(
+                AuthEventKind::StopImpersonating,
+                &panel.id,
+                row.tenant,
+                &*actor,
+                target,
+                None,
+            );
+            record_stop(cx, &panel.auth_hooks, &event, tx).await?
+        }
+        None => tx
+            .commit()
+            .await
+            .map_err(infrastructure_failure)
+            .map(|()| true)?,
+    };
+    if !recorded {
+        session::set_impersonation(&mut db, &row.token_hash, None).await?;
     }
-    tx.commit().await.map_err(infrastructure_failure)?;
     Ok(SignedIn {
         user: actor,
         realm: Arc::clone(panel),
@@ -400,8 +410,9 @@ pub(super) fn stop_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             let mut db = crate::db::db(cx)?;
             let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
             session::impersonate(cx, &mut tx, None).await?;
-            stopped(cx, signed, actor, &mut tx).await?;
-            tx.commit().await.map_err(infrastructure_failure)?;
+            if !stopped(cx, signed, actor, tx).await? {
+                session::impersonate(cx, &mut db, None).await?;
+            }
             crate::bus::bus(cx).wake(&signed.realm.prefix, &actor.user_id());
         }
         see_other(panel_root(cx)).into_response(cx)
@@ -415,17 +426,19 @@ pub(super) async fn stop_on_sign_out(cx: &Cx, signed: &SignedIn) -> topcoat::Res
         return Ok(());
     };
     let mut db = crate::db::db(cx)?;
-    stopped(cx, signed, actor, &mut db).await
+    let tx = db.transaction().await.map_err(infrastructure_failure)?;
+    // A stop the hooks fail to record is logged, and the sign-out goes on.
+    stopped(cx, signed, actor, tx).await.map(drop)
 }
 
-/// Runs the panel's [`AuthHook`](crate::AuthHook)s on `actor` no longer acting as the signed-in
-/// user of `signed`.
+/// Records, through [`record_stop`], that `actor` no longer acts as the signed-in user of
+/// `signed`.
 async fn stopped(
     cx: &Cx,
     signed: &SignedIn,
     actor: &Arc<dyn PanelUser>,
-    ex: &mut dyn toasty::Executor,
-) -> topcoat::Result<()> {
+    tx: toasty::Transaction<'_>,
+) -> topcoat::Result<bool> {
     let target_id = signed.user.user_id();
     let event = AuthEvent::new(
         AuthEventKind::StopImpersonating,
@@ -435,7 +448,31 @@ async fn stopped(
         &target_id,
         Some(signed.user.display_name()),
     );
-    hook::run(cx, &signed.realm.auth_hooks, &event, ex).await
+    record_stop(cx, &signed.realm.auth_hooks, &event, tx).await
+}
+
+/// Runs `hooks` on the stop `event` inside `tx`, then commits it: `true`. A failing hook rolls
+/// `tx` back, with whatever else it held, and is logged rather than returned: `false`, and the
+/// caller ends the impersonation without the record, since a session that cannot stop acting as
+/// someone else is worse than a stop the trail misses.
+async fn record_stop(
+    cx: &Cx,
+    hooks: &[hook::AuthHookFn],
+    event: &AuthEvent<'_>,
+    mut tx: toasty::Transaction<'_>,
+) -> topcoat::Result<bool> {
+    match hook::run(cx, hooks, event, &mut tx).await {
+        Ok(()) => tx
+            .commit()
+            .await
+            .map_err(infrastructure_failure)
+            .map(|()| true),
+        Err(error) => {
+            tracing::error!(error = %error, ?event, "an auth hook failed to record a stop");
+            tx.rollback().await.map_err(infrastructure_failure)?;
+            Ok(false)
+        }
+    }
 }
 
 /// Where the banner's Stop button posts: `{prefix}/impersonate/stop`.

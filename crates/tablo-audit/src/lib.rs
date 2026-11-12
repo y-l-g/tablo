@@ -33,7 +33,7 @@ pub use self::{
     log::AuditLog,
 };
 
-/// The catalogs the log's words read from, under the app's own.
+/// The catalogs the log's words read from, under Tablo's and the app's.
 const CATALOGS: &[(topcoat::l10n::Locale, &str)] = &[
     (locale!("en"), include_str!("../locales/en.ftl")),
     (locale!("fr"), include_str!("../locales/fr.ftl")),
@@ -58,13 +58,14 @@ pub trait PanelAuditExt {
     /// Keeps an [`AuditEntry`] for each record every write of the panel names, inside the write's
     /// transaction, and one for each start and stop of [impersonation](tablo_core::Impersonation),
     /// without listing them: an [`Area`](tablo_core::Area) group lists them with
-    /// `group.resource_with::<AuditLog>(..)`, or another panel reads them.
+    /// `group.resource_with::<AuditLog>(..)`. Calling it again changes nothing.
     ///
     /// Each entry names the [actor](tablo_core::auth::actor), the tenant they act for, the
     /// resource and record, and the fields the write changed, as a
     /// [`CommitHook`](tablo_core::CommitHook) reads them: a field marked `#[columns(skip)]`, such
     /// as a password hash, is never stored. A write whose entry fails to store rolls back with
-    /// it. Mounting refuses a `Db` that does not register [`AuditEntry`].
+    /// it; a stop of impersonation goes through unrecorded. Mounting refuses a `Db` that does not
+    /// register [`AuditEntry`], and an [`AuditLog`] on a panel without the trail.
     #[must_use]
     fn audit_trail(self) -> Self;
 }

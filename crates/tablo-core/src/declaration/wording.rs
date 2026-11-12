@@ -45,6 +45,11 @@ impl fmt::Display for DeclarationErrorKind {
                 "the panel requires the model `{model}`, which the Db does not register: add it \
                  to the `models!(…)` the Db is built from",
             ),
+            Self::MissingCommitHook { hook } => write!(
+                f,
+                "the resource needs the panel to run the commit hook `{hook}`: register it with \
+                 `Panel::before_commit`, or the extension method that does",
+            ),
             Self::BrandColor { value } => write!(
                 f,
                 "the brand color `{value}` is no CSS color: spell it `#4f46e5` or \

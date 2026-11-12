@@ -136,9 +136,26 @@ impl Changes {
                     })
                 });
                 let values = (!masked).then(|| spell(change));
-                (change.label.clone(), values)
+                (
+                    auth_label(cx, row, change).unwrap_or_else(|| change.label.clone()),
+                    values,
+                )
             })
             .collect()
+    }
+}
+
+/// The label of a field an impersonation entry records, in the reader's words: the trail may
+/// write it where the request does not read the panel's catalog yet, as a lapsed session ends.
+fn auth_label(cx: &Cx, row: &AuditEntry, change: &AuditChange) -> Option<String> {
+    let impersonation = matches!(row.event.as_str(), "impersonate" | "stop_impersonating");
+    if row.resource.is_some() || !impersonation {
+        return None;
+    }
+    match change.field.as_str() {
+        "user" => Some(t!(cx, "tablo-audit-target")),
+        "until" => Some(t!(cx, "tablo-audit-until")),
+        _ => None,
     }
 }
 

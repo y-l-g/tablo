@@ -366,3 +366,40 @@ async fn the_mount_refuses_a_log_whose_table_the_db_lacks() {
         "{errors:?}"
     );
 }
+
+#[tokio::test]
+async fn a_trail_registered_twice_records_each_write_once() {
+    let db = db().await;
+    let router = mount(
+        db.clone(),
+        panel()
+            .resource::<MemoResource>()
+            .audit_trail()
+            .audit_log(|log| log.policy(Allow)),
+    )
+    .expect("panel builds");
+    let response = post_fields(
+        &router,
+        "/admin/memos/-/create",
+        &[("title", "Alpha"), ("note", "first")],
+    )
+    .await;
+    assert_eq!(response.status(), 303, "a valid create redirects");
+    assert_eq!(entries(&db).await.len(), 1, "one write, one entry");
+}
+
+#[tokio::test]
+async fn the_mount_refuses_a_log_on_a_panel_without_its_trail() {
+    let errors = refusal(mount(
+        db().await,
+        panel()
+            .resource::<MemoResource>()
+            .resource_with::<AuditLog>(|log| log.policy(Allow)),
+    ));
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error.kind, DeclarationErrorKind::MissingCommitHook { .. })),
+        "{errors:?}"
+    );
+}

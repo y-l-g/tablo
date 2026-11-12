@@ -11,9 +11,7 @@ use super::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum DeclarationErrorKind {
-    /// The router holds no `toasty::Db`.
-    ///
-    /// Call `.with(db)` before `.panel(..)`.
+    /// The router holds no `toasty::Db`: call `.with(db)` before `.panel(..)`.
     MissingDb,
     /// Auth is on, but the `Db` does not register the shipped models it needs: `AuthSession`,
     /// `AdminUser` for the shipped authenticator, `ColumnPreference` while a list has a
@@ -26,18 +24,19 @@ pub enum DeclarationErrorKind {
         /// The unregistered models.
         models: Vec<&'static str>,
     },
-    /// `Panel::shell_assets` is set, but the router has no asset bundle.
-    ///
-    /// Call `.assets(..)` before `.panel(..)`.
+    /// `Panel::shell_assets` is set, but the router has no asset bundle: call `.assets(..)` first.
     ShellAssetsWithoutBundle,
     /// `Panel::notifications` on `Auth::disabled`, which signs nobody in to notify.
     NotificationsWithoutAuth,
-    /// `Panel::require_model` names a model the `Db` does not register.
-    ///
-    /// Add the model to the `models!(..)` the `Db` is built from.
+    /// `Panel::require_model` names a model the `Db` does not register: add it to `models!(..)`.
     UnregisteredModel {
         /// The model, as Toasty names it: `AuditEntry`.
         model: String,
+    },
+    /// `ResourceDef::requires_commit_hook` names a hook the panel does not run: register it.
+    MissingCommitHook {
+        /// The hook's type.
+        hook: &'static str,
     },
     /// A `Brand` color that is no hex color or plain color function, which the panel's stylesheet
     /// would carry as it is.

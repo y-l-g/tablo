@@ -218,11 +218,16 @@ impl Panel {
             translations,
             default_translations,
             required_models,
+            commit_hooks,
             ..
         } = self;
         let mut registry = Registry::new(prefix.clone(), Some(AppSchema::of_db(db)));
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
         errors.extend(unregistered_models(db, &required_models));
+        errors.extend(super::super::commit_hook::missing_commit_hooks(
+            &registry.resources,
+            &commit_hooks,
+        ));
         let serves_tenants = serves_tenants(&auth, &mounts);
         registry.check_all(
             db,

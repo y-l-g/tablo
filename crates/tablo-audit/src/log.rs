@@ -31,6 +31,8 @@ impl Resource for AuditLog {
             .plural_label(Text::message("tablo-audit-log"))
             // The log keeps what happened: no policy the app sets writes through its pages.
             .restrict(ReadOnly)
+            // Placed without `audit_trail`, it would list nothing, ever: the mount refuses it.
+            .requires_commit_hook::<crate::trail::Trail>()
             // Every entry carries its tenant; `scope` keeps the reader's own.
             .tenancy(Tenancy::none())
             .table(columns::table())

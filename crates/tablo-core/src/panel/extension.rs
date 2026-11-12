@@ -6,10 +6,14 @@ use crate::{AuthHook, auth::hook};
 
 impl Panel {
     /// Runs the [`AuthHook`] `H` inside the transaction of each [`AuthEvent`](crate::AuthEvent)
-    /// of the panel. Several hooks run in the order they are registered.
+    /// of the panel. Several hooks run in the order they are registered; registering `H` again
+    /// changes nothing, so it never runs twice.
     #[must_use]
     pub fn auth_hook<H: AuthHook>(mut self) -> Self {
-        self.auth_hooks.push(hook::erased::<H>);
+        let id = std::any::TypeId::of::<H>();
+        if !self.auth_hooks.iter().any(|(hook, _)| *hook == id) {
+            self.auth_hooks.push((id, hook::erased::<H>));
+        }
         self
     }
 
@@ -25,9 +29,10 @@ impl Panel {
         self
     }
 
-    /// Adds a catalog for `locale` under the app's [`translations`](Self::translations) and over
-    /// Tablo's: a crate that extends panels ships the messages its [`Text`](crate::Text)s name
-    /// through it, in every language it has.
+    /// Adds a catalog for `locale` under Tablo's and the app's
+    /// [`translations`](Self::translations): a crate that extends panels ships the messages its
+    /// [`Text`](crate::Text)s name through it, in every language it has, and rewords none of
+    /// Tablo's. Adding the same catalog again changes nothing.
     ///
     /// A catalog for a locale the panel does not offer is left out, where
     /// [`translations`](Self::translations) refuses it: the app picks the locales, the crate
@@ -44,7 +49,10 @@ impl Panel {
         locale: topcoat::l10n::Locale,
         catalog: impl Into<String>,
     ) -> Self {
-        self.default_translations.push((locale, catalog.into()));
+        let catalog = (locale, catalog.into());
+        if !self.default_translations.contains(&catalog) {
+            self.default_translations.push(catalog);
+        }
         self
     }
 }

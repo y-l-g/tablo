@@ -304,6 +304,8 @@ Panel::new("app")
     }))
 ```
 
+Mounting refuses an `AuditLog` on a panel without `audit_trail()`, where it would list nothing.
+
 Values are stored as the writer read them, in their language and time zone, so an entry is a
 snapshot rather than data to compute on. A delete stores every field the record held, so data an
 app erases on request also lives in the log until it is pruned; mark such a field

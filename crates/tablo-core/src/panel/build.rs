@@ -18,7 +18,9 @@ use topcoat::{
 };
 
 use super::{
-    Panel, Root, error_page,
+    Panel, Root,
+    commit_hook::missing_commit_hooks,
+    error_page,
     files::served_root,
     headers::{self, ServedDir},
     host::PanelHost,
@@ -147,6 +149,9 @@ impl Panel {
             loads,
         } = self;
         let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
+        errors.extend(missing_commit_hooks(&registry.resources, &commit_hooks));
+        let commit_hooks = commit_hooks.into_iter().map(|(_, hook)| hook).collect();
+        let auth_hooks = auth_hooks.into_iter().map(|(_, hook)| hook).collect();
         let serves_tenants = serves_tenants(&auth, &mounts);
         errors.extend(registry.unoffered_auth_pages(&auth));
         errors.extend(mount_errors(

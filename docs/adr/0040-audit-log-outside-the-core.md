@@ -12,6 +12,7 @@ or crate can call:
 | who did it, the impersonator over the user they act as | `auth::actor(cx)` |
 | the resources a reader may list, their labels and hidden fields | `mounted_resources(cx)` |
 | a read-only resource whatever policy the app sets | `ResourceDef::restrict` |
+| a list that refuses a panel without its trail | `ResourceDef::requires_commit_hook` |
 | the impersonation events auth records | `AuthHook`, `AuthEvent`, `Panel::auth_hook` |
 | a mount that refuses a `Db` without its model | `Panel::require_model` |
 | its words, in the locales a panel offers | `Panel::default_translations` |
@@ -26,9 +27,15 @@ or crate can call:
 - `restrict` caps a resource's abilities whatever `policy` sets later, so the log's own `declare`
   keeps it read-only through the def an app's customization returns. It is a policy, not a flag:
   the same rule a page, an action and an export already check.
-- A crate's catalog sits under the app's and over Tablo's, and a locale the panel does not offer
-  is skipped rather than refused: the crate ships every language it has, the app offers the ones
-  it wants.
+- A crate's catalog sits under Tablo's and the app's, so it rewords none of Tablo's messages, and
+  a locale the panel does not offer is skipped rather than refused: the crate ships every
+  language it has, the app offers the ones it wants.
+- Registering a hook, a model or a catalog twice changes nothing, so calling `audit_trail` again,
+  or beside `audit_log`, records each write once.
+- `ResourceDef::requires_commit_hook` lets the log refuse a panel that does not run its trail:
+  placed alone, it would mount and list nothing.
+- A stop of impersonation goes through when a hook fails to record it, logged: a session that
+  cannot stop acting as someone else, or sign out, is worse than a missing entry.
 - The facade re-exports the crate as `tablo::audit` behind the `audit` feature, so an app still
   names one Tablo dependency.
 

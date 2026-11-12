@@ -30,7 +30,7 @@ fn layered(
 }
 
 #[test]
-fn a_default_catalog_sits_under_the_apps_and_over_tablos() {
+fn a_default_catalog_sits_under_tablos_and_the_apps() {
     let catalog = layered(
         &["en"],
         &[("en", "tablo-shell-sign-out = Leave\ncrate-only = Crate")],
@@ -39,7 +39,7 @@ fn a_default_catalog_sits_under_the_apps_and_over_tablos() {
     .expect("builds");
     assert_eq!(
         spell(&catalog, "en", &Text::message("tablo-shell-sign-out")),
-        "Leave"
+        "Sign out"
     );
     assert_eq!(spell(&catalog, "en", &Text::message("crate-only")), "App");
 }

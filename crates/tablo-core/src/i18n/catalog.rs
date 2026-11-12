@@ -58,7 +58,7 @@ pub(crate) struct Catalog {
 
 impl Catalog {
     /// The catalog of a panel offering `locales`, the default first, with the app's
-    /// `translations` over the `defaults` of the crates that extend it, over Tablo's. A default
+    /// `translations` over Tablo's, over the `defaults` of the crates that extend it. A default
     /// catalog for a locale the panel does not offer is left out.
     ///
     /// A locale's bundle layers English, then the default locale, then the locale itself, each as
@@ -186,10 +186,10 @@ fn serves(catalog: &Locale, target: &Locale) -> bool {
     lookup(target, std::slice::from_ref(catalog)).is_some()
 }
 
-/// The bundles of `locale`: each layer of `below`, then `locale`, adds Tablo's catalogs serving
-/// it, then the `defaults` of the crates that extend the panel, then the app's, so the later one
-/// overrides a message both hold. A catalog serving several layers sits at the last: `en` stays
-/// over a default `fr` for a request reading `en-GB`.
+/// The bundles of `locale`: each layer of `below`, then `locale`, adds the `defaults` of the
+/// crates that extend the panel serving it, then Tablo's, then the app's, so the later one
+/// overrides a message both hold: a crate rewords none of Tablo's. A catalog serving several layers
+/// sits at the last: `en` stays over a default `fr` for a request reading `en-GB`.
 fn bundle(
     locale: &Locale,
     below: &[Locale],
@@ -202,7 +202,7 @@ fn bundle(
     for layer in below.iter().chain([locale]).rev() {
         let mut resources = Vec::new();
         // A language-wide catalog goes under the region's, so `fr-CA` overrides `fr`.
-        for catalogs in [PARSED.as_slice(), defaults, added] {
+        for catalogs in [defaults, PARSED.as_slice(), added] {
             for (_, resource) in least_specific_first(layer, catalogs) {
                 if !placed.iter().any(|done| Arc::ptr_eq(done, resource)) {
                     placed.push(resource);
