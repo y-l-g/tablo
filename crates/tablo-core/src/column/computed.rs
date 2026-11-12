@@ -53,7 +53,7 @@ pub struct ComputedColumn<M> {
     name: String,
     label: crate::Text,
     #[derive_where(skip(Debug))]
-    project: Arc<dyn Fn(&Cx, &M) -> String + Send + Sync>,
+    project: super::ReadFn<M, String>,
     width: ColumnWidth,
     alignment: Alignment,
     toggle: ColumnToggle,

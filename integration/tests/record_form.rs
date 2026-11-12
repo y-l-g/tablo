@@ -688,12 +688,8 @@ async fn a_form_resource_serves_create_and_edit() {
             "`{name}` posts: {html}"
         );
     }
-    assert_eq!(
-        get(&router, &format!("/admin/items/{}/edit", item.id))
-            .await
-            .status(),
-        StatusCode::OK
-    );
+    let edit = get(&router, &format!("/admin/items/{}/edit", item.id)).await;
+    assert_eq!(edit.status(), StatusCode::OK);
 }
 
 /// A resource over [`Item`] that allows create through `F`.
