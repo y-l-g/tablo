@@ -11,7 +11,7 @@ use toasty::stmt::Path;
 /// different fields:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # use tablo_core::{TextColumn, lens};
 /// TextColumn::new(lens!(User.name)).searchable();
@@ -69,12 +69,12 @@ impl<M, T, P> From<Lens<M, T, P>> for Path<M, P> {
 ///
 /// ```rust
 /// # use tablo_core::{Lens, lens};
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
 /// # #[derive(Debug, Clone, toasty::Embed)]
 /// # struct Seo { title: String }
 /// # mod blog {
-/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// #     pub struct Post { #[key] #[auto] pub id: uuid::Uuid, pub title: String, pub seo: super::Seo }
 /// # }
 /// # use blog::Post;
@@ -101,7 +101,7 @@ macro_rules! lens {
 /// [`field_access`](crate::ResourceDef::field_access) hides it by.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Employee { #[key] #[auto] id: uuid::Uuid, salary: i64, bonus: i64 }
 /// use tablo_core::{ComputedColumn, Reads, lens};
 ///

@@ -57,7 +57,7 @@ help: the trait `IntoExpr<i64>` is not implemented for `i32`
 note: required by a bound in `UserCreate::age`
   --> tests/compile_fail/record_form_column_type_mismatch.rs:1:24
    |
- 1 | #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+ 1 | #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
    |                        ^^^^^^^^^^^^^ required by this bound in `UserCreate::age`
 ...
  7 |     age: i64,
@@ -91,7 +91,7 @@ help: the trait `Assign<i64>` is not implemented for `i32`
 note: required by a bound in `UserUpdate::<__toasty_T>::set_age`
   --> tests/compile_fail/record_form_column_type_mismatch.rs:1:24
    |
- 1 | #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+ 1 | #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
    |                        ^^^^^^^^^^^^^ required by this bound in `UserUpdate::<__toasty_T>::set_age`
 ...
  7 |     age: i64,

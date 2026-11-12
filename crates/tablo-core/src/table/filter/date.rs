@@ -129,7 +129,7 @@ type ReversedFn = Arc<dyn Fn(&str, &str, &TimeZone) -> bool + Send + Sync>;
 /// time, or bounds the range at it.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, created_at: jiff::Timestamp }
 /// # use tablo_core::{DateFilter, lens};
 /// DateFilter::new(lens!(Post.created_at)).range();

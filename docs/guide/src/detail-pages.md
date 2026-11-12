@@ -23,7 +23,7 @@ carries, what it loads and what it answers for a record the request may not see.
 
 ## The default detail page
 
-Without `detail`, the model's [`ModelColumns`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.ModelColumns.html) give the detail
+Without `detail`, the model's [`PanelModel`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.PanelModel.html) give the detail
 page, as they give the table: one column per field the table lists, plus its embedded values and
 lists, in declaration order. It reads the model, not the record form, so a field Toasty writes,
 such as a `#[default]` timestamp, shows too, and a `NoForm` resource has a detail page as well.

@@ -5,7 +5,7 @@
 /// Builds the schema node and converts the value through that node's keys.
 ///
 /// ```rust,no_run
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     publication: Publication,
@@ -85,7 +85,7 @@ pub use tablo_macros::EmbeddedForm;
 /// one item of a repeater.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, status: String }
 /// # use tablo_core::{Action, FormInput, NoForm, Resource};
 /// # use topcoat::{Result, context::Cx};
@@ -143,7 +143,7 @@ pub use tablo_macros::EmbeddedForm;
 ///     pub url: String,
 /// }
 ///
-/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// pub struct Post {
 ///     #[key]
 ///     #[auto]
@@ -205,121 +205,11 @@ pub use tablo_macros::EmbeddedForm;
 /// `required` mark, though its `parse` still refuses what it requires. Its `write` fills a
 /// repeater row from a stored item, and writes nothing for a type no repeater holds.
 pub use tablo_macros::FormInput;
-/// Derive a model's [`ModelColumns`](trait@crate::ModelColumns): the table a resource lists it
-/// in and the detail page it shows it on, when the resource declares neither.
-///
-/// ```rust
-/// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
-/// # pub enum Role { Admin, Member }
-/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-/// pub struct User {
-///     #[key]
-///     #[auto]
-///     pub id: uuid::Uuid,
-///     pub name: String,
-///     pub role: Role,
-///     pub active: bool,
-///     #[columns(skip)]
-///     pub password_hash: String,
-///     #[default(jiff::Timestamp::now())]
-///     pub created_at: jiff::Timestamp,
-/// }
-///
-/// // Lists `name`, `role`, `active` and `created_at`, and shows them on the detail page.
-/// let table = <User as tablo_core::ModelColumns>::table();
-/// # let _ = table;
-/// ```
-///
-/// Each field shows whoever writes it, the person through a form or Toasty through a
-/// `#[default]` or an `#[update]`, in a column its type picks:
-///
-/// - a `bool`: a sortable [`BooleanColumn`](crate::BooleanColumn), yes or no;
-/// - a `String` or `Option<String>`: a sortable, searchable [`TextColumn`](crate::TextColumn);
-/// - any other [`FormScalar`](crate::FormScalar): a sortable
-///   [`TextColumn`](crate::TextColumn), an [`Options`](derive@crate::Options) enum by its
-///   label;
-/// - an [`EmbeddedForm`](derive@crate::EmbeddedForm) value: an
-///   [`EmbeddedColumn`](crate::EmbeddedColumn), leaf by leaf, on the detail page only;
-/// - a list of [`FormInput`](derive@crate::FormInput) items: a
-///   [`RepeaterColumn`](crate::RepeaterColumn), on the detail page only;
-/// - a `Vec` of a [`FormScalar`](crate::FormScalar), such as a multiple choice's: a
-///   [`ListColumn`](crate::ListColumn), a badge per value;
-/// - any other type: no column.
-///
-/// No column shows a key Toasty generates, a `#[version]` field, a relation or its foreign
-/// key, which only a declared [`RelationColumn`](crate::RelationColumn) shows, by the related
-/// record's title, or a `TenantId` or `Option<TenantId>` field, which belongs to the
-/// resource's [`Tenancy`](crate::Tenancy). An `#[auto]` `created_at` or `updated_at` shows
-/// like any timestamp. A `#[version]` field is what
-/// [`ModelColumns::version`](crate::ModelColumns::version) returns, so the edit form refuses a
-/// save another save overtook.
-///
-/// Every other field shows, a secret such as a password hash or an API token included, to
-/// anyone the policy lets view the list: mark it `#[columns(skip)]`, which leaves it out of
-/// the table, its search and export, and the detail page.
-///
-/// # Per-field attributes
-///
-/// The other `#[columns(..)]` keys shape the column the field's type picks, in the table and
-/// on the detail page, through the column's own builder:
-///
-/// - `#[columns(label = "Amount due")]` — the column's label, and its filter's
-///   ([`TextColumn::label`](crate::TextColumn::label));
-/// - `#[columns(badge)]` — a text column's value as a badge
-///   ([`TextColumn::badge`](crate::TextColumn::badge));
-/// - `#[columns(money = EUR)]` — a number as an amount of a [`Currency`](crate::Currency): a
-///   bare three-letter uppercase code names one of its constants, and any other expression is
-///   the currency itself, such as `money = SHOP_CURRENCY` for the app's own constant or `money
-///   = Currency::new("CHF")` ([`TextColumn::money`](crate::TextColumn::money));
-/// - `#[columns(hidden_by_default)]` — a table column each reader may show, hidden at first
-///   ([`TextColumn::hidden_by_default`](crate::TextColumn::hidden_by_default));
-/// - `#[columns(filter)]` — a filter on the table: a [`TernaryFilter`](crate::TernaryFilter)
-///   for a `bool`, a [`DateFilter`](crate::DateFilter) over a range of days for a date or a
-///   timestamp, optional or not, a [`SelectFilter`](crate::SelectFilter) for an
-///   [`Options`](derive@crate::Options) enum. An `Option<bool>` or an optional enum takes no
-///   built-in filter, so `filter` on one fails to compile: declare its filter on the
-///   resource's table.
-///
-/// ```rust
-/// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
-/// # pub enum Status { Draft, Paid }
-/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
-/// pub struct Invoice {
-///     #[key]
-///     #[auto]
-///     pub id: uuid::Uuid,
-///     #[columns(badge, filter)]
-///     pub status: Status,
-///     #[columns(label = "Amount due", money = EUR)]
-///     pub total_cents: i64,
-///     #[columns(hidden_by_default, filter)]
-///     pub issued_at: jiff::Timestamp,
-/// }
-/// ```
-///
-/// A key the field's column does not fit fails to compile at the key, such as `badge` on a
-/// `bool` or `money` on a `String`, as does `filter` on a type no built-in filter matches,
-/// `label` on a field no column shows, and `hidden_by_default` on one the table leaves out. So
-/// do an unknown or repeated key, `skip` beside another key, any key on a field the derive
-/// already leaves out, and a generic model.
-///
-/// The derive reads the model, not a form: a file path shows as text and a `String` an
-/// `#[form(options = ..)]` key labels shows its stored value. Declare a
-/// [`FileColumn`](crate::FileColumn) or a formatted [`TextColumn`](crate::TextColumn) for
-/// them.
-///
-/// A resource replaces either default with [`ResourceDef::table`](crate::ResourceDef::table)
-/// or [`ResourceDef::detail`](crate::ResourceDef::detail), and extends one by starting from
-/// it: `User::table().filters(..)`, with [`ModelColumns`](trait@crate::ModelColumns) in scope,
-/// which adds its filters after the derived ones; mounting refuses two filters on one field. A
-/// declared table is also the detail page's default: a resource that declares a table and no
-/// detail page shows the table's columns there.
-pub use tablo_macros::ModelColumns;
 /// Derive a model's [`RecordForm`](derive@crate::RecordForm) struct from the model: the fields
 /// a person fills, named and typed as the model declares them.
 ///
 /// ```rust
-/// #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns, tablo_core::ModelForm)]
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel, tablo_core::ModelForm)]
 /// pub struct Book {
 ///     #[key]
 ///     #[auto]
@@ -385,6 +275,117 @@ pub use tablo_macros::ModelForm;
 /// The enum, and an `Option` of it, is a form scalar through this derive, so
 /// it cannot also implement `TypedValue` or `FormScalar` itself.
 pub use tablo_macros::Options;
+/// Derive a model's [`PanelModel`](trait@crate::PanelModel): its tenant columns, its version
+/// counter, its copy without relations, and the table a resource lists it in and the detail
+/// page it shows it on when the resource declares neither.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
+/// # pub enum Role { Admin, Member }
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+/// pub struct User {
+///     #[key]
+///     #[auto]
+///     pub id: uuid::Uuid,
+///     pub name: String,
+///     pub role: Role,
+///     pub active: bool,
+///     #[columns(skip)]
+///     pub password_hash: String,
+///     #[default(jiff::Timestamp::now())]
+///     pub created_at: jiff::Timestamp,
+/// }
+///
+/// // Lists `name`, `role`, `active` and `created_at`, and shows them on the detail page.
+/// let table = <User as tablo_core::PanelModel>::table();
+/// # let _ = table;
+/// ```
+///
+/// Each field shows whoever writes it, the person through a form or Toasty through a
+/// `#[default]` or an `#[update]`, in a column its type picks:
+///
+/// - a `bool`: a sortable [`BooleanColumn`](crate::BooleanColumn), yes or no;
+/// - a `String` or `Option<String>`: a sortable, searchable [`TextColumn`](crate::TextColumn);
+/// - any other [`FormScalar`](crate::FormScalar): a sortable
+///   [`TextColumn`](crate::TextColumn), an [`Options`](derive@crate::Options) enum by its
+///   label;
+/// - an [`EmbeddedForm`](derive@crate::EmbeddedForm) value: an
+///   [`EmbeddedColumn`](crate::EmbeddedColumn), leaf by leaf, on the detail page only;
+/// - a list of [`FormInput`](derive@crate::FormInput) items: a
+///   [`RepeaterColumn`](crate::RepeaterColumn), on the detail page only;
+/// - a `Vec` of a [`FormScalar`](crate::FormScalar), such as a multiple choice's: a
+///   [`ListColumn`](crate::ListColumn), a badge per value;
+/// - any other type: no column.
+///
+/// No column shows a key Toasty generates, a `#[version]` field, a relation or its foreign
+/// key, which only a declared [`RelationColumn`](crate::RelationColumn) shows, by the related
+/// record's title, or a `TenantId` or `Option<TenantId>` field, which belongs to the
+/// resource's [`Tenancy`](crate::Tenancy). An `#[auto]` `created_at` or `updated_at` shows
+/// like any timestamp. A `#[version]` field is what
+/// [`PanelModel::version`](crate::PanelModel::version) returns, so the edit form refuses a
+/// save another save overtook.
+///
+/// Every other field shows, a secret such as a password hash or an API token included, to
+/// anyone the policy lets view the list: mark it `#[columns(skip)]`, which leaves it out of
+/// the table, its search and export, and the detail page.
+///
+/// # Per-field attributes
+///
+/// The other `#[columns(..)]` keys shape the column the field's type picks, in the table and
+/// on the detail page, through the column's own builder:
+///
+/// - `#[columns(label = "Amount due")]` — the column's label, and its filter's
+///   ([`TextColumn::label`](crate::TextColumn::label));
+/// - `#[columns(badge)]` — a text column's value as a badge
+///   ([`TextColumn::badge`](crate::TextColumn::badge));
+/// - `#[columns(money = EUR)]` — a number as an amount of a [`Currency`](crate::Currency): a
+///   bare three-letter uppercase code names one of its constants, and any other expression is
+///   the currency itself, such as `money = SHOP_CURRENCY` for the app's own constant or `money
+///   = Currency::new("CHF")` ([`TextColumn::money`](crate::TextColumn::money));
+/// - `#[columns(hidden_by_default)]` — a table column each reader may show, hidden at first
+///   ([`TextColumn::hidden_by_default`](crate::TextColumn::hidden_by_default));
+/// - `#[columns(filter)]` — a filter on the table: a [`TernaryFilter`](crate::TernaryFilter)
+///   for a `bool`, a [`DateFilter`](crate::DateFilter) over a range of days for a date or a
+///   timestamp, optional or not, a [`SelectFilter`](crate::SelectFilter) for an
+///   [`Options`](derive@crate::Options) enum. An `Option<bool>` or an optional enum takes no
+///   built-in filter, so `filter` on one fails to compile: declare its filter on the
+///   resource's table.
+///
+/// ```rust
+/// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
+/// # pub enum Status { Draft, Paid }
+/// #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+/// pub struct Invoice {
+///     #[key]
+///     #[auto]
+///     pub id: uuid::Uuid,
+///     #[columns(badge, filter)]
+///     pub status: Status,
+///     #[columns(label = "Amount due", money = EUR)]
+///     pub total_cents: i64,
+///     #[columns(hidden_by_default, filter)]
+///     pub issued_at: jiff::Timestamp,
+/// }
+/// ```
+///
+/// A key the field's column does not fit fails to compile at the key, such as `badge` on a
+/// `bool` or `money` on a `String`, as does `filter` on a type no built-in filter matches,
+/// `label` on a field no column shows, and `hidden_by_default` on one the table leaves out. So
+/// do an unknown or repeated key, `skip` beside another key, any key on a field the derive
+/// already leaves out, and a generic model.
+///
+/// The derive reads the model, not a form: a file path shows as text and a `String` an
+/// `#[form(options = ..)]` key labels shows its stored value. Declare a
+/// [`FileColumn`](crate::FileColumn) or a formatted [`TextColumn`](crate::TextColumn) for
+/// them.
+///
+/// A resource replaces either default with [`ResourceDef::table`](crate::ResourceDef::table)
+/// or [`ResourceDef::detail`](crate::ResourceDef::detail), and extends one by starting from
+/// it: `User::table().filters(..)`, with [`PanelModel`](trait@crate::PanelModel) in scope,
+/// which adds its filters after the derived ones; mounting refuses two filters on one field. A
+/// declared table is also the detail page's default: a resource that declares a table and no
+/// detail page shows the table's columns there.
+pub use tablo_macros::PanelModel;
 /// Derive `RecordForm` for the typed value a resource's form writes.
 ///
 /// One field per model column the form writes, named and typed like the
@@ -393,7 +394,7 @@ pub use tablo_macros::Options;
 /// every key of an `EmbeddedForm` value and is written whole.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # pub struct User {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     name: String,
@@ -427,7 +428,7 @@ pub use tablo_macros::Options;
 /// field's. A resource's `ResourceDef` defaults its form to them; `ResourceDef::form` arranges
 /// or extends them instead, and a form renders the controls it does not place after the ones
 /// it does. The table and detail page read the model, not the form: see
-/// [`ModelColumns`](derive@crate::ModelColumns).
+/// [`PanelModel`](derive@crate::PanelModel).
 ///
 /// # Attributes
 ///
@@ -530,15 +531,15 @@ pub use tablo_macros::Options;
 ///   can post a single field. A control submitted empty is posted, and stores its field's
 ///   blank value.
 /// - A save another save overtook is refused. When the model has a `#[version]` field and
-///   derives `ModelColumns`, the edit form carries the version it opened on as
-///   `record_version`. A save whose version no longer matches the stored record writes nothing
-///   and re-renders the form with the submitted values, an alert above them, and the current
-///   version, so saving again overwrites the other save. A save that lands between the edit's
-///   load and its write fails Toasty's version condition and re-renders the same way where the
-///   database reports it so, as PostgreSQL and MySQL do; SQLite can refuse the transaction as
-///   busy instead, and Turso's concurrent transactions conflict at commit, which both answer
-///   500. A POST without `record_version` skips the first comparison, not the second; one
-///   whose `record_version` is no number answers 400. Only the edit form carries the version:
+///   derives `PanelModel`, the edit form carries the version it opened on as `record_version`.
+///   A save whose version no longer matches the stored record writes nothing and re-renders
+///   the form with the submitted values, an alert above them, and the current version, so
+///   saving again overwrites the other save. A save that lands between the edit's load and its
+///   write fails Toasty's version condition and re-renders the same way where the database
+///   reports it so, as PostgreSQL and MySQL do; SQLite can refuse the transaction as busy
+///   instead, and Turso's concurrent transactions conflict at commit, which both answer 500. A
+///   POST without `record_version` skips the first comparison, not the second; one whose
+///   `record_version` is no number answers 400. Only the edit form carries the version:
 ///   actions, relation managers and the profile pages write without it, and the default Delete
 ///   removes the record whatever its version. Mounting refuses a form field named
 ///   `record_version`, `create_another` or `csrf_token`.

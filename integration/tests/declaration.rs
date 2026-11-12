@@ -73,7 +73,7 @@ macro_rules! resource {
     };
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Item {
     #[key]
     #[auto]
@@ -441,7 +441,7 @@ fn a_mount_refuses_a_page_it_cannot_route() {
 }
 
 /// A parent row that carries its tenant, and a child that inherits it.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Parent {
     #[key]
     #[auto]
@@ -452,7 +452,7 @@ struct Parent {
     children: toasty::Deferred<Vec<Child>>,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Child {
     #[key]
     #[auto]
@@ -464,7 +464,7 @@ struct Child {
     name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Subscriber {
     #[key]
     #[auto]
@@ -472,7 +472,7 @@ struct Subscriber {
     nickname: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Doc {
     #[key]
     #[auto]
@@ -480,7 +480,7 @@ struct Doc {
     title: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 #[key(owner, slot)]
 struct Seat {
     owner: String,
@@ -493,7 +493,7 @@ struct Place {
     city: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Ticket {
     #[key]
     #[auto]
@@ -503,7 +503,7 @@ struct Ticket {
     place: Place,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 #[unique(tenant_id, email)]
 struct Author {
     #[key]

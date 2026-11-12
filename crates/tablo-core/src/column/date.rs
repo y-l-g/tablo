@@ -11,7 +11,7 @@ use crate::{Lens, values::FormScalar};
 /// A column of a date field, rendered as a calendar day.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, published_at: jiff::Timestamp }
 /// tablo_core::DateColumn::new(tablo_core::lens!(Post.published_at)).sortable();
 /// ```

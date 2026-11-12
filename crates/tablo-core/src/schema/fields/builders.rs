@@ -194,7 +194,7 @@ macro_rules! default_modifier {
             /// on a multiple choice.
             ///
             /// ```rust
-            /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+            /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
             /// # struct Post { #[key] #[auto] id: uuid::Uuid, status: String, views: i64 }
             /// # use tablo_core::Field;
             /// Field::choice(Post::fields().status())
@@ -272,7 +272,7 @@ impl<F> CustomField<F> {
     /// or `false`, drawn as an on/off track. A condition follows it as it follows a toggle.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, featured: bool }
     /// # use tablo_core::{Field, lens};
     /// Field::toggle(lens!(Post.featured)).switch();
@@ -454,7 +454,7 @@ impl<F> TextField<F> {
     /// [`password`](Self::password) suggests none.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Product { #[key] #[auto] id: uuid::Uuid, weight: i64, brand: String }
     /// # use tablo_core::{Field, lens};
     /// Field::text(lens!(Product.weight)).suffix("kg");
@@ -520,7 +520,7 @@ impl<F> TextField<F> {
     /// `pattern`, so only the server checks it there.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Product { #[key] #[auto] id: uuid::Uuid, sku: String }
     /// # use tablo_core::{Field, lens};
     /// Field::text(lens!(Product.sku)).pattern("[A-Z]{3}-[0-9]{4}");

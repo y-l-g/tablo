@@ -19,7 +19,7 @@ use crate::{Lens, values::FormScalar};
 /// as an export writes it, joins the labels with `, `.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     keywords: Vec<String>,

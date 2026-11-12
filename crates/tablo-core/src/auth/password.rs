@@ -23,13 +23,13 @@ const DUMMY_PASSWORD_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$h3oXdPBVwhcgZ1
 /// and active flag; belongs to no tenant. [`PasswordAuth`](super::PasswordAuth) stores the email,
 /// and looks it up, trimmed and lowercased, so one address holds one account whatever case it is
 /// typed in; a resource that edits the email must store it the same way.
-/// Its [`ModelColumns`](crate::ModelColumns) leave out the hash, so a resource over the panel's
+/// Its [`PanelModel`](crate::PanelModel) leave out the hash, so a resource over the panel's
 /// admins lists them. A resource's edit form that changes an admin's email or password hash ends
 /// that admin's sessions, pending sign-ins, reset links and pending email change in the same
 /// transaction; a custom action that changes them does not, and calls
 /// [`revoke_sessions_for_user`](super::revoke_sessions_for_user) itself; one that changes `active`
 /// to `false` ends them at the admin's next request.
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 pub struct AdminUser {
     #[key]
     #[auto]

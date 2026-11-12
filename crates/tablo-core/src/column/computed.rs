@@ -14,7 +14,7 @@ use crate::display::{Alignment, Color};
 /// A display-only column rendering any text from the row, with no query predicate.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, body: String }
 /// tablo_core::ComputedColumn::new("Words", |p: &Post| {
 ///     p.body.split_whitespace().count().to_string()
@@ -32,7 +32,7 @@ use crate::display::{Alignment, Color};
 /// [`color`](Self::color) the row gives it:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Order { #[key] #[auto] id: uuid::Uuid, total_cents: i64 }
 /// use tablo_core::{Color, ComputedColumn, Reads, lens};
 ///

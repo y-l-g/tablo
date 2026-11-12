@@ -20,7 +20,7 @@ use crate::{
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Embed, tablo_core::EmbeddedForm)]
 /// # struct Seo { title: String, description: String }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, seo: Seo }
 /// tablo_core::EmbeddedColumn::new(tablo_core::lens!(Post.seo));
 /// ```

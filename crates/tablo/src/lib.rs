@@ -23,7 +23,7 @@
 //!
 //! ```rust
 //! # use tablo::prelude::*;
-//! #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns, tablo::ModelForm)]
+//! #[derive(Debug, Clone, toasty::Model, tablo::PanelModel, tablo::ModelForm)]
 //! pub struct Book {
 //!     #[key]
 //!     #[auto]
@@ -48,7 +48,7 @@
 //! ```rust,no_run
 //! # use tablo::prelude::*;
 //! # use topcoat::router::{Router, RouterBuilderDiscoverExt};
-//! # #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns, tablo::ModelForm)]
+//! # #[derive(Debug, Clone, toasty::Model, tablo::PanelModel, tablo::ModelForm)]
 //! # pub struct Book {
 //! #     #[key]
 //! #     #[auto]
@@ -87,9 +87,9 @@ pub mod prelude {
         CountColumn, Currency, CustomField, DateColumn, DateFilter, DateValue, Deny, Detail,
         EmbeddedColumn, EmbeddedForm, Environment, Field, FieldAccess, FieldErrors, FileColumn,
         FileField, FontWeight, FormInput, FormValues, GlobalSearch, Grid, Group, HeaderAction,
-        HeaderActions, IconColumn, ImageColumn, IntoOptions, Lens, ListTab, ModelColumns,
-        ModelForm, NavigationItem, NoForm, NumberFilter, Options, Outcome, Page, PageDef,
-        PageFilter, PageFilters, Pagination, Panel, Places, Policy, Posted, PresenceFilter,
+        HeaderActions, IconColumn, ImageColumn, IntoOptions, Lens, ListTab, ModelForm,
+        NavigationItem, NoForm, NumberFilter, Options, Outcome, Page, PageDef, PageFilter,
+        PageFilters, Pagination, Panel, PanelModel, Places, Policy, Posted, PresenceFilter,
         PublicLink, QueryFilter, Radius, ReadOnly, Reads, RecordForm, RecordPage, RecordPageDef,
         RecordTable, Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef, ResourcePage,
         RouterBuilderPanelExt, RowLink, Schema, Section, SelectColumn, SelectFilter, Series, Sort,

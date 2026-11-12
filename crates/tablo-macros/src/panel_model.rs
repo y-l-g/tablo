@@ -1,4 +1,4 @@
-//! `#[derive(ModelColumns)]` gives a model its default table and detail page: a column per field
+//! `#[derive(PanelModel)]` gives a model its default table and detail page: a column per field
 //! a person reads, picked by the field's type and shaped by its `#[columns(..)]` keys.
 
 use proc_macro2::TokenStream as TokenStream2;
@@ -23,7 +23,7 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
         shown,
         tenant_columns,
     } = fields(&input)?;
-    let krate = crate::tablo_core_path(&input.ident, "ModelColumns")?;
+    let krate = crate::tablo_core_path(&input.ident, "PanelModel")?;
     let model = &input.ident;
     let pick = quote!(#krate::__macro::pick);
     let mut table = TokenStream2::new();
@@ -70,7 +70,7 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
     });
     let fields = &named_fields(
         &input,
-        "#[derive(ModelColumns)] derives on a `toasty::Model` struct",
+        "#[derive(PanelModel)] derives on a `toasty::Model` struct",
         None,
     )?
     .named;
@@ -113,7 +113,7 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
         };
     };
     Ok(quote! {
-        impl #krate::__macro::ModelColumns for #model {
+        impl #krate::__macro::PanelModel for #model {
             const TENANT_COLUMNS: &'static [&'static str] = &[#(#tenant_columns),*];
 
             fn table() -> #krate::__macro::Table<#model> {
@@ -160,7 +160,7 @@ struct Fields<'a> {
 fn fields(input: &DeriveInput) -> syn::Result<Fields<'_>> {
     reject_generics(
         input,
-        "#[derive(ModelColumns)] does not support a generic model",
+        "#[derive(PanelModel)] does not support a generic model",
     )?;
     if let Some(attr) = input
         .attrs
@@ -174,7 +174,7 @@ fn fields(input: &DeriveInput) -> syn::Result<Fields<'_>> {
     }
     let named = named_fields(
         input,
-        "#[derive(ModelColumns)] derives on a `toasty::Model` struct",
+        "#[derive(PanelModel)] derives on a `toasty::Model` struct",
         None,
     )?;
     let foreign = foreign_keys(named.named.iter());
@@ -194,7 +194,7 @@ fn fields(input: &DeriveInput) -> syn::Result<Fields<'_>> {
                     return Err(syn::Error::new(
                         span,
                         format!(
-                            "#[derive(ModelColumns)] leaves this field out: {reason}; drop its \
+                            "#[derive(PanelModel)] leaves this field out: {reason}; drop its \
                              `#[columns(..)]` keys"
                         ),
                     ));
@@ -214,7 +214,7 @@ fn fields(input: &DeriveInput) -> syn::Result<Fields<'_>> {
 fn version_field(input: &DeriveInput) -> syn::Result<Option<&syn::Field>> {
     let named = named_fields(
         input,
-        "#[derive(ModelColumns)] derives on a `toasty::Model` struct",
+        "#[derive(PanelModel)] derives on a `toasty::Model` struct",
         None,
     )?;
     Ok(named.named.iter().find(|field| has(field, "version")))

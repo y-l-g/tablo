@@ -9,7 +9,7 @@ use crate::{Lens, values::FormScalar};
 /// A column of a `String` field holding an uploaded image's path, rendered as a thumbnail.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Product { #[key] #[auto] id: uuid::Uuid, image: String }
 /// tablo_core::ImageColumn::new(tablo_core::lens!(Product.image)).circular();
 /// ```

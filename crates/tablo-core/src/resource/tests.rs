@@ -2,7 +2,7 @@ use super::*;
 use crate::{Tenancy, TenantId, lens, test_support::memory_db};
 
 /// A model with its own tenant column.
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 struct Owned {
     #[key]
     #[auto]
@@ -60,7 +60,7 @@ async fn tenancy_is_anded_onto_the_base_query() {
 }
 
 /// A model whose tenant column accepts no tenant.
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 struct Assignable {
     #[key]
     #[auto]
@@ -127,7 +127,7 @@ async fn a_nullable_tenant_column_is_stamped_and_scoped() {
     assert_eq!(rows[0].name, "Mine");
 }
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 struct Note {
     #[key]
     #[auto]
@@ -202,7 +202,7 @@ fn a_declared_record_title_titles_the_record_with_its_column() {
     );
 }
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 struct ContactPerson {
     #[key]
     #[auto]
@@ -232,7 +232,7 @@ fn the_default_slug_and_plural_label_agree() {
     assert_eq!(mounted.url, "/admin/contact-people");
 }
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 #[allow(clippy::upper_case_acronyms)]
 struct URL {
     #[key]

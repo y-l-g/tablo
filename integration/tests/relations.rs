@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::common::{body_string, get, mount, panel, post_fields, refusal, rows, test_db};
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Owner {
     #[key]
     #[auto]
@@ -22,7 +22,7 @@ struct Owner {
     name: String,
 }
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Child {
     #[key]
     #[auto]

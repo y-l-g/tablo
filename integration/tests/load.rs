@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::common::{TestClient, mount, panel, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Project {
     #[key]
     #[auto]

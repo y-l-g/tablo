@@ -29,7 +29,7 @@ impl<R: Resource> ResourceDef<R> {
     /// Turns `page` off.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
     /// # struct PostResource;
     /// # impl tablo_core::Resource for PostResource {

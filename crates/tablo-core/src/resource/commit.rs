@@ -123,7 +123,7 @@ impl<M> Change<M> {
     /// ```rust
     /// # use tablo_core::{Action, Change, NoForm, Resource};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, published: bool }
     /// # struct PostResource;
     /// # impl Resource for PostResource {
@@ -160,7 +160,7 @@ impl<M> Change<M> {
     /// ```rust
     /// # use tablo_core::{Change, HeaderAction};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid }
     /// # struct RecountTags;
     /// # impl HeaderAction for RecountTags {

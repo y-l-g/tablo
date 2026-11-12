@@ -20,7 +20,7 @@ lists each one. This chapter covers what goes wrong once the panel mounts.
 | a resource is missing from the sidebar | its policy does not allow `ViewAny` for this user | allow `ViewAny`; see [Policy](./policy-auth-tenancy.md#policy) |
 | no Create button, or the create page answers 403 | the policy does not allow `Create`, or the resource's `Form` is `NoForm` | allow `Create` and name a record form |
 | a record's detail page answers 404 | the resource declares `without_page(ResourcePage::View)` | drop it, and declare a `detail` if the default lists no column |
-| `` `Post` declares no default columns `` | the resource's model does not implement `ModelColumns` | add `#[derive(tablo::ModelColumns)]` to the model |
+| `` `Post` declares no default columns `` | the resource's model does not implement `PanelModel` | add `#[derive(tablo::PanelModel)]` to the model |
 | a tenant-owned resource answers 403 everywhere | the request has no tenant: the user has no membership, and the shipped `AdminUser` has none | sign in [your own user table](./policy-auth-tenancy.md#tenancy), whose `PanelUser::tenants` lists memberships |
 | the export answers 413 | the search and filters match more rows than the [export](https://y-l.fr/tablo/nightly/api/tablo/struct.Table.html#export) writes | narrow the list before exporting |
 

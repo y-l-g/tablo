@@ -50,7 +50,7 @@ impl<M> Pair<M> {
 /// names:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, locked: bool }
 /// # use tablo_core::Abilities;
 /// # use topcoat::context::Cx;

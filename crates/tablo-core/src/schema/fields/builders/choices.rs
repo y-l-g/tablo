@@ -69,7 +69,7 @@ impl<F> ChoiceField<F> {
     /// options once, but another choice can depend on it.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, visibility: String }
     /// # use tablo_core::{Field, lens};
     /// Field::choice(lens!(Post.visibility))
@@ -89,7 +89,7 @@ impl<F> ChoiceField<F> {
     /// list. It takes the same modifiers and limits as [`radio`](Self::radio).
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Task { #[key] #[auto] id: uuid::Uuid, priority: String }
     /// # use tablo_core::{Field, lens};
     /// Field::choice(lens!(Task.priority))
@@ -236,7 +236,7 @@ impl<F> ChoiceField<F> {
     /// request's user or tenant.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # pub struct Category {
     /// #     #[key] #[auto] pub id: uuid::Uuid,
     /// #     pub name: String,

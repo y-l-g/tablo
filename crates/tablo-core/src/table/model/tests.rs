@@ -1,9 +1,9 @@
-use super::ModelColumns;
+use super::PanelModel;
 
 /// A derived date column exports the stored value, so a derived table keeps a timestamp's time.
 #[test]
 fn a_derived_date_column_exports_the_stored_timestamp() {
-    #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+    #[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
     struct Stamped {
         #[key]
         #[auto]

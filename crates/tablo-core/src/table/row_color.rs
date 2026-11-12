@@ -22,7 +22,7 @@ impl<M> Table<M> {
     /// gives `None` stays plain.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Invoice { #[key] #[auto] id: uuid::Uuid, number: String, overdue: bool }
     /// use tablo_core::{Color, Reads, Table, TextColumn, lens};
     ///
@@ -45,7 +45,7 @@ impl<M> Table<M> {
 
     /// Declare the fields the [`row_color`](Self::row_color) reads. A color declaring it reads
     /// none of the row's relations, beside a column loading one, reads a copy of the row without
-    /// them, which [`ModelColumns`](crate::ModelColumns) builds: it then mounts beside a column
+    /// them, which [`PanelModel`](crate::PanelModel) builds: it then mounts beside a column
     /// loading a record of a model a resource restricts a field of.
     pub fn row_color_reading(mut self, reads: Reads<M>) -> Self {
         self.row_color.reads = Some(reads);

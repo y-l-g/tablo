@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::common::{body_string, flash, get, mount, panel, panel_cx, post_fields, test_db};
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Ticket {
     #[key]
     #[auto]

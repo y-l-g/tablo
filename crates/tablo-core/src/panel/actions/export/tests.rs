@@ -125,7 +125,7 @@ async fn export_and_list_agree_on_rows_and_order() {
         table::{SelectFilter, Sort, TableState},
     };
 
-    #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+    #[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
     struct Task {
         #[key]
         #[auto]

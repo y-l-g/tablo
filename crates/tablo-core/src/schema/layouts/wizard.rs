@@ -38,7 +38,7 @@ const STEP_NUMBER: StaticClass = class!(
 /// back.
 ///
 /// ```rust
-/// # #[derive(Debug, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, toasty::Model, tablo_core::PanelModel)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String, email: String, bio: String }
 /// use tablo_core::{Field, Schema, Step, Wizard};
 ///

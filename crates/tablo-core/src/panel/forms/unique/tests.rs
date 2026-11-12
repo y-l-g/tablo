@@ -131,7 +131,7 @@ async fn unique_check_flags_duplicates_for_marked_fields() {
 async fn unique_check_propagates_probe_errors() {
     use crate::schema::{Field, Schema};
 
-    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, crate::PanelModel, Clone)]
     struct Probe {
         #[key]
         #[auto]
@@ -174,7 +174,7 @@ async fn unique_check_propagates_probe_errors() {
     );
 }
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 #[unique(slug, locale)]
 struct Page {
     #[key]
@@ -255,7 +255,7 @@ async fn a_composite_index_is_probed_on_all_its_fields() {
     );
 }
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 #[unique(owner, slug)]
 struct Post {
     #[key]

@@ -19,7 +19,7 @@ use crate::common::{TestClient, body_string, form_body, mount, panel, test_db};
 
 const RESULTS_SHARD: &str = "/_topcoat/runtime/shards/tablo-search";
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Book {
     #[key]
     #[auto]

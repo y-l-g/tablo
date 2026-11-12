@@ -13,9 +13,9 @@ use crate::{DeclarationErrorKind, column::Includes, toasty_compat::model};
 /// the relation always declares its include:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Author { #[key] #[auto] id: uuid::Uuid, name: String }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     author_id: uuid::Uuid,
@@ -100,9 +100,9 @@ impl<M, R> RelationLens<M, R> {
 /// # use tablo_core::{RelationLens, relation};
 /// # use toasty::Deferred;
 /// # mod blog {
-/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// #     pub struct Author { #[key] #[auto] pub id: uuid::Uuid, pub name: String }
-/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// #     pub struct Post {
 /// #         #[key] #[auto] pub id: uuid::Uuid,
 /// #         pub author_id: uuid::Uuid,
@@ -111,7 +111,7 @@ impl<M, R> RelationLens<M, R> {
 /// #         #[has_many]
 /// #         pub comments: toasty::Deferred<Vec<Comment>>,
 /// #     }
-/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// #     #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// #     pub struct Comment {
 /// #         #[key] #[auto] pub id: uuid::Uuid,
 /// #         #[index]

@@ -10,7 +10,7 @@ use crate::{
     test_support::{User, cx, memory_db},
 };
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 pub(super) struct Task {
     #[key]
     #[auto]

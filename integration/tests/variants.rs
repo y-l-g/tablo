@@ -25,7 +25,7 @@ enum Body {
     },
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Clip {
     #[key]
     #[auto]

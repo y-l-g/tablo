@@ -21,7 +21,7 @@ use crate::common::{
     panel_router, post_fields, refusal, rows, test_db,
 };
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Task {
     #[key]
     #[auto]

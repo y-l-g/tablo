@@ -3,11 +3,8 @@
 use jiff::Timestamp;
 use tablo::{
     Authenticator, EmailVerifier, FieldErrors, FormInput, Membership, PanelUser, PasswordResetter,
-    Profile, ProfileEditor, ProfileUpdate, Registrar,
-    auth::{
-        self, EmailChange, TenantEditor, TenantRegistrar, hash_password, new_password_errors,
-        verify_password,
-    },
+    Profile, ProfileEditor, ProfileUpdate, Registrar, TenantEditor, TenantRegistrar,
+    auth::{self, EmailChange, hash_password, new_password_errors, verify_password},
 };
 use toasty::Db;
 use topcoat::context::Cx;

@@ -19,7 +19,7 @@ use crate::{
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Embed, tablo_core::FormInput)]
 /// # struct Link { label: String, url: String }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     #[document] links: Vec<Link>,

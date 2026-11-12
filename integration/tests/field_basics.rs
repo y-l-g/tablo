@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, control, field_error, mount, refusal, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Account {
     #[key]
     #[auto]
@@ -278,7 +278,7 @@ async fn a_condition_reads_a_disabled_field_as_the_browser_does() {
     );
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Note {
     #[key]
     #[auto]

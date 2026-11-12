@@ -1,6 +1,6 @@
 use super::changed_fields;
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 struct Owner {
     #[key]
     #[auto]
@@ -8,7 +8,7 @@ struct Owner {
     name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 struct Ticket {
     #[key]
     #[auto]

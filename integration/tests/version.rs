@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, mount, panel, panel_router, refusal, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Note {
     #[key]
     #[auto]
@@ -212,7 +212,7 @@ async fn a_refused_save_carries_the_version_it_opened_on() {
 /// fails as any write does, without the alert.
 #[tokio::test]
 async fn a_failed_condition_on_an_unversioned_model_is_no_stale_form() {
-    #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+    #[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
     struct Plain {
         #[key]
         #[auto]
@@ -268,7 +268,7 @@ async fn a_failed_condition_on_an_unversioned_model_is_no_stale_form() {
 /// read the token, so mounting refuses it.
 #[tokio::test]
 async fn mounting_refuses_a_form_field_named_record_version() {
-    #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+    #[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
     struct Release {
         #[key]
         #[auto]

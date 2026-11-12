@@ -17,7 +17,7 @@ use crate::common::{
     refusal, test_db,
 };
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Item {
     #[key]
     #[auto]
@@ -337,7 +337,7 @@ async fn the_detail_page_reads_the_forms_projection() {
     assert!(html.contains("Stored"), "{html}");
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Owned {
     #[key]
     #[auto]
@@ -1038,7 +1038,7 @@ async fn the_derived_default_form_renders_and_writes() {
 
     assert_eq!(WidgetRole::Admin.value(), "admin");
 
-    #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+    #[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
     struct Widget {
         #[key]
         #[auto]
@@ -1162,7 +1162,7 @@ async fn the_record_form_decides_which_controls_are_required() {
 
 #[tokio::test]
 async fn build_refuses_a_unique_field_an_empty_submission_answers() {
-    #[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+    #[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
     struct Handle {
         #[key]
         #[auto]

@@ -49,7 +49,7 @@ form and its policy:
 ```rust
 use tablo::prelude::*;
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct User {
     #[key]
     #[auto]

@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::common::{body_string, get, panel_router, rows, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Brand {
     #[key]
     #[auto]

@@ -1,9 +1,9 @@
-//! The table and detail page a model's `ModelColumns` give a resource that declares neither, and
+//! The table and detail page a model's `PanelModel` give a resource that declares neither, and
 //! the detail page a declared table gives.
 
 use http::StatusCode;
 use tablo::{
-    BooleanColumn, DeclarationErrorKind, Detail, EmbeddedColumn, FileColumn, ModelColumns, NoForm,
+    BooleanColumn, DeclarationErrorKind, Detail, EmbeddedColumn, FileColumn, NoForm, PanelModel,
     Resource, ResourceDef, ResourcePage, SelectFilter, Site, Table, TextColumn, lens,
     testing::{columns, detail_entries, filter_options, rows},
 };
@@ -20,7 +20,7 @@ enum TicketStatus {
     Waiting,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Ticket {
     #[key]
     #[auto]
@@ -125,7 +125,7 @@ async fn ticket_db() -> (Db, Ticket) {
 /// included, searchable over a `String`, an options enum by its label, and a toggle as yes or
 /// no, an `#[auto]` timestamp included. A skipped field shows nowhere.
 #[tokio::test]
-async fn the_model_columns_give_the_table() {
+async fn the_panel_model_gives_the_table() {
     let (db, _) = ticket_db().await;
     let router = panel_router::<TicketResource>(db);
 
@@ -164,7 +164,7 @@ async fn the_model_columns_give_the_table() {
 /// The model's columns give the detail page: each field the table lists, read-only; an empty
 /// detail turns it off.
 #[tokio::test]
-async fn the_model_columns_give_the_detail_page() {
+async fn the_panel_model_gives_the_detail_page() {
     let (db, ticket) = ticket_db().await;
     let viewed = panel_router::<TicketResource>(db.clone());
     let detail = get(&viewed, &format!("/admin/tickets/{}", ticket.id)).await;
@@ -221,7 +221,7 @@ struct Signature {
     signer: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Delivery {
     #[key]
     #[auto]
@@ -340,7 +340,7 @@ async fn declared_columns_link_a_file_and_export_an_embedded_value() {
 }
 
 /// An invoice whose fields shape their columns and declare their filters.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Invoice {
     #[key]
     #[auto]
@@ -531,7 +531,7 @@ async fn the_detail_page_defaults_to_the_declared_table() {
 }
 
 /// A bookmark's lists: free text and an options enum, each in one list column.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Bookmark {
     #[key]
     #[auto]

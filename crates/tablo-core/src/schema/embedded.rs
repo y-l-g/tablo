@@ -14,7 +14,7 @@
 //!     pub title: String,
 //!     pub description: String,
 //! }
-//! # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+//! # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 //! # struct Post { #[key] #[auto] id: uuid::Uuid, seo: Seo }
 //! # fn round_trip(record: &Post) -> Result<(), Vec<FieldError>> {
 //! # let mut values = FormValues::new();

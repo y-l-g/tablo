@@ -17,7 +17,7 @@ impl<M> Ability<'_, M> {
     /// ```rust
     /// # use tablo_core::{Ability, Action, NoForm, Resource};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, published: bool }
     /// # struct PostResource;
     /// # impl Resource for PostResource {
@@ -56,7 +56,7 @@ impl<M> crate::policy::Abilities<M> {
     /// ```rust
     /// # use tablo_core::{Abilities, Action, NoForm, Resource};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, published: bool }
     /// # struct PostResource;
     /// # impl Resource for PostResource {

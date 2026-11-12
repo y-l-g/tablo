@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::common::{body_string, get, mount, panel, post_fields, refusal, test_db};
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Shelf {
     #[key]
     #[auto]
@@ -26,7 +26,7 @@ struct Shelf {
     deleted_at: Option<jiff::Timestamp>,
 }
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Book {
     #[key]
     #[auto]
@@ -493,7 +493,7 @@ async fn an_edit_keeps_its_links_past_the_option_cap() {
 }
 
 /// A join model holding a column a link cannot fill.
-#[derive(Debug, toasty::Model, tablo::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Club {
     #[key]
     #[auto]

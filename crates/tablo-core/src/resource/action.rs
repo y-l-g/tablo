@@ -34,7 +34,7 @@ pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm",
 /// [`ResourceDef::action`](super::ResourceDef::action) declares it:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post {
 /// #     #[key] #[auto] id: uuid::Uuid,
 /// #     title: String,
@@ -136,7 +136,7 @@ pub trait Action<R: Resource>: 'static {
     /// ```rust,compile_fail,E0080
     /// # use tablo_core::{Action, NoForm, Resource, ResourceDef};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
     /// # struct PostResource;
     /// # impl Resource for PostResource {

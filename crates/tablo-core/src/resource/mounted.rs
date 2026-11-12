@@ -20,7 +20,7 @@ use crate::{
     navigation::NavigationItem,
     policy::{Ability, Policy},
     schema::{Retype, Schema},
-    table::{ModelColumns, Table},
+    table::{PanelModel, Table},
     tenancy::Tenancy,
 };
 
@@ -95,12 +95,12 @@ impl<R: Resource> Mounted<R> {
         let mut detail = match (def.detail, &def.table) {
             (Some(detail), _) => detail,
             (None, Some(table)) => Detail::of_columns(table.declared_columns()),
-            (None, None) => <R::Model as ModelColumns>::detail(),
+            (None, None) => <R::Model as PanelModel>::detail(),
         };
-        let mut table = def.table.unwrap_or_else(<R::Model as ModelColumns>::table);
+        let mut table = def.table.unwrap_or_else(<R::Model as PanelModel>::table);
         // A closure over the row that declares it reads none of its relations reads a copy without
         // them, so a relation a column loads cannot reach it.
-        if <R::Model as ModelColumns>::UNLOADS_RELATIONS {
+        if <R::Model as PanelModel>::UNLOADS_RELATIONS {
             table.read_bare(crate::table::model::bare::<R::Model>);
             detail.read_bare(crate::table::model::bare::<R::Model>);
         }
@@ -373,7 +373,7 @@ pub(crate) struct Mounts {
 impl Mounts {
     pub(crate) fn insert<R: Resource>(&mut self, mounted: Arc<Mounted<R>>) {
         if mounted.tenancy.is_scoped()
-            || !<R::Model as crate::ModelColumns>::TENANT_COLUMNS.is_empty()
+            || !<R::Model as crate::PanelModel>::TENANT_COLUMNS.is_empty()
         {
             self.tenant_models
                 .insert(<R::Model as toasty::schema::Model>::id());

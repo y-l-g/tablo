@@ -8,7 +8,7 @@ impl<F> FileField<F> {
     /// matched without case, and hint them to the browser's file picker through `accept`.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Doc { #[key] #[auto] id: uuid::Uuid, cover: String }
     /// # use tablo_core::{Field, lens};
     /// Field::file(lens!(Doc.cover))
@@ -64,7 +64,7 @@ impl<F> FileField<F> {
     /// as one before the form saves it.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Product { #[key] #[auto] id: uuid::Uuid, gallery: Vec<String> }
     /// # use tablo_core::{Field, lens};
     /// Field::files(lens!(Product.gallery))

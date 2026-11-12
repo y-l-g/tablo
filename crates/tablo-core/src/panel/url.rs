@@ -11,7 +11,7 @@
 //! ```rust,no_run
 //! # use tablo_core::{NoForm, Page, Resource};
 //! # use topcoat::{Result, context::Cx, view::View};
-//! # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+//! # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 //! # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
 //! # struct PostResource;
 //! # impl Resource for PostResource {

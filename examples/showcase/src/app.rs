@@ -6,12 +6,12 @@ use tablo::{
     Ability, ActionLayout, Allow, Auth, AuthMail, BooleanColumn, Brand, Change, Color,
     ComputedColumn, CountColumn, DateColumn, DateFilter, Detail, DirUploader, EmailVerification,
     EmbeddedColumn, Environment, FieldErrors, FontWeight, GlobalSearch, Grid, Group, HeaderAction,
-    ModelColumns, NavigationItem, Notification, Notifications, NumberFilter, Pagination, Panel,
-    PanelHandle, PanelUser, PasswordReset, PresenceFilter, PublicLink, QueryFilter, Reads,
-    Relation, RelationColumn, RepeaterColumn, Resource, ResourceDef, RichTextColumn,
-    RouterBuilderPanelExt, RowLink, Schema, Section, SelectFilter, Step, Tab, Table, Tabs, Tenancy,
-    TenantRegistration, TernaryFilter, TextColumn, TextFilter, TextMatch, ToggleColumn, TwoFactor,
-    Wizard, lens, relation, tenant_id, when,
+    NavigationItem, Notification, Notifications, NumberFilter, Pagination, Panel, PanelHandle,
+    PanelModel, PanelUser, PasswordReset, PresenceFilter, PublicLink, QueryFilter, Reads, Relation,
+    RelationColumn, RepeaterColumn, Resource, ResourceDef, RichTextColumn, RouterBuilderPanelExt,
+    RowLink, Schema, Section, SelectFilter, Step, Tab, Table, Tabs, Tenancy, TenantRegistration,
+    TernaryFilter, TextColumn, TextFilter, TextMatch, ToggleColumn, TwoFactor, Wizard, lens,
+    relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{

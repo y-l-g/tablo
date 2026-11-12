@@ -22,7 +22,7 @@ use crate::{Lens, display::Color, values::FormScalar};
 /// #     #[option(color = "warning", icon = tablo_ui::icons::INFO)] Draft,
 /// #     #[option(color = "success", icon = tablo_ui::icons::CIRCLE_CHECK)] Published,
 /// # }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, status: Status }
 /// tablo_core::IconColumn::new(tablo_core::lens!(Post.status)).sortable();
 /// ```

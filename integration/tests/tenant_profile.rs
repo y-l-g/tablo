@@ -4,8 +4,8 @@
 use http::header::LOCATION;
 use tablo::{
     Auth, DeclarationErrorKind, FieldErrors, FormInput, Membership, NotificationStatus,
-    TenantProfileFault,
-    auth::{AdminUser, TenantEditor},
+    TenantEditor, TenantProfileFault,
+    auth::AdminUser,
     testing::{ErrorKind, field_error, form_body, input_value},
 };
 use toasty::Db;

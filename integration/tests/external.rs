@@ -29,7 +29,7 @@ use crate::common::{
 const SEARCH_SHARD: &str = "/_topcoat/runtime/shards/tablo-search";
 const SEARCH_ARGS: &str = r#"{"args":["/admin","ledger"],"signals":{}}"#;
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Book {
     #[key]
     #[auto]
@@ -411,7 +411,7 @@ async fn sign_out_without_a_csrf_token_is_refused() {
 const ACME: Uuid = Uuid::from_u128(0xac);
 const GLOBEX: Uuid = Uuid::from_u128(0x61);
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Note {
     #[key]
     #[auto]

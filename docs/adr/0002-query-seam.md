@@ -26,7 +26,7 @@ A resource that declares no tenancy over tenant-owned rows does not mount: it wo
 tenant's rows, and forgetting `.tenancy(..)` is the likelier cause than intent. Rows are
 tenant-owned when the model has a `TenantId` field, or a `belongs_to` to a model the panel mounts a
 resource over, when that resource is tenant-scoped or the model has a `TenantId` field, as a comment
-belongs to a post. The `ModelColumns`
+belongs to a post. The `PanelModel`
 derive lists the model's `TenantId` fields in `TENANT_COLUMNS`, which has no default so that an impl
 by hand states it too; the check needs no declaration of its own, and `Tenancy::none()` states the
 intent. The derive recognizes the field by its type's name, `TenantId`, so an alias of it goes

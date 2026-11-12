@@ -40,7 +40,7 @@ impl Editor {
 /// A column of a `bool` field rendered as a switch that saves the record when it flips.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, featured: bool }
 /// tablo_core::ToggleColumn::new(tablo_core::lens!(Post.featured));
 /// ```
@@ -136,7 +136,7 @@ where
 /// ```rust
 /// # #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo_core::Options)]
 /// # enum Status { Draft, Published }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, status: Status }
 /// tablo_core::SelectColumn::new(tablo_core::lens!(Post.status));
 /// ```
@@ -217,7 +217,7 @@ where
 /// A column of one field rendered as a text input that saves the record on Enter.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Product { #[key] #[auto] id: uuid::Uuid, stock: i64 }
 /// tablo_core::TextInputColumn::new(tablo_core::lens!(Product.stock));
 /// ```

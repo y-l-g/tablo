@@ -3,7 +3,7 @@
 
 use crate::common::test_db;
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Note {
     #[key]
     #[auto]
@@ -27,7 +27,7 @@ async fn toasty_panics_on_an_update_with_no_assignment() {
     let _ = note.update().exec(&mut db).await;
 }
 
-#[derive(Debug, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, toasty::Model, tablo::PanelModel)]
 struct Subscriber {
     #[key]
     #[auto]

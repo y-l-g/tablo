@@ -1,4 +1,4 @@
-//! How the [`ModelColumns`](derive@crate::ModelColumns) derive picks a field's column and filter
+//! How the [`PanelModel`](derive@crate::PanelModel) derive picks a field's column and filter
 //! from its type, a choice no trait bound can make: each `Pick*` trait is implemented on
 //! [`ModelField`] behind one more reference than the next, so method lookup on `&&&&&&ModelField`
 //! takes the first whose bounds the field's type meets.

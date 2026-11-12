@@ -1,6 +1,6 @@
 # tablo-macros
 
-The `ModelColumns`, `RecordForm`, `ModelForm`, `EmbeddedForm`, `FormInput` and `Options` derives
+The `PanelModel`, `RecordForm`, `ModelForm`, `EmbeddedForm`, `FormInput` and `Options` derives
 for Tablo's table columns, forms, embedded values, action inputs, repeaters and choice fields.
 
 `tablo-core` re-exports each derive and `tablo` re-exports `tablo-core`, so an app depends on

@@ -8,7 +8,7 @@
 //! defaults.
 //!
 //! ```no_run
-//! #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+//! #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 //! struct User {
 //!     #[key]
 //!     #[auto]
@@ -26,7 +26,7 @@
 //! }
 //!
 //! // A column type toasty stores but the form edge cannot spell.
-//! #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+//! #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 //! struct Tagged {
 //!     #[key]
 //!     #[auto]
@@ -73,9 +73,9 @@ pub use crate::{
 
 impl<F: RecordForm> crate::schema::EditsRecords for F {}
 
-/// The hidden control the edit form carries the record's [`ModelColumns::version`] in.
+/// The hidden control the edit form carries the record's [`PanelModel::version`] in.
 ///
-/// [`ModelColumns::version`]: crate::ModelColumns::version
+/// [`PanelModel::version`]: crate::PanelModel::version
 pub(crate) const VERSION_FIELD: &str = "record_version";
 
 /// The name of the create form's second submit button, which saves and lands on a fresh create

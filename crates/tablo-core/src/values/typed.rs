@@ -35,7 +35,7 @@ pub trait TypedValue: std::fmt::Display + std::str::FromStr {
     const STEP: Option<&'static str> = None;
 
     /// Whether a database `ORDER BY` over the stored column orders values as the type does, on
-    /// every driver. The [`ModelColumns`](derive@crate::ModelColumns) derive makes a column of
+    /// every driver. The [`PanelModel`](derive@crate::PanelModel) derive makes a column of
     /// the type [`sortable`](crate::TextColumn::sortable) only when it does. `false` for the
     /// decimal types, which some drivers store as text and so sort by spelling: `10.00`, `100`,
     /// `9.50`.

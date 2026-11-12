@@ -1,7 +1,7 @@
 //! Tablo: a server-rendered admin toolkit on [Topcoat](topcoat) and [Toasty](toasty).
 //!
 //! A [`Panel`] serves one [`Resource`] per Toasty model. A resource names the model, whose
-//! [`ModelColumns`](derive@ModelColumns) give its default table and detail page, and the record
+//! [`PanelModel`](derive@PanelModel) give its default table and detail page, and the record
 //! form its create and edit submissions parse into, which [`ModelForm`](derive@ModelForm) derives
 //! from the model or [`RecordForm`](derive@RecordForm) from a struct of its own. It declares the
 //! rest as one [`ResourceDef`] value: its [`Policy`], which denies by default, and any [`Table`],
@@ -15,7 +15,7 @@
 //! # use toasty::Db;
 //! # use topcoat::router::{Router, RouterBuilderDiscoverExt};
 //! # fn main() -> topcoat::Result<()> {
-//! #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns, tablo_core::ModelForm)]
+//! #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel, tablo_core::ModelForm)]
 //! pub struct Book {
 //!     #[key]
 //!     #[auto]
@@ -83,7 +83,7 @@ pub mod __macro {
             write_items,
         },
         table::{
-            ModelColumns, Table,
+            PanelModel, Table,
             model::{Reference, pick},
         },
         toasty_compat::VariantId,
@@ -151,7 +151,8 @@ pub use auth::{
     password_reset::{PasswordReset, PasswordResetter},
     profile::{Profile, ProfileEditor, ProfileField, ProfileUpdate},
     registration::{Registrar, SignUp},
-    tenant_registration::TenantRegistration,
+    tenant_profile::TenantEditor,
+    tenant_registration::{TenantRegistrar, TenantRegistration},
     throttle::LoginThrottle,
     two_factor::TwoFactor,
     verification::{EmailVerification, EmailVerifier},
@@ -172,7 +173,7 @@ pub use declaration::{
     SignUpFault, Site, TenancyFault, TenantProfileFault, TenantRegistrationFault, TwoFactorFault,
     VerificationFault,
 };
-pub use derive::{EmbeddedForm, FormInput, ModelColumns, ModelForm, Options, RecordForm};
+pub use derive::{EmbeddedForm, FormInput, ModelForm, Options, PanelModel, RecordForm};
 pub use detail::{Detail, IntoDetail};
 pub use display::{Alignment, Color, Currency, FontWeight, Number, Numeric};
 pub use form::{NoForm, Posted, RecordForm};
@@ -211,7 +212,7 @@ pub use schema::{
 };
 pub use table::{
     ActionLayout, Cursor, DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, DateFilter, FilterValue,
-    IntoFilters, ListTab, ModelColumns, NumberFilter, PagePosition, Pagination, PresenceFilter,
+    IntoFilters, ListTab, NumberFilter, PagePosition, Pagination, PanelModel, PresenceFilter,
     QueryFilter, RowLink, SelectFilter, Sort, Summary, Table, TablePage, TableState, TernaryFilter,
     TextFilter, TextMatch,
 };

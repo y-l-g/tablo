@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, form_body, mount, refusal, rows, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Book {
     #[key]
     #[auto]

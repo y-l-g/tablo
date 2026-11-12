@@ -71,9 +71,9 @@ pub use write_error::WriteError;
 /// schema, and serves the result to every request. Record fns run inside the handler transaction
 /// and fail without partial writes.
 pub trait Resource: Sized + Send + Sync + 'static {
-    /// The persisted model this resource administers. Its [`ModelColumns`](crate::ModelColumns)
+    /// The persisted model this resource administers. Its [`PanelModel`](crate::PanelModel)
     /// give the table and detail page the resource declares none of.
-    type Model: crate::ModelColumns
+    type Model: crate::PanelModel
         + toasty::stmt::IntoExpr<Self::Model>
         + Send
         + Sync
@@ -93,7 +93,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// relations and actions. Defaults to [`ResourceDef::new`], whose policy denies all.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post {
     /// #     #[key] #[auto] id: uuid::Uuid,
     /// #     title: String,
@@ -275,7 +275,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// ```rust
     /// # use tablo_core::{Change, NoForm, Resource};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
     /// # #[derive(Debug, toasty::Model)]
     /// # struct Audit { #[key] #[auto] id: uuid::Uuid, post_id: uuid::Uuid, change: String }
@@ -332,7 +332,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// ```rust
     /// # use tablo_core::{Change, NoForm, Resource};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
     /// # async fn notify(_cx: &Cx, _post: &Post) -> Result<()> { Ok(()) }
     /// # struct PostResource;

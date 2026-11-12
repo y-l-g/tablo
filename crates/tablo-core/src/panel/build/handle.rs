@@ -32,7 +32,7 @@ use crate::{
 /// ```rust,no_run
 /// # use tablo_core::{NoForm, Panel, Resource, RouterBuilderPanelExt, Tenant, scoped_query};
 /// # use topcoat::router::{Router, RouterBuilderDiscoverExt};
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
 /// # struct PostResource;
 /// # impl Resource for PostResource { type Model = Post; type Form = NoForm<Post>; }
@@ -100,7 +100,7 @@ impl PanelHandle {
     /// ```rust,no_run
     /// # use tablo_core::{NoForm, PanelHandle, Resource, scoped_query};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
     /// # struct PostResource;
     /// # impl Resource for PostResource { type Model = Post; type Form = NoForm<Post>; }

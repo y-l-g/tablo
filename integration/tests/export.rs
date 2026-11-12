@@ -21,7 +21,7 @@ fn capped_router<R: Resource>(db: Db) -> Router {
     mount(db, panel().limits(limits).resource::<R>()).expect("panel builds")
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Item {
     #[key]
     #[auto]
@@ -162,7 +162,7 @@ struct Shelf {
     name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Volume {
     #[key]
     #[auto]

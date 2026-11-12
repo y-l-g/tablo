@@ -112,7 +112,7 @@ type NoneFn = Arc<dyn Fn() -> Option<Expr<bool>> + Send + Sync>;
 /// field holds nothing.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct User { #[key] #[auto] id: uuid::Uuid, email: String }
 /// # use tablo_core::{TextFilter, TextMatch, lens};
 /// TextFilter::new(lens!(User.email)).matching([TextMatch::EndsWith, TextMatch::Is]);

@@ -21,7 +21,7 @@ use crate::BoxFuture;
 /// ```rust
 /// # use tablo_core::{Ability, Load, Panel, Policy, TenantId, db::db, loaded, tenant_id};
 /// # use topcoat::{Result, context::Cx};
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Project { #[key] #[auto] id: uuid::Uuid, name: String }
 /// #[derive(Debug, toasty::Model)]
 /// struct Subscription {

@@ -6,7 +6,7 @@ panel builds it once when it mounts and serves that table to every request. The 
 drives the CSV export.
 
 The table defaults to the model's, `User::table()`, which
-[`#[derive(tablo::ModelColumns)]`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.ModelColumns.html) writes: a sortable column per
+[`#[derive(tablo::PanelModel)]`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.PanelModel.html) writes: a sortable column per
 field, whether a form or Toasty writes it, so a `#[default]` `created_at` is listed too, and
 `#[columns(skip)]` leaves out a field such as a password hash. Extend the model's table, whose
 `filters(..)` add to the ones a field's `#[columns(filter)]` declares, or declare the columns
@@ -171,7 +171,7 @@ page, and `filter` adds the filter the type picks:
 ```
 
 A key the column does not take, such as `badge` on a `bool`, fails to compile at the key. The
-[derive's page](https://y-l.fr/tablo/nightly/api/tablo_core/derive.ModelColumns.html#per-field-attributes)
+[derive's page](https://y-l.fr/tablo/nightly/api/tablo_core/derive.PanelModel.html#per-field-attributes)
 lists the keys and the filter each type picks.
 
 ### Your own columns

@@ -16,7 +16,7 @@ use crate::common::{
     refusal, test_db,
 };
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Ticket {
     #[key]
     #[auto]
@@ -121,7 +121,7 @@ impl Action<TicketResource> for Book {
     }
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Trip {
     #[key]
     #[auto]

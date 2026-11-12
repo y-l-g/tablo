@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::common::{body_string, mount, panel, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Note {
     #[key]
     #[auto]
@@ -24,7 +24,7 @@ struct Note {
     secret: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Comment {
     #[key]
     #[auto]

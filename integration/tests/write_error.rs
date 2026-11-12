@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::common::{body_string, import_csv, mount, panel, post_fields, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Booking {
     #[key]
     #[auto]

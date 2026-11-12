@@ -6,7 +6,7 @@ use toasty::{
 use super::*;
 use crate::test_support::memory_db;
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 struct Post {
     #[key]
     #[auto]
@@ -18,7 +18,7 @@ struct Post {
     tags: Deferred<Vec<Tag>>,
 }
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 struct Tag {
     #[key]
     #[auto]

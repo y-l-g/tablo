@@ -27,13 +27,13 @@ mod header_actions;
 /// adjusts it for one panel. Every setting has a default, so a resource sets only what differs:
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, featured: bool }
 /// # #[derive(Debug, Clone, tablo_core::RecordForm)]
 /// # #[form(model = Post)]
 /// # struct PostForm { title: String, featured: bool }
 /// # struct PostResource;
-/// use tablo_core::{ModelColumns, ReadOnly, Resource, ResourceDef, TernaryFilter, lens};
+/// use tablo_core::{PanelModel, ReadOnly, Resource, ResourceDef, TernaryFilter, lens};
 ///
 /// impl Resource for PostResource {
 ///     type Model = Post;
@@ -128,7 +128,7 @@ impl<R: Resource> Default for ResourceDef<R> {
 
 impl<R: Resource> ResourceDef<R> {
     /// A def with every default: the policy denies all, rows belong to no tenant, the model's
-    /// [`ModelColumns`](crate::ModelColumns) give the table and the detail page, and the record
+    /// [`PanelModel`](crate::PanelModel) give the table and the detail page, and the record
     /// form gives the form.
     pub fn new() -> Self {
         Self::default()
@@ -216,7 +216,7 @@ impl<R: Resource> ResourceDef<R> {
     /// badge of a [`navigation`](Self::navigation) item.
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, draft: bool }
     /// # struct PostResource;
     /// # impl tablo_core::Resource for PostResource {
@@ -255,7 +255,7 @@ impl<R: Resource> ResourceDef<R> {
     /// closure's argument types from the def's model:
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, locked: bool }
     /// # struct PostResource;
     /// # impl tablo_core::Resource for PostResource {
@@ -325,10 +325,10 @@ impl<R: Resource> ResourceDef<R> {
         self
     }
 
-    /// The list table; defaults to the model's ([`ModelColumns::table`]). Its columns are also
+    /// The list table; defaults to the model's ([`PanelModel::table`]). Its columns are also
     /// the [`detail`](Self::detail) page's, unless the resource declares one.
     ///
-    /// [`ModelColumns::table`]: crate::ModelColumns::table
+    /// [`PanelModel::table`]: crate::PanelModel::table
     #[must_use]
     pub fn table(mut self, table: Table<R::Model>) -> Self {
         self.table = Some(table);
@@ -343,7 +343,7 @@ impl<R: Resource> ResourceDef<R> {
     /// per field, and a form that adjusts one control places only that one:
     ///
     /// ```rust
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct User { #[key] #[auto] id: uuid::Uuid, name: String, email: String }
     /// # #[derive(Debug, Clone, tablo_core::RecordForm)]
     /// # #[form(model = User)]
@@ -368,7 +368,7 @@ impl<R: Resource> ResourceDef<R> {
     }
 
     /// The detail page: columns in layout blocks; defaults to the [`table`](Self::table)'s columns,
-    /// else to the model's ([`ModelColumns::detail`]). The page adds a View action to each
+    /// else to the model's ([`PanelModel::detail`]). The page adds a View action to each
     /// row; [`without_page(ResourcePage::View)`](Self::without_page) turns it off, and mounting
     /// refuses a detail listing no column on a resource that serves it.
     ///
@@ -383,7 +383,7 @@ impl<R: Resource> ResourceDef<R> {
     /// record the policy refuses `View` is a 403. The [`form`](Self::form) does not shape the
     /// page: a resource that arranges its form declares a detail to show the same arrangement.
     ///
-    /// [`ModelColumns::detail`]: crate::ModelColumns::detail
+    /// [`PanelModel::detail`]: crate::PanelModel::detail
     #[must_use]
     pub fn detail(mut self, detail: Detail<R::Model>) -> Self {
         self.detail = Some(detail);

@@ -27,7 +27,7 @@ use crate::common::{
 
 /// An account of the app's own table: a numeric key, an `#[update]` stamp, and an id the signed-in
 /// user spells as `id_prefix` says.
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Customer {
     #[key]
     #[auto]
@@ -124,7 +124,7 @@ impl PasswordAccount for Customer {
     }
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Note {
     #[key]
     #[auto]

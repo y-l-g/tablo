@@ -16,7 +16,7 @@ impl<R: Resource> ResourceDef<R> {
     /// ```rust,compile_fail,E0080
     /// # use tablo_core::{HeaderAction, NoForm, Resource, ResourceDef};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String }
     /// # struct PostResource;
     /// # impl Resource for PostResource {
@@ -50,7 +50,7 @@ impl<R: Resource> ResourceDef<R> {
     /// ```rust
     /// # use tablo_core::{HeaderAction, NoForm, Resource, ResourceDef};
     /// # use topcoat::{Result, context::Cx};
-    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
     /// # struct Post { #[key] #[auto] id: uuid::Uuid, title: String, draft: bool }
     /// # struct PostResource;
     /// # impl Resource for PostResource {

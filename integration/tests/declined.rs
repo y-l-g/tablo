@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::common::{import_csv, panel, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Invoice {
     #[key]
     #[auto]

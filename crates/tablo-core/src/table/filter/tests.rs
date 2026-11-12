@@ -1,7 +1,7 @@
 use super::*;
 use crate::test_support::{cx, memory_db};
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 struct Task {
     #[key]
     #[auto]
@@ -587,7 +587,7 @@ struct Writer {
     name: String,
 }
 
-#[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
 struct Article {
     #[key]
     #[auto]

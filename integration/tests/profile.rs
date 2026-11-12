@@ -22,7 +22,7 @@ use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, field_error, flash, mount, refusal, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Note {
     #[key]
     #[auto]

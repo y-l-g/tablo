@@ -14,7 +14,7 @@ async fn check(field: &Field, cx: &Cx, value: &str) -> Vec<String> {
         .collect()
 }
 /// Provides the related-source fixtures the option-policy tests share.
-#[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
+#[derive(Debug, toasty::Model, crate::PanelModel, Clone)]
 struct PolicyAuthor {
     #[key]
     #[auto]
@@ -80,7 +80,7 @@ impl OptionSource for TenantScopedAuthors {
 
 #[tokio::test]
 async fn relationship_loader_fails_past_option_cap() {
-    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, crate::PanelModel, Clone)]
     struct RefAuthor {
         #[key]
         #[auto]
@@ -130,7 +130,7 @@ async fn relationship_loader_fails_past_option_cap() {
 #[tokio::test]
 async fn relationship_option_values_are_primary_keys_not_table_ids() {
     // Option values come from the record's typed PK, never the display label.
-    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, crate::PanelModel, Clone)]
     struct RefAuthor {
         #[key]
         #[auto]
@@ -305,7 +305,7 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
 
     static OPTION_LOADS: AtomicUsize = AtomicUsize::new(0);
 
-    #[derive(Debug, Clone, toasty::Model, crate::ModelColumns)]
+    #[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
     struct Ref {
         #[key]
         #[auto]
@@ -365,7 +365,7 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
 async fn relationship_overflow_is_distinct_from_load_failed() {
     // Over-cap reports `Overflow` so searchable selects degrade to type-to-search.
 
-    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, crate::PanelModel, Clone)]
     struct BigRef {
         #[key]
         #[auto]
@@ -413,7 +413,7 @@ async fn relationship_overflow_is_distinct_from_load_failed() {
 async fn relationship_search_narrows_past_the_cap() {
     // A distinctive term returns its bounded match on a table that overflows unfiltered.
 
-    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, crate::PanelModel, Clone)]
     struct SearchRef {
         #[key]
         #[auto]
@@ -488,7 +488,7 @@ async fn relationship_search_narrows_past_the_cap() {
 async fn relationship_search_without_searchable_falls_back_to_cap() {
     // No searchable columns overflows large tables instead of truncating.
 
-    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, crate::PanelModel, Clone)]
     struct PlainRef {
         #[key]
         #[auto]
@@ -530,7 +530,7 @@ async fn relationship_search_without_searchable_falls_back_to_cap() {
 async fn relationship_overflowed_searchable_validates_via_targeted_check() {
     // Searchable selects over overflowed tables validate legitimate FKs via the targeted PK check.
 
-    #[derive(Debug, toasty::Model, crate::ModelColumns, Clone)]
+    #[derive(Debug, toasty::Model, crate::PanelModel, Clone)]
     struct CheckRef {
         #[key]
         #[auto]

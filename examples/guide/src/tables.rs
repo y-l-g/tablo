@@ -140,7 +140,7 @@ pub fn user_table() -> Table<User> {
 // ANCHOR_END: table-toggleable
 
 // ANCHOR: table-derived-keys
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Invoice {
     #[key]
     #[auto]

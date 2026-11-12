@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::common::{body_string, get, mount, panel, post_fields, test_db};
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Category {
     #[key]
     #[auto]
@@ -19,7 +19,7 @@ struct Category {
     archived: bool,
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Listing {
     #[key]
     #[auto]

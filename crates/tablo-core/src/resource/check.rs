@@ -5,7 +5,7 @@
 use topcoat::context::{Cx, try_context};
 
 use crate::{
-    ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, ModelColumns, Site,
+    ActionInputFault, DeclarationError, DeclarationErrorKind, ManyToManyFault, PanelModel, Site,
     TenancyFault,
     form::RecordForm,
     resource::{InputSpec, Mounted, Resource, is_tenant_model, require_mounted},
@@ -95,7 +95,7 @@ pub(crate) struct ServesTenants;
 /// keeps in a column of another type escapes both checks.
 fn check_undeclared_tenancy<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationError>) {
     let before = errors.len();
-    let columns = <R::Model as ModelColumns>::TENANT_COLUMNS;
+    let columns = <R::Model as PanelModel>::TENANT_COLUMNS;
     if !columns.is_empty() {
         errors.push(tenancy_error::<R>(TenancyFault::Undeclared {
             model: model_name::<R>(),

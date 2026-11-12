@@ -22,7 +22,7 @@ use crate::{
 /// the page renders its body.
 ///
 /// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::ModelColumns)]
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Order { #[key] #[auto] id: uuid::Uuid, number: String }
 /// # struct OrderResource;
 /// # impl tablo_core::Resource for OrderResource {

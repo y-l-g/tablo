@@ -39,7 +39,7 @@ impl Resource for Users {
     }
 }
 
-#[derive(Debug, Clone, toasty::Model, tablo::ModelColumns)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Memo {
     #[key]
     #[auto]
