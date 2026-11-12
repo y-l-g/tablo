@@ -287,7 +287,8 @@ pub fn branded_panel() -> Panel {
             Brand::new("Acme")
                 .logo("/logo.svg")
                 .dark_logo("/logo-dark.svg")
-                .favicon("/favicon.svg"),
+                .favicon("/favicon.svg")
+                .theme(Theme::Amber),
         )
         .dark_by_default()
         .login_hint("Demo: admin@example.com / password")

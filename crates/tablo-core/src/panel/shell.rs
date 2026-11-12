@@ -138,15 +138,18 @@ impl Panel {
         extra_class: Option<String>,
     ) -> Result<BoxView<'a>> {
         use tablo_ui::{
-            SeparatorOrientation, SidebarCollapsible, SidebarVariant, separator, sidebar,
-            sidebar_content, sidebar_footer, sidebar_header, sidebar_inset, sidebar_provider,
-            sidebar_trigger,
+            SeparatorOrientation, SidebarCollapsible, separator, sidebar, sidebar_content,
+            sidebar_footer, sidebar_header, sidebar_inset, sidebar_provider, sidebar_trigger,
         };
 
         let sidebar_open = signal(cx, || Self::sidebar_starts_open(cx));
         let mobile_open = signal(cx, || false);
         let outer_class = extra_class.clone().unwrap_or_default();
         let header_title = Self::brand_name(cx);
+        let variant = current(cx)
+            .and_then(|panel| panel.brand.as_ref())
+            .map_or_else(|| Theme::default().sidebar(), Brand::sidebar_frame)
+            .variant();
         // One navigation tree: the upstream sidebar renders its children once
         // and shares them between the desktop panel and the mobile sheet.
         // The query the browser sent: an entry that names parameters the request carries wins
@@ -237,7 +240,7 @@ impl Panel {
                     open: $(sidebar_open.get()),
                     mobile_open: $(mobile_open.get()),
                     collapsible: SidebarCollapsible::Icon,
-                    variant: SidebarVariant::Inset,
+                    variant: variant,
                     sheet_attrs: attributes! {
                         id="mobile-sidebar-sheet"
                         aria-label=(crate::t!(cx, "tablo-shell-navigation"))
@@ -425,15 +428,15 @@ mod breadcrumbs;
 mod document;
 mod environment;
 mod language;
+mod scheme;
 pub(super) mod sidebar;
-mod theme;
 mod toaster;
 mod user_menu;
 
 pub(in crate::panel) use area::area_entries;
-pub use brand::{Brand, Radius};
+pub use brand::{Brand, Radius, SidebarFrame, Theme};
 pub use environment::Environment;
 pub(crate) use language::{LANGUAGE_SEGMENT, language_post};
-use theme::{SIDEBAR_COOKIE, Theme};
+use scheme::{SIDEBAR_COOKIE, Scheme};
 
 use crate::cookie::request_cookie;

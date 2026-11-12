@@ -1,4 +1,4 @@
-//! The visitor's theme and sidebar state, as the request's cookies store them.
+//! The visitor's color scheme and sidebar state, as the request's cookies store them.
 
 use topcoat::context::Cx;
 
@@ -17,16 +17,16 @@ const THEME_COOKIE: &str = "tablo_theme";
 /// while the visitor's theme is `system`: the server cannot see the system's preference.
 const SCHEME_COOKIE: &str = "tablo_scheme";
 
-/// A visitor's theme choice, as [`THEME_COOKIE`] stores it.
+/// A visitor's color scheme choice, as [`THEME_COOKIE`] stores it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Theme {
+pub(super) enum Scheme {
     Light,
     Dark,
     /// The system's scheme, which [`SCHEME_COOKIE`] mirrors.
     System,
 }
 
-impl Theme {
+impl Scheme {
     /// The choice the request's cookie stores, if any.
     fn stored(cx: &Cx) -> Option<Self> {
         match request_cookie(cx, THEME_COOKIE).as_deref() {

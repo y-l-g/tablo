@@ -43,3 +43,15 @@ fn the_shipped_stylesheet_carries_the_default_theme() {
     }
     assert!(SHIPPED.contains(".dark{"), "the dark tokens are missing");
 }
+
+/// An app on the prebuilt stylesheet can wear any theme `Brand::theme` picks.
+#[test]
+fn the_shipped_stylesheet_carries_every_theme() {
+    for theme in ["amber", "graphite", "iris"] {
+        assert!(
+            SHIPPED.contains(&format!("[data-tablo-theme=\"{theme}\"]"))
+                || SHIPPED.contains(&format!("[data-tablo-theme={theme}]")),
+            "the {theme} theme is missing"
+        );
+    }
+}
