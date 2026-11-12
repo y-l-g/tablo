@@ -178,7 +178,14 @@ fn topbar_search(cx: &Cx) -> BoxView<'_> {
         FORM_ID.to_string(),
     );
     view! {
-        <div class="group/search relative w-40 sm:w-64" data-global-search="">
+        // Below `sm` the box is a search icon, which focus widens over the whole topbar.
+        <div
+            class="group/search relative w-9 rounded-lg focus-within:absolute \
+                   focus-within:inset-x-3 focus-within:z-30 focus-within:w-auto \
+                   focus-within:bg-background sm:w-64 sm:focus-within:relative \
+                   sm:focus-within:inset-x-auto sm:focus-within:w-64"
+            data-global-search=""
+        >
             // A pause in typing submits the form, which writes the term to the signal; Enter
             // submits it natively instead, which skips the handler and opens the results page.
             <form
@@ -210,7 +217,8 @@ fn topbar_search(cx: &Cx) -> BoxView<'_> {
                             aria-label=(t!(cx, "tablo-search"))
                             aria-keyshortcuts="Meta+K Control+K"
                             autocomplete="off"
-                            class="pl-8"
+                            class="pl-8 not-focus:max-sm:cursor-pointer \
+                                   not-focus:max-sm:placeholder:text-transparent"
                             @input=$(|_e: Event| raw!(
                                     "((f) => { clearTimeout(f.tabloSearch); f.tabloSearch = setTimeout(() => f.requestSubmit(), 200) })(document.getElementById(String(${field_form})))",
                                     (),

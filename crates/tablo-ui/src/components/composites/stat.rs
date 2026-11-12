@@ -7,7 +7,7 @@ use topcoat::{
 };
 
 const STAT: StaticClass = class!(
-    "flex flex-col gap-3 rounded-xl border border-border bg-card p-5 text-card-foreground",
+    "flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground sm:p-5",
     "shadow-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
 );
 /// A linked tile answers the pointer, as the list rows it leads to do.
@@ -16,8 +16,9 @@ const STAT_LABEL: StaticClass = class!(
     "flex items-center gap-2 text-sm font-medium text-muted-foreground",
     "[&>svg]:size-4 [&>svg]:shrink-0",
 );
-const STAT_VALUE: StaticClass =
-    class!("text-3xl leading-none font-semibold tracking-tight text-foreground tabular-nums");
+const STAT_VALUE: StaticClass = class!(
+    "text-2xl leading-none font-semibold tracking-tight text-foreground tabular-nums sm:text-3xl"
+);
 const STAT_DETAIL: StaticClass =
     class!("flex items-center gap-1 text-sm [&>svg]:size-4 [&>svg]:shrink-0");
 const STAT_CHART: StaticClass = class!("-mx-1 h-8 w-[calc(100%+0.5rem)] overflow-visible");

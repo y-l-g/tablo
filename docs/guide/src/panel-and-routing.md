@@ -439,9 +439,9 @@ would carry it as it is.
 ### Environments
 
 `environment(Environment::new("Staging"))` draws a stripe along the top of every page of the panel,
-its sign-in pages included, and a badge at the bottom, in `Color::Warning` unless `.color(..)`
-picks another; the browser tab title starts with `[Staging]`. Read it from the deployment, and give
-production none:
+its sign-in pages included, and a badge hanging from its middle, in `Color::Warning` unless
+`.color(..)` picks another; the browser tab title starts with `[Staging]`. Read it from the
+deployment, and give production none:
 
 ```rust,ignore
 let panel = match std::env::var("APP_ENV").as_deref() {
