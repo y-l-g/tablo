@@ -56,14 +56,15 @@ async fn login_page_is_standalone_with_csrf_and_no_demo_hint_by_default() {
 #[tokio::test]
 async fn the_hint_renders_and_sign_up_links_back_to_sign_in() {
     let db = full_db().await;
-    let router = Router::builder()
+    let mut builder = Router::builder()
         .discover()
         .with(db)
         .with(topcoat::cookie::Key::generate())
-        .with(Mailer::new(MemoryTransport::new()))
+        .with(Mailer::new(MemoryTransport::new()));
+    builder
         .panel(showcase::app::admin_panel().login_hint("Demo: admin / password"))
-        .expect("panel builds")
-        .build();
+        .expect("panel builds");
+    let router = builder.build();
     let html = body_string(TestClient::new(&router).get("/admin/login").await).await;
     assert!(html.contains("data-login-hint"), "the hint renders: {html}");
 

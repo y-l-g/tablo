@@ -85,11 +85,9 @@ pub fn navigation_item<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::
 /// # }
 /// # fn main() -> topcoat::Result<()> {
 /// # let db: toasty::Db = todo!();
-/// let router = Router::builder()
-///     .discover()
-///     .with(db)
-///     .panel(Panel::new("admin").resource::<UserResource>())?
-///     .build();
+/// let mut builder = Router::builder().discover().with(db);
+/// builder.panel(Panel::new("admin").resource::<UserResource>())?;
+/// let router = builder.build();
 /// # let _ = router;
 /// # Ok(())
 /// # }
@@ -210,6 +208,13 @@ impl Panel {
     /// Returns the mount prefix, e.g. `"/admin"`.
     pub fn prefix(&self) -> &str {
         &self.prefix
+    }
+
+    /// The id of the panel this declares, which
+    /// [`PanelUser::can_access_panel`](crate::PanelUser::can_access_panel) receives once it is
+    /// mounted.
+    pub fn id(&self) -> crate::PanelId {
+        crate::PanelId::new(&self.prefix)
     }
 
     /// Registers the stylesheet and font the default shell links, resolved through the router's

@@ -62,11 +62,9 @@
 //! # }
 //! # fn main() -> topcoat::Result<()> {
 //! # let db: toasty::Db = todo!();
-//! let router = Router::builder()
-//!     .discover()
-//!     .with(db)
-//!     .panel(Panel::new("admin").resource::<BookResource>())?
-//!     .build();
+//! let mut builder = Router::builder().discover().with(db);
+//! builder.panel(Panel::new("admin").resource::<BookResource>())?;
+//! let router = builder.build();
 //! # let _ = router;
 //! # Ok(())
 //! # }

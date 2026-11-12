@@ -102,7 +102,7 @@ impl ProviderIdentity {
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { self.id.to_string() }
 /// #     fn display_name(&self) -> &str { &self.name }
-/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
+/// #     fn can_access_panel(&self, _panel: &tablo_core::PanelId) -> bool { true }
 /// # }
 /// #[derive(Debug, Clone, toasty::Model)]
 /// struct StaffIdentity {

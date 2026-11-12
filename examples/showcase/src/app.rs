@@ -549,8 +549,7 @@ pub fn build_app(
         builder = builder.assets(bundle);
         panel = panel.shell_assets(tailwind::stylesheet!(), GEIST);
     }
-    let builder = builder.panel(panel).expect("showcase panel mounts");
-    let admin = builder.panel_handle("admin").expect("mounted above");
+    let admin = builder.panel(panel).expect("showcase panel mounts");
     let router = builder.with(AdminPanel(admin.clone())).build();
     (router, admin)
 }

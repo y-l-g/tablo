@@ -340,17 +340,16 @@ async fn inject_server_tenant(cx: &Cx, body: Body, next: Next<'_>) -> Result<Res
 }
 
 fn router(db: Db) -> Router {
-    Router::builder()
-        .discover()
-        .with(db)
+    let mut builder = Router::builder().discover().with(db);
+    builder
         .panel(
             Panel::new("admin")
                 .auth(tablo_core::Auth::disabled())
                 .resource::<AuthorResource>()
                 .resource::<PostResource>(),
         )
-        .expect("panel mounts")
-        .build()
+        .expect("panel mounts");
+    builder.build()
 }
 
 #[tokio::main]

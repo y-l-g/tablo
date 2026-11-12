@@ -53,7 +53,7 @@ use crate::{
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { self.id.to_string() }
 /// #     fn display_name(&self) -> &str { "" }
-/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
+/// #     fn can_access_panel(&self, _panel: &tablo_core::PanelId) -> bool { true }
 /// #     fn tenants(&self) -> &[Membership] { &self.teams }
 /// # }
 /// #[derive(tablo_core::FormInput)]
@@ -136,7 +136,7 @@ pub trait TenantRegistrar: Send + Sync + 'static {
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { String::new() }
 /// #     fn display_name(&self) -> &str { "" }
-/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
+/// #     fn can_access_panel(&self, _panel: &tablo_core::PanelId) -> bool { true }
 /// # }
 /// # struct StaffAuth;
 /// # impl Authenticator for StaffAuth {

@@ -54,7 +54,7 @@ impl PanelUser for SignedMember {
         &self.member.name
     }
 
-    fn can_access_panel(&self, _panel: &str) -> bool {
+    fn can_access_panel(&self, _panel: &tablo::PanelId) -> bool {
         true
     }
 
@@ -143,11 +143,9 @@ pub async fn db() -> Db {
 
 /// The `admin` panel signing members in with `auth`, listing notes.
 pub fn mount(db: Db, auth: Auth<impl PanelUser>) -> topcoat::Result<Router> {
-    Ok(Router::builder()
-        .discover()
-        .with(db)
-        .panel(Panel::new("admin").auth(auth).resource::<NoteResource>())?
-        .build())
+    let mut builder = Router::builder().discover().with(db);
+    builder.panel(Panel::new("admin").auth(auth).resource::<NoteResource>())?;
+    Ok(builder.build())
 }
 
 /// A member named `name` who owns a tenant named after each of `tenants`.

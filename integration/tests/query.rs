@@ -93,24 +93,24 @@ async fn seeded() -> Seeded {
     .exec(&mut db)
     .await
     .unwrap();
-    let router = Router::builder()
-        .discover()
-        .with(db)
+    let mut builder = Router::builder().discover().with(db);
+    builder
         .panel(
             Panel::new("admin")
                 .auth(Auth::disabled())
                 .resource::<NoteResource>()
                 .resource::<CommentResource>(),
         )
-        .expect("admin panel builds")
+        .expect("admin panel builds");
+    builder
         .panel(
             Panel::new("portal")
                 .auth(Auth::disabled())
                 .resource_with::<NoteResource>(|def| def.query(Note::fields().owner().eq("me")))
                 .resource::<CommentResource>(),
         )
-        .expect("portal panel builds")
-        .build();
+        .expect("portal panel builds");
+    let router = builder.build();
     let mut notes = notes.into_iter();
     let (mine, theirs) = (notes.next().unwrap(), notes.next().unwrap());
     Seeded {
@@ -198,9 +198,8 @@ async fn a_request_narrowing_that_answers_none_narrows_nothing() {
         .await
         .unwrap();
     }
-    let router = Router::builder()
-        .discover()
-        .with(db)
+    let mut builder = Router::builder().discover().with(db);
+    builder
         .panel(
             Panel::new("desk")
                 .auth(Auth::disabled())
@@ -210,8 +209,8 @@ async fn a_request_narrowing_that_answers_none_narrows_nothing() {
                     })
                 }),
         )
-        .expect("desk panel builds")
-        .build();
+        .expect("desk panel builds");
+    let router = builder.build();
 
     assert_eq!(row_keys(&page(&router, "/desk/notes").await).len(), 1);
     EDITOR.store(true, Ordering::SeqCst);

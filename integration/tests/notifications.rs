@@ -44,12 +44,8 @@ fn panel() -> Panel {
 
 /// The router serving the notes panel with its bell, and the panel's handle.
 fn mount(db: Db, panel: Panel) -> (Router, PanelHandle) {
-    let builder = Router::builder()
-        .discover()
-        .with(db)
-        .panel(panel)
-        .expect("the panel mounts");
-    let admin = builder.panel_handle("admin").expect("mounted above");
+    let mut builder = Router::builder().discover().with(db);
+    let admin = builder.panel(panel).expect("the panel mounts");
     (builder.build(), admin)
 }
 
@@ -167,11 +163,11 @@ async fn a_bell_lists_its_tenants_notifications_and_the_tenantless() {
 #[tokio::test]
 async fn a_bell_lists_only_its_panels_notifications() {
     let db = db().await;
-    let builder = Router::builder()
-        .discover()
-        .with(db.clone())
+    let mut builder = Router::builder().discover().with(db.clone());
+    let admin = builder
         .panel(panel().notifications())
-        .expect("the admin panel mounts")
+        .expect("the admin panel mounts");
+    let portal = builder
         .panel(
             Panel::new("portal")
                 .auth(Auth::custom(MemberAuth))
@@ -179,8 +175,6 @@ async fn a_bell_lists_only_its_panels_notifications() {
                 .notifications(),
         )
         .expect("the portal panel mounts");
-    let admin = builder.panel_handle("admin").expect("mounted above");
-    let portal = builder.panel_handle("portal").expect("mounted above");
     let router = builder.build();
     let ada = member(&db, "Ada", &["Acme"]).await;
     send(&admin, &ada, Notification::info("On admin")).await;

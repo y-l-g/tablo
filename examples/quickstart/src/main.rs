@@ -51,16 +51,19 @@ async fn main() -> Result<()> {
     let mut db = connect().await?;
     create_admin(&mut db, "admin@example.com", "secret", "Admin").await?;
 
-    let router = match AssetBundle::load() {
-        Ok(bundle) => router(db)
-            .assets(bundle)
-            .panel(panel().shell_assets(tablo::ui::DEFAULT_STYLESHEET, GEIST))?,
+    let mut builder = router(db);
+    let panel = match AssetBundle::load() {
+        Ok(bundle) => {
+            builder = builder.assets(bundle);
+            panel().shell_assets(tablo::ui::DEFAULT_STYLESHEET, GEIST)
+        }
         Err(error) => {
             eprintln!("no asset bundle ({error}): serving the unstyled shell");
-            router(db).panel(panel())?
+            panel()
         }
     };
-    topcoat::start(router.build()).await?;
+    builder.panel(panel)?;
+    topcoat::start(builder.build()).await?;
     Ok(())
 }
 
@@ -72,10 +75,9 @@ mod tests {
 
     #[tokio::test]
     async fn the_panel_serves_its_login_page_and_gates_the_list() {
-        let router = router(connect().await.expect("connect"))
-            .panel(panel())
-            .expect("the panel mounts")
-            .build();
+        let mut builder = router(connect().await.expect("connect"));
+        builder.panel(panel()).expect("the panel mounts");
+        let router = builder.build();
         let client = TestClient::new(&router);
 
         let login = client.get("/admin/login").await;

@@ -218,15 +218,15 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
     drop(raw);
 
     // The route sits under the panel's prefix, so the request answers as the panel.
-    let router = Router::builder()
-        .discover()
-        .with(db)
+    let mut builder = Router::builder().discover().with(db);
+    builder
         .panel(
             Panel::new("admin")
                 .auth(crate::Auth::disabled())
                 .resource::<EditingResource>(),
         )
-        .expect("panel builds")
+        .expect("panel builds");
+    let router = builder
         .route(RouteFn::new(
             http::Method::POST,
             "/admin/capture/{id}",

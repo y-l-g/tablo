@@ -108,12 +108,9 @@ async fn db() -> (Db, AdminUser) {
 }
 
 fn mount(db: Db, auth: Auth) -> topcoat::Result<Router> {
-    Ok(Router::builder()
-        .discover()
-        .with(db)
-        .with(Key::generate())
-        .panel(Panel::new("admin").auth(auth))?
-        .build())
+    let mut builder = Router::builder().discover().with(db).with(Key::generate());
+    builder.panel(Panel::new("admin").auth(auth))?;
+    Ok(builder.build())
 }
 
 /// The `admin` panel signing in by password and through `fake` under the key `fake`.
@@ -384,14 +381,13 @@ async fn mounting_refuses_a_provider_sign_in_it_cannot_serve() {
             })
             .collect()
     };
-    let without_key = Router::builder()
-        .discover()
-        .with(db.clone())
+    let mut builder = Router::builder().discover().with(db.clone());
+    let without_key = builder
         .panel(
             Panel::new("admin")
                 .auth(Auth::password().oidc(Oidc::new(BASE_URL, Linker).provider(google()))),
         )
-        .map(|builder| builder.build());
+        .map(|_| builder.build());
     assert_eq!(faults(without_key), [OidcFault::MissingKey]);
 
     let mistakes = Oidc::new("http://app.example.com", Linker)

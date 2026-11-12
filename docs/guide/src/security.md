@@ -86,9 +86,10 @@ panel keeps to itself, and what it does not:
   change or reset on one ends the user's sessions and reset links on each.
 - **Access is the user type's to decide, per panel.**
   [`PanelUser::can_access_panel`](https://y-l.fr/tablo/nightly/api/tablo/trait.PanelUser.html#method.can_access_panel)
-  receives the panel's prefix, so one type can admit staff to `/admin` and every customer to
-  `/portal`. Name each panel and answer `false` for the rest: a panel added or renamed later then
-  admits nobody until it has a rule.
+  receives the panel's `PanelId`, so one type can admit staff to `/admin` and every customer to
+  `/portal`. A `PanelId` equals its prefix in any spelling, `"admin"` or `"/admin/"`, and offers no
+  string to match a part of. Name each panel and answer `false` for the rest: a panel added or
+  renamed later then admits nobody until it has a rule.
 - **The weakest panel is the floor.** Email verification, a required second factor and tenant
   registration are each declared per panel, and a factor belongs to the panel it was set up on
   ([`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor)).

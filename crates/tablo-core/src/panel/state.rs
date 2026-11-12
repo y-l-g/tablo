@@ -159,11 +159,6 @@ impl PanelState {
 pub(crate) struct Panels(pub(crate) Vec<Arc<PanelState>>);
 
 impl Panels {
-    /// The panel mounted at exactly `prefix`.
-    pub(crate) fn by_prefix(&self, prefix: &str) -> Option<&Arc<PanelState>> {
-        self.0.iter().find(|panel| panel.realm.prefix == prefix)
-    }
-
     /// The panels that declared the runtime endpoint at `path`, in mount order. A trailing slash
     /// does not count: under [`TrailingSlash::Serve`](topcoat::router::TrailingSlash::Serve) the
     /// endpoint answers both forms of its path.

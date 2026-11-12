@@ -69,7 +69,7 @@ impl PanelUser for SignedCustomer {
         Some(&self.customer.email)
     }
 
-    fn can_access_panel(&self, _panel: &str) -> bool {
+    fn can_access_panel(&self, _panel: &tablo::PanelId) -> bool {
         true
     }
 
@@ -187,18 +187,19 @@ fn router_with_mail(db: Db, mail: &MemoryTransport) -> Router {
         ))
         .password_reset(PasswordReset::new(customers))
         .email_verification(EmailVerification::new(customers));
-    Router::builder()
+    let mut builder = Router::builder()
         .discover()
         .with(db)
-        .with(Mailer::new(mail.clone()))
+        .with(Mailer::new(mail.clone()));
+    builder
         .panel(
             tablo::Panel::new("admin")
                 .auth(auth)
                 .resource::<NoteResource>()
                 .resource::<CustomerResource>(),
         )
-        .expect("panel builds")
-        .build()
+        .expect("panel builds");
+    builder.build()
 }
 
 /// A customer stored as a sign-up would store them: the email lowercased, the password hashed.

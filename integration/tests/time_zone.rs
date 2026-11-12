@@ -79,7 +79,7 @@ impl PanelUser for Planner {
         &self.name
     }
 
-    fn can_access_panel(&self, _panel: &str) -> bool {
+    fn can_access_panel(&self, _panel: &tablo::PanelId) -> bool {
         true
     }
 

@@ -493,7 +493,7 @@ impl PanelUser for Visitor {
         "Visitor"
     }
 
-    fn can_access_panel(&self, _panel: &str) -> bool {
+    fn can_access_panel(&self, _panel: &crate::PanelId) -> bool {
         true
     }
 }
@@ -663,7 +663,7 @@ impl PanelUser for Member {
         "Member"
     }
 
-    fn can_access_panel(&self, _panel: &str) -> bool {
+    fn can_access_panel(&self, _panel: &crate::PanelId) -> bool {
         true
     }
 
@@ -765,7 +765,7 @@ fn verification_holds_only_a_user_with_an_address() {
             "Nameless"
         }
 
-        fn can_access_panel(&self, _panel: &str) -> bool {
+        fn can_access_panel(&self, _panel: &crate::PanelId) -> bool {
             true
         }
     }

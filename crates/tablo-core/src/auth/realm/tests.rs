@@ -4,6 +4,7 @@ use super::*;
 fn realm(prefix: &str) -> Arc<Realm> {
     Arc::new(Realm {
         prefix: prefix.to_owned(),
+        id: crate::PanelId::new(prefix),
         auth: crate::Auth::disabled().into_config(),
         login_hint: None,
         time_zone: jiff::tz::TimeZone::UTC,

@@ -359,9 +359,8 @@ impl TenantEditor for Teams {
 }
 
 fn team_router(db: Db) -> Router {
-    Router::builder()
-        .discover()
-        .with(db)
+    let mut builder = Router::builder().discover().with(db);
+    builder
         .panel(
             tablo::Panel::new("admin")
                 .auth(Auth::custom(MemberAuth).tenant_profile(Teams))
@@ -375,8 +374,8 @@ fn team_router(db: Db) -> Router {
                         .resource::<NoteResource>()
                 })),
         )
-        .expect("the panel mounts")
-        .build()
+        .expect("the panel mounts");
+    builder.build()
 }
 
 /// The tenant group renders under the name of the tenant the request acts for, holds the tenant

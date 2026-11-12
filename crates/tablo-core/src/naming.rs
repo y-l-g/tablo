@@ -1,6 +1,10 @@
 //! Naming helpers behind the default slugs and sidebar labels of a
 //! [`Resource`](crate::resource::Resource), a [`Page`](crate::Page) and a field label, and the
-//! prefix and route paths a panel mounts under.
+//! prefix and route paths a panel mounts under, and the [`PanelId`] that prefix gives.
+
+mod panel_id;
+
+pub use self::panel_id::PanelId;
 
 /// The last segment of a type's full path, without its generic arguments, e.g.
 /// `tablo_core::resource::tests::UserResource` → `UserResource`, `app::Count<app::Book>` →

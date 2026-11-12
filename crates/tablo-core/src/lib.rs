@@ -35,11 +35,9 @@
 //! }
 //!
 //! # let db: Db = todo!();
-//! let router = Router::builder()
-//!     .discover()
-//!     .with(db)
-//!     .panel(Panel::new("admin").resource::<BookResource>())?
-//!     .build();
+//! let mut builder = Router::builder().discover().with(db);
+//! builder.panel(Panel::new("admin").resource::<BookResource>())?;
+//! let router = builder.build();
 //! # let _ = router;
 //! # Ok(())
 //! # }
@@ -181,6 +179,7 @@ pub use i18n::Text;
 pub use lens::{Lens, Reads};
 pub use limits::Limits;
 pub use models::register_models;
+pub use naming::PanelId;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::stored::Notifications;
 pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};

@@ -72,7 +72,7 @@ pub enum EmailChange {
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { self.id.to_string() }
 /// #     fn display_name(&self) -> &str { &self.name }
-/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
+/// #     fn can_access_panel(&self, _panel: &tablo_core::PanelId) -> bool { true }
 /// #     fn email(&self) -> Option<&str> { Some(&self.email) }
 /// # }
 /// async fn save_email(
@@ -272,7 +272,7 @@ async fn opened(
         // A cancel link only restores the old address and ends sessions: a rule that reads the
         // address must not refuse it to the account the change shut out.
         .filter(|account| {
-            purpose == TokenPurpose::EmailChangeCancel || account.can_access_panel(&panel.prefix)
+            purpose == TokenPurpose::EmailChangeCancel || account.can_access_panel(&panel.id)
         });
     let Some(account) = account else {
         return Ok(None);

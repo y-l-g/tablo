@@ -23,6 +23,9 @@ pub(crate) struct Realm {
     /// The panel's prefix, e.g. `/admin`. A session, a mailed link or a factor auth stores names
     /// it, and serves only this realm.
     pub(crate) prefix: String,
+    /// The same prefix as [`PanelUser::can_access_panel`](crate::PanelUser::can_access_panel)
+    /// receives it.
+    pub(crate) id: crate::PanelId,
     pub(crate) auth: AuthConfig,
     /// The note under the login card, set by [`Panel::login_hint`](crate::Panel::login_hint).
     pub(crate) login_hint: Option<crate::Text>,

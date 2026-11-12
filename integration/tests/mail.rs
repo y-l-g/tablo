@@ -51,7 +51,8 @@ async fn mount(auth: Auth, with_mail: bool) -> topcoat::Result<Router> {
         builder = builder.with(Mailer::new(MemoryTransport::new()));
     }
     let panel = Panel::new("admin").auth(auth).resource::<MemoResource>();
-    Ok(builder.panel(panel)?.build())
+    builder.panel(panel)?;
+    Ok(builder.build())
 }
 
 /// The faults mounting `auth` reports.

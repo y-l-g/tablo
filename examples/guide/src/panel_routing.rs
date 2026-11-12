@@ -44,7 +44,7 @@ impl tablo::PanelUser for Customer {
         &self.id
     }
 
-    fn can_access_panel(&self, _panel: &str) -> bool {
+    fn can_access_panel(&self, _panel: &tablo::PanelId) -> bool {
         true
     }
 }
@@ -52,39 +52,35 @@ impl tablo::PanelUser for Customer {
 
 // ANCHOR: panel-admin-router-body
 pub fn admin_router(db: Db) -> topcoat::Result<Router> {
-    let router = Router::builder()
+    let mut builder = Router::builder()
         .discover() // the app's own pages and routes, and Tablo's
-        .with(db) // the toasty::Db every handler uses
-        .panel(
-            Panel::new("admin") // mounted at /admin
-                .brand(Brand::new("Acme"))
-                .home::<Dashboard>() // GET /admin
-                .resource::<UserResource>() // /admin/users and its sub-routes
-                .page::<ReportsPage>(), // GET /admin/reports
-        )?
-        .build();
-    Ok(router)
+        .with(db); // the toasty::Db every handler uses
+    builder.panel(
+        Panel::new("admin") // mounted at /admin
+            .brand(Brand::new("Acme"))
+            .home::<Dashboard>() // GET /admin
+            .resource::<UserResource>() // /admin/users and its sub-routes
+            .page::<ReportsPage>(), // GET /admin/reports
+    )?;
+    Ok(builder.build())
 }
 // ANCHOR_END: panel-admin-router-body
 
 // ANCHOR: panel-two-panels-body
 pub fn two_panels(db: Db) -> topcoat::Result<Router> {
-    let router = Router::builder()
-        .discover()
-        .with(db)
-        .panel(
-            Panel::new("admin")
-                .resource::<UserResource>()
-                .resource::<OrderResource>(),
-        )?
-        .panel(
-            Panel::new("portal")
-                .brand(Brand::new("Customer portal"))
-                .auth(Auth::custom(Customers))
-                .resource::<OrderResource>(),
-        )?
-        .build();
-    Ok(router)
+    let mut builder = Router::builder().discover().with(db);
+    builder.panel(
+        Panel::new("admin")
+            .resource::<UserResource>()
+            .resource::<OrderResource>(),
+    )?;
+    builder.panel(
+        Panel::new("portal")
+            .brand(Brand::new("Customer portal"))
+            .auth(Auth::custom(Customers))
+            .resource::<OrderResource>(),
+    )?;
+    Ok(builder.build())
 }
 // ANCHOR_END: panel-two-panels-body
 
@@ -260,8 +256,8 @@ impl Page for MediaLibraryPage {
 // ANCHOR_END: panel-public-page
 
 // ANCHOR: panel-blog
-/// The handle `builder.panel_handle("admin")` returned, which the router builder adds with
-/// `.with(Admin(admin))` after mounting the panel.
+/// The handle `builder.panel(..)` returned for the admin panel, which the router builder adds
+/// with `.with(Admin(admin))` after mounting it.
 pub struct Admin(pub tablo::PanelHandle);
 
 // A layout wraps every route under its path: this one wraps /blog and /blog/{id}.

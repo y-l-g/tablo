@@ -240,17 +240,16 @@ async fn only_the_login_methods_pass_the_gate_at_the_login_path() {
             topcoat::router::response::IntoResponse::into_response("app route ran", cx)
         })
     }
-    let router = Router::builder()
-        .discover()
-        .with(db_with_ada().await)
+    let mut builder = Router::builder().discover().with(db_with_ada().await);
+    builder
         .panel(Panel::new("admin").auth(Auth::password()))
-        .expect("panel builds")
-        .route(topcoat::router::RouteFn::new(
-            http::Method::PUT,
-            "/admin/login",
-            app_put,
-        ))
-        .build();
+        .expect("panel builds");
+    builder = builder.route(topcoat::router::RouteFn::new(
+        http::Method::PUT,
+        "/admin/login",
+        app_put,
+    ));
+    let router = builder.build();
     let put = http::Request::builder()
         .method(http::Method::PUT)
         .uri("/admin/login")
@@ -288,20 +287,20 @@ fn revoke_own_sessions(cx: &Cx, _body: Body) -> topcoat::router::RouteFuture<'_>
 
 /// Two password panels over ada's account, the portal declaring `portal_report`.
 async fn two_panels(trailing_slash: TrailingSlash) -> Router {
-    Router::builder()
+    let mut builder = Router::builder()
         .trailing_slash(trailing_slash)
         .discover()
-        .with(db_with_ada().await)
-        .panel(Panel::new("admin"))
-        .expect("admin builds")
+        .with(db_with_ada().await);
+    builder.panel(Panel::new("admin")).expect("admin builds");
+    builder
         .panel(Panel::new("portal").endpoint(portal_report))
-        .expect("portal builds")
-        .route(topcoat::router::RouteFn::new(
-            http::Method::POST,
-            "/admin/it-revoke",
-            revoke_own_sessions,
-        ))
-        .build()
+        .expect("portal builds");
+    builder = builder.route(topcoat::router::RouteFn::new(
+        http::Method::POST,
+        "/admin/it-revoke",
+        revoke_own_sessions,
+    ));
+    builder.build()
 }
 
 /// Signs ada in on the panel at `prefix`, answering the session cookie's `name=value`.
@@ -506,15 +505,13 @@ async fn a_socket_runs_only_as_the_panel_of_the_page_that_opened_it() {
 #[tokio::test]
 async fn a_socket_keeps_its_page_on_an_app_installed_runtime() {
     use topcoat::runtime::RuntimeLayer;
-    let router = Router::builder()
+    let mut builder = Router::builder()
         .layer(RuntimeLayer::new())
         .discover()
-        .with(db_with_ada().await)
-        .panel(Panel::new("admin"))
-        .expect("admin builds")
-        .panel(Panel::new("portal"))
-        .expect("portal builds")
-        .build();
+        .with(db_with_ada().await);
+    builder.panel(Panel::new("admin")).expect("admin builds");
+    builder.panel(Panel::new("portal")).expect("portal builds");
+    let router = builder.build();
     let admin = session_on(&router, "/admin").await;
     let json = serde_json::json!({ "content-type": "application/json" });
     let frames = socket_run(router, "/portal/notes", &admin, json, "status").await;
@@ -526,15 +523,11 @@ async fn a_socket_keeps_its_page_on_an_app_installed_runtime() {
 #[tokio::test]
 async fn a_socket_the_stamp_never_saw_runs_nothing() {
     use topcoat::runtime::RuntimeLayer;
-    let router = Router::builder()
-        .discover()
-        .with(db_with_ada().await)
-        .panel(Panel::new("admin"))
-        .expect("admin builds")
-        .panel(Panel::new("portal"))
-        .expect("portal builds")
-        .layer(RuntimeLayer::new())
-        .build();
+    let mut builder = Router::builder().discover().with(db_with_ada().await);
+    builder.panel(Panel::new("admin")).expect("admin builds");
+    builder.panel(Panel::new("portal")).expect("portal builds");
+    builder = builder.layer(RuntimeLayer::new());
+    let router = builder.build();
     let admin = session_on(&router, "/admin").await;
     let json = serde_json::json!({ "content-type": "application/json" });
     let frames = socket_run(router, "/portal/notes", &admin, json, "status").await;
@@ -615,12 +608,8 @@ async fn entering_another_panel_is_a_page_load() {
 /// own, or the socket would stay and keep answering as the panel.
 #[tokio::test]
 async fn leaving_a_panel_is_a_page_load() {
-    let builder = Router::builder()
-        .discover()
-        .with(db_with_ada().await)
-        .panel(Panel::new("admin"))
-        .expect("admin builds");
-    let admin = builder.panel_handle("admin").expect("mounted above");
+    let mut builder = Router::builder().discover().with(db_with_ada().await);
+    let admin = builder.panel(Panel::new("admin")).expect("admin builds");
     let router = builder.with(AdminHandle(admin)).build();
     let session = session_on(&router, "/admin").await;
 
@@ -739,14 +728,10 @@ async fn a_session_of_a_deleted_user_disputes_no_other() {
     create_admin(&mut db, "grace@example.com", "opensesame", "Grace")
         .await
         .unwrap();
-    let router = Router::builder()
-        .discover()
-        .with(db.clone())
-        .panel(Panel::new("admin"))
-        .expect("admin builds")
-        .panel(Panel::new("portal"))
-        .expect("portal builds")
-        .build();
+    let mut builder = Router::builder().discover().with(db.clone());
+    builder.panel(Panel::new("admin")).expect("admin builds");
+    builder.panel(Panel::new("portal")).expect("portal builds");
+    let router = builder.build();
     let admin = session_on(&router, "/admin").await;
     let login = "email=grace@example.com&password=opensesame";
     let response = router.handle(login_request("/portal", login)).await;

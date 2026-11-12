@@ -199,14 +199,11 @@ async fn a_panel_handle_answers_from_the_mounted_def() {
     }
 
     let db = tableless_db(toasty::models!(Dummy)).await;
-    let builder = topcoat::router::Router::builder()
-        .with(db)
+    let mut builder = topcoat::router::Router::builder().with(db);
+    let handle = builder
         .panel(panel_for::<HandledResource>())
         .expect("panel builds");
-    assert!(builder.panel_handle("portal").is_none(), "no panel there");
-    let handle = builder
-        .panel_handle("/admin/")
-        .expect("the panel at /admin");
+    assert!(handle.id() == "/admin/", "the panel at /admin");
     for cx in [handle.context(), handle.clone().context()] {
         assert!(crate::can::<HandledResource>(&cx, Ability::ViewAny));
         assert!(!crate::can::<HandledResource>(&cx, Ability::Create));

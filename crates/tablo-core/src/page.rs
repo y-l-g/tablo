@@ -228,7 +228,7 @@ impl PageDef {
     /// # impl tablo_core::PanelUser for Staff {
     /// #     fn user_id(&self) -> String { String::new() }
     /// #     fn display_name(&self) -> &str { "" }
-    /// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
+    /// #     fn can_access_panel(&self, _panel: &tablo_core::PanelId) -> bool { true }
     /// # }
     /// struct BillingPage;
     ///

@@ -175,8 +175,8 @@ impl ImpersonationConfig {
                     .any(|own| own.tenant == membership.tenant)
             });
         actor.user_id() != target.user_id()
-            && actor.can_access_panel(&panel.prefix)
-            && target.can_access_panel(&panel.prefix)
+            && actor.can_access_panel(&panel.id)
+            && target.can_access_panel(&panel.id)
             && within_tenants
             && (self.allows)(cx, actor, target)
     }
