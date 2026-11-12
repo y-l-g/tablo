@@ -51,7 +51,7 @@ pub const VERIFICATION_LIFETIME: Duration = Duration::from_hours(24);
 /// [`Authenticator`](super::Authenticator), for the same user type:
 ///
 /// ```rust
-/// # use tablo_core::{PanelUser, auth::EmailVerifier};
+/// # use tablo_core::{EmailVerifier, PanelUser};
 /// # use topcoat::context::Cx;
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct Staff {

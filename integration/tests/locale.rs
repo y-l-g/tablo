@@ -6,9 +6,9 @@
 use http::header::VARY;
 use tablo::{
     Allow, Auth, AuthMail, Authenticator, Currency, DeclarationErrorKind, LocaleFault, Panel,
-    PanelUser, PasswordReset, Resource, ResourceDef, RouterBuilderPanelExt, SelectFilter, Table,
-    TextColumn,
-    auth::{AuthSession, AuthToken, PasswordResetter},
+    PanelUser, PasswordReset, PasswordResetter, Resource, ResourceDef, RouterBuilderPanelExt,
+    SelectFilter, Table, TextColumn,
+    auth::{AuthSession, AuthToken},
     lens,
     testing::{
         filter_options, form_body, language_choices, page_direction, page_language,

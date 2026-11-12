@@ -52,7 +52,7 @@ pub use self::{
     impersonation::{IMPERSONATE_FIELD, impersonate, impersonate_button, impersonator},
     login::{LOGIN_FIELD, NEXT_FIELD, PASSWORD_FIELD, TENANT_FIELD, safe_next},
     password::{AdminUser, create_admin, hash_password, verify_password},
-    password_reset::{PasswordResetter, RESET_LIFETIME},
+    password_reset::RESET_LIFETIME,
     registration::{MIN_PASSWORD_CHARS, new_password_errors},
     session::{
         AuthSession, SESSION_COOKIE_PREFIX, SESSION_LIFETIME, mint_session,
@@ -63,7 +63,7 @@ pub use self::{
     throttle::AuthThrottle,
     token::{AuthToken, TokenPurpose},
     two_factor::{AuthFactor, FactorKind},
-    verification::{EmailVerifier, VERIFICATION_LIFETIME},
+    verification::VERIFICATION_LIFETIME,
 };
 // What the crate root exports, under the paths this module's own code names.
 pub(crate) use self::{

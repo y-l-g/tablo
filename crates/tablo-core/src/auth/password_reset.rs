@@ -42,7 +42,7 @@ pub const RESET_LIFETIME: Duration = Duration::from_hours(1);
 /// account's link to another address. An account without one gets no link.
 ///
 /// ```rust
-/// # use tablo_core::{PanelUser, auth::{PasswordResetter, hash_password}};
+/// # use tablo_core::{PanelUser, PasswordResetter, auth::hash_password};
 /// # use topcoat::context::Cx;
 /// # #[derive(Debug, Clone, toasty::Model)]
 /// # struct Staff {
