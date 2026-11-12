@@ -179,15 +179,16 @@ pub use i18n::Text;
 pub use lens::{Lens, Reads};
 pub use limits::Limits;
 pub use models::register_models;
+pub use naming::PanelId;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::stored::Notifications;
 pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};
 pub use page::{Page, PageDef, PageFilter, PageFilters};
 pub use panel::{
     Area, AreaGroup, AuditLog, Banner, Brand, ChangedField, ChangedRecord, CommitHook, Environment,
-    Impersonate, Load, Panel, PanelChange, PanelHandle, PanelId, Radius, RouterBuilderPanelExt,
-    WiredTable, can_list, can_open, can_view_field, list_query, loaded, navigation_item,
-    page_filter_bar, page_filters,
+    Impersonate, Load, Panel, PanelChange, PanelHandle, Radius, RouterBuilderPanelExt, WiredTable,
+    can_list, can_open, can_view_field, list_query, loaded, navigation_item, page_filter_bar,
+    page_filters,
     pages::{header_action_button, header_action_buttons},
     record_table, stats, url, widgets, wired_table,
 };

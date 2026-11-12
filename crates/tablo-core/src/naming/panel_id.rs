@@ -27,7 +27,7 @@ impl PanelId {
     /// The panel `Panel::new(prefix)` declares, its prefix spelled as for
     /// [`Panel::new`](crate::Panel::new): an empty prefix names `/admin`.
     pub fn new(prefix: &str) -> Self {
-        Self(crate::naming::normalize_prefix(prefix).into())
+        Self(super::normalize_prefix(prefix).into())
     }
 }
 

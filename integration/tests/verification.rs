@@ -203,18 +203,20 @@ async fn a_link_verifies_only_the_address_it_was_mailed_to_while_it_lasts() {
         .discover()
         .with(db.clone())
         .with(Mailer::new(mail.clone()));
-    builder.panel(
-        Panel::new("admin")
-            .auth(verifying(EmailVerification::new(PasswordAuth::new())))
-            .resource::<TicketResource>(),
-    );
-    builder = builder.unwrap();
-    builder.panel(
-        Panel::new("staff")
-            .auth(verifying(EmailVerification::new(PasswordAuth::new())))
-            .resource::<TicketResource>(),
-    );
-    builder = builder.unwrap();
+    builder
+        .panel(
+            Panel::new("admin")
+                .auth(verifying(EmailVerification::new(PasswordAuth::new())))
+                .resource::<TicketResource>(),
+        )
+        .unwrap();
+    builder
+        .panel(
+            Panel::new("staff")
+                .auth(verifying(EmailVerification::new(PasswordAuth::new())))
+                .resource::<TicketResource>(),
+        )
+        .unwrap();
     let router = builder.build();
     let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
     client.submit("/admin/verify-email", "").await;
