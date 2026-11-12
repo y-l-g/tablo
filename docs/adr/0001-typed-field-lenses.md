@@ -13,6 +13,28 @@ driver or the table-name prefix, so it is the column the app's own `Db` stores t
 table, a schema or a detail page built anywhere renders as declared, with no step binding it to a
 database first.
 
+A model deriving `PanelModel` also gets `columns()`, the read-side twin of a record form's
+`controls()`: a struct with one `FieldColumn` per field its default table or detail page shows,
+named like the field. A `FieldColumn` is neither a bare lens nor one fixed column type. Placed as
+it is, in a table or on a detail page, it is the column the derive picks for the field's type
+there, with the field's `#[columns(..)]` keys applied, so `Product::columns().qty` in a table is
+the same column the default table lists. Asked for a kind, `.text()`, `.date()`, `.toggle()`,
+`.select()` and the rest, it is that column type's plain builder over the field, labelled by its
+`label` key; each kind compiles only for the field types its column reads, so a toggle over a
+`String` fails to compile at the call. `lens()` hands the lens over for a filter, a tab or a field
+access rule. `lens!` stays the low-level tool: a path into an embedded value, a model without the
+derive, a custom column.
+
+The derive picks a field's column by autoref specialization over its type, which works only in
+an expression, so no struct field can name the picked type. The handle keeps the pick as a
+function per place instead, and a table and a detail page each call their own: a timestamp is a
+sortable day in a table and the stored instant on a detail page. A table's tuple therefore takes
+anything `IntoColumns`, as a detail page's takes anything `IntoDetail`.
+
+A form's field enum (`ProductFormField`) is transport: it keys a posted value and an error. A
+column never reads it. It stays in an app's code only where an error names a field, in
+`FieldErrors` and `WriteError`, until those key by the form instead.
+
 A closed set of values is a unit enum field deriving `toasty::Embed` and `Options`, so a choice
 field, a select filter, a column and a group header read its options and labels from the type, and
 a query compares a variant rather than its spelling.
@@ -35,3 +57,13 @@ leaves are spelled through its form schema, as its form spells them.
   structs, enum payloads, shared columns, documents) in one place, and a copy of the rule drifts.
 - A `String` column beside an `Options` list: a query or a comparison can name a value no option
   has, and every column and filter restates the list.
+- `columns().qty` as a lens: every call site still names the column type and repeats what the
+  derive already picked, `#[columns(..)]` keys included, so the default table and a declared one
+  drift.
+- `columns().qty` as the picked column type itself: the pick is autoref specialization, which a
+  struct field cannot name, and a type-level pick needs an impl per value type that the orphan
+  rule refuses for an app's `Option<MyEnum>` and `Vec<MyItem>`. It would also hand a table and a
+  detail page the same column, where they pick differently.
+- Picking by the field's spelled type in the derive: an `Options` enum and an embedded struct are
+  both a bare path, and an alias hides a date.
+

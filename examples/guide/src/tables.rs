@@ -1,7 +1,9 @@
 //! The Tables chapter's snippets.
 
+use std::sync::Arc;
+
 use tablo::{
-    FilterValue,
+    FilterValue, IntoColumns,
     extend::{Column, Filter, FilterInput},
     prelude::*,
 };
@@ -15,36 +17,35 @@ use crate::{
 
 // ANCHOR: post-table-post
 pub fn post_table() -> Table<Post> {
-    Table::new((
-        TextColumn::new(lens!(Post.title)),
-        TextColumn::new(lens!(Post.status)),
-    ))
-    // ANCHOR: table-filters
-    .filters((
-        // A checklist: the posts holding any checked status.
-        SelectFilter::of(lens!(Post.status)).multiple(),
-        TernaryFilter::new(lens!(Post.featured)).labels("Featured", "Not featured"),
-        // Two date inputs: the first and the last day.
-        DateFilter::new(lens!(Post.created_at)).range(),
-        // The authors `AuthorResource` lists, by name.
-        SelectFilter::relationship::<AuthorResource>(lens!(Post.author_id)).label("Author"),
-    ))
-    // ANCHOR_END: table-filters
-    // ANCHOR: table-tabs
-    .tab(ListTab::new("all", "All"))
-    .tab(
-        ListTab::new("drafts", "Drafts")
-            .query(Post::fields().status().eq(PostStatus::Draft))
-            .badge(),
-    )
-    // ANCHOR_END: table-tabs
-    // ANCHOR: table-summaries
-    .summary(Summary::count("Posts"))
-    .summary(Summary::count("Featured").query(Post::fields().featured().eq(true)))
-    // ANCHOR_END: table-summaries
-    // ANCHOR: table-group-by
-    .group_by(lens!(Post.status))
-    .group_by(lens!(Post.featured))
+    // Each field as the default table shows it: a searchable title, a sortable status.
+    let col = Post::columns();
+    Table::new((col.title, col.status))
+        // ANCHOR: table-filters
+        .filters((
+            // A checklist: the posts holding any checked status.
+            SelectFilter::of(lens!(Post.status)).multiple(),
+            TernaryFilter::new(lens!(Post.featured)).labels("Featured", "Not featured"),
+            // Two date inputs: the first and the last day.
+            DateFilter::new(lens!(Post.created_at)).range(),
+            // The authors `AuthorResource` lists, by name.
+            SelectFilter::relationship::<AuthorResource>(lens!(Post.author_id)).label("Author"),
+        ))
+        // ANCHOR_END: table-filters
+        // ANCHOR: table-tabs
+        .tab(ListTab::new("all", "All"))
+        .tab(
+            ListTab::new("drafts", "Drafts")
+                .query(Post::fields().status().eq(PostStatus::Draft))
+                .badge(),
+        )
+        // ANCHOR_END: table-tabs
+        // ANCHOR: table-summaries
+        .summary(Summary::count("Posts"))
+        .summary(Summary::count("Featured").query(Post::fields().featured().eq(true)))
+        // ANCHOR_END: table-summaries
+        // ANCHOR: table-group-by
+        .group_by(lens!(Post.status))
+        .group_by(lens!(Post.featured))
     // ANCHOR_END: table-group-by
 }
 // ANCHOR_END: post-table-post
@@ -62,23 +63,26 @@ pub fn filtered_user_table() -> Table<User> {
 
 // ANCHOR: table-option-tabs
 pub fn status_tabs() -> Table<Post> {
-    Table::new(TextColumn::new(lens!(Post.title))).option_tabs(lens!(Post.status))
+    Table::new(Post::columns().title).option_tabs(lens!(Post.status))
 }
 // ANCHOR_END: table-option-tabs
 
 // ANCHOR: table-date
 pub fn date_column() -> DateColumn<User, jiff::Timestamp> {
-    DateColumn::new(lens!(User.created_at)).sortable()
+    User::columns().created_at.date().sortable()
 }
 // ANCHOR_END: table-date
 
 // ANCHOR: table-presenting
 pub fn user_columns() -> Table<User> {
+    let col = User::columns();
     Table::new((
         // The email as a muted line under the name.
-        TextColumn::new(lens!(User.name)).description(|_, user: &User| user.email.clone()),
+        col.name
+            .text()
+            .description(|_, user: &User| user.email.clone()),
         // `12,345`, right-aligned.
-        TextColumn::new(lens!(User.age)).numeric(0),
+        col.age.text().numeric(0),
         // `$1,234.50`, from a field holding cents.
         ComputedColumn::new("Balance", |_, user: &User| {
             Currency::USD.minor_units().format(user.age * 1250)
@@ -89,25 +93,27 @@ pub fn user_columns() -> Table<User> {
 
 pub fn status_badge() -> TextColumn<Post, crate::models::PostStatus> {
     // A dot in the variant's `#[option(color = "…")]`.
-    TextColumn::new(lens!(Post.status)).badge()
+    Post::columns().status.text().badge()
 }
 
 pub fn accent_column() -> ColorColumn<Theme, String> {
-    ColorColumn::new(lens!(Theme.accent))
+    Theme::columns().accent.color()
 }
 // ANCHOR_END: table-presenting
 
 // ANCHOR: table-cell-options
 pub fn contact_table() -> Table<User> {
+    let col = User::columns();
     Table::new((
         // Links to the user's page on another site, in a new tab.
-        TextColumn::new(lens!(User.name))
+        col.name
+            .text()
             .url(|_, user: &User| Some(format!("https://people.example/{}", user.id)))
             .open_url_in_new_tab(),
         // A button copies the address; a long one shows its first 24 characters.
-        TextColumn::new(lens!(User.email)).copyable().limit(24),
+        col.email.text().copyable().limit(24),
         // The role's `#[option(icon = …)]` in place of its label.
-        IconColumn::new(lens!(User.role)),
+        col.role.icon(),
     ))
     // A row whose user is inactive reads muted.
     .row_color(|_, user: &User| (!user.active).then_some(Color::Gray))
@@ -117,24 +123,26 @@ pub fn contact_table() -> Table<User> {
 
 // ANCHOR: table-editable
 pub fn triage_table() -> Table<Post> {
+    let col = Post::columns();
     Table::new((
         // Saves on Enter.
-        TextInputColumn::new(lens!(Post.title)),
+        col.title.text_input(),
         // Each saves as soon as it changes.
-        SelectColumn::new(lens!(Post.status)),
-        ToggleColumn::new(lens!(Post.featured)),
+        col.status.select(),
+        col.featured.toggle(),
     ))
 }
 // ANCHOR_END: table-editable
 
 // ANCHOR: table-toggleable
 pub fn user_table() -> Table<User> {
+    let col = User::columns();
     Table::new((
-        TextColumn::new(lens!(User.name)),
+        col.name,
         // Shown until a reader hides it.
-        TextColumn::new(lens!(User.email)).toggleable(),
+        col.email.text().toggleable(),
         // Hidden until a reader shows it.
-        DateColumn::new(lens!(User.created_at)).hidden_by_default(),
+        col.created_at.date().hidden_by_default(),
     ))
 }
 // ANCHOR_END: table-toggleable
@@ -193,6 +201,13 @@ impl Column<User> for Initials {
     fn cell<'a>(&self, cx: &'a Cx, u: &User) -> BoxView<'a> {
         let text = self.text(cx, u);
         view! { <span class="font-mono">(text)</span> }.boxed()
+    }
+}
+
+// Joins a table's tuple, as a built-in column does.
+impl IntoColumns<User> for Initials {
+    fn into_columns(self) -> Vec<Arc<dyn Column<User>>> {
+        vec![Arc::new(self)]
     }
 }
 // ANCHOR_END: table-custom-column

@@ -130,8 +130,11 @@ pub(crate) fn bare<M: PanelModel + Clone>(row: &M) -> M {
     row.bare()
 }
 
+mod field;
 #[doc(hidden)]
 pub mod pick;
+
+pub use field::FieldColumn;
 
 #[cfg(test)]
 mod tests;

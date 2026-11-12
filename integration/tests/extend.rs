@@ -8,7 +8,8 @@
 
 use tablo::{
     Ability, Action, ActionDef, BooleanColumn, Change, DeclarationErrorKind, Detail, FilterValue,
-    NotificationStatus, Places, Resource, ResourceDef, Schema, Site, Table, TextColumn,
+    IntoColumns, NotificationStatus, Places, Resource, ResourceDef, Schema, Site, Table,
+    TextColumn,
     extend::{Column, Control, ControlInput, Filter, FilterInput},
     lens,
 };
@@ -43,6 +44,12 @@ struct Log {
 /// A column that renders a view of its own: the title as a `<mark>`, and the
 /// title's length in the export.
 struct Highlighted;
+
+impl IntoColumns<Task> for Highlighted {
+    fn into_columns(self) -> Vec<std::sync::Arc<dyn Column<Task>>> {
+        vec![std::sync::Arc::new(self)]
+    }
+}
 
 impl Column<Task> for Highlighted {
     fn name(&self) -> &str {

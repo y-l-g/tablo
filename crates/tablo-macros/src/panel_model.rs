@@ -2,7 +2,7 @@
 //! a person reads, picked by the field's type and shaped by its `#[columns(..)]` keys.
 
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::DeriveInput;
 
 use self::keys::ColumnKeys;
@@ -28,6 +28,16 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
     let pick = quote!(#krate::__macro::pick);
     let mut table = TokenStream2::new();
     let mut detail = TokenStream2::new();
+    let mut handle_fields = Vec::new();
+    let mut handle_inits = Vec::new();
+    let picks = quote! {
+        #[allow(unused_imports)]
+        use #pick::{
+            PickDate as _, PickDateFilter as _, PickEmbedded as _, PickList as _,
+            PickNoFilter as _, PickNone as _, PickRepeater as _, PickScalar as _,
+            PickSelectFilter as _, PickString as _, PickTernaryFilter as _, PickToggle as _,
+        };
+    };
     for (field, keys) in &shown {
         let name = field.ident.as_ref().expect("named field");
         let ty = &field.ty;
@@ -57,7 +67,49 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
             #detail_calls
             let __detail = #pick::Place::place_in_detail(__column, __detail);
         });
+        let spelled = name.to_string();
+        let doc = format!("The `{}` field.", spelled.trim_start_matches("r#"));
+        handle_fields.push(quote! {
+            #[doc = #doc]
+            pub #name: #krate::__macro::FieldColumn<#model, #ty, #pick::PathOf<#ty>>
+        });
+        let label = keys.label(&krate);
+        handle_inits.push(quote! {
+            #name: #krate::__macro::FieldColumn::new(
+                #krate::__macro::Lens::<#model, #ty, #pick::PathOf<#ty>>::new(
+                    <#model>::fields().#name(),
+                    |record: &#model| &record.#name,
+                ),
+                #label,
+                || {
+                    #picks
+                    #model_field
+                    let __column = (&&&&&&&__field).table_column();
+                    #table_calls
+                    #pick::Place::into_table_columns(__column)
+                },
+                || {
+                    #picks
+                    #model_field
+                    let __column = (&&&&&&&__field).detail_column();
+                    #detail_calls
+                    #pick::Place::place_in_detail(__column, #krate::__macro::Detail::empty())
+                },
+            )
+        });
     }
+    let vis = &input.vis;
+    let handles = format_ident!("{}Columns", model);
+    let handles_doc = format!(
+        "The columns of `{model}`'s fields, which [`{model}::columns`] hands over, each a \
+         `FieldColumn`."
+    );
+    let columns_doc = format!(
+        "Each field the default table or detail page of `{model}` shows, as a `FieldColumn`: \
+         placed as it is, the column the derive picks there, with the field's `#[columns(..)]` \
+         keys; through a kind method, such as `.text()` or `.toggle()`, that column type's own \
+         builder over the field."
+    );
     let version = version_field(&input)?.map(|field| {
         let name = field.ident.as_ref().expect("named field");
         quote! {
@@ -104,15 +156,22 @@ fn expand_checked(input: DeriveInput) -> syn::Result<TokenStream2> {
             let spelled = name.to_string();
             quote! { (#spelled, #krate::__macro::Reference::spell(&self.#name)) }
         });
-    let picks = quote! {
-        #[allow(unused_imports)]
-        use #pick::{
-            PickDate as _, PickDateFilter as _, PickEmbedded as _, PickList as _,
-            PickNoFilter as _, PickNone as _, PickRepeater as _, PickScalar as _,
-            PickSelectFilter as _, PickString as _, PickTernaryFilter as _, PickToggle as _,
-        };
-    };
     Ok(quote! {
+        #[doc = #handles_doc]
+        #[derive(::core::clone::Clone)]
+        #vis struct #handles {
+            #(#handle_fields,)*
+        }
+
+        impl #model {
+            #[doc = #columns_doc]
+            #vis fn columns() -> #handles {
+                #handles {
+                    #(#handle_inits,)*
+                }
+            }
+        }
+
         impl #krate::__macro::PanelModel for #model {
             const TENANT_COLUMNS: &'static [&'static str] = &[#(#tenant_columns),*];
 

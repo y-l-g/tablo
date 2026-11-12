@@ -93,7 +93,7 @@ pub struct Audit {
     pub created_at: String,
 }
 
-#[derive(Debug, Clone, toasty::Model)]
+#[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 pub struct Theme {
     #[key]
     #[auto]

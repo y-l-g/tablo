@@ -6,16 +6,41 @@ use std::sync::Arc;
 use super::RichTextColumn;
 use super::{
     BooleanColumn, BoxColumn, ColorColumn, Column, ComputedColumn, CountColumn, DateColumn,
-    EmbeddedColumn, FileColumn, IconColumn, ImageColumn, RelationColumn, RepeaterColumn,
-    SelectColumn, TextColumn, TextInputColumn, ToggleColumn,
+    EmbeddedColumn, FileColumn, IconColumn, ImageColumn, ListColumn, RelationColumn,
+    RepeaterColumn, SelectColumn, TextColumn, TextInputColumn, ToggleColumn,
 };
 
-/// Convert a single built-in column, a tuple of any [`Column`]s, a `Vec` or slice
-/// of boxed columns, or `()` for none yet, into a table's column list.
+/// Convert a single built-in column, a model's [`FieldColumn`](crate::FieldColumn), a tuple of
+/// any of them, a `Vec` or slice of boxed columns, or `()` for none yet, into a table's column
+/// list.
 ///
-/// [`Table::column`](crate::Table::column) appends past it.
+/// [`Table::column`](crate::Table::column) appends any other [`Column`] past it. An app's column
+/// type joins a tuple as the built-in ones do by implementing this trait:
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, name: String }
+/// # struct Initials;
+/// # use topcoat::context::Cx;
+/// # impl tablo_core::extend::Column<User> for Initials {
+/// #     fn name(&self) -> &str { "initials" }
+/// #     fn label(&self) -> tablo_core::Text { "Initials".into() }
+/// #     fn text(&self, _: &Cx, u: &User) -> String { u.name.clone() }
+/// # }
+/// use std::sync::Arc;
+///
+/// use tablo_core::{IntoColumns, Table};
+///
+/// impl IntoColumns<User> for Initials {
+///     fn into_columns(self) -> Vec<Arc<dyn tablo_core::extend::Column<User>>> {
+///         vec![Arc::new(self)]
+///     }
+/// }
+///
+/// Table::new((User::columns().name, Initials));
+/// ```
 pub trait IntoColumns<M> {
-    #[doc(hidden)]
+    /// The columns, in the order the table lists them.
     fn into_columns(self) -> Vec<BoxColumn<M>>;
 }
 
@@ -47,6 +72,7 @@ column_conversions!(
     IconColumn<M, T>,
     ImageColumn<M, T>,
     EmbeddedColumn<M, T>,
+    ListColumn<M, T>,
     RepeaterColumn<M, T>,
     ToggleColumn<M>,
     SelectColumn<M, T>,
@@ -58,6 +84,12 @@ column_conversions!(RichTextColumn<M, T>);
 impl<M> IntoColumns<M> for () {
     fn into_columns(self) -> Vec<BoxColumn<M>> {
         Vec::new()
+    }
+}
+
+impl<M> IntoColumns<M> for BoxColumn<M> {
+    fn into_columns(self) -> Vec<BoxColumn<M>> {
+        vec![self]
     }
 }
 
@@ -78,11 +110,13 @@ macro_rules! into_columns_tuples {
     ($($T:ident => $v:ident),+ $(,)?) => {
         impl<M, $($T),+> IntoColumns<M> for ($($T,)+)
         where
-            $($T: Column<M> + 'static,)+
+            $($T: IntoColumns<M>,)+
         {
             fn into_columns(self) -> Vec<BoxColumn<M>> {
                 let ($($v,)+) = self;
-                vec![$(Arc::new($v) as BoxColumn<M>,)+]
+                let mut columns = Vec::new();
+                $( columns.extend($v.into_columns()); )+
+                columns
             }
         }
     };

@@ -29,9 +29,26 @@ impl Resource for UserResource {
 Each row is keyed by its record's primary key, so a model with a composite key lists without row
 actions or bulk selection.
 
+## A model's columns
+
+The derive also writes `User::columns()`, the read-side twin of a record form's `controls()`: one
+`FieldColumn` per field the default table or detail page shows, named like the field. Placed as
+it is, `col.name` is the column the default table lists, with the field's `#[columns(..)]` keys;
+in a detail page's tuple it is the default detail page's, which keeps a timestamp's time where the
+table shows its day. A kind method turns it into a column type's own builder over the same field,
+to reshape as any column: `col.name.text().limit(24)`, `col.created_at.date()`,
+`col.featured.toggle()`. The kinds are `text`, `date`, `boolean`, `list`, `icon`, `color`,
+`image`, `file`, `rich_text`, `embedded`, `repeater`, and the editable `text_input`, `select` and
+`toggle`; each compiles only for a field its column reads, so a toggle over a `String` is a
+compile error. `col.status.lens()` hands the field's lens to a filter or a tab.
+
+`columns()` leaves out what the default table does: a key Toasty generates, a foreign key, the
+tenant column, a relation and a `#[columns(skip)]` field. Name one of those with `lens!`.
+
 ## Lenses
 
-`lens!(User.name)` names a field once and yields both halves a column needs: the path a query
+`lens!(User.name)` is the low-level tool `columns()` is built on. It names a field once and yields
+both halves a column needs: the path a query
 sorts and searches on (`User::fields().name()`) and the reader that renders the loaded value
 (`&user.name`). The two cannot disagree. A lens names a field of the model or, through an embedded
 value, its leaf (`lens!(Post.seo.title)`), which binds the flattened `seo_title` column; a lens
@@ -190,9 +207,9 @@ Only `name`, `label` and `text` are required;
 [`Column`](https://y-l.fr/tablo/nightly/api/tablo/extend/trait.Column.html) lists the methods that make it searchable, sortable,
 toggleable or loading a relation. A sortable column of your own is the table's default
 sort through `default_sort_by(Sort::desc("revenue"))`, which names it by its `name`. A
-`default_sort(lens!(..))` takes any field of the model, whether or not a column shows it. Put
-the column in the tuple next to the built-in ones, or append it with `Table::column(..)`, which
-also takes columns past the tuple's twelve.
+`default_sort(lens!(..))` takes any field of the model, whether or not a column shows it. Its
+`IntoColumns` impl puts the column in the tuple next to the built-in ones; without one, append it
+with `Table::column(..)`, which also takes columns past the tuple's twelve.
 
 ## Search, sort and pagination
 
