@@ -138,7 +138,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
                 .policy_fn(|_cx, ability| matches!(ability, Ability::ViewAny | Ability::Create))
                 .table(tablo::Table::new(tablo::ComputedColumn::new(
                     "Words",
-                    |r: &Reading| r.word_count.to_string(),
+                    |_, r: &Reading| r.word_count.to_string(),
                 )))
         }
     }

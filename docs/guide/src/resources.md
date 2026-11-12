@@ -144,7 +144,7 @@ one that does not. A `QueryFilter`, a tab and a summary need not: the panel read
 their predicates.
 
 ```rust,ignore
-ComputedColumn::new("Pay", |e: &Employee| e.salary.to_string())
+ComputedColumn::new("Pay", |_, e: &Employee| e.salary.to_string())
     .reading(Reads::of(lens!(Employee.salary)))
 ```
 

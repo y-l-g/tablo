@@ -33,7 +33,7 @@ use crate::{
 ///     .sortable();
 /// tablo_core::TextColumn::new(tablo_core::lens!(User.age))
 ///     .sortable()
-///     .format(|age| format!("{age} years"));
+///     .format(|_, age| format!("{age} years"));
 /// ```
 ///
 /// The cell is the value's [`FormScalar::to_label`], an [`Options`](crate::Options) enum's label
@@ -62,7 +62,7 @@ use crate::{
 /// # enum Status { #[option(color = "warning")] Pending, #[option(color = "success")] Paid }
 /// use tablo_core::{Currency, TextColumn, lens};
 ///
-/// TextColumn::new(lens!(Order.number)).description(|order: &Order| order.customer.clone());
+/// TextColumn::new(lens!(Order.number)).description(|_, order: &Order| order.customer.clone());
 /// TextColumn::new(lens!(Order.status)).badge();
 /// TextColumn::new(lens!(Order.total_cents)).money(Currency::USD.minor_units());
 /// ```
@@ -78,7 +78,7 @@ use crate::{
 /// use tablo_core::{Reads, TextColumn, lens};
 ///
 /// TextColumn::new(lens!(User.email))
-///     .url(|user: &User| Some(format!("mailto:{}", user.email)))
+///     .url(|_, user: &User| Some(format!("mailto:{}", user.email)))
 ///     .reading(Reads::nothing())
 ///     .copyable();
 /// TextColumn::new(lens!(User.bio)).limit(40);
@@ -191,14 +191,14 @@ where
             format: Arc::new(|_, _, value: &T| value.to_label()),
             search: None,
             sortable: false,
-            color: Arc::new(T::color),
+            color: Arc::new(|_, value: &T| T::color(value)),
             tinted: false,
             badge: false,
             tabular: false,
             weight: FontWeight::Normal,
             alignment: Alignment::Start,
             description: None,
-            icon: Arc::new(T::icon),
+            icon: Arc::new(|_, value: &T| T::icon(value)),
             url: None,
             new_tab: false,
             tooltip: None,
@@ -210,13 +210,13 @@ where
         }
     }
 
-    /// Render the field's value through `format`: a `String`, or a [`Text`] the request's locale
-    /// spells.
+    /// Render the field's value through `format(cx, value)`: a `String`, or a [`Text`] the
+    /// request's locale spells.
     pub fn format<L: Into<Text>>(
         mut self,
-        format: impl Fn(&T) -> L + Send + Sync + 'static,
+        format: impl Fn(&Cx, &T) -> L + Send + Sync + 'static,
     ) -> Self {
-        self.format = Arc::new(move |_, _, value| format(value).into());
+        self.format = Arc::new(move |cx, _, value| format(cx, value).into());
         self
     }
 
@@ -227,28 +227,32 @@ where
         self
     }
 
-    /// Color the value: its badge's dot, or its text when it is no badge.
-    pub fn color(mut self, color: impl Fn(&T) -> Option<Color> + Send + Sync + 'static) -> Self {
+    /// Color the value through `color(cx, value)`: its badge's dot, or its text when it is no
+    /// badge.
+    pub fn color(
+        mut self,
+        color: impl Fn(&Cx, &T) -> Option<Color> + Send + Sync + 'static,
+    ) -> Self {
         self.color = Arc::new(color);
         self.tinted = true;
         self
     }
 
-    /// Show `description(row)` as a muted line under the value, such as a customer's email under
-    /// their name. Search, sort and export read the value alone.
+    /// Show `description(cx, row)` as a muted line under the value, such as a customer's email
+    /// under their name. Search, sort and export read the value alone.
     pub fn description(
         mut self,
-        description: impl Fn(&M) -> String + Send + Sync + 'static,
+        description: impl Fn(&Cx, &M) -> String + Send + Sync + 'static,
     ) -> Self {
         self.description = Some(Arc::new(description));
         self.reads_row = true;
         self
     }
 
-    /// Link the value to `url(row)`, or show it unlinked when that is `None`. The link takes a
-    /// relative URL or an `http`, `https`, `mailto` or `tel` one; any other scheme, such as
+    /// Link the value to `url(cx, row)`, or show it unlinked when that is `None`. The link takes
+    /// a relative URL or an `http`, `https`, `mailto` or `tel` one; any other scheme, such as
     /// `javascript:`, leaves the value unlinked.
-    pub fn url(mut self, url: impl Fn(&M) -> Option<String> + Send + Sync + 'static) -> Self {
+    pub fn url(mut self, url: impl Fn(&Cx, &M) -> Option<String> + Send + Sync + 'static) -> Self {
         self.url = Some(Arc::new(url));
         self.reads_row = true;
         self
@@ -260,10 +264,10 @@ where
         self
     }
 
-    /// Show `tooltip(row)` when the pointer rests on the value.
+    /// Show `tooltip(cx, row)` when the pointer rests on the value.
     pub fn tooltip(
         mut self,
-        tooltip: impl Fn(&M) -> Option<String> + Send + Sync + 'static,
+        tooltip: impl Fn(&Cx, &M) -> Option<String> + Send + Sync + 'static,
     ) -> Self {
         self.tooltip = Some(Arc::new(tooltip));
         self.reads_row = true;
@@ -291,8 +295,11 @@ where
         self
     }
 
-    /// Show `icon(value)` before the value, in its color, replacing a badge's dot.
-    pub fn icon(mut self, icon: impl Fn(&T) -> Option<IconData> + Send + Sync + 'static) -> Self {
+    /// Show `icon(cx, value)` before the value, in its color, replacing a badge's dot.
+    pub fn icon(
+        mut self,
+        icon: impl Fn(&Cx, &T) -> Option<IconData> + Send + Sync + 'static,
+    ) -> Self {
         self.icon = Arc::new(icon);
         self
     }
@@ -347,10 +354,14 @@ where
         self.amount()
     }
 
-    /// Spell the value as an amount of the currency `currency(row)` names, such as an order's
-    /// own, aligned as [`money`](Self::money) aligns it.
-    pub fn money_by(mut self, currency: impl Fn(&M) -> Currency + Send + Sync + 'static) -> Self {
-        self.format = Arc::new(move |cx, row, value: &T| currency(row).format_in(cx, value).into());
+    /// Spell the value as an amount of the currency `currency(cx, row)` names, such as an
+    /// order's own, aligned as [`money`](Self::money) aligns it.
+    pub fn money_by(
+        mut self,
+        currency: impl Fn(&Cx, &M) -> Currency + Send + Sync + 'static,
+    ) -> Self {
+        self.format =
+            Arc::new(move |cx, row, value: &T| currency(cx, row).format_in(cx, value).into());
         self.reads_row = true;
         self.amount()
     }
@@ -403,11 +414,11 @@ where
         let value = self.lens.read(row);
         let text = (self.format)(cx, row, value).localize(cx);
         let color = (!text.trim().is_empty())
-            .then(|| (self.color)(value))
+            .then(|| (self.color)(cx, value))
             .flatten();
         // An icon takes the value's color, as a badge's dot does; only a declared color tints the
         // text.
-        let icon = (self.icon)(value).map(|icon| (icon, color));
+        let icon = (self.icon)(cx, value).map(|icon| (icon, color));
         let color = color.filter(|_| self.badge || self.tinted);
         text_cell(
             cx,
@@ -418,10 +429,10 @@ where
                 tabular: self.tabular,
                 weight: self.weight,
                 icon,
-                description: self.description.as_ref().map(|describe| describe(row)),
-                url: self.url.as_ref().and_then(|url| url(row)),
+                description: self.description.as_ref().map(|describe| describe(cx, row)),
+                url: self.url.as_ref().and_then(|url| url(cx, row)),
                 new_tab: self.new_tab,
-                tooltip: self.tooltip.as_ref().and_then(|tooltip| tooltip(row)),
+                tooltip: self.tooltip.as_ref().and_then(|tooltip| tooltip(cx, row)),
                 limit: self.limit,
                 copyable: self.copyable,
                 placeholder: self.placeholder.clone(),

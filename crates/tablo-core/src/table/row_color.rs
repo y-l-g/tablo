@@ -18,7 +18,7 @@ pub(crate) struct RowColor<M> {
 }
 
 impl<M> Table<M> {
-    /// Tint each row in `color(row)`, such as an overdue invoice in [`Color::Danger`]; a row it
+    /// Tint each row in `color(cx, row)`, such as an overdue invoice in [`Color::Danger`]; a row it
     /// gives `None` stays plain.
     ///
     /// ```rust
@@ -27,7 +27,7 @@ impl<M> Table<M> {
     /// use tablo_core::{Color, Reads, Table, TextColumn, lens};
     ///
     /// Table::new(TextColumn::new(lens!(Invoice.number)))
-    ///     .row_color(|invoice: &Invoice| invoice.overdue.then_some(Color::Danger))
+    ///     .row_color(|_, invoice: &Invoice| invoice.overdue.then_some(Color::Danger))
     ///     .row_color_reading(Reads::of(lens!(Invoice.overdue)));
     /// ```
     ///
@@ -37,7 +37,7 @@ impl<M> Table<M> {
     /// may not view one of them sees every row plain.
     pub fn row_color(
         mut self,
-        color: impl Fn(&M) -> Option<Color> + Send + Sync + 'static,
+        color: impl Fn(&topcoat::context::Cx, &M) -> Option<Color> + Send + Sync + 'static,
     ) -> Self {
         self.row_color.color = Some(Arc::new(color));
         self
@@ -53,8 +53,11 @@ impl<M> Table<M> {
     }
 
     /// The color `row` is tinted in.
-    pub(crate) fn color_of(&self, row: &M) -> Option<Color> {
-        self.row_color.color.as_ref().and_then(|color| color(row))
+    pub(crate) fn color_of(&self, cx: &topcoat::context::Cx, row: &M) -> Option<Color> {
+        self.row_color
+            .color
+            .as_ref()
+            .and_then(|color| color(cx, row))
     }
 
     /// Whether the table tints its rows by a color that reads the row's relations as loaded.
@@ -71,7 +74,7 @@ impl<M> Table<M> {
             return;
         }
         if let Some(color) = self.row_color.color.take() {
-            self.row_color.color = Some(Arc::new(move |row: &M| color(&bare(row))));
+            self.row_color.color = Some(Arc::new(move |cx, row: &M| color(cx, &bare(row))));
             self.row_color.bare = true;
         }
     }

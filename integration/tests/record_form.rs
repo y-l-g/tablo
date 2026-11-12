@@ -652,9 +652,10 @@ async fn a_list_only_resource_declares_its_detail_page() {
                 .slug("items")
                 .policy_fn(|_cx, ability| matches!(ability, Ability::View(_)))
                 .table(item_table())
-                .detail(Detail::new(ComputedColumn::new("Title", |item: &Item| {
-                    format!("{} (view)", item.title)
-                })))
+                .detail(Detail::new(ComputedColumn::new(
+                    "Title",
+                    |_, item: &Item| format!("{} (view)", item.title),
+                )))
         }
     }
 

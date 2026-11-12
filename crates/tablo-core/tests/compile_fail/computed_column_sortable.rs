@@ -7,5 +7,5 @@ struct User {
 }
 
 fn main() {
-    tablo_core::ComputedColumn::new("Name", |u: &User| u.name.clone()).sortable();
+    tablo_core::ComputedColumn::new("Name", |_, u: &User| u.name.clone()).sortable();
 }

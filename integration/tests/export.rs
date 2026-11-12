@@ -191,7 +191,7 @@ impl<const INCLUDES: bool> Resource for VolumeResource<INCLUDES> {
     type Form = NoForm<Volume>;
 
     fn declare() -> ResourceDef<Self> {
-        let column = ComputedColumn::new("Shelf", shelf_name);
+        let column = ComputedColumn::new("Shelf", |_, volume: &Volume| shelf_name(volume));
         let column = if INCLUDES {
             column.include_unscoped(Volume::fields().shelf())
         } else {

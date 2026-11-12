@@ -24,7 +24,7 @@ pub fn audit_view() -> Detail<Audit> {
 
 // ANCHOR: detail-computed
 pub fn reading_time() -> ComputedColumn<Post> {
-    ComputedColumn::new("Reading time", |post: &Post| {
+    ComputedColumn::new("Reading time", |_, post: &Post| {
         let words = post.body.split_whitespace().count();
         format!("{words} words, {} min", words.div_ceil(200))
     })

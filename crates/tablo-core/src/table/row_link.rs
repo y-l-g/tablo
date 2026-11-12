@@ -18,7 +18,7 @@ use crate::{Reads, Text};
 /// use tablo_core::{Reads, RowLink, Table, TextColumn, lens};
 ///
 /// Table::new(TextColumn::new(lens!(Product.name))).row_link(
-///     RowLink::new("Open product", |product: &Product| {
+///     RowLink::new("Open product", |_, product: &Product| {
 ///         Some(format!("/shop/{}", product.slug))
 ///     })
 ///     .new_tab()
@@ -38,12 +38,12 @@ pub struct RowLink<M> {
 }
 
 impl<M> RowLink<M> {
-    /// A link reading `label` to `url(row)`; a row it gives `None` shows no link. The URL is
+    /// A link reading `label` to `url(cx, row)`; a row it gives `None` shows no link. The URL is
     /// relative, or absolute over `http`, `https`, `mailto` or `tel`: a row whose URL has any
     /// other scheme, such as `javascript:`, shows no link either.
     pub fn new(
         label: impl Into<Text>,
-        url: impl Fn(&M) -> Option<String> + Send + Sync + 'static,
+        url: impl Fn(&topcoat::context::Cx, &M) -> Option<String> + Send + Sync + 'static,
     ) -> Self {
         Self {
             label: label.into(),
@@ -76,8 +76,8 @@ impl<M> RowLink<M> {
     }
 
     /// Where the link leads from `row`, when it shows there.
-    pub(crate) fn url_of(&self, row: &M) -> Option<String> {
-        (self.url)(row).filter(|url| crate::column::link_href(url).is_some())
+    pub(crate) fn url_of(&self, cx: &topcoat::context::Cx, row: &M) -> Option<String> {
+        (self.url)(cx, row).filter(|url| crate::column::link_href(url).is_some())
     }
 }
 
@@ -107,7 +107,7 @@ impl<M> Table<M> {
         for link in &mut self.row_links {
             if crate::column::reads_own_fields(link.reads.as_ref()) {
                 let url = link.url.clone();
-                link.url = Arc::new(move |row: &M| url(&bare(row)));
+                link.url = Arc::new(move |cx, row: &M| url(cx, &bare(row)));
                 link.bare = true;
             }
         }

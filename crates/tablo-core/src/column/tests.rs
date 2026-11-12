@@ -14,7 +14,7 @@ fn search_pattern_escapes_like_metacharacters() {
 #[test]
 fn text_column_renders_cells_via_typed_projection() {
     let plain = TextColumn::new(lens!(User.name));
-    let decorated = TextColumn::new(lens!(User.name)).format(|name| format!("{name}!"));
+    let decorated = TextColumn::new(lens!(User.name)).format(|_, name| format!("{name}!"));
     let row = User {
         id: uuid::Uuid::nil(),
         name: "Ada".to_string(),
@@ -54,7 +54,7 @@ fn text_column_includes_accumulate_once_per_relation() {
         vet: toasty::Deferred<Owner>,
     }
 
-    let column = ComputedColumn::new("Owner", |p: &Pet| p.id.to_string())
+    let column = ComputedColumn::new("Owner", |_, p: &Pet| p.id.to_string())
         .include_unscoped(Pet::fields().owner())
         .include_unscoped(Pet::fields().vet())
         .include_unscoped(Pet::fields().owner());
@@ -157,7 +157,7 @@ fn amounts_format_and_align_to_the_end() {
 fn a_description_stays_out_of_the_text() {
     let cx = crate::test_support::cx();
     let column = TextColumn::new(lens!(Invoice.number))
-        .description(|invoice: &Invoice| invoice.customer.clone());
+        .description(|_, invoice: &Invoice| invoice.customer.clone());
     assert_eq!(column.text(&cx, &invoice()), "INV-7");
 }
 

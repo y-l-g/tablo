@@ -59,7 +59,7 @@ impl Resource for LabelledChoice {
             .form(Schema::new((
                 c.code,
                 c.member_id
-                    .relationship_labelled::<SalaryLabel>(|m: &Member| m.salary.clone()),
+                    .relationship_labelled::<SalaryLabel>(|_, m: &Member| m.salary.clone()),
             )))
     }
 }
@@ -377,7 +377,7 @@ impl FormInput for Choosing {
     fn schema() -> Schema {
         Schema::new(
             Field::choice_input("member")
-                .relationship_labelled::<SalaryLabel>(|m: &Member| m.salary.clone()),
+                .relationship_labelled::<SalaryLabel>(|_, m: &Member| m.salary.clone()),
         )
     }
 

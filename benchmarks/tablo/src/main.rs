@@ -96,7 +96,7 @@ impl Resource for PostResource {
                     RelationColumn::new::<AuthorResource>(
                         relation!(Post.author),
                         lens!(Author.name),
-                        |a: &Author| a.name.clone(),
+                        |_, a: &Author| a.name.clone(),
                     ),
                     // No resource administers comments.
                     CountColumn::unscoped(relation!(Post.comments)),

@@ -489,7 +489,7 @@ impl<M> WiredTable<M> {
                     .filter_map(|link| {
                         Some(RowLinkView {
                             label: link.label.localize(cx),
-                            url: link.url_of(row)?,
+                            url: link.url_of(cx, row)?,
                             icon: link.icon.clone(),
                             new_tab: link.new_tab,
                         })
@@ -505,7 +505,7 @@ impl<M> WiredTable<M> {
                     links,
                     custom,
                     selectable,
-                    color: self.color_of(row),
+                    color: self.color_of(cx, row),
                     group: grouping.map(|group| {
                         let label = group.key()(row).map(|label| label.localize(cx));
                         RowGroup {

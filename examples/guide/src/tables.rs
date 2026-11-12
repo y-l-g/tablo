@@ -76,11 +76,11 @@ pub fn date_column() -> DateColumn<User, jiff::Timestamp> {
 pub fn user_columns() -> Table<User> {
     Table::new((
         // The email as a muted line under the name.
-        TextColumn::new(lens!(User.name)).description(|user: &User| user.email.clone()),
+        TextColumn::new(lens!(User.name)).description(|_, user: &User| user.email.clone()),
         // `12,345`, right-aligned.
         TextColumn::new(lens!(User.age)).numeric(0),
         // `$1,234.50`, from a field holding cents.
-        ComputedColumn::new("Balance", |user: &User| {
+        ComputedColumn::new("Balance", |_, user: &User| {
             Currency::USD.minor_units().format(user.age * 1250)
         })
         .align(Alignment::End),
@@ -102,7 +102,7 @@ pub fn contact_table() -> Table<User> {
     Table::new((
         // Links to the user's page on another site, in a new tab.
         TextColumn::new(lens!(User.name))
-            .url(|user: &User| Some(format!("https://people.example/{}", user.id)))
+            .url(|_, user: &User| Some(format!("https://people.example/{}", user.id)))
             .open_url_in_new_tab(),
         // A button copies the address; a long one shows its first 24 characters.
         TextColumn::new(lens!(User.email)).copyable().limit(24),
@@ -110,7 +110,7 @@ pub fn contact_table() -> Table<User> {
         IconColumn::new(lens!(User.role)),
     ))
     // A row whose user is inactive reads muted.
-    .row_color(|user: &User| (!user.active).then_some(Color::Gray))
+    .row_color(|_, user: &User| (!user.active).then_some(Color::Gray))
     .row_color_reading(Reads::of(lens!(User.active)))
 }
 // ANCHOR_END: table-cell-options
@@ -162,7 +162,7 @@ pub fn author_column() -> RelationColumn<Post> {
     RelationColumn::new::<AuthorResource>(
         relation!(Post.author),
         lens!(Author.name),
-        |a: &Author| a.name.clone(),
+        |_, a: &Author| a.name.clone(),
     )
 }
 

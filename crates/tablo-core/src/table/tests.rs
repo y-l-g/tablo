@@ -315,7 +315,7 @@ fn empty_column_set_is_misdeclared() {
 fn duplicate_column_name_is_misdeclared_on_field_computed_collision() {
     let errors = Table::<Task>::new((
         TextColumn::new(lens!(Task.status)).sortable(),
-        ComputedColumn::new("Status", |t: &Task| t.status.clone()),
+        ComputedColumn::new("Status", |_, t: &Task| t.status.clone()),
     ))
     .declaration_errors();
     assert!(
@@ -329,8 +329,8 @@ fn duplicate_column_name_is_misdeclared_on_field_computed_collision() {
 #[test]
 fn duplicate_column_name_is_misdeclared_on_case_only_computed_collision() {
     let errors = Table::<User>::new((
-        ComputedColumn::new("Status", |u: &User| u.name.clone()),
-        ComputedColumn::new("STATUS", |u: &User| u.name.clone()),
+        ComputedColumn::new("Status", |_, u: &User| u.name.clone()),
+        ComputedColumn::new("STATUS", |_, u: &User| u.name.clone()),
     ))
     .declaration_errors();
     assert!(

@@ -115,8 +115,9 @@ macro_rules! base_internals {
     };
 }
 
-/// A closure reading a value off a row or a field: a cell's color, icon, link or tooltip.
-pub(crate) type ReadFn<T, V> = Arc<dyn Fn(&T) -> V + Send + Sync>;
+/// A closure reading a value off a row or a field for a request: a cell's color, icon, link or
+/// tooltip, which may read the request's locale or user.
+pub(crate) type ReadFn<T, V> = Arc<dyn Fn(&Cx, &T) -> V + Send + Sync>;
 
 fn sort_order<M, T>(path: &Path<M, T>, descending: bool) -> OrderByExpr {
     if descending {

@@ -124,7 +124,7 @@ impl Resource for AuthorResource {
                 TextColumn::new(lens!(Author.name)).weight(FontWeight::Medium),
                 // A mail link, and a button copying the address.
                 TextColumn::new(lens!(Author.email))
-                    .url(|author: &Author| Some(format!("mailto:{}", author.email)))
+                    .url(|_, author: &Author| Some(format!("mailto:{}", author.email)))
                     .copyable(),
             )))
             .detail(Detail::new(
@@ -249,7 +249,7 @@ fn post_detail() -> Detail<Post> {
         Section::new("Post").columns((
             TextColumn::new(lens!(Post.title)),
             RichTextColumn::new(lens!(Post.body)),
-            ComputedColumn::new("Reading", |p: &Post| {
+            ComputedColumn::new("Reading", |_, p: &Post| {
                 let words = word_count(&tablo::rich_text::text(&p.body));
                 format!("{words} words · {} min read", read_minutes(words))
             }),
@@ -301,11 +301,11 @@ fn post_table() -> Table<Post> {
     // Publish and Tag join View, Edit and Delete behind one button.
     .action_layout(ActionLayout::Menu)
     // A featured post stands out from the list.
-    .row_color(|post: &Post| post.featured.then_some(Color::Primary))
+    .row_color(|_, post: &Post| post.featured.then_some(Color::Primary))
     .row_color_reading(Reads::of(lens!(Post.featured)))
     // A published post's public page opens from its row, beside its actions.
     .row_link(
-        RowLink::new("View public post", |post: &Post| {
+        RowLink::new("View public post", |_, post: &Post| {
             (post.status == PostStatus::Published).then(|| format!("/blog/{}", post.id))
         })
         .new_tab()

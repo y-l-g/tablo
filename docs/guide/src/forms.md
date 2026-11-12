@@ -333,7 +333,7 @@ A choice over a foreign key loads its options from the related resource. Mark th
 Each option's value is the related record's primary key, and its text the record's title: the
 column the related resource's `record_title` names, else its label and the key. Typing into a
 searchable choice matches that column and the related table's searchable columns. A source that is
-not a resource implements `OptionSource`, including its `label`. `.relationship_labelled::<R>(|a| ..)`
+not a resource implements `OptionSource`, including its `label`. `.relationship_labelled::<R>(|cx, a| ..)`
 labels one field's options otherwise, to tell apart records that share a title.
 
 Options follow the related resource's tenant scope and policy, and a submitted key must be one of

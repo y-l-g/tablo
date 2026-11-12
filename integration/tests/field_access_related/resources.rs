@@ -45,7 +45,7 @@ impl Resource for MemberResource {
 
 /// The member's salary, which `MemberResource` restricts.
 pub(super) fn pay() -> RelationColumn<Card> {
-    RelationColumn::new::<MemberResource>(relation!(Card.member), lens!(Member.salary), |m| {
+    RelationColumn::new::<MemberResource>(relation!(Card.member), lens!(Member.salary), |_, m| {
         m.salary.clone()
     })
     .label("Pay")
@@ -53,7 +53,7 @@ pub(super) fn pay() -> RelationColumn<Card> {
 
 /// The member's name, which every user views.
 pub(super) fn holder() -> RelationColumn<Card> {
-    RelationColumn::new::<MemberResource>(relation!(Card.member), lens!(Member.name), |m| {
+    RelationColumn::new::<MemberResource>(relation!(Card.member), lens!(Member.name), |_, m| {
         m.name.clone()
     })
     .label("Holder")
@@ -116,7 +116,7 @@ impl Resource for OpenCard {
                 RelationColumn::new::<OpenMember>(
                     relation!(Card.member),
                     lens!(Member.salary),
-                    |m: &Member| m.salary.clone(),
+                    |_, m: &Member| m.salary.clone(),
                 )
                 .label("Pay"),
             )))
@@ -171,7 +171,7 @@ impl Resource for DossierResource {
             .tenancy(Tenancy::column(Dossier::fields().tenant_id()))
             .table(Table::new((
                 TextColumn::new(lens!(Dossier.code)),
-                ComputedColumn::new("Leak", |d: &Dossier| {
+                ComputedColumn::new("Leak", |_, d: &Dossier| {
                     d.assignment.member.get().salary.clone()
                 })
                 .include_unscoped(Dossier::fields().assignment().member()),
@@ -195,7 +195,7 @@ impl Resource for SiblingCard {
             .table(Table::new((
                 TextColumn::new(lens!(Card.code)),
                 RelationColumn::of::<MemberResource>(relation!(Card.member)),
-                ComputedColumn::new("Leak", |c: &Card| c.member.get().salary.clone())
+                ComputedColumn::new("Leak", |_, c: &Card| c.member.get().salary.clone())
                     .reading(Reads::of(Card::fields().member())),
             )))
     }
@@ -215,7 +215,7 @@ impl Resource for TooltipCard {
             .tenancy(Tenancy::column(Card::fields().tenant_id()))
             .table(Table::new((
                 TextColumn::new(lens!(Card.code))
-                    .tooltip(|c: &Card| Some(c.member.get().salary.clone()))
+                    .tooltip(|_, c: &Card| Some(c.member.get().salary.clone()))
                     .reading(Reads::of(Card::fields().member())),
                 RelationColumn::of::<MemberResource>(relation!(Card.member)),
             )))
@@ -288,7 +288,9 @@ impl Resource for TintedCard {
                     TextColumn::new(lens!(Card.code)),
                     RelationColumn::of::<MemberResource>(relation!(Card.member)),
                 ))
-                .row_color(|c: &Card| (c.member.get().salary == "S-900").then_some(Color::Danger))
+                .row_color(|_, c: &Card| {
+                    (c.member.get().salary == "S-900").then_some(Color::Danger)
+                })
                 .row_color_reading(Reads::of(Card::fields().member())),
             )
     }
@@ -395,7 +397,7 @@ impl Resource for TicketResource {
             .tenancy(Tenancy::column(Ticket::fields().tenant_id()))
             .table(Table::new((
                 TextColumn::new(lens!(Ticket.code)),
-                ComputedColumn::new("Leak", |t: &Ticket| match &t.holder {
+                ComputedColumn::new("Leak", |_, t: &Ticket| match &t.holder {
                     Holder::Assigned { member, .. } => member.get().salary.clone(),
                     Holder::Unassigned => String::new(),
                 })
@@ -422,13 +424,15 @@ impl Resource for OwnFieldsCard {
                 Table::new((
                     TextColumn::new(lens!(Card.code)),
                     RelationColumn::of::<MemberResource>(relation!(Card.member)),
-                    ComputedColumn::new("Loaded", |c: &Card| (!c.member.is_unloaded()).to_string())
-                        .reading(Reads::of(lens!(Card.code))),
+                    ComputedColumn::new("Loaded", |_, c: &Card| {
+                        (!c.member.is_unloaded()).to_string()
+                    })
+                    .reading(Reads::of(lens!(Card.code))),
                 ))
-                .row_color(|c: &Card| c.member.is_unloaded().then_some(Color::Info))
+                .row_color(|_, c: &Card| c.member.is_unloaded().then_some(Color::Info))
                 .row_color_reading(Reads::of(lens!(Card.code)))
                 .row_link(
-                    RowLink::new("Open", |c: &Card| {
+                    RowLink::new("Open", |_, c: &Card| {
                         c.member.is_unloaded().then(|| format!("/cards/{}", c.code))
                     })
                     .reading(Reads::of(lens!(Card.code))),
