@@ -1,18 +1,31 @@
-/* Tablo's default theme. `tablo_build::tailwind()` imports it after Tailwind and before the
-   app's `styles.css`, so a token the app redeclares under `:root` or `.dark` wins. */
+/* Tablo's themes. `tablo_build::tailwind()` imports this file after Tailwind and before the app's
+   `styles.css`, so a token the app redeclares under `:root` or `.dark` wins.
+
+   Jade, the default, is the `:root` and `.dark` tokens. Every other theme redeclares them under
+   `:root:where([data-tablo-theme=…])` and `.dark:where([data-tablo-theme=…])`, which the shell
+   writes on `<html>` from `Brand::theme`. `:where` keeps those selectors as specific as `:root`, so
+   source order decides: a theme's tokens beat Jade's, the app's beat the theme's. A theme's dark
+   block follows its light one and redeclares every token it does, so a dark page never keeps a
+   light value. */
 
 /* Dark mode: put the `dark` class on an ancestor, typically <html>. */
 @custom-variant dark (&:is(.dark *));
 
-/* Indirection through `:root`/`.dark` lets the values swap when the color scheme changes. */
+/* Indirection through `:root`/`.dark` lets the values swap when the theme or the color scheme
+   changes. */
 @theme inline {
-  --font-sans: "Geist", sans-serif;
+  /* `--tablo-font` is the family the shell links (`Panel::shell_assets`); the stack after it covers
+     a page rendered without one. */
+  --font-sans: var(--tablo-font), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   /* Every corner derives from `--radius`: `rounded-lg` is the token, the other steps two and
      four pixels either side of it. */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -29,6 +42,7 @@
   --color-warning: var(--warning);
   --color-info: var(--info);
   --color-border: var(--border);
+  --color-input: var(--input);
   --color-ring: var(--ring);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -40,83 +54,307 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --shadow-xs: var(--shadow-xs);
   --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
 }
+
+/* ── Jade ──────────────────────────────────────────────────────────────────────────────────────
+   Cool neutrals with a trace of the primary's green, so the chrome and the accent read as one
+   palette. The page is a white sheet inset in the sidebar's frame. */
 
 :root {
   color-scheme: light;
+  --tablo-font: system-ui;
   --radius: 0.5rem;
-  /* Near-neutral grays with a trace of the primary's green, so the chrome and the accent read as
-     one palette. */
-  --background: oklch(0.993 0.002 170);
-  --foreground: oklch(0.21 0.008 200);
+  --background: oklch(0.995 0.0015 170);
+  --foreground: oklch(0.2 0.012 200);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.008 200);
+  --card-foreground: oklch(0.2 0.012 200);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.008 200);
-  --muted: oklch(0.965 0.004 170);
-  --muted-foreground: oklch(0.5 0.012 200);
-  /* Jade: deep enough to carry white text at 4.5:1. */
-  --primary: oklch(0.5 0.1 172);
-  --primary-foreground: oklch(0.99 0.01 172);
+  --popover-foreground: oklch(0.2 0.012 200);
+  --muted: oklch(0.966 0.005 175);
+  --muted-foreground: oklch(0.49 0.014 200);
+  /* Deep enough to carry white text at 4.5:1. */
+  --primary: oklch(0.5 0.105 168);
+  --primary-foreground: oklch(0.99 0.01 168);
   --destructive: oklch(0.55 0.2 25);
   --destructive-foreground: oklch(0.99 0.01 25);
   /* Status colors: a badge's dot and a tinted cell's text, dark enough to read on a card. */
   --success: oklch(0.56 0.13 150);
   --warning: oklch(0.62 0.14 65);
   --info: oklch(0.55 0.15 250);
-  --border: oklch(0.915 0.005 190);
-  --ring: oklch(0.62 0.1 172);
-  --shadow-xs: 0 1px 2px oklch(0.21 0.008 200 / 6%);
-  --shadow-sm:
-    0 1px 2px oklch(0.21 0.008 200 / 6%),
-    0 2px 6px -2px oklch(0.21 0.008 200 / 8%);
-  /* The sidebar is the frame the page surface sits inset in, a shade under `--background`. */
-  --sidebar: oklch(0.967 0.004 170);
-  --sidebar-foreground: oklch(0.3 0.01 200);
+  --border: oklch(0.912 0.006 190);
+  /* A control's edge, a step darker than a card's so an empty field still reads as one. */
+  --input: oklch(0.875 0.008 190);
+  --ring: oklch(0.6 0.11 168);
+  --shadow-xs: 0 1px 2px oklch(0.2 0.012 200 / 5%);
+  --shadow-sm: 0 1px 2px oklch(0.2 0.012 200 / 5%), 0 2px 8px -2px oklch(0.2 0.012 200 / 7%);
+  --shadow-md: 0 2px 4px oklch(0.2 0.012 200 / 5%), 0 8px 20px -6px oklch(0.2 0.012 200 / 12%);
+  --shadow-lg: 0 4px 8px oklch(0.2 0.012 200 / 5%), 0 20px 40px -12px oklch(0.2 0.012 200 / 18%);
+  --sidebar: oklch(0.962 0.006 172);
+  --sidebar-foreground: oklch(0.3 0.012 200);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.925 0.008 172);
-  --sidebar-accent-foreground: oklch(0.21 0.008 200);
-  --sidebar-border: oklch(0.905 0.006 190);
+  --sidebar-accent: oklch(0.995 0.0015 170);
+  --sidebar-accent-foreground: oklch(0.2 0.012 200);
+  --sidebar-border: oklch(0.9 0.008 185);
   --sidebar-ring: var(--ring);
 }
 
 .dark {
   color-scheme: dark;
-  --background: oklch(0.19 0.006 200);
+  --background: oklch(0.185 0.007 200);
   --foreground: oklch(0.95 0.004 170);
-  --card: oklch(0.215 0.007 200);
+  --card: oklch(0.21 0.008 200);
   --card-foreground: oklch(0.95 0.004 170);
-  --popover: oklch(0.235 0.008 200);
+  --popover: oklch(0.23 0.009 200);
   --popover-foreground: oklch(0.95 0.004 170);
-  --muted: oklch(0.255 0.008 200);
-  --muted-foreground: oklch(0.7 0.01 190);
+  --muted: oklch(0.25 0.009 200);
+  --muted-foreground: oklch(0.71 0.012 190);
   /* Lighter in the dark, with dark text, to keep the same contrast. */
-  --primary: oklch(0.76 0.12 170);
-  --primary-foreground: oklch(0.2 0.03 175);
+  --primary: oklch(0.77 0.125 168);
+  --primary-foreground: oklch(0.2 0.035 172);
   --destructive: oklch(0.66 0.19 25);
   --destructive-foreground: oklch(0.99 0.01 25);
   --success: oklch(0.75 0.14 150);
   --warning: oklch(0.8 0.13 75);
   --info: oklch(0.74 0.12 250);
-  --border: oklch(0.29 0.008 200);
-  --ring: oklch(0.66 0.11 172);
+  --border: oklch(0.285 0.009 200);
+  --input: oklch(0.34 0.01 200);
+  --ring: oklch(0.67 0.12 168);
   /* Light-mode shadows disappear on a dark background, so these are deeper. */
   --shadow-xs: 0 1px 2px oklch(0 0 0 / 35%);
-  --shadow-sm: 0 1px 2px oklch(0 0 0 / 35%), 0 2px 6px -2px oklch(0 0 0 / 30%);
-  --sidebar: oklch(0.155 0.005 200);
-  --sidebar-foreground: oklch(0.86 0.006 180);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 35%), 0 2px 8px -2px oklch(0 0 0 / 30%);
+  --shadow-md: 0 2px 4px oklch(0 0 0 / 30%), 0 8px 20px -6px oklch(0 0 0 / 45%);
+  --shadow-lg: 0 4px 8px oklch(0 0 0 / 30%), 0 20px 40px -12px oklch(0 0 0 / 55%);
+  --sidebar: oklch(0.15 0.006 200);
+  --sidebar-foreground: oklch(0.86 0.007 180);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.24 0.012 185);
+  --sidebar-accent: oklch(0.225 0.01 190);
   --sidebar-accent-foreground: oklch(0.97 0.004 170);
-  --sidebar-border: oklch(0.26 0.007 200);
+  --sidebar-border: oklch(0.255 0.008 200);
+  --sidebar-ring: var(--ring);
+}
+
+/* ── Amber ─────────────────────────────────────────────────────────────────────────────────────
+   Plain grays, an amber primary, a white sidebar ruled off from a gray page, and rounder cards
+   whose edge is a hairline ring: close to Filament's default look. */
+
+:root:where([data-tablo-theme="amber"]) {
+  --radius: 0.625rem;
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.21 0.006 286);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.006 286);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.006 286);
+  --muted: oklch(0.967 0.001 286);
+  --muted-foreground: oklch(0.552 0.016 286);
+  /* Amber 600: white text on it stays legible at the button's medium weight. */
+  --primary: oklch(0.666 0.179 58.3);
+  --primary-foreground: oklch(1 0 0);
+  --destructive: oklch(0.577 0.245 27.3);
+  --destructive-foreground: oklch(0.99 0.01 25);
+  --success: oklch(0.596 0.145 163);
+  --warning: oklch(0.666 0.179 58.3);
+  --info: oklch(0.546 0.245 262.9);
+  --border: oklch(0.21 0.006 286 / 9%);
+  --input: oklch(0.21 0.006 286 / 24%);
+  --ring: oklch(0.769 0.188 70);
+  --shadow-xs: 0 1px 2px oklch(0 0 0 / 5%);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 5%);
+  --shadow-md: 0 4px 6px -1px oklch(0 0 0 / 8%), 0 2px 4px -2px oklch(0 0 0 / 6%);
+  --shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 9%), 0 4px 6px -4px oklch(0 0 0 / 7%);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.37 0.013 286);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.967 0.001 286);
+  --sidebar-accent-foreground: oklch(0.555 0.163 48.998);
+  --sidebar-border: oklch(0.21 0.006 286 / 9%);
+  --sidebar-ring: var(--ring);
+}
+
+.dark:where([data-tablo-theme="amber"]) {
+  --background: oklch(0.141 0.005 286);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.21 0.006 286);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.006 286);
+  --popover-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286);
+  --muted-foreground: oklch(0.705 0.015 286);
+  --primary: oklch(0.769 0.188 70);
+  --primary-foreground: oklch(0.21 0.04 60);
+  --destructive: oklch(0.637 0.237 25.3);
+  --destructive-foreground: oklch(0.99 0.01 25);
+  --success: oklch(0.765 0.177 163);
+  --warning: oklch(0.828 0.189 84.4);
+  --info: oklch(0.707 0.165 254.6);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 20%);
+  --ring: oklch(0.769 0.188 70);
+  --shadow-xs: 0 1px 2px oklch(0 0 0 / 30%);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 30%);
+  --shadow-md: 0 4px 6px -1px oklch(0 0 0 / 40%), 0 2px 4px -2px oklch(0 0 0 / 30%);
+  --shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 50%), 0 4px 6px -4px oklch(0 0 0 / 40%);
+  --sidebar: oklch(0.21 0.006 286);
+  --sidebar-foreground: oklch(0.871 0.006 286);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(1 0 0 / 5%);
+  --sidebar-accent-foreground: oklch(0.828 0.189 84.4);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: var(--ring);
+}
+
+/* ── Graphite ──────────────────────────────────────────────────────────────────────────────────
+   Pure neutrals, a black primary, square corners and flat surfaces drawn by their borders, beside
+   a charcoal sidebar in either color scheme. */
+
+:root:where([data-tablo-theme="graphite"]) {
+  --radius: 0.3rem;
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.17 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.17 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.17 0 0);
+  --muted: oklch(0.965 0 0);
+  --muted-foreground: oklch(0.47 0 0);
+  --primary: oklch(0.2 0 0);
+  --primary-foreground: oklch(0.99 0 0);
+  --destructive: oklch(0.55 0.21 27);
+  --destructive-foreground: oklch(0.99 0.01 25);
+  --success: oklch(0.55 0.13 150);
+  --warning: oklch(0.62 0.15 60);
+  --info: oklch(0.52 0.17 255);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.84 0 0);
+  --ring: oklch(0.45 0 0);
+  --shadow-xs: 0 0 0 transparent;
+  --shadow-sm: 0 1px 1px oklch(0 0 0 / 3%);
+  --shadow-md: 0 1px 2px oklch(0 0 0 / 6%), 0 6px 16px -6px oklch(0 0 0 / 14%);
+  --shadow-lg: 0 2px 4px oklch(0 0 0 / 6%), 0 16px 32px -12px oklch(0 0 0 / 22%);
+  --sidebar: oklch(0.2 0 0);
+  --sidebar-foreground: oklch(0.82 0 0);
+  --sidebar-primary: oklch(0.99 0 0);
+  --sidebar-primary-foreground: oklch(0.17 0 0);
+  --sidebar-accent: oklch(0.28 0 0);
+  --sidebar-accent-foreground: oklch(0.99 0 0);
+  --sidebar-border: oklch(0.29 0 0);
+  --sidebar-ring: oklch(0.7 0 0);
+}
+
+.dark:where([data-tablo-theme="graphite"]) {
+  --background: oklch(0.16 0 0);
+  --foreground: oklch(0.96 0 0);
+  --card: oklch(0.19 0 0);
+  --card-foreground: oklch(0.96 0 0);
+  --popover: oklch(0.21 0 0);
+  --popover-foreground: oklch(0.96 0 0);
+  --muted: oklch(0.24 0 0);
+  --muted-foreground: oklch(0.7 0 0);
+  --primary: oklch(0.96 0 0);
+  --primary-foreground: oklch(0.17 0 0);
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.99 0.01 25);
+  --success: oklch(0.74 0.14 150);
+  --warning: oklch(0.8 0.14 75);
+  --info: oklch(0.72 0.13 250);
+  --border: oklch(0.28 0 0);
+  --input: oklch(0.34 0 0);
+  --ring: oklch(0.7 0 0);
+  --shadow-xs: 0 0 0 transparent;
+  --shadow-sm: 0 1px 1px oklch(0 0 0 / 30%);
+  --shadow-md: 0 2px 4px oklch(0 0 0 / 35%), 0 8px 20px -6px oklch(0 0 0 / 50%);
+  --shadow-lg: 0 4px 8px oklch(0 0 0 / 35%), 0 20px 40px -12px oklch(0 0 0 / 60%);
+  --sidebar: oklch(0.12 0 0);
+  --sidebar-foreground: oklch(0.8 0 0);
+  --sidebar-primary: oklch(0.96 0 0);
+  --sidebar-primary-foreground: oklch(0.17 0 0);
+  --sidebar-accent: oklch(0.21 0 0);
+  --sidebar-accent-foreground: oklch(0.99 0 0);
+  --sidebar-border: oklch(0.22 0 0);
+  --sidebar-ring: oklch(0.7 0 0);
+}
+
+/* ── Iris ──────────────────────────────────────────────────────────────────────────────────────
+   A violet primary on grays tinted toward it, generous corners and soft shadows, the sidebar a
+   card floating beside the page. */
+
+:root:where([data-tablo-theme="iris"]) {
+  --radius: 0.75rem;
+  --background: oklch(0.982 0.005 285);
+  --foreground: oklch(0.21 0.03 285);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.03 285);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.03 285);
+  --muted: oklch(0.958 0.01 285);
+  --muted-foreground: oklch(0.5 0.03 285);
+  --primary: oklch(0.52 0.21 280);
+  --primary-foreground: oklch(0.99 0.01 280);
+  --destructive: oklch(0.57 0.21 20);
+  --destructive-foreground: oklch(0.99 0.01 20);
+  --success: oklch(0.57 0.13 160);
+  --warning: oklch(0.65 0.15 65);
+  --info: oklch(0.56 0.16 245);
+  --border: oklch(0.915 0.014 285);
+  --input: oklch(0.87 0.02 285);
+  --ring: oklch(0.62 0.19 280);
+  --shadow-xs: 0 1px 2px oklch(0.3 0.08 285 / 6%);
+  --shadow-sm: 0 1px 2px oklch(0.3 0.08 285 / 5%), 0 4px 14px -4px oklch(0.3 0.08 285 / 10%);
+  --shadow-md: 0 2px 6px oklch(0.3 0.08 285 / 6%), 0 12px 28px -8px oklch(0.3 0.08 285 / 16%);
+  --shadow-lg: 0 4px 10px oklch(0.3 0.08 285 / 6%), 0 24px 48px -12px oklch(0.3 0.08 285 / 22%);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.34 0.03 285);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.955 0.025 285);
+  --sidebar-accent-foreground: oklch(0.42 0.18 280);
+  --sidebar-border: oklch(0.92 0.014 285);
+  --sidebar-ring: var(--ring);
+}
+
+.dark:where([data-tablo-theme="iris"]) {
+  --background: oklch(0.165 0.02 282);
+  --foreground: oklch(0.95 0.01 285);
+  --card: oklch(0.2 0.024 282);
+  --card-foreground: oklch(0.95 0.01 285);
+  --popover: oklch(0.22 0.026 282);
+  --popover-foreground: oklch(0.95 0.01 285);
+  --muted: oklch(0.25 0.026 282);
+  --muted-foreground: oklch(0.71 0.03 285);
+  --primary: oklch(0.73 0.15 282);
+  --primary-foreground: oklch(0.18 0.05 282);
+  --destructive: oklch(0.66 0.19 20);
+  --destructive-foreground: oklch(0.99 0.01 20);
+  --success: oklch(0.75 0.14 160);
+  --warning: oklch(0.8 0.13 75);
+  --info: oklch(0.74 0.12 245);
+  --border: oklch(0.29 0.026 282);
+  --input: oklch(0.35 0.03 282);
+  --ring: oklch(0.66 0.15 282);
+  --shadow-xs: 0 1px 2px oklch(0 0 0 / 35%);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 35%), 0 4px 14px -4px oklch(0 0 0 / 35%);
+  --shadow-md: 0 2px 6px oklch(0 0 0 / 35%), 0 12px 28px -8px oklch(0 0 0 / 50%);
+  --shadow-lg: 0 4px 10px oklch(0 0 0 / 35%), 0 24px 48px -12px oklch(0 0 0 / 60%);
+  --sidebar: oklch(0.2 0.024 282);
+  --sidebar-foreground: oklch(0.86 0.015 285);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.27 0.04 282);
+  --sidebar-accent-foreground: oklch(0.96 0.01 285);
+  --sidebar-border: oklch(0.28 0.026 282);
   --sidebar-ring: var(--ring);
 }
 
 @layer base {
   body {
-    @apply bg-background font-sans text-foreground;
+    @apply bg-background font-sans text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
   }
 
   /* Native controls, such as a table's row checkboxes, take the primary color too. */
@@ -130,5 +368,135 @@
   }
   [data-sidebar="menu-button"][data-active="true"] > svg {
     color: var(--primary);
+  }
+
+  /* A table's figures line up in columns. */
+  [data-slot="table"] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Each theme's skin: what its tokens alone cannot say, keyed on the hooks Tablo's markup carries
+   (`data-sidebar`, `data-slot`, `data-section`, `data-page-title`). A layer declared after
+   Tailwind's, so a skin rule beats the utility it restyles, while an app's unlayered rule still
+   beats the skin. */
+@layer tablo-skin {
+  /* Every theme: a control's edge is `--input`, a step stronger than a card's `--border`, so an
+     empty field, box or radio still reads as one. A refused or checked control keeps its own. */
+  :is(input, textarea, select)[class~="border-border"]:not([aria-invalid="true"], :checked) {
+    border-color: var(--input);
+  }
+  :is(input, textarea, select)[class~="border-border"]:not([aria-invalid="true"], :checked, :focus, :disabled):hover {
+    border-color: color-mix(in oklab, var(--input), var(--foreground) 22%);
+  }
+  /* A wide table scrolls sideways under a hairline, not a full scrollbar. */
+  [data-slot="table"] {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  /* ── Jade: a ledger. Small-caps headings over the sidebar's groups and the tables' columns,
+     section titles on a tinted band, the current page a white tab cut from the frame. */
+  :root:not([data-tablo-theme]) {
+    & [data-sidebar="group-label"],
+    & [data-slot="table"] > table > thead th {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    & [data-sidebar="menu-button"][data-active="true"] {
+      box-shadow:
+        var(--shadow-xs),
+        0 0 0 1px var(--sidebar-border);
+    }
+    & [data-slot="table"] > table > thead {
+      background: color-mix(in oklab, var(--muted) 70%, transparent);
+    }
+    & [data-section]:not([data-section-aside]) > [data-section-title]:not(:only-child) {
+      background: color-mix(in oklab, var(--muted) 55%, transparent);
+    }
+    & [data-sidebar="inset"] > [data-sidebar="header"] {
+      border-bottom: 1px solid var(--border);
+    }
+  }
+
+  /* ── Amber: a white bar over a gray page, cards ringed rather than bordered, bold titles. */
+  :root[data-tablo-theme="amber"] {
+    & [data-sidebar="inset"] > [data-sidebar="header"] {
+      background: var(--card);
+      box-shadow:
+        0 1px 0 var(--border),
+        var(--shadow-sm);
+    }
+    & [data-sidebar="group-label"] {
+      font-size: 0.8125rem;
+      color: var(--muted-foreground);
+    }
+    & [data-sidebar="menu-button"][data-active="true"] {
+      font-weight: 600;
+    }
+    & [data-sidebar="menu-button"][data-active="true"] > svg {
+      color: var(--sidebar-accent-foreground);
+    }
+    & [data-page-title] {
+      font-weight: 700;
+      font-size: clamp(1.5rem, 1.25rem + 0.8vw, 1.875rem);
+    }
+    & [data-slot="table"] > table > thead {
+      background: var(--muted);
+    }
+    & [data-slot="table"] > table > thead th {
+      color: var(--foreground);
+      font-weight: 600;
+    }
+  }
+
+  /* ── Graphite: monospaced labels, flat surfaces, the current page marked by a white bar. */
+  :root[data-tablo-theme="graphite"] {
+    & [data-sidebar="group-label"],
+    & [data-slot="table"] > table > thead th {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    & [data-sidebar="menu-button"][data-active="true"] {
+      box-shadow: inset 2px 0 0 var(--sidebar-primary);
+    }
+    & [data-sidebar="menu-button"][data-active="true"] > svg {
+      color: var(--sidebar-accent-foreground);
+    }
+    & [data-sidebar="inset"] > [data-sidebar="header"] {
+      border-bottom: 1px solid var(--border);
+    }
+    & [data-page-title] {
+      letter-spacing: -0.03em;
+    }
+    & [data-slot="table"] > table > thead {
+      background: transparent;
+    }
+  }
+
+  /* ── Iris: soft pills, the current page a tinted one, titles a shade of the primary. */
+  :root[data-tablo-theme="iris"] {
+    & [data-sidebar="menu-button"] {
+      border-radius: 9999px;
+      padding-inline: 0.75rem;
+    }
+    & [data-sidebar="menu-button"][data-active="true"] > svg {
+      color: var(--sidebar-accent-foreground);
+    }
+    & [data-sidebar="group-label"] {
+      padding-inline: 0.75rem;
+    }
+    & [data-slot="table"] > table > thead {
+      background: color-mix(in oklab, var(--muted) 60%, transparent);
+    }
+    & [data-sidebar="inset"] > [data-sidebar="header"] {
+      background: color-mix(in oklab, var(--background) 80%, transparent);
+      backdrop-filter: blur(12px);
+    }
   }
 }

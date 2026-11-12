@@ -7,7 +7,7 @@ use topcoat::{
     view::{BoxView, View, ViewExt, view},
 };
 
-use super::{ShellAssets, Theme, current};
+use super::{Scheme, ShellAssets, current};
 use crate::panel::{Panel, state::PanelState};
 
 impl Panel {
@@ -67,7 +67,7 @@ impl Panel {
         // The server renders the stored choice on every page: runtime navigation copies
         // `<html>`'s attributes from the next page and runs no script.
         let html_class =
-            Theme::renders_dark(cx, panel.is_some_and(|panel| panel.dark_mode)).then_some("dark");
+            Scheme::renders_dark(cx, panel.is_some_and(|panel| panel.dark_mode)).then_some("dark");
         let favicon = panel
             .and_then(|panel| panel.brand.as_ref())
             .and_then(|brand| brand.favicon.clone());
@@ -76,10 +76,18 @@ impl Panel {
         let (_, locale) = crate::i18n::catalog_and_locale(cx);
         let (lang, dir) = (locale.id().clone(), locale.id().direction());
         let page = metadata(cx).await?;
-        // The brand's colors over the shipped theme, after its stylesheet so they win.
-        let style = panel
-            .and_then(|panel| panel.brand.as_ref())
-            .and_then(super::Brand::style);
+        let brand = panel.and_then(|panel| panel.brand.as_ref());
+        let theme = brand.map(super::Brand::current_theme).unwrap_or_default();
+        // The page sets in the font the shell links, whichever the app picked, then lays the
+        // brand's colors over the theme: after the stylesheet, so both win.
+        let font = panel
+            .and_then(|panel| panel.shell_assets)
+            .map(|ShellAssets { font, .. }| font_style(font.family()));
+        let style: String = font
+            .into_iter()
+            .chain(brand.and_then(super::Brand::style))
+            .collect();
+        let style = (!style.is_empty()).then_some(style);
         let environment = panel.and_then(|panel| panel.environment.as_ref());
         let title = match environment {
             Some(environment) => format!("[{}] {title}", environment.name(cx)),
@@ -88,7 +96,12 @@ impl Panel {
         let ribbon = environment.map(|environment| environment.ribbon(cx));
         Ok(view! {
             <!DOCTYPE html>
-            <html lang=(lang) dir=(dir) class=(html_class)>
+            <html
+                lang=(lang)
+                dir=(dir)
+                class=(html_class)
+                data-tablo-theme=(theme.attribute())
+            >
                 <head>
                     <meta charset="utf-8">
                     // Without it a phone lays the page out 980px wide and zooms it out.
@@ -115,3 +128,13 @@ impl Panel {
         .boxed())
     }
 }
+
+/// The style sheet that sets the page in `family`, ahead of the theme's fallbacks. A quote or a
+/// backslash in the name would end the CSS string early, so both are escaped.
+fn font_style(family: &str) -> String {
+    let family = family.replace('\\', "\\\\").replace('"', "\\\"");
+    format!(":root{{--tablo-font:\"{family}\"}}")
+}
+
+#[cfg(test)]
+mod tests;

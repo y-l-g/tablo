@@ -24,9 +24,11 @@ pub struct Brand {
     /// The primary color, light then dark, and the text on it.
     palette: Palette,
     radius: Option<Radius>,
+    theme: Theme,
+    sidebar: Option<SidebarFrame>,
 }
 
-/// A [`Brand`]'s colors over the shipped theme's primary tokens.
+/// A [`Brand`]'s colors over its theme's primary tokens.
 #[derive(Debug, Clone, Default)]
 struct Palette {
     color: Option<String>,
@@ -34,7 +36,73 @@ struct Palette {
     on_color: Option<String>,
 }
 
-/// How round a [`Brand`]'s controls, cards and badges are, over the shipped `0.5rem`.
+/// One of the looks Tablo ships, which a [`Brand`] picks with [`Brand::theme`]: its palette in both
+/// color schemes, its corners, its shadows, and the [`SidebarFrame`] it suggests.
+///
+/// A brand's [`color`](Brand::color), [`radius`](Brand::radius) and
+/// [`sidebar`](Brand::sidebar), and the tokens an app's stylesheet redeclares, apply over the
+/// theme.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Theme {
+    /// Tablo's own: a jade primary on cool neutrals, the page inset in the sidebar's frame.
+    #[default]
+    Jade,
+    /// An amber primary on plain grays, a white sidebar ruled off from the page, and rounder
+    /// cards: close to Filament's default look.
+    Amber,
+    /// Black and white with square corners, beside a charcoal sidebar in either color scheme.
+    Graphite,
+    /// A violet primary on tinted grays, rounder still, with the sidebar floating beside the page.
+    Iris,
+}
+
+impl Theme {
+    /// The `data-tablo-theme` the stylesheet selects the theme's tokens by; the default theme's
+    /// are the stylesheet's `:root` ones, so it needs none.
+    pub(crate) const fn attribute(self) -> Option<&'static str> {
+        match self {
+            Self::Jade => None,
+            Self::Amber => Some("amber"),
+            Self::Graphite => Some("graphite"),
+            Self::Iris => Some("iris"),
+        }
+    }
+
+    /// The frame the theme was drawn beside, unless the brand picks another.
+    pub(super) const fn sidebar(self) -> SidebarFrame {
+        match self {
+            Self::Jade => SidebarFrame::Inset,
+            Self::Amber | Self::Graphite => SidebarFrame::Ruled,
+            Self::Iris => SidebarFrame::Floating,
+        }
+    }
+}
+
+/// How the sidebar sits beside the page, which a [`Brand`] picks with [`Brand::sidebar`] over its
+/// [`Theme`]'s.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum SidebarFrame {
+    /// Flush with the window's edge, a rule between it and the page: Amber's and Graphite's.
+    Ruled,
+    /// The page a sheet inset in the sidebar's color, the sidebar its frame: Jade's.
+    Inset,
+    /// A card floating beside the page, clear of the window's edge: Iris's.
+    Floating,
+}
+
+impl SidebarFrame {
+    pub(crate) const fn variant(self) -> tablo_ui::SidebarVariant {
+        match self {
+            Self::Ruled => tablo_ui::SidebarVariant::Sidebar,
+            Self::Inset => tablo_ui::SidebarVariant::Inset,
+            Self::Floating => tablo_ui::SidebarVariant::Floating,
+        }
+    }
+}
+
+/// How round a [`Brand`]'s controls, cards and badges are, over its theme's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Radius {
@@ -42,7 +110,7 @@ pub enum Radius {
     None,
     /// `0.25rem`.
     Small,
-    /// `0.5rem`, the shipped theme's.
+    /// `0.5rem`, Jade's.
     Medium,
     /// `0.75rem`.
     Large,
@@ -73,6 +141,8 @@ impl Brand {
             favicon: None,
             palette: Palette::default(),
             radius: None,
+            theme: Theme::default(),
+            sidebar: None,
         }
     }
 
@@ -92,11 +162,33 @@ impl Brand {
         self
     }
 
-    /// Paint the text on the primary color in `color`, over the shipped near-white: a dark
+    /// Paint the text on the primary color in `color`, over the theme's: a dark
     /// color for a light [`color`](Self::color), such as yellow.
     pub fn on_color(mut self, color: impl Into<String>) -> Self {
         self.palette.on_color = Some(color.into().trim().to_string());
         self
+    }
+
+    /// Dress the panel in `theme` instead of [`Theme::Jade`]: its pages, sign-in included.
+    pub fn theme(mut self, theme: Theme) -> Self {
+        self.theme = theme;
+        self
+    }
+
+    /// Frame the page with the sidebar as `frame` says instead of as the theme does.
+    pub fn sidebar(mut self, frame: SidebarFrame) -> Self {
+        self.sidebar = Some(frame);
+        self
+    }
+
+    /// The theme the brand picks.
+    pub(crate) fn current_theme(&self) -> Theme {
+        self.theme
+    }
+
+    /// The sidebar's frame: the brand's, else its theme's.
+    pub(crate) fn sidebar_frame(&self) -> SidebarFrame {
+        self.sidebar.unwrap_or_else(|| self.theme.sidebar())
     }
 
     /// Round the panel's corners to `radius`.
@@ -122,7 +214,7 @@ impl Brand {
             .collect()
     }
 
-    /// The style sheet that lays the brand's colors and radius over the shipped theme; `None`
+    /// The style sheet that lays the brand's colors and radius over its theme; `None`
     /// when it sets neither, or a color mounting would refuse.
     pub(crate) fn style(&self) -> Option<String> {
         if !self.declaration_errors().is_empty() {

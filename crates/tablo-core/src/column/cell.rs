@@ -216,7 +216,7 @@ fn copy_button(cx: &Cx, value: String) -> BoxView<'_> {
     view! {
         <button
             type="button"
-            class="inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+            class="inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
             aria-label=(label.clone())
             title=(label)
             data-copy=(value)

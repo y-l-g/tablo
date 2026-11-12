@@ -12,7 +12,7 @@ use topcoat::{
     view::{BoxView, ViewExt, attributes, view},
 };
 
-use super::Theme;
+use super::Scheme;
 use crate::{Panel, auth::PanelUser, navigation::NavigationItem, t, tenancy::Membership};
 
 /// The auth pages that lead the app's own links in the user menu: the profile, then two-factor
@@ -336,20 +336,20 @@ impl Panel {
 
 /// The theme choice: Light, Dark and System, the current one checked.
 fn theme_choices(cx: &Cx) -> BoxView<'_> {
-    let theme = Theme::current(cx);
+    let theme = Scheme::current(cx);
     let items: Vec<BoxView<'_>> = [
         (
-            Theme::Light,
+            Scheme::Light,
             t!(cx, "tablo-shell-theme-light"),
             tablo_ui::icons::SUN,
         ),
         (
-            Theme::Dark,
+            Scheme::Dark,
             t!(cx, "tablo-shell-theme-dark"),
             tablo_ui::icons::MOON,
         ),
         (
-            Theme::System,
+            Scheme::System,
             t!(cx, "tablo-shell-theme-system"),
             tablo_ui::icons::MONITOR,
         ),
@@ -370,7 +370,7 @@ fn theme_choices(cx: &Cx) -> BoxView<'_> {
 /// One theme choice: a radio the theme script checks when chosen.
 fn theme_item<'a>(
     cx: &'a Cx,
-    choice: Theme,
+    choice: Scheme,
     checked: bool,
     label: String,
     data: IconData,

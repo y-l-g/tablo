@@ -199,6 +199,7 @@ fn panel<'a>(cx: &'a Cx, look: &Look, body: Option<BoxView<'a>>, errored: bool) 
             <div
                 class=(class!("grid gap-x-8 gap-y-4 md:grid-cols-3", extra.clone()))
                 data-section=""
+                data-section-aside=""
             >
                 <div class="flex flex-col gap-1.5" data-section-title="">
                     (heading)

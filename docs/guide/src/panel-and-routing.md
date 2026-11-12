@@ -37,7 +37,7 @@ in before learning a path serves nothing. [`Panel`](https://y-l.fr/tablo/nightly
 | `resource::<R>()` | registers a resource's routes and sidebar entry | [Resources](./resources.md) |
 | `page::<P>()` | registers a page at `/{prefix}/{slug}` | [Pages](#pages) |
 | `home::<P>()` | registers a page at `/{prefix}` | [Pages](#pages) |
-| `brand(Brand)` | sets the name and optional logo in the sidebar, the topbar, and above the sign-in and sign-up cards, and the optional favicon | [Branding](#branding-and-theme) |
+| `brand(Brand)` | sets the name and optional logo in the sidebar, the topbar, and above the sign-in and sign-up cards, the optional favicon, and the theme | [Branding](#branding-and-theme) |
 | `dark_by_default()` | starts a first-time visitor dark | [Branding](#branding-and-theme) |
 | `environment(Environment)` | names the deployment, such as staging, on every page | [Branding](#branding-and-theme) |
 | `login_hint(text)` | adds a line under the sign-in card | [Branding](#branding-and-theme) |
@@ -390,6 +390,35 @@ tenant predicate. See [Data access](./data-access.md).
   scheme into `tablo_scheme` for the server to render. Without the call the panel starts light.
 - `login_hint` renders a muted line under the sign-in card, such as demo credentials.
 
+### Themes
+
+`Brand::theme` dresses the panel, its sign-in pages included, in one of the themes Tablo ships:
+
+| Theme | Looks like |
+| --- | --- |
+| `Theme::Jade`, the default | a jade primary on cool neutrals; the page a white sheet inset in the sidebar's frame, small-caps headings over the sidebar's groups and the tables' columns |
+| `Theme::Amber` | an amber primary on plain grays, a white sidebar and topbar ruled off from a gray page, rounder cards and bold titles: close to Filament's default look |
+| `Theme::Graphite` | black and white with square corners, flat surfaces and monospaced labels, beside a charcoal sidebar in either color scheme |
+| `Theme::Iris` | a violet primary on tinted grays, generous corners and soft shadows, the sidebar a card floating beside the page |
+
+Each theme has a light and a dark palette, so the visitor's choice of scheme still applies. A theme
+sets the [tokens](#theme-tokens) and the sidebar's frame; the brand's colors and radius, and the
+tokens an app's `styles.css` redeclares, apply over it. The page sets in the font the app passes to
+`shell_assets`, whichever theme it wears.
+
+`Brand::sidebar` frames the page another way than the theme does: `SidebarFrame::Ruled`, the sidebar
+flush with the window and ruled off from the page; `SidebarFrame::Inset`, the page a sheet inset in
+the sidebar's color; or `SidebarFrame::Floating`, the sidebar a card beside the page.
+
+```rust,ignore
+Brand::new("Acme")
+    .theme(Theme::Graphite)
+    .sidebar(SidebarFrame::Floating)
+```
+
+The themes are the set Tablo ships; there is no API to register another. An app that wants its own
+look redeclares tokens in `styles.css` over the theme closest to it.
+
 ### Brand colors
 
 A brand repaints the shipped theme without a stylesheet of the app's own:
@@ -425,7 +454,9 @@ let panel = match std::env::var("APP_ENV").as_deref() {
 ### Theme tokens
 
 The shell's colors, shadows and corner radius are CSS custom properties, declared under `:root` for the light
-theme and again under `.dark`. An app that builds its own stylesheet redeclares the ones it changes
+scheme and again under `.dark`; a theme other than Jade redeclares them under
+`[data-tablo-theme=…]`, which the shell writes on `<html>`, as specific as `:root` so the app's
+`:root` still wins. An app that builds its own stylesheet redeclares the ones it changes
 in its `styles.css` ([The stylesheet](./first-panel.md#the-stylesheet)); Tailwind reads each as a color of the same
 name, such as `bg-primary` or `text-muted-foreground`, in the panel's markup and yours.
 
@@ -439,15 +470,17 @@ name, such as `bg-primary` or `text-muted-foreground`, in the panel's markup and
 | `--destructive`, `--destructive-foreground` | delete buttons, errors, and the `danger` [color](./tables.md#presenting-values) |
 | `--success`, `--warning`, `--info` | the `success`, `warning` and `info` colors of badges and tinted cells |
 | `--border` | borders and dividers |
+| `--input` | the edges of inputs, selects, checkboxes and radios, a step stronger than `--border` |
 | `--ring` | focus rings |
-| `--shadow-xs`, `--shadow-sm` | the `shadow-xs` and `shadow-sm` shadows |
+| `--shadow-xs`, `--shadow-sm`, `--shadow-md`, `--shadow-lg` | the shadows of the same names: cards, then menus and dialogs |
 | `--radius` | the corners: `rounded-lg`, with `rounded-md` and `rounded-sm` 2px and 4px smaller and `rounded-xl` 4px larger |
 | `--sidebar`, `--sidebar-foreground` | the sidebar and its text |
 | `--sidebar-primary`, `--sidebar-primary-foreground` | the sidebar's primary elements, `--primary` by default |
 | `--sidebar-accent`, `--sidebar-accent-foreground` | the hovered and active sidebar entry |
 | `--sidebar-border`, `--sidebar-ring` | the sidebar's borders and focus rings, `--border` and `--ring` by default |
 
-The font is `--font-sans`, Geist by default, under Tailwind's `@theme`.
+The font is `--font-sans`, under Tailwind's `@theme`: the family `shell_assets` links, then the
+system's sans-serif.
 
 ## Assets
 
