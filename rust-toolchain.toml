@@ -1,7 +1,7 @@
 [toolchain]
 # The workspace `rust-version`: CI and local builds use the MSRV, so a Rust release changes
 # nothing until this pin and `rust-version` bump together.
-channel = "1.99"
+channel = "1.100"
 # Explicit so CI images without the default profile have the fmt/clippy tools.
 components = ["rustfmt", "clippy"]
 # The `fmt` job uses the dated nightly `xtask/src/gates.rs` names: rustfmt.toml keys are
