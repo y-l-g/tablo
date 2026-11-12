@@ -125,10 +125,13 @@ pub fn stats(cx: &Cx, stats: impl IntoIterator<Item = Stat>) -> BoxView<'_> {
     if stats.is_empty() {
         return ().boxed();
     }
+    // Two to a row from a phone's width, the odd one out spanning both, until the row fits them.
     let class = if stats.len() > 3 && stats.len() % 3 == 1 {
-        "grid gap-4 @lg:grid-cols-2 @4xl:grid-cols-4"
+        "grid gap-3 sm:gap-4 @xs:grid-cols-2 @xs:[&>:last-child:nth-child(odd)]:col-span-2 \
+         @4xl:grid-cols-4 @4xl:[&>:last-child:nth-child(odd)]:col-span-1"
     } else {
-        "grid gap-4 @lg:grid-cols-2 @3xl:grid-cols-3"
+        "grid gap-3 sm:gap-4 @xs:grid-cols-2 @xs:[&>:last-child:nth-child(odd)]:col-span-2 \
+         @3xl:grid-cols-3 @3xl:[&>:last-child:nth-child(odd)]:col-span-1"
     };
     let tiles: Vec<BoxView<'_>> = stats.into_iter().map(|stat| tile(cx, stat)).collect();
     view! {

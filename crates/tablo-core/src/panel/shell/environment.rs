@@ -49,8 +49,9 @@ impl Environment {
         self.name.localize(cx)
     }
 
-    /// The stripe along the top of the page and the badge at its bottom: fixed, so neither moves
-    /// the page's layout, and the badge lets clicks through to what it covers.
+    /// The stripe along the top of the page and the badge hanging from its middle: fixed, so
+    /// neither moves the page's layout, and the badge lets clicks through to what it covers. At
+    /// the top it clears a form's buttons, which stay at the bottom of the screen.
     pub(crate) fn ribbon<'a>(&self, cx: &'a Cx) -> BoxView<'a> {
         let name = self.name(cx);
         let stripe = format!(
@@ -58,8 +59,9 @@ impl Environment {
             self.color.fill_class()
         );
         let badge = format!(
-            "pointer-events-none fixed bottom-3 left-1/2 z-50 -translate-x-1/2 rounded-full px-3 \
-             py-0.5 text-xs font-medium text-white shadow-sm {}",
+            "pointer-events-none fixed top-0 left-1/2 z-50 -translate-x-1/2 rounded-b-md px-2.5 \
+             pb-0.5 text-[0.6875rem] leading-4 font-semibold tracking-wider text-white uppercase \
+             shadow-sm {}",
             self.color.fill_class()
         );
         view! {
