@@ -148,13 +148,13 @@ pub use auth::{
     oidc::{IdentityLinker, Oidc, OidcProvider, ProviderIdentity},
     panel_user::{Authenticator, PanelUser},
     password::PasswordSignUp,
-    password_reset::PasswordReset,
+    password_reset::{PasswordReset, PasswordResetter},
     profile::{Profile, ProfileEditor, ProfileField, ProfileUpdate},
     registration::{Registrar, SignUp},
     tenant_registration::TenantRegistration,
     throttle::LoginThrottle,
     two_factor::TwoFactor,
-    verification::EmailVerification,
+    verification::{EmailVerification, EmailVerifier},
 };
 pub use chart::{Chart, Series, chart};
 #[cfg(feature = "rich-text")]
