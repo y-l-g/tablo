@@ -241,19 +241,34 @@ macro_rules! spanning_blocks {
 
 spanning_blocks!(Section, Group, Grid, Tabs, Wizard);
 
-/// Renders a `Tabs` block's list of triggers.
-const TAB_LIST: StaticClass = class!(
-    "inline-flex h-9 w-fit max-w-full items-center overflow-x-auto overflow-y-hidden rounded-lg \
-     bg-muted p-[3px] text-muted-foreground"
+/// Renders a `Tabs` block: a card whose header is the list of triggers, the way a list page shows
+/// its tabs. Inside a section's card, or the dialog around a framed form, it draws no card of its
+/// own and its tabs sit flush with the fields around them.
+const TABS: StaticClass = class!(
+    "flex min-w-0 flex-col rounded-xl border border-border bg-card text-card-foreground shadow-xs",
+    "in-[[data-section],[data-pick-page]]:rounded-none in-[[data-section],[data-pick-page]]:border-0",
+    "in-[[data-section],[data-pick-page]]:bg-transparent in-[[data-section],[data-pick-page]]:shadow-none",
 );
-/// Renders one trigger, which the selected tab raises.
+/// Renders a `Tabs` block's list of triggers: a rule the selected tab's underline covers, which
+/// scrolls sideways without a scrollbar when the tabs outgrow it.
+const TAB_LIST: StaticClass = class!(
+    "flex max-w-full items-stretch gap-1 overflow-x-auto overflow-y-hidden border-b border-border",
+    "px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden",
+    "in-[[data-section],[data-pick-page]]:px-0",
+);
+/// Renders one trigger, which the selected tab underlines.
 const TAB_TRIGGER: StaticClass = class!(
-    "inline-flex h-[calc(100%-1px)] items-center justify-center gap-1.5 rounded-md border \
-     border-transparent px-3 py-1 text-sm font-medium whitespace-nowrap text-foreground \
-     transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] \
-     focus-visible:ring-ring/50 aria-selected:bg-background aria-selected:shadow-sm \
-     dark:text-muted-foreground dark:aria-selected:border-input dark:aria-selected:bg-input/30 \
-     dark:aria-selected:text-foreground data-tab-error:text-destructive"
+    "-mb-px inline-flex h-11 shrink-0 items-center gap-2 border-b-2 border-transparent px-2.5",
+    "text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none",
+    "hover:text-foreground focus-visible:text-foreground focus-visible:ring-2",
+    "focus-visible:ring-ring/50 focus-visible:ring-inset aria-selected:border-primary",
+    "aria-selected:text-foreground data-tab-error:text-destructive",
+    "data-tab-error:aria-selected:border-destructive",
+);
+/// Renders the panel of one tab, padded as a card's content unless the block draws no card.
+const TAB_PANEL: StaticClass = class!(
+    "flex flex-col gap-6 p-4 outline-none sm:p-6",
+    "in-[[data-section],[data-pick-page]]:px-0 in-[[data-section],[data-pick-page]]:pb-0",
 );
 
 /// A block showing one [`Tab`] at a time, each holding a form's fields
@@ -491,7 +506,7 @@ pub(crate) fn tab_view<'a>(
             tabindex="0"
             hidden=(!active)
             data-tab-panel=""
-            class="flex flex-col gap-6 outline-none"
+            class=(TAB_PANEL)
         >
             (body)
         </div>
@@ -505,7 +520,7 @@ fn tabs_chrome<'a>(cx: &'a Cx, tabs: Vec<TabView<'a>>) -> BoxView<'a> {
     let (triggers, panels): (Vec<_>, Vec<_>) =
         tabs.into_iter().map(|tab| (tab.trigger, tab.panel)).unzip();
     view! {
-        <div data-tabs="" class="flex flex-col gap-4">
+        <div data-tabs="" class=(TABS)>
             <div role="tablist" class=(TAB_LIST)>
                 for trigger in triggers {
                     (trigger)

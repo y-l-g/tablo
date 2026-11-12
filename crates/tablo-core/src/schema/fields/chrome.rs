@@ -1,7 +1,8 @@
 //! The chrome every form control renders around itself: its label, help text and error slot.
 
 use tablo_ui::{
-    field as ui_field, field_description as ui_field_description, field_error as ui_field_error,
+    FieldOrientation, field as ui_field, field_content as ui_field_content,
+    field_description as ui_field_description, field_error as ui_field_error,
     field_label as ui_field_label,
 };
 use topcoat::{Result, context::Cx, view::*};
@@ -95,6 +96,30 @@ pub(crate) fn render_field<'a>(
     attributes: Attributes,
     control: BoxView<'a>,
 ) -> Result<BoxView<'a>> {
+    field_chrome(cx, chrome, label, required, attributes, control, false)
+}
+
+/// The chrome of a checkbox or a switch: the control first, its label, help and error beside it,
+/// the way a box is ticked rather than a field filled in.
+pub(crate) fn render_inline_field<'a>(
+    cx: &'a Cx,
+    chrome: &FieldChrome,
+    label: &Text,
+    required: bool,
+    control: BoxView<'a>,
+) -> Result<BoxView<'a>> {
+    field_chrome(cx, chrome, label, required, attributes! {}, control, true)
+}
+
+fn field_chrome<'a>(
+    cx: &'a Cx,
+    chrome: &FieldChrome,
+    label: &Text,
+    required: bool,
+    attributes: Attributes,
+    control: BoxView<'a>,
+    inline: bool,
+) -> Result<BoxView<'a>> {
     let id = chrome.id.clone();
     let label_text = label.clone();
     let has_error = chrome.has_error();
@@ -108,36 +133,62 @@ pub(crate) fn render_field<'a>(
     } else {
         "ac-field"
     };
-    Ok(view! {
-        ui_field(
-            attrs: attributes! {
-                class=(field_class)
-                data-invalid=(has_error.then_some("true"))
-                (attributes)
-            },
-            ui_field_label(
-                attrs: attributes! { for=(id) },
-                (label_text)
-                if required {
-                    <span class="text-destructive" aria-hidden="true">"*"</span>
-                }
-            )
-            (control)
-            if let Some(help) = help {
-                ui_field_description(attrs: attributes! { id=(help_id) }, (help))
-            }
-            if has_error {
-                ui_field_error(
-                    attrs: attributes! {
-                        id=(error_id)
-                        class="ac-error"
-                        aria-live="polite"
-                        data-error=(error_kind)
-                    },
-                    (error_text)
-                )
+    let label = view! {
+        ui_field_label(
+            attrs: attributes! { for=(id) },
+            (label_text)
+            if required {
+                <span class="text-destructive" aria-hidden="true">"*"</span>
             }
         )
     }
-    .boxed())
+    .boxed();
+    let notes = view! {
+        if let Some(help) = help {
+            ui_field_description(attrs: attributes! { id=(help_id) }, (help))
+        }
+        if has_error {
+            ui_field_error(
+                attrs: attributes! {
+                    id=(error_id)
+                    class="ac-error"
+                    aria-live="polite"
+                    data-error=(error_kind)
+                },
+                (error_text)
+            )
+        }
+    }
+    .boxed();
+    let attrs = attributes! {
+        class=(field_class)
+        data-invalid=(has_error.then_some("true"))
+        (attributes)
+    };
+    Ok(if inline {
+        view! {
+            ui_field(
+                orientation: FieldOrientation::Horizontal,
+                attrs: attrs,
+                // The box sits on the label's first line, however many lines follow.
+                <div class="flex h-5 shrink-0 items-center self-start">(control)</div>
+                ui_field_content(
+                    attrs: attributes! { class="self-start gap-1" },
+                    (label)
+                    (notes)
+                )
+            )
+        }
+        .boxed()
+    } else {
+        view! {
+            ui_field(
+                attrs: attrs,
+                (label)
+                (control)
+                (notes)
+            )
+        }
+        .boxed()
+    })
 }

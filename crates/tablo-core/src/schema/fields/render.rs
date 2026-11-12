@@ -4,7 +4,7 @@ use topcoat::{Result, context::Cx, view::*};
 
 use super::{
     Control, ControlInput, ControlKind, Field, Placement, Posting, read_only, render_field,
-    value_cell,
+    render_inline_field, value_cell,
 };
 use crate::values::{FieldError, FormValue};
 
@@ -92,6 +92,9 @@ impl Field {
         )
         .disabled(disabled);
         let rendered = control.render(cx, input);
+        if self.is_checkbox() {
+            return render_inline_field(cx, &chrome, &self.label(), required, rendered);
+        }
         render_field(
             cx,
             &chrome,

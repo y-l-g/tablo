@@ -152,7 +152,7 @@ test('mounting swaps the textarea for the editor, and changes post through it', 
   assert.equal(toolbar.hidden, false);
   assert.equal(buttons[0].tabIndex, 0, 'the toolbar holds one tab stop');
   assert.equal(buttons[0].attrs['aria-pressed'], 'true');
-  assert.equal(buttons[1].disabled, true, 'nothing to undo yet');
+  assert.equal(buttons[1].attrs['aria-disabled'], 'true', 'nothing to undo yet');
   assert.equal(editor.options.editorProps.attributes['aria-required'], 'true');
   assert.deepEqual(editor.options.extensions[1], { placeholder: { placeholder: 'Write…' } });
   assert.equal(mount(root, module), editor, 'a control mounts once');
@@ -179,6 +179,15 @@ test('a press runs its tool on the editor', () => {
   assert.deepEqual(module.ran, ['focus', 'toggleItalic', 'run']);
 });
 
+test('a press on a tool the editor disables runs nothing', () => {
+  const module = tiptap();
+  const { root, buttons } = control('', ['undo']);
+  mount(root, module);
+  assert.equal(buttons[0].attrs['aria-disabled'], 'true', 'nothing to undo yet');
+  assert.equal(press(buttons[0], {}), false);
+  assert.deepEqual(module.ran, []);
+});
+
 test('a link press asks for the URL, and an empty answer removes the link', () => {
   const module = tiptap();
   const { root, buttons } = control('', ['link']);
@@ -197,7 +206,7 @@ test('a link press asks for the URL, and an empty answer removes the link', () =
 test('the arrow keys move the one tab stop along the toolbar', () => {
   const { root, buttons } = control('', ['bold', 'italic', 'undo']);
   mount(root, tiptap());
-  buttons[2].disabled = true;
+  buttons[2].attrs['aria-disabled'] = 'true';
   assert.equal(rove(buttons[0], 'ArrowRight'), true);
   assert.equal(buttons[0].tabIndex, -1);
   assert.equal(buttons[1].tabIndex, 0);

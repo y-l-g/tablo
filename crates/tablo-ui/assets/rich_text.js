@@ -119,15 +119,22 @@ function syncToolbar(toolbar, editor) {
     const tool = TOOLS[button.getAttribute('data-rich-text-tool')];
     if (!tool) continue;
     if (tool.active) button.setAttribute('aria-pressed', String(tool.active(editor)));
-    if (tool.enabled) button.disabled = !tool.enabled(editor);
+    // `aria-disabled` rather than `disabled`: a field fades its label while it holds a disabled
+    // control, and an empty history is no reason to fade the editor's.
+    if (tool.enabled) button.setAttribute('aria-disabled', String(!tool.enabled(editor)));
   }
   keepTabStop(toolbar);
+}
+
+// Whether a tool's `button` can run now: neither the field nor the editor's state disables it.
+function usable(button) {
+  return !button.disabled && button.getAttribute('aria-disabled') !== 'true';
 }
 
 // Keeps `toolbar`'s one tab stop on an enabled button: the one holding it, else the first.
 function keepTabStop(toolbar) {
   const buttons = Array.from(toolbar.querySelectorAll('[data-rich-text-tool]'));
-  const enabled = buttons.filter((button) => !button.disabled);
+  const enabled = buttons.filter(usable);
   const stop = enabled.find((button) => button.tabIndex === 0) || enabled[0];
   for (const button of buttons) button.tabIndex = button === stop ? 0 : -1;
 }
@@ -189,7 +196,7 @@ function press(button, win) {
   const root = button.closest('[data-rich-text]');
   const editor = root && root.richTextEditor;
   const tool = TOOLS[button.getAttribute('data-rich-text-tool')];
-  if (!editor || !tool) return false;
+  if (!editor || !tool || !usable(button)) return false;
   return tool.run(editor.chain().focus(), editor, win, button).run();
 }
 
@@ -198,9 +205,7 @@ function press(button, win) {
 function rove(button, key) {
   const toolbar = button.closest('[data-rich-text-toolbar]');
   if (!toolbar) return false;
-  const buttons = Array.from(toolbar.querySelectorAll('[data-rich-text-tool]')).filter(
-    (candidate) => !candidate.disabled,
-  );
+  const buttons = Array.from(toolbar.querySelectorAll('[data-rich-text-tool]')).filter(usable);
   const at = buttons.indexOf(button);
   const next = {
     ArrowRight: buttons[(at + 1) % buttons.length],
