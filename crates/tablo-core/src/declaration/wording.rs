@@ -40,10 +40,10 @@ impl fmt::Display for DeclarationErrorKind {
             Self::NotificationsWithoutAuth => f.write_str(
                 "notifications are for signed-in users: `Panel::notifications` needs auth on",
             ),
-            Self::MissingAuditModel => f.write_str(
-                "`Panel::audit_log` stores its entries in `AuditEntry`, which the Db does not \
-                 register: build the Db from `tablo::models!(…)`, or add `AuditEntry` to \
-                 `toasty::models!(…)`",
+            Self::UnregisteredModel { model } => write!(
+                f,
+                "the panel requires the model `{model}`, which the Db does not register: add it \
+                 to the `models!(…)` the Db is built from",
             ),
             Self::BrandColor { value } => write!(
                 f,

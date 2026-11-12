@@ -50,12 +50,19 @@ git_release_name = "v{{ version }}"
 # crate shares its version. Keep in sync with the other publishable members below,
 # which each set `changelog_update = false`.
 changelog_include = [
+    "tablo-audit",
     "tablo-build",
     "tablo-core",
     "tablo-macros",
     "tablo-test",
     "tablo-ui",
 ]
+
+[[package]]
+name = "tablo-audit"
+release = true
+version_group = "tablo"
+changelog_update = false
 
 [[package]]
 name = "tablo-build"

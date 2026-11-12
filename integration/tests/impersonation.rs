@@ -7,8 +7,9 @@ use std::{
 };
 
 use tablo::{
-    Allow, AuditEntry, Auth, Impersonate, Impersonation, NoForm, Page, PageDef, Panel, Resource,
-    ResourceDef, Table, TextColumn,
+    Allow, Auth, Impersonate, Impersonation, NoForm, Page, PageDef, Panel, Resource, ResourceDef,
+    Table, TextColumn,
+    audit::{AuditEntry, PanelAuditExt},
     auth::{self, AdminUser, AuthSession, IMPERSONATE_FIELD, create_admin},
     lens,
     testing::{form_body, impersonate_buttons, impersonation_banner, mount_with_handle},

@@ -4,10 +4,10 @@
 
 use http::header::LOCATION;
 use tablo::{
-    Allow, Area, AreaFault, AuditEntry, Auth, DeclarationErrorKind, FieldErrors, FormInput,
-    HeaderAction, HeaderActionDef, Membership, NoForm, Outcome, Page, PageDef, PasswordAuth,
-    ReadOnly, Resource, ResourceDef, RouterBuilderPanelExt, Table, TenantEditor, TextColumn,
-    WriteError,
+    Allow, Area, AreaFault, Auth, DeclarationErrorKind, FieldErrors, FormInput, HeaderAction,
+    HeaderActionDef, Membership, NoForm, Outcome, Page, PageDef, PasswordAuth, ReadOnly, Resource,
+    ResourceDef, RouterBuilderPanelExt, Table, TenantEditor, TextColumn, WriteError,
+    audit::{AuditEntry, AuditLog, PanelAuditExt},
     auth::{AdminUser, AuthSession, create_admin},
     lens,
     testing::{
@@ -440,9 +440,11 @@ async fn the_audit_log_moves_into_the_area_that_holds_it() {
         db,
         panel()
             .resource::<BookResource>()
-            .audit_log(|log| log.policy(Allow))
+            .audit_trail()
             .area(Area::new("settings").group("Library", |group| {
-                group.resource::<ShelfResource>().audit_log()
+                group
+                    .resource::<ShelfResource>()
+                    .resource_with::<AuditLog>(|log| log.policy(Allow))
             })),
     )
     .expect("the panel mounts");
@@ -462,34 +464,6 @@ async fn the_audit_log_moves_into_the_area_that_holds_it() {
                 "/admin/settings/audit-log".to_string()
             ],
         }]
-    );
-}
-
-/// An area holding the audit log of a panel that keeps none, or two groups holding it, refuse
-/// to mount.
-#[tokio::test]
-async fn mounting_refuses_an_audit_log_placed_without_one_or_twice() {
-    let db = test_db(toasty::models!(Book, AuditEntry)).await;
-    let kinds = |panel: tablo::Panel| {
-        refusal(mount(db.clone(), panel.resource::<BookResource>()))
-            .into_iter()
-            .map(|error| error.kind)
-            .collect::<Vec<_>>()
-    };
-
-    assert_eq!(
-        kinds(panel().area(Area::new("settings").group("Log", |group| group.audit_log()))),
-        [DeclarationErrorKind::Area(AreaFault::AuditLogNotKept)]
-    );
-    assert_eq!(
-        kinds(
-            panel().audit_log(|log| log.policy(Allow)).area(
-                Area::new("settings")
-                    .group("One", |group| group.audit_log())
-                    .group("Two", |group| group.audit_log())
-            )
-        ),
-        [DeclarationErrorKind::Area(AreaFault::AuditLogPlacedTwice)]
     );
 }
 

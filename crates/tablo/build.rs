@@ -10,4 +10,8 @@ fn main() {
         let dir = std::env::var(from).unwrap_or_else(|_| panic!("{from} is set by the dependency"));
         println!("cargo::metadata={key}={dir}");
     }
+    // Set only with the `audit` feature, which brings the crate in.
+    if let Ok(dir) = std::env::var("DEP_TABLO_AUDIT_TABLO_SRC") {
+        println!("cargo::metadata=audit={dir}");
+    }
 }

@@ -4,11 +4,14 @@ use super::{THEME, default_input_css, imports_tailwind, input_css, source_dirs};
 
 #[test]
 fn source_dirs_reads_the_facade_pair_and_each_crate() {
-    let dirs = source_dirs(|name| match name {
-        "DEP_TABLO_CORE" | "DEP_TABLO_CORE_SRC" => Some("/cargo/tablo-core/src".into()),
-        "DEP_TABLO_UI" => Some("/cargo/tablo-ui/src".into()),
-        _ => None,
-    });
+    let dirs = source_dirs(
+        |name| match name {
+            "DEP_TABLO_CORE" | "DEP_TABLO_CORE_SRC" => Some("/cargo/tablo-core/src".into()),
+            "DEP_TABLO_UI" => Some("/cargo/tablo-ui/src".into()),
+            _ => None,
+        },
+        [],
+    );
     assert_eq!(
         dirs,
         vec![
@@ -20,14 +23,32 @@ fn source_dirs_reads_the_facade_pair_and_each_crate() {
 }
 
 #[test]
+fn source_dirs_reads_a_crate_that_extends_panels_after_tablos() {
+    let dirs = source_dirs(
+        |name| (name == "DEP_TABLO_CORE").then(|| "/cargo/tablo-core/src".into()),
+        ["/cargo/acme-reports/src".into()],
+    );
+    assert_eq!(
+        dirs,
+        vec![
+            PathBuf::from("/cargo/tablo-core/src"),
+            PathBuf::from("/cargo/acme-reports/src"),
+        ]
+    );
+}
+
+#[test]
 fn source_dirs_keeps_a_path_holding_a_separator_whole() {
-    let dirs = source_dirs(|name| (name == "DEP_TABLO_CORE").then(|| "/odd:dir/src".into()));
+    let dirs = source_dirs(
+        |name| (name == "DEP_TABLO_CORE").then(|| "/odd:dir/src".into()),
+        [],
+    );
     assert_eq!(dirs, vec![PathBuf::from("/odd:dir/src")]);
 }
 
 #[test]
 fn source_dirs_is_empty_without_a_tablo_dependency() {
-    assert!(source_dirs(|_| None).is_empty());
+    assert!(source_dirs(|_| None, []).is_empty());
 }
 
 #[test]

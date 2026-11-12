@@ -32,11 +32,13 @@ pub enum DeclarationErrorKind {
     ShellAssetsWithoutBundle,
     /// `Panel::notifications` on `Auth::disabled`, which signs nobody in to notify.
     NotificationsWithoutAuth,
-    /// `Panel::audit_log` over a `Db` that does not register `AuditEntry`, so every write would
-    /// fail to store its entry.
+    /// `Panel::require_model` names a model the `Db` does not register.
     ///
-    /// Build the `Db` from `tablo::models!(..)`, or add `AuditEntry` to `toasty::models!(..)`.
-    MissingAuditModel,
+    /// Add the model to the `models!(..)` the `Db` is built from.
+    UnregisteredModel {
+        /// The model, as Toasty names it: `AuditEntry`.
+        model: String,
+    },
     /// A `Brand` color that is no hex color or plain color function, which the panel's stylesheet
     /// would carry as it is.
     ///

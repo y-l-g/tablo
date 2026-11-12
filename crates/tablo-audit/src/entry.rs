@@ -1,18 +1,17 @@
 //! The audit log's rows: the [`AuditEntry`] each write of a panel with
-//! [`Panel::audit_log`](crate::Panel::audit_log) stores, and the [`AuditChange`]s it names.
+//! [`audit_trail`](crate::PanelAuditExt::audit_trail) stores, and the [`AuditChange`]s it names.
 
 use jiff::Timestamp;
+use tablo_core::TenantId;
+use topcoat::{Result, context::Cx};
 use uuid::Uuid;
-
-use crate::TenantId;
 
 /// Shipped record of one thing a panel user did: who, on which panel and for which tenant, to
 /// which resource and record, and which fields it changed.
 ///
-/// A panel with [`Panel::audit_log`](crate::Panel::audit_log) writes one per record of each
-/// write, inside the write's transaction, and [`AuditEvent::record`](crate::AuditEvent::record)
-/// writes the app's own. Nothing updates or deletes one but
-/// [`PanelHandle::prune_audit_log`](crate::PanelHandle::prune_audit_log).
+/// A panel with [`audit_trail`](crate::PanelAuditExt::audit_trail) writes one per record of each
+/// write, inside the write's transaction, and [`AuditEvent::record`] writes the app's own.
+/// Nothing updates or deletes one but [`prune`](crate::prune).
 #[derive(Debug, Clone, toasty::Model)]
 #[index(panel, created_at)]
 pub struct AuditEntry {
@@ -23,11 +22,11 @@ pub struct AuditEntry {
     pub panel: String,
     /// The tenant the user acted for; `None` outside every tenant.
     pub tenant: Option<TenantId>,
-    /// [`PanelUser::user_id`](crate::PanelUser::user_id) of the user who did it; `None` for a
-    /// request without one.
+    /// [`PanelUser::user_id`](tablo_core::PanelUser::user_id) of the user who did it; `None` for
+    /// a request without one.
     pub actor_id: Option<String>,
-    /// The user's [`display_name`](crate::PanelUser::display_name) when it happened, kept so the
-    /// entry still names a user who is gone.
+    /// The user's [`display_name`](tablo_core::PanelUser::display_name) when it happened, kept so
+    /// the entry still names a user who is gone.
     pub actor: String,
     /// What happened: `create`, `update`, `delete`, `restore`, `force_delete`, `attach`,
     /// `detach`, `action:<name>`, `header_action:<name>`, or the app's own event.
@@ -49,7 +48,7 @@ pub struct AuditEntry {
 // By hand, naming no tenant column: the log keeps every tenant's entries and its resource narrows
 // them to the reader's own, so mounting it must neither mark the panel as acting for tenants nor
 // ask it for a tenancy. Its resource declares its own table and detail page.
-impl crate::PanelModel for AuditEntry {
+impl tablo_core::PanelModel for AuditEntry {
     const TENANT_COLUMNS: &'static [&'static str] = &[];
 }
 
@@ -66,11 +65,11 @@ pub struct AuditChange {
 }
 
 /// The app's own event for the audit log of a panel with
-/// [`Panel::audit_log`](crate::Panel::audit_log): a sign-in, an export, a payment, beside what the
-/// panel's writes record.
+/// [`audit_trail`](crate::PanelAuditExt::audit_trail): a sign-in, an export, a payment, beside
+/// what the panel's writes record.
 ///
 /// ```rust,no_run
-/// # use tablo_core::AuditEvent;
+/// # use tablo_audit::AuditEvent;
 /// # use topcoat::context::Cx;
 /// # async fn exported(cx: &Cx, ex: &mut dyn toasty::Executor) -> topcoat::Result<()> {
 /// AuditEvent::new("export")
@@ -82,11 +81,11 @@ pub struct AuditChange {
 /// ```
 #[derive(Debug, Clone)]
 pub struct AuditEvent {
-    pub(crate) event: String,
-    pub(crate) resource: Option<String>,
-    pub(crate) record: Option<String>,
-    pub(crate) url: Option<String>,
-    pub(crate) changes: Vec<AuditChange>,
+    event: String,
+    resource: Option<String>,
+    record: Option<String>,
+    url: Option<String>,
+    changes: Vec<AuditChange>,
 }
 
 impl AuditEvent {
@@ -134,8 +133,34 @@ impl AuditEvent {
         self
     }
 
+    /// Stores the event for the request's panel, its [actor](tablo_core::auth::actor) and the
+    /// tenant they act for, through `ex`: the write's transaction inside a
+    /// [`CommitHook`](tablo_core::CommitHook) or
+    /// [`Resource::before_commit`](tablo_core::Resource::before_commit), or the panel's
+    /// [`Db`](toasty::Db) outside one.
+    ///
+    /// # Errors
+    ///
+    /// A declaration error outside every panel; the driver's failure when the row cannot be
+    /// written.
+    pub async fn record(self, cx: &Cx, ex: &mut dyn toasty::Executor) -> Result<AuditEntry> {
+        let Some(panel) = tablo_core::url::panel(cx) else {
+            return Err(
+                topcoat::router::error::internal_server_error(std::io::Error::other(
+                    "AuditEvent::record needs a request under a panel",
+                ))
+                .into(),
+            );
+        };
+        let actor = tablo_core::auth::actor(cx)
+            .map(|actor| (actor.user_id(), actor.display_name().to_owned()));
+        Ok(self
+            .write(ex, panel, tablo_core::tenant_id(cx), actor)
+            .await?)
+    }
+
     /// Stores the event on `panel` for `tenant`, done by `actor`, its id and display name, through
-    /// `ex`: what [`record`](Self::record) and auth's own events share.
+    /// `ex`: what [`record`](Self::record) and the trail's hooks share.
     pub(crate) async fn write(
         self,
         ex: &mut dyn toasty::Executor,

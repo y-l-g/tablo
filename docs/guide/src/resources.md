@@ -262,19 +262,26 @@ The profile and tenant-settings pages save their own rows and reach neither hook
 
 ### The audit log
 
-A panel that needs an audit trail without writing one turns on the shipped log:
+A panel that needs an audit trail without writing one turns on the shipped log, from the
+`tablo-audit` crate, which the facade's `audit` feature re-exports as `tablo::audit`:
+
+```toml
+tablo = { version = "…", features = ["sqlite", "audit"] }
+```
 
 ```rust,ignore
+use tablo::audit::PanelAuditExt;
+
 Panel::new("admin").audit_log(|log| log.policy(when(is_admin)))
 ```
 
 Every write of the panel then stores an
-[`AuditEntry`](https://y-l.fr/tablo/nightly/api/tablo/struct.AuditEntry.html) per record it names,
-inside the write's transaction, so a write whose entry fails rolls back with it. An entry keeps
-the signed-in user, the tenant they acted for, the resource's slug, the record's key and page,
-and the fields the write changed, as a `PanelChange` spells them: a field marked
-`#[columns(skip)]` is never stored. [`models!`](https://y-l.fr/tablo/nightly/api/tablo/macro.models.html)
-registers the table.
+[`AuditEntry`](https://y-l.fr/tablo/nightly/api/tablo_audit/struct.AuditEntry.html) per record it
+names, inside the write's transaction, so a write whose entry fails rolls back with it. An entry
+keeps the user who did it, the tenant they acted for, the resource's slug, the record's key and
+page, and the fields the write changed, as a `PanelChange` spells them: a field marked
+`#[columns(skip)]` is never stored. The app lists the model in its `models!`, as
+`tablo::models!(Post, tablo::audit::AuditEntry)`; mounting refuses a `Db` without it.
 
 The log is a read-only resource at `{prefix}/audit-log`, newest first. It is denied until
 `customize` gives it a policy, and whatever that policy says, its pages never write. A reader sees
@@ -283,14 +290,18 @@ the entries of their own panel and tenant, about the resources whose list they m
 a `query` that lists only the user's own orders, does not narrow the log: give the log a policy no
 wider than the narrowest scope of the resources it records.
 
-A tenant's trail belongs with its settings. An [area](panel-and-routing.md#areas) group that calls
-[`audit_log()`](https://y-l.fr/tablo/nightly/api/tablo/struct.AreaGroup.html#method.audit_log)
-lists the log there, at `{prefix}/{area}/audit-log`, instead of in the panel's sidebar:
+A tenant's trail belongs with its settings. `audit_trail()` keeps the entries without listing
+them, and an [area](panel-and-routing.md#areas) group lists the log as it lists any resource, at
+`{prefix}/{area}/audit-log`:
 
 ```rust,ignore
 Panel::new("app")
-    .audit_log(|log| log.policy(when(manages_members)))
-    .area(Area::new("settings").tenant_group(|group| group.tenant_profile().audit_log()))
+    .audit_trail()
+    .area(Area::new("settings").tenant_group(|group| {
+        group
+            .tenant_profile()
+            .resource_with::<AuditLog>(|log| log.policy(when(manages_members)))
+    }))
 ```
 
 Values are stored as the writer read them, in their language and time zone, so an entry is a
@@ -299,9 +310,16 @@ app erases on request also lives in the log until it is pruned; mark such a fiel
 `#[columns(skip)]`, or prune on the schedule the app's retention rules set.
 
 An app records its own events, an export or a payment, with
-[`AuditEvent`](https://y-l.fr/tablo/nightly/api/tablo/struct.AuditEvent.html), through a hook's
-executor or the panel's `Db`. Nothing deletes entries but `PanelHandle::prune_audit_log(age)`,
-which a job calls on the schedule the app keeps them for.
+[`AuditEvent`](https://y-l.fr/tablo/nightly/api/tablo_audit/struct.AuditEvent.html), through a
+hook's executor or the panel's `Db`. Nothing deletes entries but
+`tablo::audit::prune(&handle, age)`, which a job calls on the schedule the app keeps them for.
+
+The log uses nothing an app cannot: a commit hook, an
+[`AuthHook`](https://y-l.fr/tablo/nightly/api/tablo/trait.AuthHook.html) for impersonation,
+[`ResourceDef::restrict`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.restrict)
+to stay read-only, [`mounted_resources`](https://y-l.fr/tablo/nightly/api/tablo/fn.mounted_resources.html)
+to mask what its reader may not see, `Panel::require_model` and `Panel::default_translations`. A
+feature of the app's own that reads across resources builds on the same calls.
 
 ## Startup checks
 

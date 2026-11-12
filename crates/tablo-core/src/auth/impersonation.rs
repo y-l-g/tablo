@@ -21,12 +21,13 @@ use topcoat::{
 };
 
 use super::{
-    Auth, AuthConfig, DynAuthenticator, PanelUser, SignedIn, infrastructure_failure, panel_root,
+    Auth, AuthConfig, DynAuthenticator, PanelUser, SignedIn,
+    hook::{self, AuthEvent, AuthEventKind},
+    infrastructure_failure, panel_root,
     realm::{Realm, panel_prefix},
     session::{self, AuthSession},
     signed, unauthenticated_error,
 };
-use crate::AuditEvent;
 
 /// The field of a `POST {prefix}/impersonate` form naming the user to act as: their
 /// [`PanelUser::user_id`].
@@ -109,12 +110,11 @@ impl<U: PanelUser> Auth<U> {
     /// - The profile, two-factor, tenant settings, tenant registration and email-verification pages
     ///   answer 403 while it lasts, and an email-change link ignores the session: the actor never
     ///   changes the target's credentials.
-    /// - A panel that keeps an [audit log](crate::Panel::audit_log) records `impersonate` and
-    ///   `stop_impersonating` for the actor, keyed by the target's id, and names the actor, not the
-    ///   target, on every write made meanwhile. `impersonate` names, as its `until` change, when it
-    ///   ends at the latest. Stop, a sign-out, and the first request past the end or after the rule
-    ///   refuses record `stop_impersonating`; a session that ends unseen records none, and its
-    ///   `until` says when it ended.
+    /// - The panel's [`AuthHook`](crate::AuthHook)s run on the start and on the stop, inside its
+    ///   transaction: Stop, a sign-out, and the first request past the end or after the rule
+    ///   refuses each stop it. A session that ends unseen records no stop, so the start names when
+    ///   it ends at the latest. [`auth::actor`](crate::auth::actor) names the actor, not the
+    ///   target, on every request made meanwhile.
     ///
     /// The session row stores the target in two columns, see [`AuthSession`]. Mounting refuses it
     /// behind [`Auth::external`].
@@ -218,19 +218,15 @@ pub(super) async fn resolve(
     let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
     session::set_impersonation(&mut tx, &row.token_hash, None).await?;
     if let Some(target) = row.impersonating.as_deref() {
-        let tenant = row.tenant;
-        record(
-            cx,
-            &mut tx,
-            panel,
-            tenant,
-            "stop_impersonating",
+        let event = AuthEvent::new(
+            AuthEventKind::StopImpersonating,
+            &panel.id,
+            row.tenant,
             &*actor,
             target,
             None,
-            None,
-        )
-        .await?;
+        );
+        hook::run(cx, &panel.auth_hooks, &event, &mut tx).await?;
     }
     tx.commit().await.map_err(infrastructure_failure)?;
     Ok(SignedIn {
@@ -353,20 +349,16 @@ pub async fn impersonate(
     let until =
         Timestamp::try_from(SystemTime::now() + config.lifetime).map_err(topcoat::Error::from)?;
     session::impersonate(cx, &mut *ex, Some((target.user_id(), until))).await?;
-    let (realm, tenant) = (&signed.realm, crate::tenant_id(cx));
-    let (id, name) = (target.user_id(), Some(target.display_name()));
-    record(
-        cx,
-        ex,
-        realm,
-        tenant,
-        "impersonate",
+    let target_id = target.user_id();
+    let event = AuthEvent::new(
+        AuthEventKind::Impersonate { until },
+        &signed.realm.id,
+        crate::tenant_id(cx),
         &*signed.user,
-        &id,
-        name,
-        Some(until),
-    )
-    .await?;
+        &target_id,
+        Some(target.display_name()),
+    );
+    hook::run(cx, &signed.realm.auth_hooks, &event, ex).await?;
     crate::bus::bus(cx).wake(&signed.realm.prefix, &signed.user.user_id());
     Ok(())
 }
@@ -408,10 +400,7 @@ pub(super) fn stop_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             let mut db = crate::db::db(cx)?;
             let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
             session::impersonate(cx, &mut tx, None).await?;
-            let (realm, tenant) = (&signed.realm, crate::tenant_id(cx));
-            let (id, name) = (signed.user.user_id(), Some(signed.user.display_name()));
-            let event = "stop_impersonating";
-            record(cx, &mut tx, realm, tenant, event, &**actor, &id, name, None).await?;
+            stopped(cx, signed, actor, &mut tx).await?;
             tx.commit().await.map_err(infrastructure_failure)?;
             crate::bus::bus(cx).wake(&signed.realm.prefix, &actor.user_id());
         }
@@ -426,68 +415,32 @@ pub(super) async fn stop_on_sign_out(cx: &Cx, signed: &SignedIn) -> topcoat::Res
         return Ok(());
     };
     let mut db = crate::db::db(cx)?;
-    let (realm, tenant) = (&signed.realm, crate::tenant_id(cx));
-    let (id, name) = (signed.user.user_id(), Some(signed.user.display_name()));
-    let event = "stop_impersonating";
-    record(cx, &mut db, realm, tenant, event, &**actor, &id, name, None).await
+    stopped(cx, signed, actor, &mut db).await
+}
+
+/// Runs the panel's [`AuthHook`](crate::AuthHook)s on `actor` no longer acting as the signed-in
+/// user of `signed`.
+async fn stopped(
+    cx: &Cx,
+    signed: &SignedIn,
+    actor: &Arc<dyn PanelUser>,
+    ex: &mut dyn toasty::Executor,
+) -> topcoat::Result<()> {
+    let target_id = signed.user.user_id();
+    let event = AuthEvent::new(
+        AuthEventKind::StopImpersonating,
+        &signed.realm.id,
+        crate::tenant_id(cx),
+        &**actor,
+        &target_id,
+        Some(signed.user.display_name()),
+    );
+    hook::run(cx, &signed.realm.auth_hooks, &event, ex).await
 }
 
 /// Where the banner's Stop button posts: `{prefix}/impersonate/stop`.
 pub(crate) fn stop_url(cx: &Cx) -> String {
     format!("{}/impersonate/stop", panel_prefix(cx))
-}
-
-/// Records `event`, done by `actor` to the user of `target_id`, named `target_name` when known, in
-/// `panel`'s audit log for `tenant`, when it keeps one; a start names `until`, when it ends on its
-/// own.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "one call per event, each naming every part"
-)]
-async fn record(
-    cx: &Cx,
-    ex: &mut dyn toasty::Executor,
-    panel: &Realm,
-    tenant: Option<crate::TenantId>,
-    event: &str,
-    actor: &dyn PanelUser,
-    target_id: &str,
-    target_name: Option<&str>,
-    until: Option<Timestamp>,
-) -> topcoat::Result<()> {
-    if !panel.audit_log {
-        return Ok(());
-    }
-    let mut entry = AuditEvent::new(event)
-        .key(target_id.to_owned(), None)
-        .change(
-            "user",
-            crate::t!(cx, "tablo-impersonation-user"),
-            None,
-            Some(target_name.unwrap_or(target_id).to_owned()),
-        );
-    // A session that runs out unseen records no stop, so a start names when it ends at the
-    // latest.
-    if let Some(until) = until {
-        entry = entry.change(
-            "until",
-            crate::t!(cx, "tablo-impersonation-until"),
-            None,
-            Some(until.to_string()),
-        );
-    }
-    entry
-        .write(
-            ex,
-            panel.prefix.clone(),
-            tenant,
-            Some((actor.user_id(), actor.display_name().to_owned())),
-        )
-        .await
-        .map_err(|error| {
-            crate::error::driver_failure(error, "The audit log is unavailable right now.")
-        })?;
-    Ok(())
 }
 
 /// Whether the request reaches a page the actor may not use while acting as another user: one

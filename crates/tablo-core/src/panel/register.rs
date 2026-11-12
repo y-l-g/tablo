@@ -45,7 +45,6 @@ use crate::{
 
 mod area;
 
-pub(super) use area::AuditLogList;
 mod form_facts;
 mod links;
 
@@ -87,8 +86,6 @@ pub(super) struct Registry {
     pub(super) areas: Vec<AreaNav>,
     /// The pages auth serves that an area holds, with the URL each mounts at.
     pub(super) auth_pages: Vec<(AuthPage, String)>,
-    /// The audit log's list, until a registration places it.
-    pub(super) audit_log: AuditLogList,
     /// The URL each resource and page serves at, by type.
     pub(super) urls: HashMap<TypeId, String>,
     /// The registered pages as the panel mounted them, by type.
@@ -147,7 +144,6 @@ impl Registry {
             scope: None,
             areas: Vec::new(),
             auth_pages: Vec::new(),
-            audit_log: AuditLogList::NotKept,
             urls: HashMap::new(),
             mounted_pages: HashMap::new(),
             nav_items: Vec::new(),

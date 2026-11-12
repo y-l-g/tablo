@@ -90,7 +90,6 @@ pub mod __macro {
 }
 // Each public item has one path. Types live at the root; a public module is a namespace for
 // the functions and constants that read best qualified (`auth::user`, `csrf::verify`).
-mod audit;
 pub mod auth;
 mod bus;
 mod chart;
@@ -136,11 +135,11 @@ mod widget;
 /// The future a type-erased, dyn-compatible method returns.
 pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
-pub use audit::{AuditChange, AuditEntry, AuditEvent};
 pub use auth::{
     account::{PasswordAccount, PasswordAuth},
     config::Auth,
     external::ExternalAuth,
+    hook::{AuthEvent, AuthEventKind, AuthHook},
     impersonation::Impersonation,
     mail::AuthMail,
     oidc::{IdentityLinker, Oidc, OidcProvider, ProviderIdentity},
@@ -185,10 +184,10 @@ pub use notification::stored::Notifications;
 pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome};
 pub use page::{Page, PageDef, PageFilter, PageFilters};
 pub use panel::{
-    Area, AreaGroup, AuditLog, Banner, Brand, ChangedField, ChangedRecord, CommitHook, Environment,
-    Impersonate, Load, Panel, PanelChange, PanelHandle, Radius, RouterBuilderPanelExt,
-    SidebarFrame, Theme, WiredTable, can_list, can_open, can_view_field, list_query, loaded,
-    navigation_item, page_filter_bar, page_filters,
+    Area, AreaGroup, Banner, Brand, ChangedField, ChangedRecord, CommitHook, Environment,
+    Impersonate, Load, MountedResource, Panel, PanelChange, PanelHandle, Radius,
+    RouterBuilderPanelExt, SidebarFrame, Theme, WiredTable, can_list, can_open, can_view_field,
+    list_query, loaded, mounted_resources, navigation_item, page_filter_bar, page_filters,
     pages::{header_action_button, header_action_buttons},
     record_table, stats, url, widgets, wired_table,
 };

@@ -45,9 +45,9 @@ pub(crate) struct Realm {
     pub(crate) serves_tenants: bool,
     /// Where the settings pages auth renders in the panel's shell are served.
     pub(crate) pages: SettingsPaths,
-    /// Whether the panel keeps an audit log, set by
-    /// [`Panel::audit_log`](crate::Panel::audit_log): auth records impersonation in it.
-    pub(crate) audit_log: bool,
+    /// The hooks [`Panel::auth_hook`](crate::Panel::auth_hook) registers, run on each
+    /// [`AuthEvent`](crate::AuthEvent) in registration order.
+    pub(crate) auth_hooks: Vec<super::hook::AuthHookFn>,
 }
 
 /// Where the settings pages auth renders in the panel's shell are served: under the prefix,

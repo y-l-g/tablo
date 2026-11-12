@@ -9,11 +9,12 @@ be accepted before the implementation PR.
 
 | Path | Contents |
 | --- | --- |
-| `crates/tablo` | the facade an app depends on: `tablo-core` at its root, `ui`, `testing`, `prelude`, the driver features |
+| `crates/tablo` | the facade an app depends on: `tablo-core` at its root, `ui`, `testing`, `audit`, `prelude`, the driver features |
 | `crates/tablo-core` | Panel, Resource, Table, Schema, policy, auth, tenancy, uploads |
 | `crates/tablo-macros` | the `PanelModel`, `RecordForm`, `ModelForm`, `EmbeddedForm`, `FormInput` and `Options` derives |
 | `crates/tablo-ui` | `primitives/` synced from `topcoat-ui-registry`, `composites/` owned here |
 | `crates/tablo-test` | the in-memory HTTP client, re-exported as `tablo::testing` |
+| `crates/tablo-audit` | the audit log, built on `tablo-core`'s public API alone (ADR-0040), re-exported as `tablo::audit` |
 | `crates/tablo-build` | `tailwind()`, the app's Tailwind build over Tablo's sources; the hidden `default_stylesheet()` regenerates `tablo-ui`'s prebuilt `assets/tablo.css` (`TABLO_BLESS=1 cargo test -p showcase --test it default_stylesheet`) |
 | `examples/showcase` | the runnable admin and the suite over its resources |
 | `examples/guide` | the guide's compiled snippets, included by `docs/guide/` |

@@ -25,9 +25,15 @@ use std::{
 const SOURCE_VARS: &[&str] = &[
     "DEP_TABLO_CORE",
     "DEP_TABLO_UI",
+    "DEP_TABLO_AUDIT",
     "DEP_TABLO_CORE_SRC",
     "DEP_TABLO_UI_SRC",
 ];
+
+/// The end of the variable a crate that extends panels publishes its source directory as: one
+/// with `links = "acme-reports"` and `cargo::metadata=tablo_src=…` reaches its dependent's build
+/// script as `DEP_ACME_REPORTS_TABLO_SRC`, and its markup's classes are scanned too.
+const EXTENSION_SUFFIX: &str = "_TABLO_SRC";
 
 /// The stylesheet [`tailwind`] reads, relative to the package root.
 pub const STYLESHEET: &str = "styles.css";
@@ -125,7 +131,7 @@ pub fn tailwind() -> Result<PathBuf, Error> {
     if imports_tailwind(&app_css) {
         return Err(Error::ImportsTailwind(stylesheet));
     }
-    let sources = source_dirs(|name| env::var_os(name));
+    let sources = source_dirs(|name| env::var_os(name), extension_dirs());
     if sources.is_empty() {
         return Err(Error::NoSources);
     }
@@ -156,7 +162,7 @@ pub const DEFAULT_STYLESHEET: &str = "tablo-default.css";
 #[doc(hidden)]
 pub fn default_stylesheet() -> Result<PathBuf, Error> {
     let out_dir = PathBuf::from(var("OUT_DIR")?);
-    let sources = source_dirs(|name| env::var_os(name));
+    let sources = source_dirs(|name| env::var_os(name), extension_dirs());
     if sources.is_empty() {
         return Err(Error::NoSources);
     }
@@ -175,13 +181,31 @@ fn var(name: &'static str) -> Result<OsString, Error> {
     env::var_os(name).ok_or(Error::NotABuildScript(name))
 }
 
-/// Collects the published directories, deduplicated in first-seen order.
-fn source_dirs(lookup: impl Fn(&str) -> Option<OsString>) -> Vec<PathBuf> {
+/// The directories the crates that extend panels publish, by [`EXTENSION_SUFFIX`], in the order
+/// of their variables' names.
+fn extension_dirs() -> Vec<OsString> {
+    let mut vars: Vec<(OsString, OsString)> = env::vars_os()
+        .filter(|(name, _)| {
+            name.to_str()
+                .is_some_and(|name| name.starts_with("DEP_") && name.ends_with(EXTENSION_SUFFIX))
+        })
+        .collect();
+    vars.sort();
+    vars.into_iter().map(|(_, value)| value).collect()
+}
+
+/// Collects the published directories, Tablo's then `extensions`, deduplicated in first-seen
+/// order.
+fn source_dirs(
+    lookup: impl Fn(&str) -> Option<OsString>,
+    extensions: impl IntoIterator<Item = OsString>,
+) -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = Vec::new();
-    for name in SOURCE_VARS {
-        let Some(value) = lookup(name) else {
-            continue;
-        };
+    for value in SOURCE_VARS
+        .iter()
+        .filter_map(|name| lookup(name))
+        .chain(extensions)
+    {
         let dir = PathBuf::from(value);
         if !dir.as_os_str().is_empty() && !dirs.contains(&dir) {
             dirs.push(dir);

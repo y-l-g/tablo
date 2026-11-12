@@ -1,22 +1,21 @@
 //! The [`AuditLog`](super::AuditLog)'s table and detail: the columns that spell an entry in the
 //! reader's locale, and mask what the reader may not see.
 
+use tablo_core::{
+    DateColumn, Detail, Table, Text, TextColumn, contains_expr, extend::Column, lens,
+    mounted_resources, t,
+};
 use topcoat::{context::Cx, view::*};
 
-use super::super::state::current;
-use crate::{
-    DateColumn, Detail, Table, Text, TextColumn,
-    audit::{AuditChange, AuditEntry},
-    extend::Column,
-};
+use crate::{AuditChange, AuditEntry};
 
 /// The log's list: newest first, searched by user, event and record.
 pub(super) fn table() -> Table<AuditEntry> {
     Table::new((
-        DateColumn::new(crate::lens!(AuditEntry.created_at))
+        DateColumn::new(lens!(AuditEntry.created_at))
             .label(Text::message("tablo-audit-when"))
             .sortable(),
-        TextColumn::new(crate::lens!(AuditEntry.actor))
+        TextColumn::new(lens!(AuditEntry.actor))
             .label(Text::message("tablo-audit-actor"))
             .searchable(),
     ))
@@ -31,13 +30,9 @@ pub(super) fn table() -> Table<AuditEntry> {
 pub(super) fn detail() -> Detail<AuditEntry> {
     Detail::empty()
         .column(
-            DateColumn::new(crate::lens!(AuditEntry.created_at))
-                .label(Text::message("tablo-audit-when")),
+            DateColumn::new(lens!(AuditEntry.created_at)).label(Text::message("tablo-audit-when")),
         )
-        .column(
-            TextColumn::new(crate::lens!(AuditEntry.actor))
-                .label(Text::message("tablo-audit-actor")),
-        )
+        .column(TextColumn::new(lens!(AuditEntry.actor)).label(Text::message("tablo-audit-actor")))
         .column(Event)
         .column(ResourceName)
         .column(record())
@@ -46,7 +41,7 @@ pub(super) fn detail() -> Detail<AuditEntry> {
 
 /// The record's key, linking its page while the entry kept one inside the app.
 fn record() -> TextColumn<AuditEntry, Option<String>> {
-    TextColumn::new(crate::lens!(AuditEntry.record))
+    TextColumn::new(lens!(AuditEntry.record))
         .label(Text::message("tablo-audit-record"))
         .searchable()
         .url(|_, entry| entry.url.clone().filter(|url| is_local(url)))
@@ -70,7 +65,7 @@ impl Column<AuditEntry> for Event {
     }
 
     fn text(&self, cx: &Cx, row: &AuditEntry) -> String {
-        let built_in = |id| crate::t!(cx, id);
+        let built_in = |id| t!(cx, id);
         match row.event.as_str() {
             "create" => built_in("tablo-audit-create"),
             "update" => built_in("tablo-audit-update"),
@@ -85,14 +80,14 @@ impl Column<AuditEntry> for Event {
                 .strip_prefix("action:")
                 .or_else(|| event.strip_prefix("header_action:"))
             {
-                Some(name) => crate::t!(cx, "tablo-audit-action", name = name.to_owned()),
+                Some(name) => t!(cx, "tablo-audit-action", name = name.to_owned()),
                 None => event.to_owned(),
             },
         }
     }
 
     fn search_expr(&self, term: &str) -> Option<toasty::stmt::Expr<bool>> {
-        crate::column::contains_expr(&crate::lens!(AuditEntry.event), term)
+        contains_expr(&lens!(AuditEntry.event), term)
     }
 }
 
@@ -112,9 +107,13 @@ impl Column<AuditEntry> for ResourceName {
         let Some(slug) = row.resource.as_deref() else {
             return String::new();
         };
-        current(cx)
-            .and_then(|panel| panel.children.values().find(|child| child.slug == slug))
-            .map_or_else(|| slug.to_owned(), |child| child.plural_label.localize(cx))
+        mounted_resources(cx)
+            .into_iter()
+            .find(|resource| resource.slug() == slug)
+            .map_or_else(
+                || slug.to_owned(),
+                |resource| resource.plural_label().localize(cx),
+            )
     }
 }
 
@@ -156,16 +155,14 @@ fn hidden_fields(cx: &Cx, slug: Option<&str>) -> Option<Vec<String>> {
         // An app event on no resource names what the app chose to show.
         return Some(Vec::new());
     };
-    let panel = current(cx)?;
-    let mut mounted = panel
-        .children
-        .values()
-        .filter(|child| child.slug == slug)
+    let mut mounted = mounted_resources(cx)
+        .into_iter()
+        .filter(|resource| resource.slug() == slug)
         .peekable();
     mounted.peek()?;
     let mut hidden = Vec::new();
-    for child in mounted {
-        hidden.extend((child.hidden)(cx)?);
+    for resource in mounted {
+        hidden.extend(resource.hidden_fields(cx)?);
     }
     Some(hidden)
 }
@@ -180,7 +177,7 @@ impl Column<AuditEntry> for Changes {
     }
 
     fn text(&self, cx: &Cx, row: &AuditEntry) -> String {
-        let hidden = crate::t!(cx, "tablo-audit-hidden");
+        let hidden = t!(cx, "tablo-audit-hidden");
         Self::visible(cx, row)
             .into_iter()
             .map(|(label, values)| match values {
@@ -192,7 +189,7 @@ impl Column<AuditEntry> for Changes {
     }
 
     fn cell<'a>(&self, cx: &'a Cx, row: &AuditEntry) -> BoxView<'a> {
-        let hidden = crate::t!(cx, "tablo-audit-hidden");
+        let hidden = t!(cx, "tablo-audit-hidden");
         let items: Vec<BoxView<'a>> = Self::visible(cx, row)
             .into_iter()
             .map(|(label, values)| {

@@ -17,7 +17,8 @@ async fn main() {
             showcase::models::MediaAsset,
             showcase::models::Staff,
             showcase::models::Workspace,
-            showcase::models::Seat
+            showcase::models::Seat,
+            tablo::audit::AuditEntry
         ))
         .connect("sqlite::memory:")
         .await

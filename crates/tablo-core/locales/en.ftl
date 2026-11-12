@@ -453,36 +453,13 @@ tablo-ago-minutes = { $count } min ago
 tablo-ago-hours = { $count } h ago
 tablo-ago-days = { $count } d ago
 
-## Audit log
+## Impersonation
 
-# The audit log's resource, its columns, and what each entry says happened.
-tablo-audit-log = Audit log
-tablo-audit-entry = Audit entry
-tablo-audit-when = When
-tablo-audit-actor = User
-tablo-audit-event = Event
-tablo-audit-resource = Resource
-tablo-audit-record = Record
-tablo-audit-changes = Changes
-tablo-audit-hidden = Hidden
-tablo-audit-create = Created
-tablo-audit-update = Updated
-tablo-audit-delete = Deleted
-tablo-audit-restore = Restored
-tablo-audit-force-delete = Deleted permanently
-tablo-audit-attach = Linked
-tablo-audit-detach = Unlinked
-tablo-audit-action = Ran { $name }
-tablo-audit-immutable = The audit log cannot be changed.
-tablo-audit-impersonate = Started acting as a user
-tablo-audit-stop-impersonating = Stopped acting as a user
 tablo-impersonation-start = Act as this user
 tablo-impersonation-started = You are now acting as this user.
 tablo-impersonation-one = Act as one user at a time.
 tablo-impersonation-banner = You are acting as { $name }.
 tablo-impersonation-stop = Stop
-tablo-impersonation-user = User
-tablo-impersonation-until = Ends at the latest
 
 ## Sign-in
 

@@ -61,6 +61,8 @@ pub struct ResourceDef<R: Resource> {
     pub(crate) navigation_badge: Option<Expr<bool>>,
     pub(crate) navigation_hidden: bool,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
+    /// The policies [`Self::restrict`] adds, which every later [`Self::policy`] must pass too.
+    restrictions: Vec<Arc<dyn Policy<R::Model>>>,
     pub(crate) queries: Vec<super::QueryFn>,
     /// The relations [`Self::include_unscoped`] loads with every row.
     pub(crate) includes: crate::column::Includes<R::Model>,
@@ -102,6 +104,7 @@ impl<R: Resource> Default for ResourceDef<R> {
             navigation_badge: None,
             navigation_hidden: false,
             policy: Arc::new(Deny),
+            restrictions: Vec::new(),
             queries: Vec::new(),
             includes: crate::column::Includes::new(),
             tenancy: Tenancy::undeclared(),
@@ -244,10 +247,47 @@ impl<R: Resource> ResourceDef<R> {
     }
 
     /// Authorizes every handler; defaults to [`Deny`]. Row scoping belongs in
-    /// [`query`](Self::query), not the policy.
+    /// [`query`](Self::query), not the policy. Each policy [`restrict`](Self::restrict) added
+    /// must allow an ability too.
     #[must_use]
     pub fn policy(mut self, policy: impl Policy<R::Model>) -> Self {
-        self.policy = Arc::new(policy);
+        self.policy = self
+            .restrictions
+            .iter()
+            .fold(Arc::new(policy), |policy, restriction| {
+                Arc::new(Restricted(policy, Arc::clone(restriction)))
+            });
+        self
+    }
+
+    /// Requires `restriction` to allow every ability too, whatever policy the def holds now or
+    /// [`policy`](Self::policy) sets later: a resource's own [`declare`](Resource::declare)
+    /// keeps a rule through the def a [`Panel::resource_with`](crate::Panel::resource_with)
+    /// customization returns.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+    /// # struct Entry { #[key] #[auto] id: uuid::Uuid }
+    /// # struct EntryResource;
+    /// use tablo_core::{Allow, NoForm, Panel, ReadOnly, Resource, ResourceDef};
+    ///
+    /// impl Resource for EntryResource {
+    ///     type Model = Entry;
+    ///     type Form = NoForm<Entry>;
+    ///
+    ///     fn declare() -> ResourceDef<Self> {
+    ///         ResourceDef::new().restrict(ReadOnly)
+    ///     }
+    /// }
+    ///
+    /// // Reads only: `ReadOnly` still refuses every write `Allow` would let through.
+    /// Panel::new("admin").resource_with::<EntryResource>(|def| def.policy(Allow));
+    /// ```
+    #[must_use]
+    pub fn restrict(mut self, restriction: impl Policy<R::Model>) -> Self {
+        let restriction: Arc<dyn Policy<R::Model>> = Arc::new(restriction);
+        self.policy = Arc::new(Restricted(self.policy, Arc::clone(&restriction)));
+        self.restrictions.push(restriction);
         self
     }
 
@@ -546,5 +586,14 @@ impl<R: Resource> std::fmt::Debug for ResourceDef<R> {
             .field("actions", &self.actions)
             .field("header_actions", &self.header_actions)
             .finish_non_exhaustive()
+    }
+}
+
+/// A policy and a [`ResourceDef::restrict`] restriction, both of which must allow an ability.
+struct Restricted<M>(Arc<dyn Policy<M>>, Arc<dyn Policy<M>>);
+
+impl<M: 'static> Policy<M> for Restricted<M> {
+    fn allows(&self, cx: &Cx, ability: Ability<'_, M>) -> bool {
+        self.0.allows(cx, ability) && self.1.allows(cx, ability)
     }
 }
