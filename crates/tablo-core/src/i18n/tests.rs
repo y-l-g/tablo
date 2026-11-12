@@ -8,13 +8,46 @@ fn parse(tag: &str) -> Locale {
 }
 
 fn catalog(locales: &[&str], translations: &[(&str, &str)]) -> Result<Catalog, Vec<LocaleFault>> {
-    Catalog::new(
-        &locales.iter().map(|tag| parse(tag)).collect::<Vec<_>>(),
-        &translations
+    layered(locales, &[], translations)
+}
+
+fn layered(
+    locales: &[&str],
+    defaults: &[(&str, &str)],
+    translations: &[(&str, &str)],
+) -> Result<Catalog, Vec<LocaleFault>> {
+    let owned = |catalogs: &[(&str, &str)]| {
+        catalogs
             .iter()
             .map(|(tag, source)| (parse(tag), (*source).to_owned()))
-            .collect::<Vec<_>>(),
+            .collect::<Vec<_>>()
+    };
+    Catalog::new(
+        &locales.iter().map(|tag| parse(tag)).collect::<Vec<_>>(),
+        &owned(defaults),
+        &owned(translations),
     )
+}
+
+#[test]
+fn a_default_catalog_sits_under_tablos_and_the_apps() {
+    let catalog = layered(
+        &["en"],
+        &[("en", "tablo-shell-sign-out = Leave\ncrate-only = Crate")],
+        &[("en", "crate-only = App")],
+    )
+    .expect("builds");
+    assert_eq!(
+        spell(&catalog, "en", &Text::message("tablo-shell-sign-out")),
+        "Sign out"
+    );
+    assert_eq!(spell(&catalog, "en", &Text::message("crate-only")), "App");
+}
+
+#[test]
+fn a_default_catalog_for_an_unoffered_locale_is_left_out() {
+    let catalog = layered(&["en"], &[("de", "crate-only = Kiste")], &[]).expect("builds");
+    assert_eq!(catalog.locales(), [parse("en")]);
 }
 
 /// `tag` spells `text`.

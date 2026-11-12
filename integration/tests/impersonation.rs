@@ -7,8 +7,9 @@ use std::{
 };
 
 use tablo::{
-    Allow, AuditEntry, Auth, Impersonate, Impersonation, NoForm, Page, PageDef, Panel, Resource,
-    ResourceDef, Table, TextColumn,
+    Allow, Auth, AuthEvent, AuthEventKind, AuthHook, Impersonate, Impersonation, NoForm, Page,
+    PageDef, Panel, Resource, ResourceDef, Table, TextColumn,
+    audit::{AuditEntry, PanelAuditExt},
     auth::{self, AdminUser, AuthSession, IMPERSONATE_FIELD, create_admin},
     lens,
     testing::{form_body, impersonate_buttons, impersonation_banner, mount_with_handle},
@@ -557,5 +558,50 @@ async fn a_locale_picked_while_acting_as_another_is_not_stored() {
         *stored.lock().unwrap(),
         ["support@example.com fr"],
         "nothing lands on Bob's account"
+    );
+}
+
+/// Fails on every stop, as an audit store that is down would.
+struct RefusesStops;
+
+impl AuthHook for RefusesStops {
+    async fn on_event(
+        _cx: &Cx,
+        event: &AuthEvent<'_>,
+        _ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<()> {
+        match event.kind() {
+            AuthEventKind::StopImpersonating => Err(topcoat::router::error::internal_server_error(
+                std::io::Error::other("down"),
+            )
+            .into()),
+            _ => Ok(()),
+        }
+    }
+}
+
+/// A hook that fails to record a stop neither keeps the actor acting as another nor keeps their
+/// session alive on sign-out.
+#[tokio::test]
+async fn a_hook_that_fails_on_a_stop_stops_anyway() {
+    let app = Fixture::with(Auth::password().impersonation(support_only()), |panel| {
+        panel.auth_hook::<RefusesStops>()
+    })
+    .await;
+    let client = app.as_user(&app.support).await;
+    client.submit("/admin/impersonate", &act_as(&app.bob)).await;
+    assert!(banner(&client).await.is_some(), "the start records");
+    assert_eq!(
+        client.submit("/admin/impersonate/stop", "").await.status(),
+        303
+    );
+    assert!(banner(&client).await.is_none(), "the Stop button stops");
+    assert!(app.sessions().await[0].impersonating.is_none());
+
+    client.submit("/admin/impersonate", &act_as(&app.bob)).await;
+    assert_eq!(client.submit("/admin/logout", "").await.status(), 303);
+    assert!(
+        app.sessions().await.is_empty(),
+        "the sign-out ends the session"
     );
 }

@@ -1,0 +1,28 @@
+[package]
+name = "tablo-audit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "The audit log for Tablo panels, built on Tablo's public API, re-exported as `tablo::audit`."
+# Metadata only, no native library: `build.rs` publishes the source directory an app's Tailwind
+# build scans (`DEP_TABLO_AUDIT_TABLO_SRC`).
+links = "tablo-audit"
+
+[dependencies]
+tablo-core = { path = "../tablo-core", version = "0.10.0", default-features = false }
+jiff.workspace = true
+serde.workspace = true
+# `serde` is for `toasty::Json`, the column an entry keeps its changes in.
+toasty = { workspace = true, features = ["serde"] }
+topcoat.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+toasty = { workspace = true, features = ["sqlite"] }
+fluent-syntax = "0.12"
+
+[lints]
+workspace = true

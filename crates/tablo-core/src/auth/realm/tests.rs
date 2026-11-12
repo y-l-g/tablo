@@ -9,13 +9,13 @@ fn realm(prefix: &str) -> Arc<Realm> {
         login_hint: None,
         time_zone: jiff::tz::TimeZone::UTC,
         catalog: std::sync::Arc::new(
-            crate::i18n::Catalog::new(std::slice::from_ref(&crate::i18n::ENGLISH), &[])
+            crate::i18n::Catalog::new(std::slice::from_ref(&crate::i18n::ENGLISH), &[], &[])
                 .expect("`en` builds"),
         ),
         notifications: false,
         serves_tenants: false,
         pages: SettingsPaths::under(prefix),
-        audit_log: false,
+        auth_hooks: Vec::new(),
     })
 }
 

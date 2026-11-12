@@ -10,8 +10,9 @@
     "```\n",
 )]
 //!
-//! It re-exports [`tablo_core`] at its root, the UI components as [`ui`], and
-//! the in-memory HTTP client as `testing` with the `testing` feature; the driver
+//! It re-exports [`tablo_core`] at its root, the UI components as [`ui`], the
+//! in-memory HTTP client as `testing` with the `testing` feature, and the audit log
+//! as `audit` with the `audit` feature; the driver
 //! features (`sqlite`, `postgresql`, `mysql`, `turso`) turn on Toasty's driver of the same
 //! name, and the toolkit itself enables none. The `rust_decimal` and `bigdecimal` features make
 //! those crates' decimal types typed values and numeric amounts, and turn on Toasty's feature of
@@ -72,6 +73,8 @@
 //!
 //! The user guide starts at "Your first panel".
 
+#[cfg(feature = "audit")]
+pub use tablo_audit as audit;
 pub use tablo_core::*;
 #[cfg(feature = "testing")]
 pub use tablo_test as testing;

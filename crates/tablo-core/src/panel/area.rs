@@ -154,8 +154,6 @@ pub(super) enum AreaEntry {
     Registration(Box<dyn Registration>),
     /// A page auth serves, adjusted by its def.
     Auth(AuthPage, CustomizePage),
-    /// The list of the panel's audit log.
-    AuditLog,
 }
 
 /// A page auth serves that an area can hold.
@@ -269,18 +267,6 @@ impl AreaGroup {
         customize: impl FnOnce(PageDef) -> PageDef + Send + 'static,
     ) -> Self {
         self.auth_page(AuthPage::TenantProfile, customize)
-    }
-
-    /// Moves the list of the audit log [`Panel::audit_log`](crate::Panel::audit_log) keeps into
-    /// the group, at `{prefix}/{area}/audit-log`, with the def `audit_log` gave it. In a
-    /// [`tenant_group`](Area::tenant_group), the list sits beside the tenant's members and billing.
-    ///
-    /// Mounting refuses an area that places the log when the panel keeps none, and a second group
-    /// that places it.
-    #[must_use]
-    pub fn audit_log(mut self) -> Self {
-        self.entries.push(AreaEntry::AuditLog);
-        self
     }
 
     fn auth_page(

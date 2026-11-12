@@ -45,7 +45,7 @@ static PARSED: LazyLock<Vec<(Locale, Arc<FluentResource>)>> = LazyLock::new(|| {
 
 /// The catalog of what renders outside every panel: Tablo's English.
 static TABLO_ENGLISH: LazyLock<Catalog> = LazyLock::new(|| {
-    Catalog::new(std::slice::from_ref(&ENGLISH), &[]).expect("Tablo's catalog builds")
+    Catalog::new(std::slice::from_ref(&ENGLISH), &[], &[]).expect("Tablo's catalog builds")
 });
 
 /// The messages a panel renders in each locale it offers.
@@ -58,7 +58,8 @@ pub(crate) struct Catalog {
 
 impl Catalog {
     /// The catalog of a panel offering `locales`, the default first, with the app's
-    /// `translations` over Tablo's.
+    /// `translations` over Tablo's, over the `defaults` of the crates that extend it. A default
+    /// catalog for a locale the panel does not offer is left out.
     ///
     /// A locale's bundle layers English, then the default locale, then the locale itself, each as
     /// Tablo's catalog under the app's: a message one layer leaves out reads from the layer below.
@@ -66,6 +67,7 @@ impl Catalog {
     /// is its own.
     pub(crate) fn new(
         locales: &[Locale],
+        defaults: &[(Locale, String)],
         translations: &[(Locale, String)],
     ) -> Result<Self, Vec<LocaleFault>> {
         let mut faults = Vec::new();
@@ -87,14 +89,22 @@ impl Catalog {
         if locales.is_empty() {
             faults.push(LocaleFault::NoLocale);
         }
+        let offers =
+            |locale: &Locale| serves(locale, &ENGLISH) || offered.iter().any(|o| serves(locale, o));
         let mut added: Vec<(Locale, Arc<FluentResource>)> = Vec::new();
-        for (locale, source) in translations {
-            if !serves(locale, &ENGLISH) && !offered.iter().any(|o| serves(locale, o)) {
+        let mut layered: Vec<(Locale, Arc<FluentResource>)> = Vec::new();
+        let defaults = defaults
+            .iter()
+            .filter(|(locale, _)| offers(locale))
+            .map(|entry| (entry, true));
+        for ((locale, source), default) in defaults.chain(translations.iter().map(|e| (e, false))) {
+            if !default && !offers(locale) {
                 faults.push(LocaleFault::Unoffered {
                     locale: locale.to_string(),
                 });
             }
             match FluentResource::try_new(source.clone()) {
+                Ok(resource) if default => layered.push((locale.clone(), Arc::new(resource))),
                 Ok(resource) => added.push((locale.clone(), Arc::new(resource))),
                 Err((_, errors)) => faults.push(LocaleFault::Syntax {
                     locale: locale.to_string(),
@@ -135,7 +145,7 @@ impl Catalog {
                 } else {
                     vec![ENGLISH.clone(), default.clone()]
                 };
-                bundle(locale, &below, &added)
+                bundle(locale, &below, &layered, &added)
             })
             .collect();
         Ok(Self {
@@ -176,17 +186,23 @@ fn serves(catalog: &Locale, target: &Locale) -> bool {
     lookup(target, std::slice::from_ref(catalog)).is_some()
 }
 
-/// The bundles of `locale`: each layer of `below`, then `locale`, adds Tablo's catalogs serving
-/// it, then the app's, so the later one overrides a message both hold. A catalog serving several
-/// layers sits at the last: `en` stays over a default `fr` for a request reading `en-GB`.
-fn bundle(locale: &Locale, below: &[Locale], added: &[(Locale, Arc<FluentResource>)]) -> Layered {
+/// The bundles of `locale`: each layer of `below`, then `locale`, adds the `defaults` of the
+/// crates that extend the panel serving it, then Tablo's, then the app's, so the later one
+/// overrides a message both hold: a crate rewords none of Tablo's. A catalog serving several layers
+/// sits at the last: `en` stays over a default `fr` for a request reading `en-GB`.
+fn bundle(
+    locale: &Locale,
+    below: &[Locale],
+    defaults: &[(Locale, Arc<FluentResource>)],
+    added: &[(Locale, Arc<FluentResource>)],
+) -> Layered {
     // From the top layer down, so a catalog lands in the last layer it serves.
     let mut placed: Vec<&Arc<FluentResource>> = Vec::new();
     let mut layers: Vec<Vec<&Arc<FluentResource>>> = Vec::new();
     for layer in below.iter().chain([locale]).rev() {
         let mut resources = Vec::new();
         // A language-wide catalog goes under the region's, so `fr-CA` overrides `fr`.
-        for catalogs in [PARSED.as_slice(), added] {
+        for catalogs in [defaults, PARSED.as_slice(), added] {
             for (_, resource) in least_specific_first(layer, catalogs) {
                 if !placed.iter().any(|done| Arc::ptr_eq(done, resource)) {
                     placed.push(resource);

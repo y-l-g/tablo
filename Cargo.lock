@@ -3717,10 +3717,25 @@ dependencies = [
 name = "tablo"
 version = "0.10.0"
 dependencies = [
+ "tablo-audit",
  "tablo-core",
  "tablo-test",
  "tablo-ui",
  "toasty",
+ "topcoat",
+ "uuid",
+]
+
+[[package]]
+name = "tablo-audit"
+version = "0.10.0"
+dependencies = [
+ "fluent-syntax",
+ "jiff",
+ "serde",
+ "tablo-core",
+ "toasty",
+ "tokio",
  "topcoat",
  "uuid",
 ]

@@ -10,6 +10,7 @@ pub(crate) mod config;
 mod email_change;
 pub(crate) mod external;
 mod gate;
+pub(crate) mod hook;
 pub(crate) mod impersonation;
 pub(crate) mod input;
 mod login;
@@ -374,6 +375,23 @@ fn unloaded_type<U: PanelUser>(cx: &Cx) -> Option<String> {
         std::any::type_name::<U>(),
         names.into_iter().collect::<Vec<_>>().join(", "),
     ))
+}
+
+/// The person behind the request: the user acting as another through
+/// [impersonation](crate::Impersonation), else the signed-in user; `None` when nobody is signed in
+/// to the request's panel.
+///
+/// What a request did is theirs, so an audit trail names this user, not [`user`]'s.
+///
+/// ```rust
+/// # use tablo_core::auth;
+/// # use topcoat::context::Cx;
+/// fn signed_by(cx: &Cx) -> String {
+///     auth::actor(cx).map_or_else(String::new, |actor| actor.display_name().to_owned())
+/// }
+/// ```
+pub fn actor(cx: &Cx) -> Option<&dyn PanelUser> {
+    signed(cx).map(|signed| &**signed.impersonator.as_ref().unwrap_or(&signed.user))
 }
 
 /// Require the signed-in user, as the app's own user type.

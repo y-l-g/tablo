@@ -1,7 +1,7 @@
 //! [`Panel::before_commit`]: the hooks every write of a panel runs inside its transaction, whichever
 //! resource wrote it.
 
-use std::future::Future;
+use std::{any::TypeId, future::Future};
 
 use toasty::Executor;
 use topcoat::{Result, context::Cx};
@@ -246,11 +246,50 @@ fn erased<'a, H: CommitHook>(
 impl Panel {
     /// Runs the [`CommitHook`] `H` inside the transaction of every write of the panel, after the
     /// writing resource's own [`Resource::before_commit`]. Several hooks run in the order they
-    /// are registered.
+    /// are registered; registering `H` again changes nothing, so it never runs twice.
     pub fn before_commit<H: CommitHook>(mut self) -> Self {
-        self.commit_hooks.push(erased::<H>);
+        let id = TypeId::of::<H>();
+        if !self.commit_hooks.iter().any(|(hook, _)| *hook == id) {
+            self.commit_hooks.push((id, erased::<H>));
+        }
         self
     }
+}
+
+impl<R: Resource> crate::ResourceDef<R> {
+    /// Refuses to mount the resource on a panel that does not run the [`CommitHook`] `H`
+    /// ([`MissingCommitHook`](crate::DeclarationErrorKind::MissingCommitHook)): a list of what
+    /// `H` stores would stay empty, however it is placed.
+    #[must_use]
+    pub fn requires_commit_hook<H: CommitHook>(mut self) -> Self {
+        let hook = (TypeId::of::<H>(), std::any::type_name::<H>());
+        if !self.required_hooks.contains(&hook) {
+            self.required_hooks.push(hook);
+        }
+        self
+    }
+}
+
+/// A fault for each hook a registered resource requires that `hooks` leaves out.
+pub(super) fn missing_commit_hooks(
+    resources: &[super::register::Registered],
+    hooks: &[(TypeId, CommitHookFn)],
+) -> Vec<crate::DeclarationError> {
+    resources
+        .iter()
+        .flat_map(|resource| {
+            resource
+                .required_hooks
+                .iter()
+                .map(move |hook| (resource, hook))
+        })
+        .filter(|(_, (id, _))| !hooks.iter().any(|(hook, _)| hook == id))
+        .map(|(resource, (_, hook))| crate::DeclarationError {
+            resource: Some(resource.name),
+            site: crate::Site::Registration,
+            kind: crate::DeclarationErrorKind::MissingCommitHook { hook },
+        })
+        .collect()
 }
 
 /// Run `R`'s [`Resource::before_commit`] on `change`, then each of the panel's [`CommitHook`]s,

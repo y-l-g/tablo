@@ -34,6 +34,8 @@ pub(crate) struct Mounted<R: Resource> {
     pub(crate) navigation: NavigationItem,
     /// Whether the sidebar leaves the resource out: [`ResourceDef::without_navigation`].
     pub(crate) navigation_hidden: bool,
+    /// The commit hooks [`ResourceDef::requires_commit_hook`] names, with their type names.
+    pub(crate) required_hooks: Vec<(std::any::TypeId, &'static str)>,
     /// The rows [`ResourceDef::navigation_badge`] counts.
     navigation_badge: Option<toasty::stmt::Expr<bool>>,
     pub(crate) policy: Arc<dyn Policy<R::Model>>,
@@ -134,6 +136,7 @@ impl<R: Resource> Mounted<R> {
             plural_label,
             navigation,
             navigation_hidden: def.navigation_hidden,
+            required_hooks: def.required_hooks,
             navigation_badge: def.navigation_badge,
             header_badges: def.header_badges,
             policy: def.policy,

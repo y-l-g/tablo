@@ -15,8 +15,9 @@ name = "it"
 path = "tests/it.rs"
 
 [dependencies]
-# The facade, as an app names it: the toolkit at its root, the components as `tablo::ui`.
-tablo = { path = "../../crates/tablo" }
+# The facade, as an app names it: the toolkit at its root, the components as `tablo::ui`, the
+# audit log as `tablo::audit`.
+tablo = { path = "../../crates/tablo", features = ["audit"] }
 jiff.workspace = true
 toasty = { workspace = true, features = ["sqlite"] }
 # `fs` is for the demo uploader's `tokio::fs` write; `multipart` is the extractor the media

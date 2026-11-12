@@ -18,7 +18,9 @@ use topcoat::{
 };
 
 use super::{
-    Panel, Root, error_page,
+    Panel, Root,
+    commit_hook::missing_commit_hooks,
+    error_page,
     files::served_root,
     headers::{self, ServedDir},
     host::PanelHost,
@@ -138,14 +140,18 @@ impl Panel {
             time_zone,
             locales,
             translations,
+            default_translations,
             global_search,
             limits,
             commit_hooks,
-            audit_log,
+            auth_hooks,
+            required_models,
             loads,
         } = self;
-        let (mounts, mut errors) =
-            registry.register_all(registrations, audit_log, configuration_errors);
+        let (mounts, mut errors) = registry.register_all(registrations, configuration_errors);
+        errors.extend(missing_commit_hooks(&registry.resources, &commit_hooks));
+        let commit_hooks = commit_hooks.into_iter().map(|(_, hook)| hook).collect();
+        let auth_hooks = auth_hooks.into_iter().map(|(_, hook)| hook).collect();
         let serves_tenants = serves_tenants(&auth, &mounts);
         errors.extend(registry.unoffered_auth_pages(&auth));
         errors.extend(mount_errors(
@@ -176,11 +182,11 @@ impl Panel {
                     .into_iter()
                     .map(DeclarationError::panel),
                 );
-                errors.extend(super::audit::declaration_error(db, &registry.urls));
+                errors.extend(unregistered_models(db, &required_models));
             }
             None => errors.push(DeclarationError::panel(DeclarationErrorKind::MissingDb)),
         }
-        let catalog = build_catalog(&locales, &translations, &mut errors);
+        let catalog = build_catalog(&locales, &default_translations, &translations, &mut errors);
         let panel_headers = match content_security_policy
             .resolve(&content_security_policy_sources)
             .and_then(|policy| {
@@ -245,7 +251,7 @@ impl Panel {
                 notifications,
                 serves_tenants,
                 pages,
-                audit_log: urls.contains_key(&std::any::TypeId::of::<super::AuditLog>()),
+                auth_hooks,
             }),
             nav_items,
             areas,
@@ -346,16 +352,11 @@ impl Registry {
     fn register_all(
         &mut self,
         registrations: Vec<Box<dyn super::register::Registration>>,
-        audit_log: Option<super::audit::CustomizeAuditLog>,
         configuration_errors: Vec<DeclarationError>,
     ) -> (Arc<Mounts>, Vec<DeclarationError>) {
-        if let Some(customize) = audit_log {
-            self.audit_log = super::register::AuditLogList::Unplaced(customize);
-        }
         for registration in registrations {
             registration.register(self);
         }
-        self.place_unplaced_audit_log();
         self.link_relations();
         self.check_root();
         let mut errors = configuration_errors;
@@ -537,14 +538,29 @@ pub(super) fn validate_route_segment(
     }
 }
 
-/// The panel's catalog over `locales` and `translations`; `None`, with each fault pushed onto
-/// `errors`, when it does not build.
+/// The refusal of each of `required` that `db` does not register.
+fn unregistered_models(db: &Db, required: &[String]) -> Vec<DeclarationError> {
+    let schema = AppSchema::of_db(db);
+    required
+        .iter()
+        .filter(|model| !schema.registers(model))
+        .map(|model| {
+            DeclarationError::panel(DeclarationErrorKind::UnregisteredModel {
+                model: model.clone(),
+            })
+        })
+        .collect()
+}
+
+/// The panel's catalog over `locales`, with `defaults` under `translations`; `None`, with each
+/// fault pushed onto `errors`, when it does not build.
 fn build_catalog(
     locales: &[topcoat::l10n::Locale],
+    defaults: &[(topcoat::l10n::Locale, String)],
     translations: &[(topcoat::l10n::Locale, String)],
     errors: &mut Vec<DeclarationError>,
 ) -> Option<crate::i18n::Catalog> {
-    crate::i18n::Catalog::new(locales, translations)
+    crate::i18n::Catalog::new(locales, defaults, translations)
         .map_err(|faults| {
             errors.extend(
                 faults

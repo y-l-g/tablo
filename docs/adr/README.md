@@ -31,3 +31,4 @@ record disagree, the code wins and the record is fixed. Missing numbers are reti
 | [0037](0037-related-forms.md) | A has_one relation's form is the related resource's own, written in the owner's transaction |
 | [0038](0038-creatable-choices.md) | A creatable choice frames the related resource's create page |
 | [0039](0039-areas.md) | An area is a path segment with a sidebar of its own |
+| [0040](0040-audit-log-outside-the-core.md) | The audit log is built on the public API, in a crate of its own |

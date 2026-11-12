@@ -8,14 +8,13 @@ use topcoat::{
     router::{Body, RouteFuture, error::redirect},
 };
 
-use super::{CustomizePage, Registration, Registry, ResourceRegistration, list_actions_route};
+use super::{CustomizePage, Registration, Registry, list_actions_route};
 use crate::{
     AreaFault, DeclarationError, DeclarationErrorKind, NavigationItem, Page, PageDef, Text,
     navigation::NavTarget,
     page::{MountedPage, check_page},
     panel::{
         area::{Area, AreaEntry, AreaGroupLabel, AuthPage},
-        audit::{AuditLog, CustomizeAuditLog},
         pages::{page_action, page_action_options},
         state::{AreaNav, AreaSlot, NavEntry, current},
     },
@@ -86,7 +85,6 @@ impl Registration for Area {
                     AreaEntry::Auth(page, customize) => {
                         registry.register_auth_page(page, customize)
                     }
-                    AreaEntry::AuditLog => registry.place_audit_log(),
                 }
             }
         }
@@ -278,40 +276,4 @@ fn area_root(cx: &Cx, _body: Body) -> RouteFuture<'_> {
             .ok_or_else(topcoat::router::error::not_found)?;
         Err(redirect(target).into())
     })
-}
-
-/// Where the panel's audit log lists its entries, as registration reaches it.
-pub(in crate::panel) enum AuditLogList {
-    /// The panel keeps no audit log.
-    NotKept,
-    /// The panel keeps one, with this def adjustment, and nothing has placed its list yet.
-    Unplaced(CustomizeAuditLog),
-    /// An area group placed the list.
-    Placed,
-}
-
-impl Registry {
-    /// Registers the audit log's list in the area group now registering.
-    fn place_audit_log(&mut self) {
-        let refuse = |fault| DeclarationError::panel(DeclarationErrorKind::Area(fault));
-        match std::mem::replace(&mut self.audit_log, AuditLogList::Placed) {
-            AuditLogList::Unplaced(customize) => {
-                Box::new(ResourceRegistration::<AuditLog>(customize)).register(self);
-            }
-            AuditLogList::Placed => self.errors.push(refuse(AreaFault::AuditLogPlacedTwice)),
-            AuditLogList::NotKept => {
-                self.audit_log = AuditLogList::NotKept;
-                self.errors.push(refuse(AreaFault::AuditLogNotKept));
-            }
-        }
-    }
-
-    /// Registers the audit log's list in the panel when no area group placed it.
-    pub(in crate::panel) fn place_unplaced_audit_log(&mut self) {
-        if let AuditLogList::Unplaced(customize) =
-            std::mem::replace(&mut self.audit_log, AuditLogList::Placed)
-        {
-            Box::new(ResourceRegistration::<AuditLog>(customize)).register(self);
-        }
-    }
 }

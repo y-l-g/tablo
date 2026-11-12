@@ -2,13 +2,13 @@
 
 mod actions;
 pub(crate) mod area;
-mod audit;
 mod banner;
 mod bar;
 mod build;
 pub(crate) mod commit_hook;
 mod detail;
 pub(crate) mod error_page;
+mod extension;
 mod files;
 mod forms;
 pub(crate) mod gate;
@@ -18,6 +18,7 @@ mod impersonation;
 mod input;
 mod list;
 mod load;
+mod mounted;
 mod page_filters;
 pub(crate) mod pages;
 mod record_nav;
@@ -37,7 +38,6 @@ use topcoat::{asset::Asset, font::Font, router::LayoutRenderFn};
 
 pub use self::{
     area::{Area, AreaGroup},
-    audit::AuditLog,
     banner::Banner,
     build::{PanelHandle, RouterBuilderPanelExt},
     commit_hook::{ChangedField, ChangedRecord, CommitHook, PanelChange},
@@ -45,6 +45,7 @@ pub use self::{
     impersonation::Impersonate,
     list::{WiredTable, list_query, wired_table},
     load::{Load, loaded},
+    mounted::{MountedResource, mounted_resources},
     page_filters::page_filters,
     pages::page_filter_bar,
     shell::{Brand, Environment, Radius, SidebarFrame, Theme},
@@ -152,14 +153,17 @@ pub struct Panel {
     locales: Vec<topcoat::l10n::Locale>,
     /// The app's catalogs, by locale, over Tablo's.
     translations: Vec<(topcoat::l10n::Locale, String)>,
+    /// The catalogs of crates that extend the panel, under Tablo's and the app's.
+    default_translations: Vec<(topcoat::l10n::Locale, String)>,
     /// Whether the topbar shows the global search box.
     global_search: bool,
     limits: crate::Limits,
-    /// The hooks every write of the panel runs before it commits, in registration order.
-    commit_hooks: Vec<commit_hook::CommitHookFn>,
-    /// How [`audit_log`](Self::audit_log) adjusts the [`AuditLog`] resource's def, when the panel
-    /// keeps one: it registers in the area group that places it, else in the panel.
-    audit_log: Option<audit::CustomizeAuditLog>,
+    /// The hooks every write of the panel runs before it commits, each type once, in order.
+    commit_hooks: Vec<(std::any::TypeId, commit_hook::CommitHookFn)>,
+    /// The hooks auth runs on each of its events, each type once, in order.
+    auth_hooks: Vec<(std::any::TypeId, crate::auth::hook::AuthHookFn)>,
+    /// The models [`require_model`](Self::require_model) names, as Toasty names them.
+    required_models: Vec<String>,
     /// What the panel loads for each request it admits, in registration order.
     loads: Vec<load::LoadFn>,
 }
@@ -197,10 +201,12 @@ impl Panel {
             time_zone: jiff::tz::TimeZone::UTC,
             locales: vec![crate::i18n::ENGLISH.clone()],
             translations: Vec::new(),
+            default_translations: Vec::new(),
             global_search: true,
             limits: crate::Limits::default(),
             commit_hooks: Vec::new(),
-            audit_log: None,
+            auth_hooks: Vec::new(),
+            required_models: Vec::new(),
             loads: Vec::new(),
         }
     }

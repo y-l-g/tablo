@@ -2,8 +2,11 @@
 //! transaction, and the log lists to its reader only what the reader may read.
 
 use tablo::{
-    Ability, Allow, AuditChange, AuditEntry, AuditLog, DeclarationErrorKind, FieldAccess, Resource,
-    ResourceDef, Table, TenantId, TextColumn, lens, testing::mount_with_handle,
+    Ability, Allow, DeclarationErrorKind, FieldAccess, Resource, ResourceDef, Table, TenantId,
+    TextColumn,
+    audit::{AuditChange, AuditEntry, AuditLog, PanelAuditExt},
+    lens,
+    testing::mount_with_handle,
 };
 use toasty::Db;
 use uuid::Uuid;
@@ -356,26 +359,47 @@ async fn the_mount_refuses_a_log_whose_table_the_db_lacks() {
             .audit_log(|log| log.policy(Allow)),
     ));
     assert!(
-        errors
-            .iter()
-            .any(|error| error.kind == DeclarationErrorKind::MissingAuditModel),
+        errors.iter().any(|error| error.kind
+            == DeclarationErrorKind::UnregisteredModel {
+                model: "AuditEntry".to_owned()
+            }),
         "{errors:?}"
     );
 }
 
-/// Registered by hand with an allowing policy, past `audit_log`, the log still deletes nothing.
 #[tokio::test]
-async fn the_log_registered_by_hand_still_deletes_nothing() {
+async fn a_trail_registered_twice_records_each_write_once() {
     let db = db().await;
-    let (router, handle) = mount_with_handle(
+    let router = mount(
         db.clone(),
-        panel().resource_with::<AuditLog>(|log| log.policy(Allow)),
+        panel()
+            .resource::<MemoResource>()
+            .audit_trail()
+            .audit_log(|log| log.policy(Allow)),
     )
     .expect("panel builds");
-    seed(&db, "/admin", None, Vec::new()).await;
-    let entry = entries(&db).await.remove(0);
-    let client = TestClient::new(&router).panel(&handle);
-    let response = client.resource::<AuditLog>().delete(&entry).submit().await;
-    assert_eq!(response.status(), 404, "the log answers no delete");
-    assert_eq!(entries(&db).await.len(), 1, "the entry stays");
+    let response = post_fields(
+        &router,
+        "/admin/memos/-/create",
+        &[("title", "Alpha"), ("note", "first")],
+    )
+    .await;
+    assert_eq!(response.status(), 303, "a valid create redirects");
+    assert_eq!(entries(&db).await.len(), 1, "one write, one entry");
+}
+
+#[tokio::test]
+async fn the_mount_refuses_a_log_on_a_panel_without_its_trail() {
+    let errors = refusal(mount(
+        db().await,
+        panel()
+            .resource::<MemoResource>()
+            .resource_with::<AuditLog>(|log| log.policy(Allow)),
+    ));
+    assert!(
+        errors
+            .iter()
+            .any(|error| matches!(error.kind, DeclarationErrorKind::MissingCommitHook { .. })),
+        "{errors:?}"
+    );
 }

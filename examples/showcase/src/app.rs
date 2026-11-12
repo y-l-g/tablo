@@ -10,7 +10,7 @@ use tablo::{
     PasswordReset, PresenceFilter, PublicLink, QueryFilter, Reads, Relation, RelationColumn,
     Resource, ResourceDef, RouterBuilderPanelExt, RowLink, Schema, Section, SelectFilter, Step,
     Tab, Table, Tabs, Tenancy, TenantRegistration, TernaryFilter, TextFilter, TextMatch, TwoFactor,
-    Wizard, lens, relation, tenant_id, when,
+    Wizard, audit::PanelAuditExt, lens, relation, tenant_id, when,
 };
 use toasty::Db;
 use topcoat::{
