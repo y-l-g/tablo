@@ -48,6 +48,7 @@ pub(crate) fn panel_state<U: crate::PanelUser>(
     super::state::PanelState {
         realm: std::sync::Arc::new(crate::auth::Realm {
             prefix: prefix.to_string(),
+            id: crate::PanelId::new(prefix),
             auth: auth.into_config(),
             login_hint: None,
             time_zone: jiff::tz::TimeZone::UTC,
@@ -100,7 +101,9 @@ pub(crate) fn serving(
 
 /// `panel` mounted on a router holding `db`, the way an app mounts one.
 pub(crate) fn mount(db: Db, panel: Panel) -> topcoat::Result<Router> {
-    Ok(Router::builder().discover().with(db).panel(panel)?.build())
+    let mut builder = Router::builder().discover().with(db);
+    builder.panel(panel)?;
+    Ok(builder.build())
 }
 
 /// The mistakes a panel was refused with.

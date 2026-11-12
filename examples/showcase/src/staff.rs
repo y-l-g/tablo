@@ -72,7 +72,7 @@ impl PanelUser for SignedStaff {
         Some(&self.staff.email)
     }
 
-    fn can_access_panel(&self, _panel: &str) -> bool {
+    fn can_access_panel(&self, _panel: &tablo::PanelId) -> bool {
         self.staff.active
     }
 

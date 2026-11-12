@@ -54,17 +54,17 @@ fn public_grid(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 
 #[tokio::test]
 async fn a_route_outside_the_prefix_renders_no_widget_to_a_visitor_the_panel_would_sign_in() {
-    let builder = Router::builder()
+    let mut builder = Router::builder()
         .discover()
         .with(test_db(toasty::models!(AdminUser, AuthSession)).await)
-        .route(RouteFn::new(http::Method::GET, "/public", public_grid))
+        .route(RouteFn::new(http::Method::GET, "/public", public_grid));
+    let admin = builder
         .panel(
             Panel::new("admin")
                 .auth(Auth::password())
                 .page::<Dashboard>(),
         )
         .expect("the panel mounts");
-    let admin = builder.panel_handle("admin").expect("mounted above");
     let router = builder.with(admin).build();
 
     let response = get(&router, "/public").await;

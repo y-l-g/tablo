@@ -25,9 +25,9 @@ use crate::{
 };
 
 /// A panel's mounted resources and its database, which a background job or a test keeps to build
-/// a context per run without declaring the panel again. A router's mounted panel gives it through
-/// [`panel_handle`](super::RouterBuilderPanelExt::panel_handle), a panel no router mounts through
-/// [`Panel::handle`]. Cloning it is cheap.
+/// a context per run without declaring the panel again. Mounting a panel on a router with
+/// [`panel`](super::RouterBuilderPanelExt::panel) returns it, and [`Panel::handle`] gives one for
+/// a panel no router mounts. Cloning it is cheap.
 ///
 /// ```rust,no_run
 /// # use tablo_core::{NoForm, Panel, Resource, RouterBuilderPanelExt, Tenant, scoped_query};
@@ -37,11 +37,8 @@ use crate::{
 /// # struct PostResource;
 /// # impl Resource for PostResource { type Model = Post; type Form = NoForm<Post>; }
 /// # async fn run(db: toasty::Db, tenant: tablo_core::TenantId) -> topcoat::Result<()> {
-/// let builder = Router::builder()
-///     .discover()
-///     .with(db)
-///     .panel(Panel::new("admin").resource::<PostResource>())?;
-/// let admin = builder.panel_handle("admin").expect("mounted above");
+/// let mut builder = Router::builder().discover().with(db);
+/// let admin = builder.panel(Panel::new("admin").resource::<PostResource>())?;
 /// let router = builder.build();
 ///
 /// // In the job, once per run:
@@ -59,6 +56,7 @@ pub struct PanelHandle {
     pub(super) catalog: Arc<Catalog>,
     /// The mounted panel, for a handle a router gives; `None` for [`Panel::handle`]'s.
     pub(super) panel: Option<Arc<PanelState>>,
+    pub(super) id: crate::PanelId,
     pub(super) prefix: String,
     /// The router's bus, or one no bell listens on for [`Panel::handle`]'s.
     pub(super) bus: NotificationBus,
@@ -118,6 +116,13 @@ impl PanelHandle {
         }
     }
 
+    /// Which panel this is: the id
+    /// [`PanelUser::can_access_panel`](crate::PanelUser::can_access_panel) receives for it, to
+    /// compare with rather than spelling its prefix again.
+    pub fn id(&self) -> &crate::PanelId {
+        &self.id
+    }
+
     /// The panel's prefix, e.g. `/admin`, for a public page's link to it; `None` for
     /// [`Panel::handle`]'s, which no router mounts.
     pub fn url(&self) -> Option<String> {
@@ -175,7 +180,7 @@ impl PanelHandle {
     /// ```rust,no_run
     /// # use tablo_core::PanelHandle;
     /// # use topcoat::{Result, context::{Cx, context}, router::{Slot, layout}, view::{View, view}};
-    /// /// The handle `panel_handle("admin")` returned, kept on the router.
+    /// /// The handle mounting the admin panel returned, kept on the router.
     /// struct Admin(PanelHandle);
     ///
     /// #[layout("/blog")]
@@ -219,8 +224,8 @@ fn held_catalog(cx: &Cx) -> Option<&Catalog> {
 impl Panel {
     /// The panel's resources declared and checked against `db` without a router: what a test, or
     /// a job that runs with no router, builds its contexts from with [`PanelHandle::context`].
-    /// A job that runs beside a router takes the mounted panel's handle from
-    /// [`panel_handle`](super::RouterBuilderPanelExt::panel_handle) instead.
+    /// A job that runs beside a router keeps the handle that mounting the panel with
+    /// [`panel`](super::RouterBuilderPanelExt::panel) returned instead.
     ///
     /// # Errors
     ///
@@ -260,6 +265,7 @@ impl Panel {
             mounts,
             panel: None,
             catalog: Arc::new(catalog.expect("a catalog that failed to build fails the handle")),
+            id: crate::PanelId::new(&prefix),
             prefix,
             bus: NotificationBus::new(),
         })

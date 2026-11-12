@@ -68,12 +68,9 @@ async fn db() -> (Db, AdminUser) {
 /// The `admin` panel signing in by password with `two_factor`, under a router holding a cookie
 /// key.
 fn mount(db: Db, auth: Auth) -> topcoat::Result<Router> {
-    Ok(Router::builder()
-        .discover()
-        .with(db)
-        .with(Key::generate())
-        .panel(Panel::new("admin").auth(auth).resource::<InvoiceResource>())?
-        .build())
+    let mut builder = Router::builder().discover().with(db).with(Key::generate());
+    builder.panel(Panel::new("admin").auth(auth).resource::<InvoiceResource>())?;
+    Ok(builder.build())
 }
 
 fn router(db: Db, two_factor: TwoFactor) -> Router {
@@ -563,11 +560,10 @@ async fn mounting_refuses_two_factor_sign_in_the_panel_cannot_serve() {
             TwoFactorFault::AuthDisabled
         )]
     );
-    let keyless = Router::builder()
-        .discover()
-        .with(db)
+    let mut builder = Router::builder().discover().with(db);
+    let keyless = builder
         .panel(Panel::new("admin").auth(Auth::password().two_factor(TwoFactor::new())))
-        .map(|builder| builder.build());
+        .map(|_| builder.build());
     assert_eq!(
         kinds(keyless),
         vec![DeclarationErrorKind::TwoFactor(TwoFactorFault::MissingKey)]

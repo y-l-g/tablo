@@ -138,7 +138,7 @@ impl PanelUser for SignedStaff {
     fn display_name(&self) -> &str {
         &self.staff.name
     }
-    fn can_access_panel(&self, _panel: &str) -> bool {
+    fn can_access_panel(&self, _panel: &tablo::PanelId) -> bool {
         self.staff.active
     }
     fn tenants(&self) -> &[Membership] {
@@ -327,13 +327,13 @@ pub fn reset_router(db: toasty::Db) -> Result<Router> {
             "https://admin.example.com",
         ))
         .password_reset(PasswordReset::new(PasswordAuth::new()));
-    Ok(Router::builder()
+    let mut builder = Router::builder()
         .with(db)
         // Before the panel, which checks for it. `SmtpTransport`, behind Topcoat's `mail-smtp`
         // feature, delivers in production; `FileTransport` writes `.eml` files instead.
-        .with(Mailer::new(FileTransport::new("target/mail")))
-        .panel(Panel::new("admin").auth(auth))?
-        .build())
+        .with(Mailer::new(FileTransport::new("target/mail")));
+    builder.panel(Panel::new("admin").auth(auth))?;
+    Ok(builder.build())
 }
 // ANCHOR_END: policy-password-reset
 
@@ -352,13 +352,13 @@ pub fn verified_auth() -> Result<Auth> {
 // ANCHOR: policy-two-factor
 pub fn two_factor_router(db: toasty::Db, cookie_key: &[u8]) -> Result<Router> {
     let auth = Auth::password().two_factor(TwoFactor::new());
-    Ok(Router::builder()
+    let mut builder = Router::builder()
         .with(db)
         // Seals each authenticator secret. Load the same 64 random bytes or more at every start,
         // kept with the app's other secrets: a new key opens no secret sealed under the old one.
-        .with(Key::from(cookie_key))
-        .panel(Panel::new("admin").auth(auth))?
-        .build())
+        .with(Key::from(cookie_key));
+    builder.panel(Panel::new("admin").auth(auth))?;
+    Ok(builder.build())
 }
 // ANCHOR_END: policy-two-factor
 
@@ -396,12 +396,12 @@ pub fn google_router(db: toasty::Db, cookie_key: &[u8]) -> Result<Router> {
     );
     let auth = Auth::custom(StaffAuth)
         .oidc(Oidc::new("https://admin.example.com", StaffAuth).provider(google));
-    Ok(Router::builder()
+    let mut builder = Router::builder()
         .with(db)
         // Seals each pending sign-in while the browser is at Google.
-        .with(Key::from(cookie_key))
-        .panel(Panel::new("admin").auth(auth))?
-        .build())
+        .with(Key::from(cookie_key));
+    builder.panel(Panel::new("admin").auth(auth))?;
+    Ok(builder.build())
 }
 
 /// The staff member a row of the app's own identity table links `subject` at `issuer` to.

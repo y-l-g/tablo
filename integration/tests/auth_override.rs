@@ -65,7 +65,7 @@ impl PanelUser for SignedMember {
     }
 
     /// Every active member enters `/admin`; only Ada enters `/portal` too.
-    fn can_access_panel(&self, panel: &str) -> bool {
+    fn can_access_panel(&self, panel: &tablo::PanelId) -> bool {
         self.member.active && (panel != "/portal" || self.member.handle == "ada")
     }
 
@@ -294,22 +294,22 @@ async fn login_to(router: &Router, prefix: &str, handle: &str) -> Response<Body>
 #[tokio::test]
 async fn one_user_type_gates_each_panel_by_its_prefix() {
     let db = seeded_db().await;
-    let router = Router::builder()
-        .discover()
-        .with(db.clone())
+    let mut builder = Router::builder().discover().with(db.clone());
+    builder
         .panel(
             tablo::Panel::new("admin")
                 .auth(Auth::custom(MemberAuth))
                 .resource::<MemberResource>(),
         )
-        .expect("admin panel builds")
+        .expect("admin panel builds");
+    builder
         .panel(
             tablo::Panel::new("portal")
                 .auth(Auth::custom(MemberAuth))
                 .resource::<MemberResource>(),
         )
-        .expect("portal panel builds")
-        .build();
+        .expect("portal panel builds");
+    let router = builder.build();
 
     let admin = login_to(&router, "/admin", "grace").await;
     assert_eq!(admin.status(), 303, "the admin panel admits Grace");

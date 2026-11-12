@@ -35,7 +35,7 @@ impl PanelUser for SignedMember {
     fn email(&self) -> Option<&str> {
         Some(&self.member.email)
     }
-    fn can_access_panel(&self, _panel: &str) -> bool {
+    fn can_access_panel(&self, _panel: &tablo::PanelId) -> bool {
         true
     }
     fn tenants(&self) -> &[Membership] {

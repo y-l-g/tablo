@@ -64,13 +64,14 @@ fn router(db: Db, mail: &MemoryTransport) -> Router {
         ))
         .profile(PasswordAuth::new())
         .email_verification(EmailVerification::new(PasswordAuth::new()));
-    Router::builder()
+    let mut builder = Router::builder()
         .discover()
         .with(db)
-        .with(Mailer::new(mail.clone()))
+        .with(Mailer::new(mail.clone()));
+    builder
         .panel(Panel::new("admin").auth(auth).resource::<InvoiceResource>())
-        .expect("panel builds")
-        .build()
+        .expect("panel builds");
+    builder.build()
 }
 
 async fn reload(db: &Db, ada: &AdminUser) -> AdminUser {

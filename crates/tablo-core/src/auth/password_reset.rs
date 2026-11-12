@@ -54,7 +54,7 @@ pub const RESET_LIFETIME: Duration = Duration::from_hours(1);
 /// # impl PanelUser for Staff {
 /// #     fn user_id(&self) -> String { self.id.to_string() }
 /// #     fn display_name(&self) -> &str { &self.name }
-/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
+/// #     fn can_access_panel(&self, _panel: &tablo_core::PanelId) -> bool { true }
 /// #     fn email(&self) -> Option<&str> { Some(&self.email) }
 /// # }
 /// struct StaffAuth;
@@ -129,7 +129,7 @@ pub(crate) trait DynPasswordResetter: Send + Sync {
     fn recipient<'a>(
         &'a self,
         cx: &'a Cx,
-        panel: &'a str,
+        panel: &'a crate::PanelId,
         email: &'a str,
     ) -> BoxFuture<'a, topcoat::Result<Option<Recipient>>>;
     fn reset_password<'a>(
@@ -148,7 +148,7 @@ impl<R: PasswordResetter> DynPasswordResetter for R {
     fn recipient<'a>(
         &'a self,
         cx: &'a Cx,
-        panel: &'a str,
+        panel: &'a crate::PanelId,
         email: &'a str,
     ) -> BoxFuture<'a, topcoat::Result<Option<Recipient>>> {
         Box::pin(async move {
@@ -315,7 +315,7 @@ pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             return forgot_response(cx, email, &FieldErrors::new(), Some(ForgotAlert::Throttled))
                 .await;
         }
-        let recipient = match reset.resetter().recipient(cx, &panel.prefix, email).await {
+        let recipient = match reset.resetter().recipient(cx, &panel.id, email).await {
             Ok(recipient) => recipient,
             Err(error) => {
                 let error = infrastructure_failure(error);
@@ -471,7 +471,7 @@ async fn may_enter(cx: &Cx, panel: &Realm, user_id: &str) -> topcoat::Result<boo
         .find_by_id(cx, user_id)
         .await
         .map_err(infrastructure_failure)?;
-    Ok(user.is_some_and(|user| user.can_access_panel(&panel.prefix)))
+    Ok(user.is_some_and(|user| user.can_access_panel(&panel.id)))
 }
 
 /// The mistakes in a panel's [`Auth::password_reset`](super::Auth::password_reset): a reset without

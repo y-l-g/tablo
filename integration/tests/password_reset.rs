@@ -78,7 +78,7 @@ fn mount_panels(
         .with(db)
         .with(Mailer::new(mail.clone()));
     for panel in panels {
-        builder = builder.panel(panel)?;
+        builder.panel(panel)?;
     }
     Ok(builder.build())
 }
@@ -593,13 +593,13 @@ async fn a_revocation_through_a_panel_handle_ends_the_reset_link() {
     let db = db().await;
     let admin = ada(&db).await;
     let mail = MemoryTransport::new();
-    let builder = Router::builder()
+    let mut builder = Router::builder()
         .discover()
         .with(db.clone())
-        .with(Mailer::new(mail.clone()))
+        .with(Mailer::new(mail.clone()));
+    let handle = builder
         .panel(panel(mailing().password_reset(reset())))
         .expect("panel builds");
-    let handle = builder.panel_handle("admin").expect("mounted above");
     let router = builder.build();
     request_link(&router, "ada@example.com").await;
     let token = token(&link(&mails(&mail, 1).await[0]));

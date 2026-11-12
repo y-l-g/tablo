@@ -35,11 +35,9 @@
 //! }
 //!
 //! # let db: Db = todo!();
-//! let router = Router::builder()
-//!     .discover()
-//!     .with(db)
-//!     .panel(Panel::new("admin").resource::<BookResource>())?
-//!     .build();
+//! let mut builder = Router::builder().discover().with(db);
+//! builder.panel(Panel::new("admin").resource::<BookResource>())?;
+//! let router = builder.build();
 //! # let _ = router;
 //! # Ok(())
 //! # }
@@ -187,9 +185,9 @@ pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome}
 pub use page::{Page, PageDef, PageFilter, PageFilters};
 pub use panel::{
     Area, AreaGroup, AuditLog, Banner, Brand, ChangedField, ChangedRecord, CommitHook, Environment,
-    Impersonate, Load, Panel, PanelChange, PanelHandle, Radius, RouterBuilderPanelExt, WiredTable,
-    can_list, can_open, can_view_field, list_query, loaded, navigation_item, page_filter_bar,
-    page_filters,
+    Impersonate, Load, Panel, PanelChange, PanelHandle, PanelId, Radius, RouterBuilderPanelExt,
+    WiredTable, can_list, can_open, can_view_field, list_query, loaded, navigation_item,
+    page_filter_bar, page_filters,
     pages::{header_action_button, header_action_buttons},
     record_table, stats, url, widgets, wired_table,
 };

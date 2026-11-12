@@ -329,7 +329,7 @@ pub(super) fn callback(cx: &Cx, _body: Body) -> RouteFuture<'_> {
                 return Err(error);
             }
         };
-        let Some(user) = user.filter(|user| user.can_access_panel(&panel.prefix)) else {
+        let Some(user) = user.filter(|user| user.can_access_panel(&panel.id)) else {
             return refused(cx, provider, Failure::Refused, &next);
         };
         admit(cx, panel, &*user, next).await

@@ -246,13 +246,12 @@ async fn records_the_policy_refuses_hide_no_record_it_allows() {
 async fn on_a_second_panel_without_sign_in_the_box_links_its_results_page() {
     let db = db().await;
     book(&db, "Dune", "1", "").await;
-    let router = Router::builder()
-        .discover()
-        .with(db.clone())
-        .panel(books_panel())
-        .and_then(|router| router.panel(books_panel_at("staff")))
-        .expect("the panels mount")
-        .build();
+    let mut builder = Router::builder().discover().with(db.clone());
+    builder.panel(books_panel()).expect("the panel mounts");
+    builder
+        .panel(books_panel_at("staff"))
+        .expect("the second panel mounts");
+    let router = builder.build();
 
     let response = TestClient::new(&router)
         .call_procedure(RESULTS_SHARD, r#"{"args":["/staff","dune"],"signals":{}}"#)

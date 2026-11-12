@@ -14,6 +14,7 @@ mod forms;
 pub(crate) mod gate;
 mod headers;
 mod host;
+mod id;
 mod impersonation;
 mod input;
 mod list;
@@ -42,6 +43,7 @@ pub use self::{
     build::{PanelHandle, RouterBuilderPanelExt},
     commit_hook::{ChangedField, ChangedRecord, CommitHook, PanelChange},
     gate::{can_list, can_open, can_view_field},
+    id::PanelId,
     impersonation::Impersonate,
     list::{WiredTable, list_query, wired_table},
     load::{Load, loaded},
@@ -85,11 +87,9 @@ pub fn navigation_item<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::
 /// # }
 /// # fn main() -> topcoat::Result<()> {
 /// # let db: toasty::Db = todo!();
-/// let router = Router::builder()
-///     .discover()
-///     .with(db)
-///     .panel(Panel::new("admin").resource::<UserResource>())?
-///     .build();
+/// let mut builder = Router::builder().discover().with(db);
+/// builder.panel(Panel::new("admin").resource::<UserResource>())?;
+/// let router = builder.build();
 /// # let _ = router;
 /// # Ok(())
 /// # }
@@ -210,6 +210,13 @@ impl Panel {
     /// Returns the mount prefix, e.g. `"/admin"`.
     pub fn prefix(&self) -> &str {
         &self.prefix
+    }
+
+    /// The id of the panel this declares, which
+    /// [`PanelUser::can_access_panel`](crate::PanelUser::can_access_panel) receives once it is
+    /// mounted.
+    pub fn id(&self) -> PanelId {
+        PanelId::new(&self.prefix)
     }
 
     /// Registers the stylesheet and font the default shell links, resolved through the router's

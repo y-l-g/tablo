@@ -60,7 +60,7 @@ use self::handle::request_mounts;
 /// # impl PanelUser for Member {
 /// #     fn user_id(&self) -> String { String::new() }
 /// #     fn display_name(&self) -> &str { "" }
-/// #     fn can_access_panel(&self, _panel: &str) -> bool { true }
+/// #     fn can_access_panel(&self, _panel: &tablo_core::PanelId) -> bool { true }
 /// # }
 /// # struct Members;
 /// # impl Authenticator for Members {
@@ -70,18 +70,21 @@ use self::handle::request_mounts;
 /// # }
 /// # fn main() -> topcoat::Result<()> {
 /// # let db: toasty::Db = todo!();
-/// let router = Router::builder()
-///     .discover()
-///     .with(db)
-///     .panel(Panel::new("admin").resource::<UserResource>())?
-///     .panel(Panel::new("portal").auth(Auth::custom(Members)).resource::<OrderResource>())?
-///     .build();
+/// let mut builder = Router::builder().discover().with(db);
+/// let admin = builder.panel(Panel::new("admin").resource::<UserResource>())?;
+/// let portal =
+///     builder.panel(Panel::new("portal").auth(Auth::custom(Members)).resource::<OrderResource>())?;
+/// let router = builder.build();
+/// assert!(admin.id() == "admin" && portal.id() == "/portal");
 /// # let _ = router;
 /// # Ok(())
 /// # }
 /// ```
 pub trait RouterBuilderPanelExt: Sized {
-    /// Mounts `panel` at its prefix with its routes, shell layout, and gating layers.
+    /// Mounts `panel` at its prefix with its routes, shell layout, and gating layers, and returns
+    /// its [`PanelHandle`]: what a job, a test or a public page keeps to reach the mounted panel,
+    /// and whose [`id`](PanelHandle::id) is the one
+    /// [`PanelUser::can_access_panel`](crate::PanelUser::can_access_panel) receives.
     ///
     /// The panel reads the router's `Db` and asset bundle, so `.with(db)` and
     /// `.assets(..)` come first. The first panel mounted also installs what every panel shares:
@@ -94,40 +97,21 @@ pub trait RouterBuilderPanelExt: Sized {
     /// # Errors
     ///
     /// A [`MountError`](crate::MountError) listing every declaration mistake, each a
-    /// [`DeclarationErrorKind`](crate::DeclarationErrorKind).
-    fn panel(self, panel: Panel) -> Result<Self>;
-
-    /// The panel mounted at `prefix`, for code that runs outside a request; `None` when no panel
-    /// is mounted there. `prefix` is spelled as for [`Panel::new`]: `"admin"` and `"/admin/"`
-    /// name the same panel.
-    fn panel_handle(&self, prefix: &str) -> Option<PanelHandle>;
+    /// [`DeclarationErrorKind`](crate::DeclarationErrorKind). A refused panel leaves the builder
+    /// empty: build no router from it.
+    fn panel(&mut self, panel: Panel) -> Result<PanelHandle>;
 }
 
 impl RouterBuilderPanelExt for RouterBuilder {
-    fn panel(self, panel: Panel) -> Result<Self> {
-        panel.mount(self)
-    }
-
-    fn panel_handle(&self, prefix: &str) -> Option<PanelHandle> {
-        let panel = self
-            .try_context::<Panels>()?
-            .by_prefix(&crate::naming::normalize_prefix(prefix))?;
-        Some(PanelHandle {
-            db: self.try_context::<Db>()?.clone(),
-            mounts: Arc::clone(&panel.mounts),
-            catalog: Arc::clone(&panel.realm.catalog),
-            panel: Some(Arc::clone(panel)),
-            prefix: panel.realm.prefix.clone(),
-            bus: self
-                .try_context::<NotificationBus>()
-                .cloned()
-                .unwrap_or_else(NotificationBus::new),
-        })
+    fn panel(&mut self, panel: Panel) -> Result<PanelHandle> {
+        let (builder, handle) = panel.mount(std::mem::take(self))?;
+        *self = builder;
+        Ok(handle)
     }
 }
 
 impl Panel {
-    fn mount(self, mut builder: RouterBuilder) -> Result<RouterBuilder> {
+    fn mount(self, mut builder: RouterBuilder) -> Result<(RouterBuilder, PanelHandle)> {
         let db = builder.try_context::<Db>().cloned();
         let services = crate::auth::mount::Services::of(&builder);
         let mut registry = Registry::new(self.prefix.clone(), db.as_ref().map(AppSchema::of_db));
@@ -253,6 +237,7 @@ impl Panel {
         let state = Arc::new(PanelState {
             realm: Arc::new(Realm {
                 prefix: prefix.clone(),
+                id: crate::PanelId::new(&prefix),
                 auth,
                 login_hint,
                 time_zone,
@@ -336,10 +321,22 @@ impl Panel {
                 panel_root_redirect,
             ));
         }
+        let handle = PanelHandle {
+            db: db.expect("a panel without a `Db` fails the mount"),
+            mounts: Arc::clone(&state.mounts),
+            catalog: Arc::clone(&state.realm.catalog),
+            id: state.realm.id.clone(),
+            prefix: state.realm.prefix.clone(),
+            panel: Some(Arc::clone(&state)),
+            bus: builder
+                .try_context::<NotificationBus>()
+                .cloned()
+                .unwrap_or_else(NotificationBus::new),
+        };
         // The builder lends no mutable access: copy the list of handles and register it again.
         let mut panels = builder.context::<Panels>().clone();
         panels.0.push(state);
-        Ok(builder.with(panels))
+        Ok((builder.with(panels), handle))
     }
 }
 

@@ -91,13 +91,12 @@ fn panel() -> Panel {
 }
 
 fn router(db: &Db) -> Router {
-    host_routes(
+    let mut builder = host_routes(
         Router::builder().discover().with(db.clone()),
         Duration::from_hours(24),
-    )
-    .panel(panel())
-    .expect("the panel mounts")
-    .build()
+    );
+    builder.panel(panel()).expect("the panel mounts");
+    builder.build()
 }
 
 fn location(response: &Response<Body>) -> &str {
@@ -237,14 +236,15 @@ async fn a_head_starts_no_session() {
 async fn another_panel_starts_its_own_session() {
     let db = db().await;
     let ada = employee(&db, "Ada", true).await;
-    let router = host_routes(
+    let mut builder = host_routes(
         Router::builder().discover().with(db.clone()),
         Duration::from_hours(24),
-    )
-    .panel(panel())
-    .and_then(|router| router.panel(Panel::new("staff").auth(Auth::external(AppSession))))
-    .expect("the panels mount")
-    .build();
+    );
+    builder.panel(panel()).expect("the panel mounts");
+    builder
+        .panel(Panel::new("staff").auth(Auth::external(AppSession)))
+        .expect("the second panel mounts");
+    let router = builder.build();
     let browser = enter(&host_login(&TestClient::new(&router), &ada).await).await;
 
     let entered = browser.get("/staff/login").await;
@@ -450,7 +450,7 @@ impl PanelUser for Member {
         self.employee.display_name()
     }
 
-    fn can_access_panel(&self, panel: &str) -> bool {
+    fn can_access_panel(&self, panel: &tablo::PanelId) -> bool {
         self.employee.can_access_panel(panel)
     }
 
@@ -504,17 +504,18 @@ async fn the_selected_tenant_survives_entering_again() {
         .await
         .expect("the read succeeds")
         .expect("the note exists");
-    let router = host_routes(
+    let mut builder = host_routes(
         Router::builder().discover().with(db.clone()),
         Duration::from_hours(24),
-    )
-    .panel(
-        Panel::new("admin")
-            .auth(Auth::external(MemberSession))
-            .resource::<NoteResource>(),
-    )
-    .expect("the panel mounts")
-    .build();
+    );
+    builder
+        .panel(
+            Panel::new("admin")
+                .auth(Auth::external(MemberSession))
+                .resource::<NoteResource>(),
+        )
+        .expect("the panel mounts");
+    let router = builder.build();
     let browser = enter(&host_login(&TestClient::new(&router), &ada).await).await;
 
     let chosen = form_body(&[("tenant", &GLOBEX.to_string())]);

@@ -60,7 +60,7 @@ use crate::{
 ///     fn email(&self) -> Option<&str> {
 ///         Some(&self.user.email)
 ///     }
-///     fn can_access_panel(&self, _panel: &str) -> bool {
+///     fn can_access_panel(&self, _panel: &tablo_core::PanelId) -> bool {
 ///         true
 ///     }
 ///     fn tenants(&self) -> &[Membership] {

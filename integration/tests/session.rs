@@ -43,10 +43,11 @@ async fn db() -> Db {
 }
 
 fn router(db: &Db, host_lifetime: Duration) -> Router {
-    host_routes(Router::builder().discover().with(db.clone()), host_lifetime)
+    let mut builder = host_routes(Router::builder().discover().with(db.clone()), host_lifetime);
+    builder
         .panel(Panel::new("admin").auth(Auth::password()).home::<Home>())
-        .expect("the panel mounts")
-        .build()
+        .expect("the panel mounts");
+    builder.build()
 }
 
 async fn who(client: &TestClient<'_>) -> String {

@@ -57,11 +57,8 @@ pub fn mount(db: toasty::Db, panel: Panel) -> topcoat::Result<Router> {
 ///
 /// The [`MountError`] the panel refuses to mount with.
 pub fn mount_with_handle(db: toasty::Db, panel: Panel) -> topcoat::Result<(Router, PanelHandle)> {
-    let prefix = panel.prefix().to_string();
-    let builder = Router::builder().discover().with(db).panel(panel)?;
-    let handle = builder
-        .panel_handle(&prefix)
-        .expect("the builder mounts the panel at its prefix");
+    let mut builder = Router::builder().discover().with(db);
+    let handle = builder.panel(panel)?;
     Ok((builder.build(), handle))
 }
 
@@ -115,15 +112,15 @@ impl<'a> TestClient<'a> {
         }
     }
 
-    /// Resolves [`resource`](Self::resource)'s URLs in `panel`, the handle the router's builder
-    /// gives through [`panel_handle`](RouterBuilderPanelExt::panel_handle).
+    /// Resolves [`resource`](Self::resource)'s URLs in `panel`, the handle mounting it with
+    /// [`panel`](RouterBuilderPanelExt::panel) returned.
     ///
     /// ```rust,no_run
     /// # use tablo_core::{Panel, RouterBuilderPanelExt};
     /// # use topcoat::router::{Router, RouterBuilderDiscoverExt};
     /// # fn build(db: toasty::Db, panel: Panel) -> topcoat::Result<()> {
-    /// let builder = Router::builder().discover().with(db).panel(panel)?;
-    /// let admin = builder.panel_handle("admin").expect("mounted above");
+    /// let mut builder = Router::builder().discover().with(db);
+    /// let admin = builder.panel(panel)?;
     /// let router = builder.build();
     /// let client = tablo_test::TestClient::new(&router).panel(&admin);
     /// # let _ = client;

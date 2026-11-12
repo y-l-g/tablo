@@ -66,7 +66,7 @@ prefix with `.prefixed("posts")`.
 
 A request outside every panel's prefix, such as a public page, belongs to no panel, however many
 the router mounts: `scoped_query` answers it with an error naming the resource. Keep the handle
-`panel_handle("admin")` returns (below) on the router, and enter the panel for the request:
+mounting the panel returns (below) on the router, and enter the panel for the request:
 
 ```rust
 let cx = admin.enter(cx);
@@ -80,9 +80,9 @@ The entered context answers as the panel mounted its resources, and runs no auth
 
 `scoped_query`, `can`, `write_create` and the other entry points that answer from a mounted def
 read the resources a panel mounts, so code that runs outside a request, such as a background job,
-reads them from the panel the router mounts. After `.panel(..)`, `panel_handle("admin")` returns
-that panel's `PanelHandle`, which holds the router's database and the panel's mounted resources and
-is cheap to clone into a job:
+reads them from the panel the router mounts. `builder.panel(..)` returns that panel's
+`PanelHandle`, which holds the router's database and the panel's mounted resources and is cheap to
+clone into a job:
 
 ```rust
 {{#include ../../../examples/guide/src/data_access.rs:data-access-panel}}

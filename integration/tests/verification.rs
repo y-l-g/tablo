@@ -67,12 +67,12 @@ fn verifying(verification: EmailVerification<AdminUser>) -> Auth {
 }
 
 fn mount(db: Db, auth: Auth, mail: &MemoryTransport) -> topcoat::Result<Router> {
-    Ok(Router::builder()
+    let mut builder = Router::builder()
         .discover()
         .with(db)
-        .with(Mailer::new(mail.clone()))
-        .panel(Panel::new("admin").auth(auth).resource::<TicketResource>())?
-        .build())
+        .with(Mailer::new(mail.clone()));
+    builder.panel(Panel::new("admin").auth(auth).resource::<TicketResource>())?;
+    Ok(builder.build())
 }
 
 fn router(db: Db, mail: &MemoryTransport) -> Router {
@@ -199,23 +199,23 @@ async fn a_link_verifies_only_the_address_it_was_mailed_to_while_it_lasts() {
     let db = db().await;
     let ada = unverified(&db, "ada@example.com").await;
     let mail = MemoryTransport::new();
-    let router = Router::builder()
+    let mut builder = Router::builder()
         .discover()
         .with(db.clone())
-        .with(Mailer::new(mail.clone()))
-        .panel(
-            Panel::new("admin")
-                .auth(verifying(EmailVerification::new(PasswordAuth::new())))
-                .resource::<TicketResource>(),
-        )
-        .unwrap()
-        .panel(
-            Panel::new("staff")
-                .auth(verifying(EmailVerification::new(PasswordAuth::new())))
-                .resource::<TicketResource>(),
-        )
-        .unwrap()
-        .build();
+        .with(Mailer::new(mail.clone()));
+    builder.panel(
+        Panel::new("admin")
+            .auth(verifying(EmailVerification::new(PasswordAuth::new())))
+            .resource::<TicketResource>(),
+    );
+    builder = builder.unwrap();
+    builder.panel(
+        Panel::new("staff")
+            .auth(verifying(EmailVerification::new(PasswordAuth::new())))
+            .resource::<TicketResource>(),
+    );
+    builder = builder.unwrap();
+    let router = builder.build();
     let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
     client.submit("/admin/verify-email", "").await;
     let link = link(&mails(&mail, 1).await[0]);

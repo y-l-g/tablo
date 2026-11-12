@@ -55,14 +55,15 @@ fn keyed_router(db: Db, mail: &MemoryTransport, two_factor: TwoFactor, key: Key)
             BASE_URL,
         ))
         .two_factor(two_factor);
-    Router::builder()
+    let mut builder = Router::builder()
         .discover()
         .with(db)
         .with(key)
-        .with(Mailer::new(mail.clone()))
+        .with(Mailer::new(mail.clone()));
+    builder
         .panel(Panel::new("admin").auth(auth))
-        .expect("panel builds")
-        .build()
+        .expect("panel builds");
+    builder.build()
 }
 
 /// The code in the last mail `mail` sent, to Ada.
@@ -275,15 +276,16 @@ async fn a_panel_without_mailed_codes_sets_none_up() {
 #[tokio::test]
 async fn mounting_refuses_mailed_codes_without_a_sender() {
     let (db, _) = db().await;
-    let mounted = Router::builder()
+    let mut builder = Router::builder()
         .discover()
         .with(db)
         .with(Key::generate())
-        .with(Mailer::new(MemoryTransport::new()))
+        .with(Mailer::new(MemoryTransport::new()));
+    let mounted = builder
         .panel(
             Panel::new("admin").auth(Auth::password().two_factor(TwoFactor::new().email_codes())),
         )
-        .map(|builder| builder.build());
+        .map(|_| builder.build());
     let kinds: Vec<_> = refusal(mounted)
         .into_iter()
         .map(|error| error.kind)

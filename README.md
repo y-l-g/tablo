@@ -76,15 +76,13 @@ router, beside its other routes:
 
 ```rust
 fn router(db: toasty::Db) -> topcoat::Result<Router> {
-    Ok(Router::builder()
-        .discover()
-        .with(db)
-        .panel(
-            Panel::new("admin")
-                .resource::<UserResource>()
-                .auth(Auth::disabled()), // drop this line to require a login
-        )?
-        .build())
+    let mut builder = Router::builder().discover().with(db);
+    builder.panel(
+        Panel::new("admin")
+            .resource::<UserResource>()
+            .auth(Auth::disabled()), // drop this line to require a login
+    )?;
+    Ok(builder.build())
 }
 ```
 

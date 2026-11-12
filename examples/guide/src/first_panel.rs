@@ -43,11 +43,9 @@ pub async fn main() -> Result<()> {
     // One account to sign in with.
     create_admin(&mut db, "admin@example.com", "secret", "Admin").await?;
 
-    let router = Router::builder()
-        .discover()
-        .with(db)
-        .panel(Panel::new("admin").resource::<BookResource>())?
-        .build();
+    let mut builder = Router::builder().discover().with(db);
+    builder.panel(Panel::new("admin").resource::<BookResource>())?;
+    let router = builder.build();
 
     topcoat::start(router).await?;
     Ok(())

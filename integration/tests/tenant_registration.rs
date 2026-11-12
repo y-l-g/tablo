@@ -263,15 +263,14 @@ impl Resource for SeatResource {
 /// declares no tenancy, though its model holds no `TenantId`.
 #[tokio::test]
 async fn a_registration_panel_refuses_a_resource_without_tenancy() {
-    let mounted = Router::builder()
-        .discover()
-        .with(db().await)
+    let mut builder = Router::builder().discover().with(db().await);
+    let mounted = builder
         .panel(
             Panel::new("admin")
                 .auth(Auth::custom(MemberAuth).tenant_registration(TenantRegistration::new(Teams)))
                 .resource::<SeatResource>(),
         )
-        .map(|builder| builder.build());
+        .map(|_| builder.build());
     assert_eq!(
         kinds(mounted),
         vec![DeclarationErrorKind::Tenancy {

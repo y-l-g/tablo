@@ -301,22 +301,22 @@ async fn mounting_refuses_a_profile_the_panel_cannot_serve() {
 
 /// One back office and one reader portal, both signing in `AdminUser`s.
 fn two_panels(db: Db) -> Router {
-    Router::builder()
-        .discover()
-        .with(db)
+    let mut builder = Router::builder().discover().with(db);
+    builder
         .panel(
             tablo::Panel::new("admin")
                 .auth(Auth::password().profile(PasswordAuth::new()))
                 .resource::<NoteResource>(),
         )
-        .expect("the admin panel mounts")
+        .expect("the admin panel mounts");
+    builder
         .panel(
             tablo::Panel::new("portal")
                 .auth(Auth::password())
                 .resource::<NoteResource>(),
         )
-        .expect("the portal mounts")
-        .build()
+        .expect("the portal mounts");
+    builder.build()
 }
 
 /// A password changed on one panel ends the sessions it opened on another panel that signs the

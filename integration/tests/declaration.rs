@@ -41,7 +41,9 @@ fn panel_error(kind: DeclarationErrorKind) -> Refused {
 
 /// `panel` mounted on a router holding no `Db`.
 fn mount_without_db(panel: Panel) -> Result<Router> {
-    Ok(Router::builder().discover().panel(panel)?.build())
+    let mut builder = Router::builder().discover();
+    builder.panel(panel)?;
+    Ok(builder.build())
 }
 
 /// A database that knows `models` and holds none of their tables: a mount reads only the schema.

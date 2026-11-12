@@ -27,7 +27,7 @@ use crate::tenancy::{Membership, TenantId};
 ///     fn display_name(&self) -> &str {
 ///         &self.name
 ///     }
-///     fn can_access_panel(&self, _panel: &str) -> bool {
+///     fn can_access_panel(&self, _panel: &tablo_core::PanelId) -> bool {
 ///         self.active
 ///     }
 ///     fn tenants(&self) -> &[Membership] {
@@ -55,28 +55,39 @@ pub trait PanelUser: Any + Send + Sync {
         None
     }
 
-    /// Whether the user may enter the panel at `panel`, its prefix with one leading slash and
-    /// none trailing: `/admin` for `Panel::new("admin")`. A user who may not answers 403,
-    /// indistinguishable from bad credentials at login. Every user type answers it: a sign-up on
-    /// one panel writes an account every panel over the same user type looks up.
+    /// Whether the user may enter `panel`. A user who may not answers 403, indistinguishable from
+    /// bad credentials at login. Every user type answers it: a sign-up on one panel writes an
+    /// account every panel over the same user type looks up.
     ///
-    /// One user type can serve several panels, each with its own rule. Name each panel and refuse
-    /// the rest, so that a panel added or renamed later admits nobody until it has a rule:
+    /// `panel` is a [`PanelId`](crate::PanelId): it equals the prefix the panel was declared with
+    /// in any spelling, so `"admin"` and `"/admin"` both name `Panel::new("admin")`, and it offers
+    /// no string to match a part of. One user type can serve several panels, each with its own
+    /// rule. Name each panel and refuse the rest, so that a panel added or renamed later admits
+    /// nobody until it has a rule:
     ///
-    /// ```rust,ignore
-    /// fn can_access_panel(&self, panel: &str) -> bool {
-    ///     match panel {
-    ///         "/admin" => self.active && self.is_staff,
-    ///         "/portal" => self.active,
-    ///         _ => false,
+    /// ```rust
+    /// # struct Staff { active: bool, is_staff: bool }
+    /// # impl Staff {
+    /// fn can_access_panel(&self, panel: &tablo_core::PanelId) -> bool {
+    ///     if panel == "admin" {
+    ///         self.active && self.is_staff
+    ///     } else if panel == "portal" {
+    ///         self.active
+    ///     } else {
+    ///         false
     ///     }
     /// }
+    /// # }
+    /// # let staff = Staff { active: true, is_staff: false };
+    /// # assert!(!staff.can_access_panel(&tablo_core::PanelId::new("/admin")));
+    /// # assert!(staff.can_access_panel(&tablo_core::PanelId::new("/portal/")));
+    /// # assert!(!staff.can_access_panel(&tablo_core::PanelId::new("/portal-old")));
     /// ```
     ///
-    /// Every check of a panel asks it with that panel's prefix: the gate on each request, the
+    /// Every check of a panel asks it with that panel's id: the gate on each request, the
     /// login, the sign-up, a mailed link and a two-factor challenge. The link that cancels an
     /// email change does not ask: it only restores the old address and ends sessions.
-    fn can_access_panel(&self, panel: &str) -> bool;
+    fn can_access_panel(&self, panel: &crate::PanelId) -> bool;
 
     /// The tenants the user may act for, in the order the tenant switcher
     /// lists them. A session acts for the [`default_tenant`](Self::default_tenant)

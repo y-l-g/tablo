@@ -27,7 +27,7 @@ impl PanelUser for Employee {
         &self.name
     }
 
-    fn can_access_panel(&self, panel: &str) -> bool {
+    fn can_access_panel(&self, panel: &tablo::PanelId) -> bool {
         panel == "/admin" && self.staff
     }
 }
@@ -62,14 +62,13 @@ impl ExternalAuth for AppSession {
 
 // ANCHOR: existing-app-router-body
 pub fn app_router(db: Db) -> Result<Router> {
-    let router = Router::builder()
+    let mut builder = Router::builder()
         .discover() // the app's own pages and routes, and Tablo's
         .with(db)
         .layer(CookieLayer::new())
-        .with(SessionLifetime(Duration::from_hours(24 * 14))) // the app's sessions, untouched by the panel
-        .panel(Panel::new("admin").auth(Auth::external(AppSession)))?
-        .build();
-    Ok(router)
+        .with(SessionLifetime(Duration::from_hours(24 * 14))); // the app's sessions, untouched by the panel
+    builder.panel(Panel::new("admin").auth(Auth::external(AppSession)))?;
+    Ok(builder.build())
 }
 // ANCHOR_END: existing-app-router-body
 

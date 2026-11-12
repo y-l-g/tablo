@@ -114,7 +114,7 @@ impl PanelUser for Reader {
         &self.name
     }
 
-    fn can_access_panel(&self, _panel: &str) -> bool {
+    fn can_access_panel(&self, _panel: &tablo::PanelId) -> bool {
         true
     }
 
@@ -350,12 +350,11 @@ async fn a_handles_context_reads_the_panels_catalogs() {
             .translations(locale!("en"), "greeting = Hello")
             .resource::<BookResource>()
     };
-    let builder = Router::builder()
+    let mounted = Router::builder()
         .discover()
         .with(db.clone())
         .panel(greeting())
         .expect("panel builds");
-    let mounted = builder.panel_handle("admin").expect("mounted above");
     let unmounted = greeting().handle(&db).expect("panel builds");
     for handle in [mounted, unmounted] {
         let cx = handle.context();
@@ -547,13 +546,12 @@ async fn a_reset_mail_reads_its_recipients_locale() {
             "https://admin.example.com/",
         ))
         .password_reset(PasswordReset::new(ReaderAuth));
-    let router = Router::builder()
+    let mut builder = Router::builder()
         .discover()
         .with(db.clone())
-        .with(Mailer::new(mail.clone()))
-        .panel(panel(auth))
-        .expect("panel builds")
-        .build();
+        .with(Mailer::new(mail.clone()));
+    builder.panel(panel(auth)).expect("panel builds");
+    let router = builder.build();
     reader(&db, "Ada", Some("en")).await;
     reader(&db, "Grace", None).await;
     // One request at a time: two reset mails racing their serializable token writes can abort
@@ -666,14 +664,11 @@ async fn numbers_and_amounts_read_in_the_readers_locale() {
 #[tokio::test]
 async fn an_apps_numbers_and_percentages_read_in_the_readers_locale() {
     let db = db().await;
-    let builder = Router::builder()
+    let cx = Router::builder()
         .discover()
         .with(db)
         .panel(panel(Auth::disabled()))
-        .expect("panel builds");
-    let cx = builder
-        .panel_handle("admin")
-        .expect("mounted above")
+        .expect("panel builds")
         .context();
     assert_eq!(tablo::Number::format_in(&cx, 1234.5, 2), "1\u{202f}234,50");
     assert_eq!(tablo::Number::percent_in(&cx, 12.5, 1), "12,5\u{202f}%");

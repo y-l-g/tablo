@@ -63,7 +63,7 @@ use crate::{BoxFuture, DeclarationErrorKind, auth::AuthConfig, error::TabloError
 ///         &self.name
 ///     }
 ///
-///     fn can_access_panel(&self, _panel: &str) -> bool {
+///     fn can_access_panel(&self, _panel: &tablo_core::PanelId) -> bool {
 ///         self.admin
 ///     }
 /// }
@@ -207,7 +207,7 @@ pub(super) fn external_login(cx: &Cx, _body: Body) -> RouteFuture<'_> {
             return Err(redirect(external.login_url(cx, &back)).into());
         };
         // The app signed this user in, so unlike a login form the page can say why it stops.
-        if !user.can_access_panel(&panel.prefix) {
+        if !user.can_access_panel(&panel.id) {
             return no_access(cx, external.logout_url(cx)).await;
         }
         let holds_theirs = session_row(cx, panel)

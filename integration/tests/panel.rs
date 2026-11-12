@@ -98,9 +98,8 @@ async fn books_db() -> Db {
 }
 
 fn two_panels(db: Db, auth: fn() -> Auth) -> Router {
-    Router::builder()
-        .discover()
-        .with(db)
+    let mut builder = Router::builder().discover().with(db);
+    builder
         .panel(
             Panel::new("admin")
                 .brand(Brand::new("Back office"))
@@ -109,7 +108,8 @@ fn two_panels(db: Db, auth: fn() -> Auth) -> Router {
                 .resource::<NoteResource>()
                 .page::<UrlsPage>(),
         )
-        .expect("the admin panel mounts")
+        .expect("the admin panel mounts");
+    builder
         .panel(
             Panel::new("portal")
                 .brand(Brand::new("Reader portal"))
@@ -117,8 +117,8 @@ fn two_panels(db: Db, auth: fn() -> Auth) -> Router {
                 .resource::<BookResource>()
                 .page::<UrlsPage>(),
         )
-        .expect("the portal mounts")
-        .build()
+        .expect("the portal mounts");
+    builder.build()
 }
 
 /// A page rerun of `path`: the request the runtime sends when a table's query changes.
@@ -342,13 +342,14 @@ fn status(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 
 #[tokio::test]
 async fn the_apps_own_routes_stay_outside_the_panel() {
-    let router = Router::builder()
+    let mut builder = Router::builder()
         .discover()
         .with(books_db().await)
-        .route(RouteFn::new(http::Method::GET, "/status", status))
+        .route(RouteFn::new(http::Method::GET, "/status", status));
+    builder
         .panel(Panel::new("admin").resource::<BookResource>())
-        .expect("the panel mounts")
-        .build();
+        .expect("the panel mounts");
+    let router = builder.build();
 
     let page = get(&router, "/admin/books").await;
     assert!(page.status().is_redirection(), "the panel is gated");
@@ -370,21 +371,20 @@ async fn the_apps_own_routes_stay_outside_the_panel() {
 async fn mounting_refuses_a_directory_another_panel_serves() {
     let db = books_db().await;
     let dir = std::env::temp_dir();
+    let mut builder = Router::builder().discover().with(db.clone());
+    builder
+        .panel(
+            Panel::new("admin")
+                .auth(Auth::disabled())
+                .serve_dir("/uploads/{*file}", &dir),
+        )
+        .expect("the first panel mounts");
     let errors = refusal(
-        Router::builder()
-            .discover()
-            .with(db.clone())
-            .panel(
-                Panel::new("admin")
-                    .auth(Auth::disabled())
-                    .serve_dir("/uploads/{*file}", &dir),
-            )
-            .expect("the first panel mounts")
-            .panel(
-                Panel::new("portal")
-                    .auth(Auth::disabled())
-                    .serve_dir("/uploads/{*path}", &dir),
-            ),
+        builder.panel(
+            Panel::new("portal")
+                .auth(Auth::disabled())
+                .serve_dir("/uploads/{*path}", &dir),
+        ),
     );
     assert_eq!(
         errors[0].kind,
@@ -414,11 +414,11 @@ async fn mounting_refuses_a_directory_another_panel_serves() {
 async fn mounting_refuses_a_prefix_another_panel_covers() {
     let db = books_db().await;
     let mount_both = |second: &'static str| {
-        Router::builder()
-            .discover()
-            .with(db.clone())
+        let mut builder = Router::builder().discover().with(db.clone());
+        builder
             .panel(Panel::new("admin").auth(Auth::disabled()))
-            .expect("the first panel mounts")
+            .expect("the first panel mounts");
+        builder
             .panel(Panel::new(second).auth(Auth::disabled()))
             .map(|_| ())
     };
@@ -664,7 +664,7 @@ fn book_count(cx: &Cx, _body: Body) -> RouteFuture<'_> {
 
 #[tokio::test]
 async fn a_route_outside_every_panel_answers_as_the_panel_it_enters() {
-    let builder = Router::builder()
+    let mut builder = Router::builder()
         .discover()
         .with(books_db().await)
         .route(RouteFn::new(http::Method::GET, "/books", book_count))
@@ -672,14 +672,14 @@ async fn a_route_outside_every_panel_answers_as_the_panel_it_enters() {
             http::Method::GET,
             "/entered/books",
             book_count,
-        ))
+        ));
+    let admin = builder
         .panel(
             Panel::new("admin")
                 .auth(Auth::disabled())
                 .resource::<BookResource>(),
         )
         .expect("the panel mounts");
-    let admin = builder.panel_handle("admin").expect("mounted above");
     let router = builder.with(admin).build();
 
     let ambient = get(&router, "/books").await;
