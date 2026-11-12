@@ -49,7 +49,7 @@ fn record() -> TextColumn<AuditEntry, Option<String>> {
     TextColumn::new(crate::lens!(AuditEntry.record))
         .label(Text::message("tablo-audit-record"))
         .searchable()
-        .url(|entry| entry.url.clone().filter(|url| is_local(url)))
+        .url(|_, entry| entry.url.clone().filter(|url| is_local(url)))
 }
 
 /// Whether `url` is a path on this origin: an app's own event may store any text.

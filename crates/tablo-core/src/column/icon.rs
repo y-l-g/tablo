@@ -48,19 +48,25 @@ where
             base: ColumnBase::new(lens.path(), ColumnWidth::Auto),
             lens,
             sortable: false,
-            icon: Arc::new(T::icon),
-            color: Arc::new(T::color),
+            icon: Arc::new(|_, value: &T| T::icon(value)),
+            color: Arc::new(|_, value: &T| T::color(value)),
         }
     }
 
-    /// Show `icon(value)` for the value.
-    pub fn icon(mut self, icon: impl Fn(&T) -> Option<IconData> + Send + Sync + 'static) -> Self {
+    /// Show `icon(cx, value)` for the value.
+    pub fn icon(
+        mut self,
+        icon: impl Fn(&Cx, &T) -> Option<IconData> + Send + Sync + 'static,
+    ) -> Self {
         self.icon = Arc::new(icon);
         self
     }
 
-    /// Color the icon by `color(value)`.
-    pub fn color(mut self, color: impl Fn(&T) -> Option<Color> + Send + Sync + 'static) -> Self {
+    /// Color the icon by `color(cx, value)`.
+    pub fn color(
+        mut self,
+        color: impl Fn(&Cx, &T) -> Option<Color> + Send + Sync + 'static,
+    ) -> Self {
         self.color = Arc::new(color);
         self
     }
@@ -82,8 +88,8 @@ where
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
         let value = self.lens.read(row);
         let label = value.to_label().localize(cx);
-        match (self.icon)(value) {
-            Some(data) => icon_cell(cx, label, icon_view(cx, data, (self.color)(value))),
+        match (self.icon)(cx, value) {
+            Some(data) => icon_cell(cx, label, icon_view(cx, data, (self.color)(cx, value))),
             None => crate::schema::value_cell(cx, &label),
         }
     }

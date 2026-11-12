@@ -29,7 +29,8 @@ impl Resource for BrandResource {
             .slug("brands")
             .policy(ReadOnly)
             .table(Table::new((
-                TextColumn::new(lens!(Brand.name)).description(|brand: &Brand| brand.owner.clone()),
+                TextColumn::new(lens!(Brand.name))
+                    .description(|_, brand: &Brand| brand.owner.clone()),
                 ColorColumn::new(lens!(Brand.color)),
                 ImageColumn::new(lens!(Brand.logo)),
             )))

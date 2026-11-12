@@ -646,13 +646,13 @@ async fn a_declaration_showing_a_restricted_field_is_refused() {
                 .table(
                     Table::new((
                         TextColumn::new(lens!(Employee.name))
-                            .url(|e: &Employee| Some(format!("/pay/{}", e.salary))),
-                        ComputedColumn::new("Initial", |e: &Employee| e.name[..1].to_string()),
+                            .url(|_, e: &Employee| Some(format!("/pay/{}", e.salary))),
+                        ComputedColumn::new("Initial", |_, e: &Employee| e.name[..1].to_string()),
                         TextColumn::new(lens!(Employee.grade))
-                            .description(|e: &Employee| e.salary.clone()),
+                            .description(|_, e: &Employee| e.salary.clone()),
                     ))
-                    .row_color(|e: &Employee| (e.salary == "S-900").then_some(Color::Danger))
-                    .row_link(RowLink::new("Pay", |e: &Employee| {
+                    .row_color(|_, e: &Employee| (e.salary == "S-900").then_some(Color::Danger))
+                    .row_link(RowLink::new("Pay", |_, e: &Employee| {
                         Some(format!("/pay/{}", e.salary))
                     }))
                     .tab(
@@ -755,7 +755,7 @@ async fn a_row_color_reading_a_hidden_field_leaves_the_rows_plain() {
                 .field_access(lens!(Employee.salary), FieldAccess::new().view(hr))
                 .table(
                     Table::new(TextColumn::new(lens!(Employee.name)))
-                        .row_color(|e: &Employee| (e.salary == "S-900").then_some(Color::Danger))
+                        .row_color(|_, e: &Employee| (e.salary == "S-900").then_some(Color::Danger))
                         .row_color_reading(Reads::of(lens!(Employee.salary))),
                 )
         }
@@ -799,7 +799,7 @@ async fn a_row_link_reading_a_hidden_field_shows_to_no_one_who_may_not_view_it()
                 .field_access(lens!(Employee.salary), FieldAccess::new().view(hr))
                 .table(
                     Table::new(TextColumn::new(lens!(Employee.name))).row_link(
-                        RowLink::new("Pay", |e: &Employee| Some(format!("/pay/{}", e.salary)))
+                        RowLink::new("Pay", |_, e: &Employee| Some(format!("/pay/{}", e.salary)))
                             .reading(Reads::of(lens!(Employee.salary))),
                     ),
                 )
@@ -844,7 +844,7 @@ async fn an_edit_rule_leaves_the_title_free() {
                 .record_title(lens!(Employee.grade))
                 .table(Table::new(
                     TextColumn::new(lens!(Employee.name))
-                        .description(|e: &Employee| e.grade.clone())
+                        .description(|_, e: &Employee| e.grade.clone())
                         .reading(Reads::of(lens!(Employee.grade))),
                 ))
         }

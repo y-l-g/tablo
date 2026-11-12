@@ -271,22 +271,18 @@ impl<F> ChoiceField<F> {
         self
     }
 
-    /// Loads options as [`relationship`](Self::relationship) does, labelling each by `label`
-    /// instead of the source's label: to tell apart records that share a title. The option's
-    /// record loads without its relations.
+    /// Loads options as [`relationship`](Self::relationship) does, labelling each by
+    /// `label(cx, record)` instead of the source's label: to tell apart records that share a
+    /// title. The option's record loads without its relations.
     pub fn relationship_labelled<R>(
         mut self,
-        label: impl Fn(&R::Model) -> String + Send + Sync + 'static,
+        label: impl Fn(&topcoat::context::Cx, &R::Model) -> String + Send + Sync + 'static,
     ) -> Self
     where
         R: OptionSource + 'static,
     {
-        self.choice_mut().relationship = Some(
-            choice::Relationship::new::<R>(move |_cx: &topcoat::context::Cx, record: &R::Model| {
-                label(record)
-            })
-            .with_custom_label(),
-        );
+        self.choice_mut().relationship =
+            Some(choice::Relationship::new::<R>(label).with_custom_label());
         self
     }
 }

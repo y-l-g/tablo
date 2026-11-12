@@ -340,14 +340,16 @@ async fn an_unmasked_projection_of_a_restricted_record_is_refused() {
                 .policy(ReadOnly)
                 .tenancy(Tenancy::column(Card::fields().tenant_id()))
                 .table(Table::new((
-                    RelationColumn::unscoped(relation!(Card.member), |m: &Member| m.salary.clone())
-                        .label("Raw"),
-                    ComputedColumn::new("Computed", |c: &Card| c.member.get().salary.clone())
+                    RelationColumn::unscoped(relation!(Card.member), |_, m: &Member| {
+                        m.salary.clone()
+                    })
+                    .label("Raw"),
+                    ComputedColumn::new("Computed", |_, c: &Card| c.member.get().salary.clone())
                         .include_unscoped(Card::fields().member()),
                     RelationColumn::new::<BareSource>(
                         relation!(Card.member),
                         lens!(Member.salary),
-                        |m: &Member| m.salary.clone(),
+                        |_, m: &Member| m.salary.clone(),
                     )
                     .label("By source"),
                 )))

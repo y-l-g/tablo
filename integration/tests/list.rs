@@ -133,9 +133,14 @@ impl Resource for LinkedResource {
     type Form = NoForm<Item>;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().slug("items").policy(list_only).table(
-            items_table().row_link(RowLink::new("Open", |item: &Item| Some(item.name.clone()))),
-        )
+        ResourceDef::new()
+            .slug("items")
+            .policy(list_only)
+            .table(
+                items_table().row_link(RowLink::new("Open", |_, item: &Item| {
+                    Some(item.name.clone())
+                })),
+            )
     }
 }
 

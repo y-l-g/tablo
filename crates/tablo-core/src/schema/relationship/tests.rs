@@ -340,7 +340,7 @@ async fn relationship_options_share_one_load_per_request_and_tenant() {
     // Two selects, different labels, same source: the cache holds records, not options.
     let s1 = Field::choice(Ref::fields().name()).relationship::<CountingSource>();
     let s2 = Field::choice(Ref::fields().name())
-        .relationship_labelled::<CountingSource>(|r: &Ref| format!("{}!", r.name));
+        .relationship_labelled::<CountingSource>(|_, r: &Ref| format!("{}!", r.name));
 
     OPTION_LOADS.store(0, Ordering::SeqCst);
     assert!(check(&s1, &cx, &id).await.is_empty());

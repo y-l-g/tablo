@@ -97,7 +97,7 @@ impl<T: toasty::schema::Model> ToOneRelation<T> for Deferred<Option<T>> {
 /// RelationColumn::new::<AuthorResource>(
 ///     relation!(Post.author),
 ///     lens!(Author.name),
-///     |a: &Author| a.name.clone(),
+///     |_, a: &Author| a.name.clone(),
 /// );
 /// ```
 ///
@@ -136,7 +136,7 @@ where
     pub fn new<S>(
         relation: RelationLens<M, impl ToOneRelation<S::Model> + 'static>,
         reads: impl Into<Reads<S::Model>>,
-        project: impl Fn(&S::Model) -> String + Send + Sync + 'static,
+        project: impl Fn(&Cx, &S::Model) -> String + Send + Sync + 'static,
     ) -> Self
     where
         S: OptionSource,
@@ -151,7 +151,7 @@ where
                 read(row).loaded().map(|target| {
                     target
                         .filter(|target| shows::<S>(cx, target))
-                        .map(&project)
+                        .map(|target| project(cx, target))
                         .unwrap_or_default()
                 })
             }),
@@ -280,15 +280,15 @@ where
     /// loaded without the column's include renders `"(unloaded)"` and fails a debug assertion.
     pub fn unscoped<T>(
         relation: RelationLens<M, impl ToOneRelation<T> + 'static>,
-        project: impl Fn(&T) -> String + Send + Sync + 'static,
+        project: impl Fn(&Cx, &T) -> String + Send + Sync + 'static,
     ) -> Self {
         let read = relation.read;
         Self {
             relation: Declared::of(&relation, ColumnWidth::Grow),
-            project: Arc::new(move |_cx, row| {
+            project: Arc::new(move |cx, row| {
                 read(row)
                     .loaded()
-                    .map(|target| target.map(&project).unwrap_or_default())
+                    .map(|target| target.map(|target| project(cx, target)).unwrap_or_default())
             }),
         }
     }

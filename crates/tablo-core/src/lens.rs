@@ -105,7 +105,7 @@ macro_rules! lens {
 /// # struct Employee { #[key] #[auto] id: uuid::Uuid, salary: i64, bonus: i64 }
 /// use tablo_core::{ComputedColumn, Reads, lens};
 ///
-/// ComputedColumn::new("Pay", |e: &Employee| (e.salary + e.bonus).to_string())
+/// ComputedColumn::new("Pay", |_, e: &Employee| (e.salary + e.bonus).to_string())
 ///     .reading(Reads::of(lens!(Employee.salary)).and(lens!(Employee.bonus)));
 /// ```
 #[derive_where(Clone, Debug, Default)]

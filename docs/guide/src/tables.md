@@ -60,6 +60,9 @@ it searches and sorts.
 - **Labels.** A field or relation column is labelled from its field name (`created_at` →
   "Created at"), or `.label(..)`.
 - **Detail pages.** The same columns build a resource's [detail page](./detail-pages.md).
+- **Closures.** Every closure a column, `row_color` or a `RowLink` takes gets the request's `Cx`
+  first, then the row or the value, as a policy does: `|cx, order: &Order| ..` reads the reader's
+  locale or user, and `|_, order: &Order| ..` reads the row alone.
 - **Relations.** A relation column declares the include its `relation!` names, so the list, the
   export and the detail page load the related records with the page's rows. A relation no column
   includes is not loaded; a `ComputedColumn` whose closure reads one, say to combine two, declares

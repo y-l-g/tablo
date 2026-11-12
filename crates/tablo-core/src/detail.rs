@@ -38,7 +38,7 @@ use crate::{
 /// Detail::new(Section::new("Post").columns((
 ///     TextColumn::new(lens!(Post.title)),
 ///     BooleanColumn::new(lens!(Post.featured)),
-///     RelationColumn::unscoped(relation!(Post.author), |a: &Author| a.name.clone()),
+///     RelationColumn::unscoped(relation!(Post.author), |_, a: &Author| a.name.clone()),
 /// )));
 /// ```
 ///

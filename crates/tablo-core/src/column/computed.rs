@@ -16,7 +16,7 @@ use crate::display::{Alignment, Color};
 /// ```rust
 /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
 /// # struct Post { #[key] #[auto] id: uuid::Uuid, body: String }
-/// tablo_core::ComputedColumn::new("Words", |p: &Post| {
+/// tablo_core::ComputedColumn::new("Words", |_, p: &Post| {
 ///     p.body.split_whitespace().count().to_string()
 /// });
 /// ```
@@ -36,7 +36,7 @@ use crate::display::{Alignment, Color};
 /// # struct Order { #[key] #[auto] id: uuid::Uuid, total_cents: i64 }
 /// use tablo_core::{Color, ComputedColumn, Reads, lens};
 ///
-/// ComputedColumn::new("Size", |o: &Order| {
+/// ComputedColumn::new("Size", |_, o: &Order| {
 ///     if o.total_cents > 100_00 {
 ///         "Large"
 ///     } else {
@@ -45,7 +45,7 @@ use crate::display::{Alignment, Color};
 ///     .to_string()
 /// })
 /// .badge()
-/// .color(|o: &Order| (o.total_cents > 100_00).then_some(Color::Success))
+/// .color(|_, o: &Order| (o.total_cents > 100_00).then_some(Color::Success))
 /// .reading(Reads::of(lens!(Order.total_cents)));
 /// ```
 #[derive_where(Clone, Debug)]
@@ -53,7 +53,7 @@ pub struct ComputedColumn<M> {
     name: String,
     label: crate::Text,
     #[derive_where(skip(Debug))]
-    project: Arc<dyn Fn(&M) -> String + Send + Sync>,
+    project: super::ReadFn<M, String>,
     width: ColumnWidth,
     alignment: Alignment,
     toggle: ColumnToggle,
@@ -70,11 +70,11 @@ impl<M> ComputedColumn<M>
 where
     M: toasty::schema::Model,
 {
-    /// Declare a column headed `label` rendering `project(row)`, named after the label: its
+    /// Declare a column headed `label` rendering `project(cx, row)`, named after the label: its
     /// plain text in lowercase, or its message's id.
     pub fn new(
         label: impl Into<crate::Text>,
-        project: impl Fn(&M) -> String + Send + Sync + 'static,
+        project: impl Fn(&Cx, &M) -> String + Send + Sync + 'static,
     ) -> Self {
         let label = label.into();
         Self {
@@ -97,9 +97,12 @@ where
         self
     }
 
-    /// Color the text by `color(row)`: its badge's dot, or the text itself when it is no badge.
-    /// [`reading`](Self::reading) declares what it reads, beside the projection.
-    pub fn color(mut self, color: impl Fn(&M) -> Option<Color> + Send + Sync + 'static) -> Self {
+    /// Color the text by `color(cx, row)`: its badge's dot, or the text itself when it is no
+    /// badge. [`reading`](Self::reading) declares what it reads, beside the projection.
+    pub fn color(
+        mut self,
+        color: impl Fn(&Cx, &M) -> Option<Color> + Send + Sync + 'static,
+    ) -> Self {
         self.color = Some(Arc::new(color));
         self
     }
@@ -148,17 +151,17 @@ where
         self.label.clone()
     }
 
-    fn text(&self, _cx: &Cx, row: &M) -> String {
-        (self.project)(row)
+    fn text(&self, cx: &Cx, row: &M) -> String {
+        (self.project)(cx, row)
     }
 
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
-        let text = (self.project)(row);
+        let text = (self.project)(cx, row);
         let color = self
             .color
             .as_ref()
             .filter(|_| !text.trim().is_empty())
-            .and_then(|color| color(row));
+            .and_then(|color| color(cx, row));
         text_cell(
             cx,
             TextCell {

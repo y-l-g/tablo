@@ -38,11 +38,11 @@ struct Book {
 }
 
 fn shelf_name() -> RelationColumn<Book> {
-    RelationColumn::unscoped(relation!(Book.shelf), |s: &Shelf| s.name.clone())
+    RelationColumn::unscoped(relation!(Book.shelf), |_, s: &Shelf| s.name.clone())
 }
 
 fn borrower_name() -> RelationColumn<Book> {
-    RelationColumn::unscoped(relation!(Book.borrower), |r: &Reader| r.name.clone())
+    RelationColumn::unscoped(relation!(Book.borrower), |_, r: &Reader| r.name.clone())
 }
 
 /// `detail`'s records as a page loads them in the request `cx`: its includes, then each column's
@@ -152,7 +152,7 @@ async fn a_relation_column_of_a_source_shows_its_label() {
 fn two_labelled_columns_over_one_relation_declare_one_table() {
     let table = crate::Table::new((
         shelf_name(),
-        RelationColumn::unscoped(relation!(Book.shelf), |s: &Shelf| s.id.to_string())
+        RelationColumn::unscoped(relation!(Book.shelf), |_, s: &Shelf| s.id.to_string())
             .label("Shelf id"),
     ));
     assert_eq!(table.declaration_errors(), []);

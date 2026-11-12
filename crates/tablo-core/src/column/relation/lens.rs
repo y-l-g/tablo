@@ -23,7 +23,7 @@ use crate::{DeclarationErrorKind, column::Includes, toasty_compat::model};
 /// #     author: toasty::Deferred<Author>,
 /// # }
 /// # use tablo_core::{RelationColumn, relation};
-/// RelationColumn::unscoped(relation!(Post.author), |a: &Author| a.name.clone());
+/// RelationColumn::unscoped(relation!(Post.author), |_, a: &Author| a.name.clone());
 /// ```
 #[derive_where(Clone, Debug)]
 pub struct RelationLens<M, R> {

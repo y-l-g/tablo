@@ -40,7 +40,7 @@ async fn a_detail_loads_the_relations_its_columns_declare() {
     .await
     .unwrap();
     let shelf_name = || {
-        ComputedColumn::new("Shelf", |b: &Book| b.shelf.get().name.clone())
+        ComputedColumn::new("Shelf", |_, b: &Book| b.shelf.get().name.clone())
             .include_unscoped(Book::fields().shelf())
     };
 

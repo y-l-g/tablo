@@ -101,11 +101,13 @@ async fn record_loads_skip_the_detail_pages_includes() {
             ResourceDef::new()
                 .table(crate::table::Table::new(crate::ComputedColumn::new(
                     "Id",
-                    |c: &Child| c.id.to_string(),
+                    |_, c: &Child| c.id.to_string(),
                 )))
                 .detail(crate::Detail::new(
-                    crate::ComputedColumn::new("Parent", |c: &Child| c.parent.get().name.clone())
-                        .include_unscoped(Child::fields().parent()),
+                    crate::ComputedColumn::new("Parent", |_, c: &Child| {
+                        c.parent.get().name.clone()
+                    })
+                    .include_unscoped(Child::fields().parent()),
                 ))
         }
     }
