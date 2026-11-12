@@ -17,6 +17,8 @@ use crate::common::{
     refusal, test_db,
 };
 
+mod unkeyable;
+
 #[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Item {
     #[key]
@@ -75,10 +77,10 @@ impl Resource for ItemResource {
             .detail(Detail::new(TextColumn::new(lens!(Item.title))))
     }
 
-    fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors<ItemFormField> {
-        let mut errors = FieldErrors::new();
+    fn validate_record(_cx: &Cx, form: &ItemForm) -> FieldErrors<ItemForm> {
+        let mut errors = FieldErrors::<ItemForm>::new();
         if form.priority > 10 {
-            errors.add(ItemFormField::Priority, "Priority is at most 10");
+            errors.add(|f| f.priority, "Priority is at most 10");
         }
         errors
     }
@@ -515,9 +517,17 @@ macro_rules! list_only_resource {
 async fn build_refuses_a_field_record_form_control_does_not_render() {
     struct Bare(TitleForm);
 
+    impl tablo::FormFields for Bare {
+        type Field = TitleFormField;
+        type Keys = <TitleForm as tablo::FormFields>::Keys;
+
+        fn keys() -> Self::Keys {
+            <TitleForm as tablo::FormFields>::keys()
+        }
+    }
+
     impl RecordForm for Bare {
         type Model = Item;
-        type Field = TitleFormField;
 
         fn fields() -> Vec<tablo::FormField<TitleFormField>> {
             TitleForm::fields()
@@ -844,150 +854,6 @@ async fn a_value_the_form_type_refuses_renders_inline() {
         "{html}"
     );
     assert_eq!(reload(&db, item.id).await.priority, 7);
-}
-
-/// An unkeyable record rule fails closed.
-#[tokio::test]
-async fn an_unkeyable_record_rule_fails_closed() {
-    /// [`PriorityForm`] with no keys: nothing can render its errors.
-    struct Keyless(PriorityForm);
-
-    impl RecordForm for Keyless {
-        type Model = Item;
-        type Field = PriorityFormField;
-
-        fn fields() -> Vec<tablo::FormField<PriorityFormField>> {
-            Vec::new()
-        }
-
-        fn control(_field: PriorityFormField) -> Schema<Self> {
-            Schema::default()
-        }
-
-        fn hydrate(cx: &Cx, record: &Item) -> FormValues {
-            PriorityForm::hydrate(cx, record)
-        }
-
-        fn parse(_cx: &Cx, _values: &FormValues) -> Result<Self, Vec<tablo::FieldError>> {
-            Ok(Keyless(PriorityForm { priority: 1 }))
-        }
-
-        fn into_create(self) -> <Item as toasty::schema::Model>::Create {
-            self.0.into_create()
-        }
-
-        fn into_update<'a>(
-            self,
-            record: &'a mut Item,
-            named: &HashSet<PriorityFormField>,
-        ) -> Option<<Item as toasty::schema::Model>::Update<'a>> {
-            self.0.into_update(record, named)
-        }
-
-        fn exec_update<'a>(
-            update: <Item as toasty::schema::Model>::Update<'a>,
-            ex: &'a mut dyn toasty::Executor,
-        ) -> impl std::future::Future<Output = toasty::Result<()>> + Send + 'a {
-            PriorityForm::exec_update(update, ex)
-        }
-    }
-
-    struct Refusing;
-
-    impl Resource for Refusing {
-        type Model = Item;
-        type Form = Keyless;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("items")
-                .policy_fn(|_cx, ability| matches!(ability, Ability::View(_) | Ability::Update(_)))
-                .table(item_table())
-                .without_page(ResourcePage::Create)
-        }
-
-        fn validate_record(_cx: &Cx, _form: &Keyless) -> FieldErrors<PriorityFormField> {
-            let mut errors = FieldErrors::new();
-            errors.add(PriorityFormField::Priority, "never");
-            errors
-        }
-    }
-
-    let db = item_db().await;
-    let item = seed_item(&db).await;
-    let router = panel_router::<Refusing>(db.clone());
-    let response = post_fields(&router, &format!("/admin/items/{}/edit", item.id), &[]).await;
-    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-    assert_eq!(reload(&db, item.id).await.priority, 7, "nothing is written");
-}
-
-/// An unkeyable parse failure fails closed.
-#[tokio::test]
-async fn an_unkeyable_parse_failure_fails_closed() {
-    /// [`PriorityForm`] with no keys, refusing on a key nothing renders.
-    struct Unkeyable(PriorityForm);
-
-    impl RecordForm for Unkeyable {
-        type Model = Item;
-        type Field = PriorityFormField;
-
-        fn fields() -> Vec<tablo::FormField<PriorityFormField>> {
-            Vec::new()
-        }
-
-        fn control(_field: PriorityFormField) -> Schema<Self> {
-            Schema::default()
-        }
-
-        fn hydrate(cx: &Cx, record: &Item) -> FormValues {
-            PriorityForm::hydrate(cx, record)
-        }
-
-        fn parse(_cx: &Cx, _values: &FormValues) -> Result<Self, Vec<tablo::FieldError>> {
-            Err(vec![tablo::FieldError::invalid("never", "never renders")])
-        }
-
-        fn into_create(self) -> <Item as toasty::schema::Model>::Create {
-            self.0.into_create()
-        }
-
-        fn into_update<'a>(
-            self,
-            record: &'a mut Item,
-            named: &HashSet<PriorityFormField>,
-        ) -> Option<<Item as toasty::schema::Model>::Update<'a>> {
-            self.0.into_update(record, named)
-        }
-
-        fn exec_update<'a>(
-            update: <Item as toasty::schema::Model>::Update<'a>,
-            ex: &'a mut dyn toasty::Executor,
-        ) -> impl std::future::Future<Output = toasty::Result<()>> + Send + 'a {
-            PriorityForm::exec_update(update, ex)
-        }
-    }
-
-    struct Parseless;
-
-    impl Resource for Parseless {
-        type Model = Item;
-        type Form = Unkeyable;
-
-        fn declare() -> ResourceDef<Self> {
-            ResourceDef::new()
-                .slug("items")
-                .policy_fn(|_cx, ability| matches!(ability, Ability::View(_) | Ability::Update(_)))
-                .table(item_table())
-                .without_page(ResourcePage::Create)
-        }
-    }
-
-    let db = item_db().await;
-    let item = seed_item(&db).await;
-    let router = panel_router::<Parseless>(db.clone());
-    let response = post_fields(&router, &format!("/admin/items/{}/edit", item.id), &[]).await;
-    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
-    assert_eq!(reload(&db, item.id).await.priority, 7, "nothing is written");
 }
 
 /// A list-only resource never links to create.

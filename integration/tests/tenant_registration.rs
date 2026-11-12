@@ -45,7 +45,7 @@ impl TenantRegistrar for Teams {
     ) -> topcoat::Result<FieldErrors> {
         let mut errors = FieldErrors::new();
         if signed.tenants.iter().any(|m| m.name == team.name) {
-            errors.add("name", "You have a tenant with that name");
+            errors.add_field("name", "You have a tenant with that name");
         }
         Ok(errors)
     }

@@ -192,7 +192,7 @@ impl Registrar for PasswordSignUp {
         .await
         .map_err(infrastructure_failure)?;
         if taken.is_some() {
-            errors.add("email", email_taken());
+            errors.add_field("email", email_taken());
         }
         Ok(errors)
     }

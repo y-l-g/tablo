@@ -283,8 +283,9 @@ impl std::fmt::Debug for Profile {
     }
 }
 
-/// A field of [`Profile`], which a [`PasswordAccount`](super::PasswordAccount) refuses a change
-/// under.
+/// A field of [`Profile`], the key a refusal of a change posts under: a
+/// [`PasswordAccount`](super::PasswordAccount) names one through [`ProfileKeys`],
+/// `errors.add(|f| f.email, ..)`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ProfileField {
     /// The display name, posted as `name`.
@@ -299,9 +300,37 @@ pub enum ProfileField {
     CurrentPassword,
 }
 
-impl FormInput for Profile {
-    type Field = ProfileField;
+/// The fields of [`Profile`], each named like the field, which a refusal picks one from.
+#[derive(Debug, Clone, Copy)]
+pub struct ProfileKeys {
+    /// The display name.
+    pub name: ProfileField,
+    /// The email address.
+    pub email: ProfileField,
+    /// The new password.
+    pub password: ProfileField,
+    /// The new password typed again.
+    pub password_confirmation: ProfileField,
+    /// The current password.
+    pub current_password: ProfileField,
+}
 
+impl crate::FormFields for Profile {
+    type Field = ProfileField;
+    type Keys = ProfileKeys;
+
+    fn keys() -> ProfileKeys {
+        ProfileKeys {
+            name: ProfileField::Name,
+            email: ProfileField::Email,
+            password: ProfileField::Password,
+            password_confirmation: ProfileField::PasswordConfirmation,
+            current_password: ProfileField::CurrentPassword,
+        }
+    }
+}
+
+impl FormInput for Profile {
     fn key(field: ProfileField) -> &'static str {
         match field {
             ProfileField::Name => NAME_FIELD,

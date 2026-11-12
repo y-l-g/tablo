@@ -205,6 +205,16 @@ fn expand_struct(
         .iter()
         .map(|name| format_ident!("__read_{}", name))
         .collect();
+    let form_fields = crate::record_form::form_fields(
+        krate,
+        vis,
+        ident,
+        &field_enum,
+        &fields
+            .iter()
+            .map(|field| (&field.ident, &field.variant))
+            .collect::<Vec<_>>(),
+    );
     quote! {
         #[doc = #enum_doc]
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -212,8 +222,9 @@ fn expand_struct(
             #(#[allow(missing_docs)] #variants,)*
         }
 
+        #form_fields
+
         impl #krate::__macro::FormInput for #ident {
-            type Field = #field_enum;
 
             fn key(field: #field_enum) -> &'static str {
                 match field {

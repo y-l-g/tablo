@@ -130,12 +130,9 @@ pub trait Resource: Sized + Send + Sync + 'static {
     /// [`update_record`](Self::update_record), which refuse through the transaction they write
     /// in.
     ///
-    /// Each error names a field of the record form (`UserFormField::Age`) and renders under its
-    /// control, or under an embedded value's first control.
-    fn validate_record(
-        _cx: &Cx,
-        _form: &Self::Form,
-    ) -> FieldErrors<<Self::Form as RecordForm>::Field> {
+    /// Each error names a field of the record form, `errors.add(|f| f.age, ..)`, and renders
+    /// under its control, or under an embedded value's first control.
+    fn validate_record(_cx: &Cx, _form: &Self::Form) -> FieldErrors<Self::Form> {
         FieldErrors::new()
     }
 
@@ -157,8 +154,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
         cx: &Cx,
         form: Self::Form,
         ex: &mut dyn Executor,
-    ) -> impl Future<Output = Result<Self::Model, WriteError<<Self::Form as RecordForm>::Field>>> + Send
-    {
+    ) -> impl Future<Output = Result<Self::Model, WriteError<Self::Form>>> + Send {
         write_create::<Self>(cx, form, ex)
     }
 
@@ -176,8 +172,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
         record: Self::Model,
         posted: Posted<Self::Form>,
         ex: &mut dyn Executor,
-    ) -> impl Future<Output = Result<Self::Model, WriteError<<Self::Form as RecordForm>::Field>>> + Send
-    {
+    ) -> impl Future<Output = Result<Self::Model, WriteError<Self::Form>>> + Send {
         write_update::<Self>(cx, record, posted, ex)
     }
 

@@ -45,7 +45,7 @@ impl Action<AccountResource> for Toggle {
         _: &[Account],
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<()>> {
         Ok(tablo::Outcome::done())
     }
 }
@@ -71,7 +71,7 @@ impl Action<AccountResource> for Notify {
         _: &[Account],
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<()>> {
         Ok(tablo::Outcome::done())
     }
 }

@@ -467,7 +467,8 @@ refuses.
 
 Every error renders inline in one round, with nothing written: the parse, the controls' rules,
 relationships and uniqueness together, then `validate_record` once every field parses, keyed by
-the record form's field enum (`errors.add(UserFormField::Age, "Age must be zero or more")`). A POST
+the record form, each error picking its field by name
+(`errors.add(|f| f.age, "Age must be zero or more")`). A POST
 carrying a key the form does not declare answers 400, so a client cannot write `role` or
 `tenant_id`; an edit writes only the fields it posted; and a model with a `#[version]` field
 refuses a save another save overtook. [`RecordForm`](https://y-l.fr/tablo/nightly/api/tablo_core/derive.RecordForm.html#submitting) has

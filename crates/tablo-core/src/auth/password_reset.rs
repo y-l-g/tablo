@@ -303,7 +303,7 @@ pub(super) fn forgot_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         let email = form.last(EMAIL_FIELD).map_or("", str::trim);
         if email.is_empty() {
             let mut errors = FieldErrors::new();
-            errors.add(EMAIL_FIELD, crate::text!("tablo-reset-enter-email"));
+            errors.add_field(EMAIL_FIELD, crate::text!("tablo-reset-enter-email"));
             return forgot_response(cx, email, &errors, None).await;
         }
         if !reset

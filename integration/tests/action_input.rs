@@ -57,10 +57,10 @@ impl Action<TicketResource> for Close {
             .can_run(|_cx, ticket: &Ticket| !ticket.closed)
     }
 
-    fn validate_input(_cx: &Cx, closing: &Closing) -> FieldErrors<ClosingField> {
-        let mut errors = FieldErrors::new();
+    fn validate_input(_cx: &Cx, closing: &Closing) -> FieldErrors<Closing> {
+        let mut errors = FieldErrors::<Closing>::new();
         if closing.reason.trim().len() < 3 {
-            errors.add(ClosingField::Reason, "Say why in a few words");
+            errors.add(|f| f.reason, "Say why in a few words");
         }
         errors
     }
@@ -70,7 +70,7 @@ impl Action<TicketResource> for Close {
         tickets: &[Ticket],
         closing: Closing,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<ClosingField>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<Closing>> {
         let suffix = if closing.reopenable { "" } else { " (final)" };
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
@@ -106,10 +106,10 @@ impl Action<TicketResource> for Purge {
         ActionDef::new().confirm().label("Purge")
     }
 
-    fn validate_input(_cx: &Cx, purging: &Purging) -> FieldErrors<PurgingField> {
-        let mut errors = FieldErrors::new();
+    fn validate_input(_cx: &Cx, purging: &Purging) -> FieldErrors<Purging> {
+        let mut errors = FieldErrors::<Purging>::new();
         if purging.note == "keep" {
-            errors.add(PurgingField::Note, "Not while keeping");
+            errors.add(|f| f.note, "Not while keeping");
         }
         errors
     }
@@ -119,7 +119,7 @@ impl Action<TicketResource> for Purge {
         tickets: &[Ticket],
         purging: Purging,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<PurgingField>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<Purging>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -140,9 +140,14 @@ struct Merging {
     into: String,
 }
 
-impl FormInput for Merging {
+impl tablo::FormFields for Merging {
     type Field = std::convert::Infallible;
+    type Keys = ();
 
+    fn keys() -> Self::Keys {}
+}
+
+impl FormInput for Merging {
     fn key(field: Self::Field) -> &'static str {
         match field {}
     }
@@ -176,7 +181,7 @@ impl Action<TicketResource> for Merge {
         tickets: &[Ticket],
         merging: Merging,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<Merging>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -505,9 +510,14 @@ struct Selecting {
 /// A hand-written input holding a file field and a choice offering nothing.
 struct Attaching;
 
-impl FormInput for Attaching {
+impl tablo::FormFields for Attaching {
     type Field = std::convert::Infallible;
+    type Keys = ();
 
+    fn keys() -> Self::Keys {}
+}
+
+impl FormInput for Attaching {
     fn key(field: Self::Field) -> &'static str {
         match field {}
     }
@@ -529,9 +539,14 @@ impl FormInput for Attaching {
 /// A hand-written input with no field whose parse still requires one.
 struct Strict;
 
-impl FormInput for Strict {
+impl tablo::FormFields for Strict {
     type Field = std::convert::Infallible;
+    type Keys = ();
 
+    fn keys() -> Self::Keys {}
+}
+
+impl FormInput for Strict {
     fn key(field: Self::Field) -> &'static str {
         match field {}
     }
@@ -562,7 +577,7 @@ impl Action<SelectResource> for Attach {
         _: &[Ticket],
         _: Attaching,
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<Attaching>> {
         Ok(tablo::Outcome::done())
     }
 }
@@ -582,7 +597,7 @@ impl Action<SelectResource> for Refuse {
         _: &[Ticket],
         _: Strict,
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<Strict>> {
         Ok(tablo::Outcome::done())
     }
 }
@@ -602,7 +617,7 @@ impl Action<SelectResource> for Select {
         _: &[Ticket],
         _: Selecting,
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<SelectingField>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<Selecting>> {
         Ok(tablo::Outcome::done())
     }
 }

@@ -242,7 +242,7 @@ impl HeaderAction for SignOutEverywhere {
         _cx: &Cx,
         _input: (),
         _ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<std::convert::Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         Ok(Outcome::done())
     }
 }
@@ -262,7 +262,7 @@ impl HeaderAction for Never {
         _cx: &Cx,
         _input: (),
         _ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<std::convert::Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         Ok(Outcome::done())
     }
 }

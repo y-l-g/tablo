@@ -73,7 +73,7 @@ use crate::{
 ///             .exec(ex)
 ///             .await?;
 ///         if taken.is_some() {
-///             errors.add("email", "Email has already been taken");
+///             errors.add_field("email", "Email has already been taken");
 ///         }
 ///         Ok(errors)
 ///     }
@@ -221,9 +221,14 @@ impl std::fmt::Debug for SignUp {
     }
 }
 
-impl FormInput for SignUp {
+impl crate::FormFields for SignUp {
     type Field = std::convert::Infallible;
+    type Keys = ();
 
+    fn keys() -> Self::Keys {}
+}
+
+impl FormInput for SignUp {
     fn key(field: Self::Field) -> &'static str {
         match field {}
     }
@@ -299,13 +304,13 @@ pub const MIN_PASSWORD_CHARS: usize = 8;
 pub fn new_password_errors(password: &str, confirmation: &str) -> FieldErrors {
     let mut errors = FieldErrors::new();
     if password.chars().count() < MIN_PASSWORD_CHARS {
-        errors.add(
+        errors.add_field(
             PASSWORD_FIELD,
             crate::text!("tablo-password-too-short", min = MIN_PASSWORD_CHARS),
         );
     }
     if password != confirmation {
-        errors.add(CONFIRMATION_FIELD, crate::text!("tablo-password-mismatch"));
+        errors.add_field(CONFIRMATION_FIELD, crate::text!("tablo-password-mismatch"));
     }
     errors
 }

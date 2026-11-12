@@ -5,7 +5,7 @@ use std::{fmt::Debug, hash::Hash};
 use topcoat::context::Cx;
 
 use super::{Field, Schema};
-use crate::values::{FieldError, FormValues};
+use crate::values::{FieldError, FormFields, FormValues};
 
 /// A typed value a form posts under its own keys, which no column binds: what an
 /// [`Action`](crate::Action) asks for before it runs, what a sign-up reads, one item of a
@@ -21,14 +21,15 @@ use crate::values::{FieldError, FormValues};
 /// A repeater stores its items in a `#[document]` list, so an item is also a `toasty::Embed`
 /// struct. Each row posts the item's keys under its own prefix, and [`write`](Self::write) fills
 /// a stored item's row on the edit page.
-pub trait FormInput: Sized + Send + Sync + 'static {
-    /// One variant per field: what [`Action::validate_input`](crate::Action::validate_input)
-    /// refuses a value under, so an error always names a field the form renders. The derive
-    /// names it after the struct: `Closing` declares `ClosingField`, whose `reason` field is
-    /// `ClosingField::Reason`. An input no hook refuses by field names
-    /// [`Infallible`](std::convert::Infallible).
-    type Field: Copy + Eq + Hash + Debug + Send + Sync + 'static;
-
+///
+/// Its [`FormFields`](crate::FormFields) are what
+/// [`Action::validate_input`](crate::Action::validate_input) refuses a value under, so an error
+/// always names a field the form renders: `errors.add(|f| f.reason, ..)`. The derive writes one
+/// variant per field, `ClosingField::Reason` for `Closing`'s `reason`, and the keys `ClosingKeys`;
+/// an input no hook refuses by field names [`Infallible`](std::convert::Infallible).
+pub trait FormInput:
+    FormFields<Field: Copy + Eq + Hash + Debug + Send + Sync + 'static> + Sized + Send + Sync + 'static
+{
     /// The form key `field` posts under.
     fn key(field: Self::Field) -> &'static str;
 
@@ -51,9 +52,14 @@ pub trait FormInput: Sized + Send + Sync + 'static {
 }
 
 /// No input: an action runs on its button.
-impl FormInput for () {
+impl FormFields for () {
     type Field = std::convert::Infallible;
+    type Keys = ();
 
+    fn keys() -> Self::Keys {}
+}
+
+impl FormInput for () {
     fn key(field: Self::Field) -> &'static str {
         match field {}
     }

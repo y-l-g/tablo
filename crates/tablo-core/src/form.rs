@@ -66,8 +66,8 @@ use crate::{
 pub use crate::{
     schema::input::FormInput,
     values::{
-        FieldError, FieldErrors, FormField, FormScalar, FormValue, FormValues, NullableScalar,
-        assert_form_scalar, parse_list, parse_password, parse_scalar,
+        FieldError, FieldErrors, FormField, FormFields, FormScalar, FormValue, FormValues,
+        NullableScalar, assert_form_scalar, parse_list, parse_password, parse_scalar,
     },
 };
 
@@ -135,13 +135,14 @@ where
 /// Derive it from a model with [`tablo_core::ModelForm`](crate::ModelForm) or from a struct with
 /// [`tablo_core::RecordForm`](crate::RecordForm); a hand-written impl is what the derives expand
 /// to.
-pub trait RecordForm: Sized + Send + 'static {
+///
+/// Its [`FormFields`] are one variant per form field, the key [`Posted`] and a refusal use, whose
+/// bound form keys are [`Self::fields`]'.
+pub trait RecordForm:
+    FormFields<Field: Copy + Eq + Hash + Debug + Send + Sync + 'static> + Sized + Send + 'static
+{
     /// The model the form writes.
     type Model: Model + toasty::stmt::IntoExpr<Self::Model> + Send + Sync + 'static;
-
-    /// One variant per form field: the key [`Posted`] uses. Its bound form keys
-    /// are [`Self::fields`]'.
-    type Field: Copy + Eq + Hash + Debug + Send + Sync + 'static;
 
     /// Every field, in declaration order, with the keys it binds.
     fn fields() -> Vec<FormField<Self::Field>>;
@@ -223,9 +224,15 @@ impl<M: Model + toasty::stmt::IntoExpr<M> + Send + Sync + 'static> NoForm<M> {
     }
 }
 
+impl<M> FormFields for NoForm<M> {
+    type Field = std::convert::Infallible;
+    type Keys = ();
+
+    fn keys() -> Self::Keys {}
+}
+
 impl<M: Model + toasty::stmt::IntoExpr<M> + Send + Sync + 'static> RecordForm for NoForm<M> {
     type Model = M;
-    type Field = std::convert::Infallible;
 
     const HAS_FORM: bool = false;
 
@@ -286,8 +293,13 @@ impl<F: RecordForm> Posted<F> {
         }
     }
 
-    /// Whether the submission named `field`.
-    pub fn named(&self, field: F::Field) -> bool {
+    /// Whether the submission named `field`: `posted.named(|f| f.post_id)`.
+    pub fn named(&self, pick: impl FnOnce(F::Keys) -> F::Field) -> bool {
+        self.names(pick(F::keys()))
+    }
+
+    /// Whether the submission named the field `field` is the variant of.
+    pub(crate) fn names(&self, field: F::Field) -> bool {
         self.named.contains(&field)
     }
 

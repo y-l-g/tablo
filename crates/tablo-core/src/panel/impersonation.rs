@@ -1,8 +1,6 @@
 //! What the panel shows of [`Auth::impersonation`](crate::Auth::impersonation): the banner on every
 //! page while a user acts as another, and the [`Impersonate`] action that starts it.
 
-use std::convert::Infallible;
-
 use topcoat::{
     context::Cx,
     icon::icon,
@@ -57,7 +55,7 @@ where
         records: &[R::Model],
         (): (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<Infallible>> {
+    ) -> Result<Outcome, WriteError<()>> {
         let [target] = records else {
             return Err(WriteError::declined(crate::text!(
                 "tablo-impersonation-one"

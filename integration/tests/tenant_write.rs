@@ -68,7 +68,7 @@ impl Resource for StrayResource {
         _cx: &Cx,
         form: MemoForm,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Memo, tablo::WriteError<MemoFormField>> {
+    ) -> Result<Memo, tablo::WriteError<MemoForm>> {
         Ok(toasty::create!(Memo {
             tenant_id: THEIRS,
             title: form.title,
@@ -82,7 +82,7 @@ impl Resource for StrayResource {
         record: Memo,
         posted: tablo::Posted<MemoForm>,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Memo, tablo::WriteError<MemoFormField>> {
+    ) -> Result<Memo, tablo::WriteError<MemoForm>> {
         let mut written = tablo::write_update::<Self>(cx, record, posted, &mut *ex).await?;
         written.update().tenant_id(THEIRS).exec(&mut *ex).await?;
         Ok(written)

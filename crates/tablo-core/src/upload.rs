@@ -512,7 +512,9 @@ pub(crate) async fn store_uploads(
             };
             match stored_path {
                 Ok(path) => paths.push(path),
-                Err(message) if !errors.contains_key(&name) => errors.add(name.clone(), message),
+                Err(message) if !errors.contains_key(&name) => {
+                    errors.add_field(name.clone(), message)
+                }
                 Err(_) => {}
             }
         }

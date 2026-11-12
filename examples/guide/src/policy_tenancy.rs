@@ -207,7 +207,7 @@ impl Registrar for StaffAuth {
     ) -> Result<FieldErrors> {
         let mut errors = new_password_errors(&sign_up.password, &sign_up.password_confirmation);
         if email_taken(ex, &sign_up.email).await? {
-            errors.add("email", "Email has already been taken");
+            errors.add_field("email", "Email has already been taken");
         }
         Ok(errors)
     }
@@ -279,10 +279,10 @@ impl ProfileEditor for StaffAuth {
         let current = profile.current_password.as_deref().unwrap_or_default();
         let credentials = profile.password.is_some() || profile.email != signed.staff.email;
         if credentials && !verify_password(current, Some(&signed.staff.password_hash)).await {
-            errors.add("current_password", "The current password is incorrect");
+            errors.add_field("current_password", "The current password is incorrect");
         } else if profile.email != signed.staff.email && email_taken(ex, &profile.email).await? {
             // Asked only once the password verifies: a stolen session learns no addresses.
-            errors.add("email", "Email has already been taken");
+            errors.add_field("email", "Email has already been taken");
         }
         Ok(errors)
     }

@@ -55,7 +55,7 @@ impl TenantEditor for Teams {
     ) -> topcoat::Result<FieldErrors> {
         let mut errors = FieldErrors::new();
         if renamed.name.trim() == "-" {
-            errors.add("name", "Pick a name");
+            errors.add_field("name", "Pick a name");
         }
         Ok(errors)
     }

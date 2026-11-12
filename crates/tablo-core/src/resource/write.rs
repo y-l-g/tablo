@@ -27,7 +27,7 @@ pub async fn write_create<R: Resource>(
     cx: &Cx,
     form: R::Form,
     ex: &mut dyn Executor,
-) -> Result<R::Model, WriteError<<R::Form as RecordForm>::Field>> {
+) -> Result<R::Model, WriteError<R::Form>> {
     let resource = require_mounted::<R>(cx)?;
     let links = form.links();
     let mut insert = form.into_create().into_insert();
@@ -73,11 +73,11 @@ pub async fn write_update<R: Resource>(
     mut record: R::Model,
     posted: Posted<R::Form>,
     ex: &mut dyn Executor,
-) -> Result<R::Model, WriteError<<R::Form as RecordForm>::Field>> {
+) -> Result<R::Model, WriteError<R::Form>> {
     let links: Vec<_> = posted
         .links()
         .into_iter()
-        .filter(|(field, _)| posted.named(*field))
+        .filter(|(field, _)| posted.names(*field))
         .collect();
     if !links.is_empty() {
         let resource = require_mounted::<R>(cx)?;
@@ -126,7 +126,7 @@ impl<R: Resource> Mounted<R> {
         cx: &Cx,
         form: R::Form,
         ex: &mut dyn Executor,
-    ) -> Result<R::Model, WriteError<<R::Form as RecordForm>::Field>> {
+    ) -> Result<R::Model, WriteError<R::Form>> {
         let written = R::create_record(cx, form, &mut *ex).await?;
         ensure_in_tenant(cx, self, &written, "create_record", ex).await?;
         Ok(written)
@@ -139,7 +139,7 @@ impl<R: Resource> Mounted<R> {
         record: R::Model,
         posted: Posted<R::Form>,
         ex: &mut dyn Executor,
-    ) -> Result<R::Model, WriteError<<R::Form as RecordForm>::Field>> {
+    ) -> Result<R::Model, WriteError<R::Form>> {
         let written = R::update_record(cx, record, posted, &mut *ex).await?;
         ensure_in_tenant(cx, self, &written, "update_record", ex).await?;
         Ok(written)
@@ -329,7 +329,10 @@ async fn remove<R: Resource>(
 }
 
 /// The form key the record form binds `field` to.
-fn form_key<R: Resource>(resource: &Mounted<R>, field: <R::Form as RecordForm>::Field) -> &str {
+fn form_key<R: Resource>(
+    resource: &Mounted<R>,
+    field: <R::Form as crate::FormFields>::Field,
+) -> &str {
     resource
         .fields
         .iter()
@@ -346,7 +349,7 @@ fn form_key<R: Resource>(resource: &Mounted<R>, field: <R::Form as RecordForm>::
 fn join_table<R: Resource>(
     cx: &Cx,
     resource: &Mounted<R>,
-    field: <R::Form as RecordForm>::Field,
+    field: <R::Form as crate::FormFields>::Field,
 ) -> Result<JoinTable> {
     let key = form_key(resource, field);
     let schema = AppSchema::of(cx).ok_or_else(|| {

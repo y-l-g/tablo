@@ -128,7 +128,7 @@ impl Action<TaskResource> for Complete {
         tasks: &[Task],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<()>> {
         for task in tasks {
             Task::filter(Task::fields().id().eq(task.id))
                 .update()
@@ -159,7 +159,7 @@ impl Action<TaskResource> for Explode {
         tasks: &[Task],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<()>> {
         for task in tasks {
             Task::filter(Task::fields().id().eq(task.id))
                 .update()
@@ -665,7 +665,7 @@ impl Action<TwiceResource> for Twice {
         _: &[Task],
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<()>> {
         Ok(tablo::Outcome::done())
     }
 }
@@ -711,7 +711,7 @@ impl Action<ConfirmResource> for Archive {
         tasks: &[Task],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<()>> {
         for task in tasks {
             Task::filter(Task::fields().id().eq(task.id))
                 .update()

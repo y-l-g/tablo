@@ -101,7 +101,7 @@ async fn a_failed_write_toasts_on_the_next_panel_page() {
             _cx: &Cx,
             _form: FailingForm,
             _ex: &mut dyn toasty::Executor,
-        ) -> Result<Widget, tablo::WriteError<FailingFormField>> {
+        ) -> Result<Widget, tablo::WriteError<FailingForm>> {
             // Validation passed; the write itself did not land.
             Err(std::io::Error::other("the write did not land").into())
         }

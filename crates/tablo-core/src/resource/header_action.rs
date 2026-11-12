@@ -40,7 +40,7 @@ use crate::{
 ///         _cx: &Cx,
 ///         _: (),
 ///         _ex: &mut dyn Executor,
-///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> {
+///     ) -> Result<tablo_core::Outcome, tablo_core::WriteError<()>> {
 ///         // Recount through `ex`, the framework's transaction.
 ///         Ok(tablo_core::Outcome::done())
 ///     }
@@ -88,12 +88,9 @@ pub trait HeaderAction: 'static {
     }
 
     /// Refuse an input [`run`](Self::run) should not receive. Each error names a field of the
-    /// input's [`Field`](FormInput::Field) enum and renders under its control, as
+    /// input, picked off its [`Keys`](crate::FormFields::Keys), and renders under its control, as
     /// [`Action::validate_input`](crate::Action::validate_input) does. Defaults to none.
-    fn validate_input(
-        _cx: &Cx,
-        _input: &Self::Input,
-    ) -> FieldErrors<<Self::Input as FormInput>::Field> {
+    fn validate_input(_cx: &Cx, _input: &Self::Input) -> FieldErrors<Self::Input> {
         FieldErrors::new()
     }
 
@@ -108,9 +105,7 @@ pub trait HeaderAction: 'static {
         cx: &Cx,
         input: Self::Input,
         ex: &mut dyn toasty::Executor,
-    ) -> impl Future<
-        Output = Result<crate::Outcome, crate::WriteError<<Self::Input as FormInput>::Field>>,
-    > + Send;
+    ) -> impl Future<Output = Result<crate::Outcome, crate::WriteError<Self::Input>>> + Send;
 }
 
 impl<M> Ability<'_, M> {
@@ -126,7 +121,7 @@ impl<M> Ability<'_, M> {
     /// # impl HeaderAction for RecountTags {
     /// #     type Input = ();
     /// #     const NAME: &'static str = "recount-tags";
-    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> { Ok(tablo_core::Outcome::done()) }
+    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<()>> { Ok(tablo_core::Outcome::done()) }
     /// # }
     /// # fn is_admin(_cx: &Cx) -> bool { true }
     /// fn post_policy(cx: &Cx, ability: Ability<'_, Post>) -> bool {
@@ -165,7 +160,7 @@ impl<M> crate::policy::Abilities<M> {
 /// # impl HeaderAction for ClearCache {
 /// #     type Input = ();
 /// #     const NAME: &'static str = "clear-cache";
-/// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> { Ok(tablo_core::Outcome::done()) }
+/// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<()>> { Ok(tablo_core::Outcome::done()) }
 /// # }
 /// let actions = HeaderActions::new().add::<ClearCache>();
 /// # let _ = actions;
@@ -205,7 +200,7 @@ impl HeaderActions {
     ///     type Input = ();
     ///     const NAME: &'static str = "clear cache";
     ///
-    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> {
+    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<()>> {
     ///         Ok(tablo_core::Outcome::done())
     ///     }
     /// }

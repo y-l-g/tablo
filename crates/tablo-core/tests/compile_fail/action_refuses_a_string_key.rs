@@ -31,7 +31,7 @@ impl Action<PostResource> for Annotate {
         _: &[Post],
         _: Note,
         _: &mut dyn toasty::Executor,
-    ) -> Result<Outcome, WriteError<NoteField>> {
+    ) -> Result<Outcome, WriteError<Note>> {
         // A refusal names a field of the input's enum, never a string a typo could miss.
         Err(WriteError::field("bdy", "Too short"))
     }

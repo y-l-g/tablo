@@ -37,7 +37,7 @@ impl Action<TicketResource> for Close {
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<Outcome, tablo::WriteError<()>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -67,7 +67,7 @@ impl Action<TicketResource> for Leave {
         tickets: &[Ticket],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<Outcome, tablo::WriteError<()>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -90,7 +90,7 @@ impl HeaderAction for Home {
         _: &Cx,
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<Outcome, tablo::WriteError<()>> {
         Ok(Outcome::done().redirect("/admin"))
     }
 }
@@ -106,7 +106,7 @@ impl HeaderAction for Checkout {
         _: &Cx,
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<Outcome, tablo::WriteError<()>> {
         Ok(Outcome::done().redirect_off_site("https://checkout.example/session/1"))
     }
 }
@@ -122,7 +122,7 @@ impl HeaderAction for Script {
         _: &Cx,
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<Outcome, tablo::WriteError<()>> {
         Ok(Outcome::done().redirect_off_site("javascript:alert(1)"))
     }
 }

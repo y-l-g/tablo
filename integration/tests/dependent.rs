@@ -263,9 +263,14 @@ async fn an_edit_without_the_parent_reads_its_stored_value() {
 async fn an_action_input_cannot_hold_a_dependent_choice() {
     struct Moving;
 
-    impl FormInput for Moving {
+    impl tablo::FormFields for Moving {
         type Field = std::convert::Infallible;
+        type Keys = ();
 
+        fn keys() -> Self::Keys {}
+    }
+
+    impl FormInput for Moving {
         fn key(field: Self::Field) -> &'static str {
             match field {}
         }
@@ -301,7 +306,7 @@ async fn an_action_input_cannot_hold_a_dependent_choice() {
             _: &[Address],
             _: Moving,
             _: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+        ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<Moving>> {
             Ok(tablo::Outcome::done())
         }
     }

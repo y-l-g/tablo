@@ -64,9 +64,14 @@ struct Booking {
     site: String,
 }
 
-impl FormInput for Booking {
+impl tablo::FormFields for Booking {
     type Field = std::convert::Infallible;
+    type Keys = ();
 
+    fn keys() -> Self::Keys {}
+}
+
+impl FormInput for Booking {
     fn key(field: Self::Field) -> &'static str {
         match field {}
     }
@@ -109,7 +114,7 @@ impl Action<TicketResource> for Book {
         tickets: &[Ticket],
         booking: Booking,
         ex: &mut dyn toasty::Executor,
-    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+    ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<Booking>> {
         for ticket in tickets {
             Ticket::filter(Ticket::fields().id().eq(ticket.id))
                 .update()
@@ -525,9 +530,14 @@ async fn an_edit_keeping_a_stored_row_skips_its_rules() {
 async fn a_misdeclared_list_or_checkbox_rule_refuses_the_mount() {
     struct Misdeclared;
 
-    impl FormInput for Misdeclared {
+    impl tablo::FormFields for Misdeclared {
         type Field = std::convert::Infallible;
+        type Keys = ();
 
+        fn keys() -> Self::Keys {}
+    }
+
+    impl FormInput for Misdeclared {
         fn key(field: Self::Field) -> &'static str {
             match field {}
         }
@@ -574,7 +584,7 @@ async fn a_misdeclared_list_or_checkbox_rule_refuses_the_mount() {
             _trips: &[Trip],
             _input: Misdeclared,
             _ex: &mut dyn toasty::Executor,
-        ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<std::convert::Infallible>> {
+        ) -> topcoat::Result<tablo::Outcome, tablo::WriteError<Misdeclared>> {
             Ok(tablo::Outcome::done())
         }
     }

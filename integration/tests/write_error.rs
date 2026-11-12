@@ -47,15 +47,15 @@ async fn hold(
     room: &str,
     nights: i64,
     ex: &mut dyn toasty::Executor,
-) -> Result<(), WriteError<BookingFormField>> {
+) -> Result<(), WriteError<BookingForm>> {
     toasty::create!(Hold {
         room: room.to_string()
     })
     .exec(&mut *ex)
     .await?;
     if nights > MAX_NIGHTS {
-        return Err(WriteError::field(
-            BookingFormField::Nights,
+        return Err(WriteError::<BookingForm>::field(
+            |f| f.nights,
             "Too long a stay",
         ));
     }
@@ -63,7 +63,10 @@ async fn hold(
         .exec(&mut *ex)
         .await?;
     if holds.len() > 1 {
-        return Err(WriteError::field(BookingFormField::Room, "Room is booked"));
+        return Err(WriteError::<BookingForm>::field(
+            |f| f.room,
+            "Room is booked",
+        ));
     }
     Ok(())
 }
@@ -89,7 +92,7 @@ impl Resource for BookingResource {
         cx: &Cx,
         form: BookingForm,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Booking, WriteError<BookingFormField>> {
+    ) -> Result<Booking, WriteError<BookingForm>> {
         if form.room == "boom" {
             return Err(toasty::Error::condition_failed("no such room").into());
         }
@@ -102,7 +105,7 @@ impl Resource for BookingResource {
         record: Booking,
         posted: tablo::Posted<BookingForm>,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Booking, WriteError<BookingFormField>> {
+    ) -> Result<Booking, WriteError<BookingForm>> {
         if posted.room == "empty" {
             return Err(FieldErrors::new().into());
         }
@@ -128,7 +131,7 @@ impl Action<BookingResource> for Extend {
         bookings: &[Booking],
         extension: Extension,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, WriteError<ExtensionField>> {
+    ) -> Result<tablo::Outcome, WriteError<Extension>> {
         for booking in bookings {
             let nights = booking.nights + extension.nights;
             booking
@@ -138,7 +141,10 @@ impl Action<BookingResource> for Extend {
                 .exec(&mut *ex)
                 .await?;
             if nights > MAX_NIGHTS {
-                return Err(WriteError::field(ExtensionField::Nights, "Too long a stay"));
+                return Err(WriteError::<Extension>::field(
+                    |f| f.nights,
+                    "Too long a stay",
+                ));
             }
         }
         Ok(tablo::Outcome::done())
@@ -157,7 +163,7 @@ impl Action<BookingResource> for Lock {
         _: &[Booking],
         _: (),
         _: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, WriteError<std::convert::Infallible>> {
+    ) -> Result<tablo::Outcome, WriteError<()>> {
         Err(FieldErrors::new().into())
     }
 }
@@ -178,11 +184,11 @@ impl HeaderAction for Block {
         _cx: &Cx,
         blocking: Blocking,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, WriteError<BlockingField>> {
+    ) -> Result<tablo::Outcome, WriteError<Blocking>> {
         match hold(&blocking.room, 0, ex).await {
             Ok(()) => Ok(tablo::Outcome::done()),
             Err(WriteError::Refused(_)) => {
-                Err(WriteError::field(BlockingField::Room, "Room is booked"))
+                Err(WriteError::<Blocking>::field(|f| f.room, "Room is booked"))
             }
             Err(WriteError::Failed(error)) => Err(WriteError::Failed(error)),
             Err(_) => unreachable!("`hold` answers only `Refused` and `Failed`"),

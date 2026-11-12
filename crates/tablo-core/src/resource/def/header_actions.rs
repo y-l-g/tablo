@@ -29,7 +29,7 @@ impl<R: Resource> ResourceDef<R> {
     ///     type Input = ();
     ///     const NAME: &'static str = "recount/tags";
     ///
-    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> {
+    ///     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<()>> {
     ///         Ok(tablo_core::Outcome::done())
     ///     }
     /// }
@@ -61,7 +61,7 @@ impl<R: Resource> ResourceDef<R> {
     /// # impl HeaderAction for PublishDrafts {
     /// #     type Input = ();
     /// #     const NAME: &'static str = "publish-drafts";
-    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<std::convert::Infallible>> {
+    /// #     async fn run(_: &Cx, _: (), _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<()>> {
     /// #         Ok(tablo_core::Outcome::done())
     /// #     }
     /// # }

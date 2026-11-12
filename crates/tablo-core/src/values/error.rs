@@ -1,8 +1,39 @@
-//! [`FieldError`] and [`FieldErrors`]: the keys a submission was refused under, and why.
+//! [`FieldError`] and [`FieldErrors`]: the keys a submission was refused under, and why;
+//! [`FormFields`]: how an app names the field it refuses.
 
 use std::collections::HashSet;
 
+use derive_where::derive_where;
+
 use crate::Text;
+
+/// The fields a submission's errors name: a record form's or a form input's, or the panel's own
+/// form keys (`String`).
+///
+/// The [`RecordForm`](derive@crate::RecordForm), [`ModelForm`](derive@crate::ModelForm) and
+/// [`FormInput`](derive@crate::FormInput) derives implement it, so an app keys its errors by its
+/// form, `FieldErrors<UserForm>`, and picks a field by its name, `errors.add(|f| f.age, ..)`.
+/// The field enum the derive writes, `UserFormField`, is the transport: the key the panel posts
+/// and renders an error under, which an app's code never needs to spell.
+pub trait FormFields {
+    /// What an error names: one variant per field, or a form key.
+    type Field;
+
+    /// One key per field, named like the field, which an error picks a field from: the derive
+    /// writes `UserFormKeys`, holding `age: UserFormField::Age`; a form with no field has `()`.
+    type Keys;
+
+    /// The keys.
+    fn keys() -> Self::Keys;
+}
+
+/// The panel's own errors, keyed by the form key they render under.
+impl FormFields for String {
+    type Field = String;
+    type Keys = ();
+
+    fn keys() -> Self::Keys {}
+}
 
 /// Why a key was refused.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,8 +46,8 @@ pub enum FieldErrorKind {
     Invalid(Text),
 }
 
-/// One key a submission was refused under: a form key, or a record form's
-/// field enum in [`Resource::validate_record`](crate::Resource::validate_record).
+/// One key a submission was refused under: a form key, or the field enum of the form a
+/// [`FieldErrors`] is keyed by.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct FieldError<K = String> {
@@ -59,39 +90,65 @@ pub(crate) fn unreadable(key: &str) -> FieldError {
     FieldError::invalid(key, Text::message("tablo-field-unreadable"))
 }
 
-/// A refused submission.
+/// A refused submission, keyed by the form whose fields it names.
 ///
-/// [`Resource::validate_record`](crate::Resource::validate_record) keys it by the record form's
-/// field enum (`FieldErrors<UserFormField>`), so an error always names a field the form renders;
-/// one on an embedded value renders under its first control. The panel keys every error by the
-/// form key it renders under (`FieldErrors`, keyed by `String`), and [`Source::form`] reads them
-/// back when a schema renders.
+/// [`Resource::validate_record`](crate::Resource::validate_record) answers a
+/// `FieldErrors<UserForm>`, keyed by its record form, so an error always names a field the form
+/// renders; one on an embedded value renders under its first control. An error picks its field
+/// off the form's keys:
+///
+/// ```rust
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+/// # struct User { #[key] #[auto] id: uuid::Uuid, age: i64 }
+/// # #[derive(Debug, Clone, tablo_core::RecordForm)]
+/// # #[form(model = User)]
+/// # struct UserForm { age: i64 }
+/// use tablo_core::FieldErrors;
+///
+/// fn validate(form: &UserForm) -> FieldErrors<UserForm> {
+///     let mut errors = FieldErrors::<UserForm>::new();
+///     if form.age < 0 {
+///         errors.add(|f| f.age, "Age must be zero or more");
+///     }
+///     errors
+/// }
+/// ```
+///
+/// The panel keys every error by the form key it renders under (`FieldErrors`, keyed by
+/// `String`), and [`Source::form`] reads them back when a schema renders.
 ///
 /// [`Source::form`]: crate::Source::form
-#[derive(Debug, Clone)]
-pub struct FieldErrors<K = String> {
-    errors: Vec<FieldError<K>>,
+#[derive_where(Debug, Clone; F::Field)]
+pub struct FieldErrors<F: FormFields = String> {
+    errors: Vec<FieldError<F::Field>>,
 }
 
-impl<K> Default for FieldErrors<K> {
+impl<F: FormFields> Default for FieldErrors<F> {
     fn default() -> Self {
         Self { errors: Vec::new() }
     }
 }
 
-impl<K> FieldErrors<K> {
+impl<F: FormFields> FieldErrors<F> {
     /// No errors.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Refuse `key` with `message`.
-    pub fn add(&mut self, key: impl Into<K>, message: impl Into<Text>) {
-        self.errors.push(FieldError::invalid(key, message));
+    /// Refuse the field `pick` picks off the form's keys with `message`:
+    /// `errors.add(|f| f.age, "Age must be zero or more")`.
+    pub fn add(&mut self, pick: impl FnOnce(F::Keys) -> F::Field, message: impl Into<Text>) {
+        self.add_field(pick(F::keys()), message);
+    }
+
+    /// Refuse `field` with `message`, the field named directly: the panel's own errors name a
+    /// form key, `errors.add_field("email", ..)`.
+    pub fn add_field(&mut self, field: impl Into<F::Field>, message: impl Into<Text>) {
+        self.errors.push(FieldError::invalid(field.into(), message));
     }
 
     /// Refuse `error`'s key with `error`.
-    pub fn push(&mut self, error: FieldError<K>) {
+    pub fn push(&mut self, error: FieldError<F::Field>) {
         self.errors.push(error);
     }
 
@@ -101,7 +158,7 @@ impl<K> FieldErrors<K> {
     }
 
     /// Every error, in the order it was added.
-    pub fn iter(&self) -> impl Iterator<Item = &FieldError<K>> {
+    pub fn iter(&self) -> impl Iterator<Item = &FieldError<F::Field>> {
         self.errors.iter()
     }
 
@@ -111,7 +168,7 @@ impl<K> FieldErrors<K> {
     }
 
     /// These errors, each keyed by the form key `key` gives its field.
-    pub(crate) fn keyed(self, key: fn(K) -> &'static str) -> FieldErrors {
+    pub(crate) fn keyed(self, key: fn(F::Field) -> &'static str) -> FieldErrors {
         let mut keyed = FieldErrors::new();
         for error in self {
             keyed.push(FieldError {
@@ -123,9 +180,9 @@ impl<K> FieldErrors<K> {
     }
 }
 
-impl<K> IntoIterator for FieldErrors<K> {
-    type Item = FieldError<K>;
-    type IntoIter = std::vec::IntoIter<FieldError<K>>;
+impl<F: FormFields> IntoIterator for FieldErrors<F> {
+    type Item = FieldError<F::Field>;
+    type IntoIter = std::vec::IntoIter<FieldError<F::Field>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.errors.into_iter()

@@ -179,7 +179,7 @@ fn an_error_no_field_renders_is_unplaced() {
     let schema = Schema::new(Field::text(DummyUser::fields().name()));
     let unplaced = |key: &str| {
         let mut errors = crate::FieldErrors::new();
-        errors.add(key, "refused");
+        errors.add_field(key, "refused");
         schema.unplaced_error(&errors).map(str::to_string)
     };
     assert_eq!(unplaced("name"), None);

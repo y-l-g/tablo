@@ -45,7 +45,7 @@ const FINAL: &str = "A paid invoice is final";
 const ALONE: &str = "Delete drafts one at a time";
 
 /// Takes an entry for `number`, then declines with `message` when `declines`.
-async fn enter<K>(
+async fn enter<K: tablo::FormFields>(
     number: &str,
     declines: bool,
     message: &str,
@@ -81,7 +81,7 @@ impl Resource for InvoiceResource {
         cx: &Cx,
         form: InvoiceForm,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Invoice, WriteError<InvoiceFormField>> {
+    ) -> Result<Invoice, WriteError<InvoiceForm>> {
         let reserved = form.number.starts_with('X');
         enter(&form.number, reserved, RESERVED, &mut *ex).await?;
         tablo::write_create::<Self>(cx, form, ex).await
@@ -92,7 +92,7 @@ impl Resource for InvoiceResource {
         record: Invoice,
         posted: tablo::Posted<InvoiceForm>,
         ex: &mut dyn toasty::Executor,
-    ) -> Result<Invoice, WriteError<InvoiceFormField>> {
+    ) -> Result<Invoice, WriteError<InvoiceForm>> {
         enter(&record.number, record.status == "paid", FINAL, &mut *ex).await?;
         tablo::write_update::<Self>(cx, record, posted, ex).await
     }
@@ -125,7 +125,7 @@ impl Action<InvoiceResource> for Void {
         invoices: &[Invoice],
         _: (),
         ex: &mut dyn toasty::Executor,
-    ) -> Result<tablo::Outcome, WriteError<std::convert::Infallible>> {
+    ) -> Result<tablo::Outcome, WriteError<()>> {
         for invoice in invoices {
             enter(&invoice.number, invoice.status == "paid", FINAL, &mut *ex).await?;
         }

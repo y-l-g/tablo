@@ -57,7 +57,7 @@ pub(crate) struct Mounted<R: Resource> {
     header_badges: Vec<(&'static str, toasty::stmt::Expr<bool>)>,
     /// The grid [`ResourceDef::list_widget`] fills above the list's table.
     pub(crate) list_widgets: crate::widget::WidgetGrid,
-    pub(crate) fields: Vec<FormField<<R::Form as RecordForm>::Field>>,
+    pub(crate) fields: Vec<FormField<<R::Form as crate::FormFields>::Field>>,
     pub(crate) create_columns: Vec<Result<String, DeclarationErrorKind>>,
     /// The record pages the resource serves: see [`ResourcePage`](super::ResourcePage).
     pub(crate) pages: super::Pages,
