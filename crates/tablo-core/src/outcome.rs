@@ -106,7 +106,7 @@ impl Notification {
 /// What an [`Action`](crate::Action) or a [`HeaderAction`](crate::HeaderAction) asks of the
 /// response once its write commits: which notification it flashes and where it lands.
 ///
-/// [`Outcome::done`] keeps the defaults: the action's [`success`](crate::Action::success)
+/// [`Outcome::done`] keeps the defaults: the action's [`success`](crate::ActionDef::success)
 /// notification, landing back where the action ran from. A run builds on it:
 ///
 /// ```rust

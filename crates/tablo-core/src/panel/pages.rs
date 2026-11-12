@@ -169,7 +169,7 @@ fn header_buttons<'a>(cx: &'a Cx, page: TypeId, mounted: &MountedPage) -> BoxVie
 ///
 /// It renders nothing outside a request to `P`'s panel, for a request the panel's sign-in or
 /// [`PageDef::access`](crate::PageDef::access) refuses, and no button for an action whose
-/// [`can_run`](crate::HeaderAction::can_run) refuses the request.
+/// [`can_run`](crate::HeaderActionDef::can_run) refuses the request.
 pub fn header_action_buttons<P: Page>(cx: &Cx) -> BoxView<'_> {
     let page = TypeId::of::<P>();
     match mounted_admitted(cx, page) {
@@ -219,7 +219,7 @@ pub fn header_action_buttons<P: Page>(cx: &Cx) -> BoxView<'_> {
 ///
 /// The POST runs as the header bar's would: `input` is parsed and checked again, and a refused one
 /// lands on the action's input page. `A` confirms first when it sets
-/// [`CONFIRM`](HeaderAction::CONFIRM). It renders nothing where
+/// [`confirm`](crate::HeaderActionDef::confirm). It renders nothing where
 /// [`header_action_buttons`] renders no button for `A`, when `P` does not declare `A`, and when
 /// `input` holds a repeater's rows, which no hidden field carries.
 pub fn header_action_button<'a, P: Page, A: HeaderAction>(
@@ -287,14 +287,14 @@ pub(super) fn page_handler<P: Page>(cx: &Cx, _body: Body) -> BoxView<'_> {
 }
 
 /// `POST {url}/-/actions/{name}` for a registered page: the same checks as its `GET`, then the
-/// header action's [`can_run`](crate::HeaderAction::can_run), landing back on the page.
+/// header action's [`can_run`](crate::HeaderActionDef::can_run), landing back on the page.
 pub(super) fn page_action<P: Page>(cx: &Cx, body: Body) -> BoxView<'_> {
     async_page(async move {
         let page = admitted::<P>(cx)?;
         let Some(action) = page
             .header_actions
             .find(path_param_segment(cx, "action"))
-            .copied()
+            .cloned()
         else {
             return Err(not_found().into());
         };

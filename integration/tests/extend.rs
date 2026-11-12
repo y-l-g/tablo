@@ -7,7 +7,7 @@
 //! reaches a framework internal.
 
 use tablo::{
-    Ability, Action, BooleanColumn, Change, DeclarationErrorKind, Detail, FilterValue,
+    Ability, Action, ActionDef, BooleanColumn, Change, DeclarationErrorKind, Detail, FilterValue,
     NotificationStatus, Places, Resource, ResourceDef, Schema, Site, Table, TextColumn,
     extend::{Column, Control, ControlInput, Filter, FilterInput},
     lens,
@@ -110,12 +110,10 @@ impl Action<TaskResource> for Complete {
     type Input = ();
     const NAME: &'static str = "complete";
 
-    fn label() -> tablo::Text {
-        "Complete".into()
-    }
-
-    fn can_run(_cx: &Cx, task: &Task) -> bool {
-        !task.done
+    fn declare() -> ActionDef<TaskResource> {
+        ActionDef::new()
+            .label("Complete")
+            .can_run(|_cx, task: &Task| !task.done)
     }
 
     async fn run(
@@ -141,14 +139,12 @@ struct Explode;
 impl Action<TaskResource> for Explode {
     type Input = ();
     const NAME: &'static str = "explode";
-    const PLACES: Places = Places::BULK;
 
-    fn label() -> tablo::Text {
-        "Explode".into()
-    }
-
-    fn can_run(_cx: &Cx, _task: &Task) -> bool {
-        true
+    fn declare() -> ActionDef<TaskResource> {
+        ActionDef::new()
+            .places(Places::BULK)
+            .label("Explode")
+            .can_run(|_cx, _task| true)
     }
 
     async fn run(
@@ -653,12 +649,8 @@ impl Action<TwiceResource> for Twice {
     type Input = ();
     const NAME: &'static str = "twice";
 
-    fn label() -> tablo::Text {
-        "Twice".into()
-    }
-
-    fn can_run(_cx: &Cx, _task: &Task) -> bool {
-        true
+    fn declare() -> ActionDef<TwiceResource> {
+        ActionDef::new().label("Twice").can_run(|_cx, _task| true)
     }
 
     async fn run(
@@ -702,10 +694,9 @@ struct Archive;
 impl Action<ConfirmResource> for Archive {
     type Input = ();
     const NAME: &'static str = "archive";
-    const CONFIRM: bool = true;
 
-    fn label() -> tablo::Text {
-        "Archive".into()
+    fn declare() -> ActionDef<ConfirmResource> {
+        ActionDef::new().confirm().label("Archive")
     }
 
     async fn run(

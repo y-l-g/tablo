@@ -1,9 +1,13 @@
 //! Actions on no record: the [`HeaderAction`] trait, and the [`HeaderActions`] a
 //! [`Page`](crate::Page) or a [`ResourceDef`](super::ResourceDef) declares them in.
 
-use std::future::Future;
+use std::{future::Future, sync::Arc};
 
 use topcoat::{Result, context::Cx, icon::IconData};
+
+mod def;
+
+pub use def::HeaderActionDef;
 
 use super::{ErasedInput, InputResult, InputSpec, parse_validated};
 use crate::{
@@ -49,7 +53,7 @@ use crate::{
 /// - the route, `{url}/-/actions/{NAME}` under the list or page URL, and its CSRF check;
 /// - who may run it: on a resource, the policy's [`Ability::ViewAny`] and [`Ability::RunHeader`]
 ///   with the action's `NAME`; on a page, [`PageDef::access`](crate::PageDef::access); on either,
-///   then [`can_run`](Self::can_run). A refusal answers 403 and renders no button;
+///   then [`HeaderActionDef::can_run`]. A refusal answers 403 and renders no button;
 /// - the transaction: `run` writes through its executor, and an error rolls everything back;
 /// - on a resource, the hooks, with [`Change::HeaderAction`](crate::Change::HeaderAction):
 ///   [`Resource::before_commit`](crate::Resource::before_commit) in the transaction after `run`,
@@ -73,39 +77,14 @@ pub trait HeaderAction: 'static {
     /// [`Action::NAME`](crate::Action::NAME).
     const NAME: &'static str;
 
-    /// Whether the action asks first through a confirmation dialog with destructive wording.
-    /// Defaults to `false`.
+    /// How the button reads, whether it asks first, and who it runs for beyond the policy or
+    /// the page's access. Defaults to [`HeaderActionDef::new`]: a gray button labelled after
+    /// [`NAME`](Self::NAME).
     ///
-    /// An action with input confirms in its input dialog, or on its input page, instead. An
-    /// unconfirmed POST that would write answers 400.
-    const CONFIRM: bool = false;
-
-    /// The icon before the button's label. Defaults to none.
-    const ICON: Option<IconData> = None;
-
-    /// The colour the button is tinted in, as Delete's is in [`Color::Danger`]. Defaults to
-    /// [`Color::Gray`], the untinted button.
-    ///
-    /// It changes how the button looks, not what it asks: [`CONFIRM`](Self::CONFIRM) asks first.
-    const COLOR: Color = Color::Gray;
-
-    /// The question the confirmation dialog asks when [`CONFIRM`](Self::CONFIRM) is set. Defaults
-    /// to the message `tablo-confirm-run`, "Run this action?". An action with input confirms in
-    /// its input dialog instead, which its label titles.
-    fn confirmation() -> crate::Text {
-        crate::text!("tablo-confirm-run")
-    }
-
-    /// The button text. Defaults to the message `action-{NAME}` of the panel's catalogs, else
-    /// [`NAME`](Self::NAME) in sentence case: `"recount-tags"` reads "Recount tags".
-    fn label() -> crate::Text {
-        crate::Text::derived(derived_id("action", Self::NAME), sentence_case(Self::NAME))
-    }
-
-    /// Whether the request may run the action, beyond the policy or the page's access: a
-    /// feature flag, a role the policy does not model. Defaults to `true`.
-    fn can_run(_cx: &Cx) -> bool {
-        true
+    /// The resource or page builds it once, when it adds the action, so it takes no request:
+    /// [`HeaderActionDef::can_run`] receives `cx`.
+    fn declare() -> HeaderActionDef {
+        HeaderActionDef::new()
     }
 
     /// Refuse an input [`run`](Self::run) should not receive. Each error names a field of the
@@ -120,7 +99,7 @@ pub trait HeaderAction: 'static {
 
     /// Perform the action with the parsed `input`, through the framework's transaction `ex`,
     /// and say what the response does once it commits: [`Outcome::done`](crate::Outcome::done)
-    /// for the [`success`](Self::success) notification, landing back on the list or page.
+    /// for the [`HeaderActionDef::success`] notification, landing back on the list or page.
     ///
     /// Refuses the input with [`WriteError::Refused`](crate::WriteError::Refused), or declines
     /// with [`WriteError::declined`](crate::WriteError::declined), as
@@ -132,11 +111,6 @@ pub trait HeaderAction: 'static {
     ) -> impl Future<
         Output = Result<crate::Outcome, crate::WriteError<<Self::Input as FormInput>::Field>>,
     > + Send;
-
-    /// The success notification after a commit. Defaults to the label: `"Recount tags: done"`.
-    fn success() -> crate::Text {
-        crate::text!("tablo-action-done", action = Self::label())
-    }
 }
 
 impl<M> Ability<'_, M> {
@@ -246,17 +220,28 @@ impl HeaderActions {
                 "`HeaderAction::NAME` must be a single path segment"
             );
         }
+        let def = A::declare();
+        let label = def.label.unwrap_or_else(|| {
+            crate::Text::derived(derived_id("action", A::NAME), sentence_case(A::NAME))
+        });
+        let success = def
+            .success
+            .unwrap_or_else(|| crate::text!("tablo-action-done", action = label.clone()));
+        let confirmation = def
+            .confirmation
+            .unwrap_or_else(|| crate::text!("tablo-confirm-run"));
+        let icon = def.icon;
         self.entries.push(HeaderEntry {
             name: A::NAME,
-            label: A::label,
-            can_run: A::can_run,
+            label: Arc::new(move || label.clone()),
+            can_run: def.can_run.unwrap_or_else(|| Arc::new(|_| true)),
             input: InputSpec::of::<A::Input>(parse_header_input::<A>),
             run: run_header_erased::<A>,
-            success: A::success,
-            confirm: A::CONFIRM,
-            prompt: A::confirmation,
-            icon: || A::ICON,
-            color: A::COLOR,
+            success: Arc::new(move || success.clone()),
+            confirm: def.confirm,
+            prompt: Arc::new(move || confirmation.clone()),
+            icon: Arc::new(move || icon.clone()),
+            color: def.color,
         });
         self
     }
@@ -286,19 +271,19 @@ pub(crate) type RunHeader = for<'a> fn(
 ) -> BoxFuture<'a, Result<crate::Outcome, crate::WriteError>>;
 
 /// A [`HeaderAction`] with its type erased.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) struct HeaderEntry {
     pub(crate) name: &'static str,
-    pub(crate) label: fn() -> crate::Text,
-    pub(crate) can_run: fn(&Cx) -> bool,
+    pub(crate) label: Arc<dyn Fn() -> crate::Text + Send + Sync>,
+    pub(crate) can_run: def::RequestCheck,
     pub(crate) input: InputSpec,
     pub(crate) run: RunHeader,
-    pub(crate) success: fn() -> crate::Text,
+    pub(crate) success: Arc<dyn Fn() -> crate::Text + Send + Sync>,
     pub(crate) confirm: bool,
     /// The question the dialog confirming it asks.
-    pub(crate) prompt: fn() -> crate::Text,
+    pub(crate) prompt: Arc<dyn Fn() -> crate::Text + Send + Sync>,
     /// The icon before its button's label.
-    pub(crate) icon: fn() -> Option<IconData>,
+    pub(crate) icon: Arc<dyn Fn() -> Option<IconData> + Send + Sync>,
     /// The colour its button is tinted in.
     pub(crate) color: Color,
 }

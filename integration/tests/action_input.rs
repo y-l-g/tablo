@@ -2,9 +2,9 @@
 //! POST renders the input as a page until a submission parses, then runs with the typed value.
 
 use tablo::{
-    Ability, Action, ActionInputFault, DeclarationErrorKind, Field, FieldError, FieldErrors,
-    FormInput, FormValues, NotificationStatus, Policy, ReadOnly, Resource, ResourceDef, Schema,
-    Site, Table, TextColumn, lens, testing::field_error,
+    Ability, Action, ActionDef, ActionInputFault, DeclarationErrorKind, Field, FieldError,
+    FieldErrors, FormInput, FormValues, NotificationStatus, Policy, ReadOnly, Resource,
+    ResourceDef, Schema, Site, Table, TextColumn, lens, testing::field_error,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -51,12 +51,10 @@ impl Action<TicketResource> for Close {
     type Input = Closing;
     const NAME: &'static str = "close";
 
-    fn label() -> tablo::Text {
-        "Close".into()
-    }
-
-    fn can_run(_cx: &Cx, ticket: &Ticket) -> bool {
-        !ticket.closed
+    fn declare() -> ActionDef<TicketResource> {
+        ActionDef::new()
+            .label("Close")
+            .can_run(|_cx, ticket: &Ticket| !ticket.closed)
     }
 
     fn validate_input(_cx: &Cx, closing: &Closing) -> FieldErrors<ClosingField> {
@@ -103,10 +101,9 @@ struct Purging {
 impl Action<TicketResource> for Purge {
     type Input = Purging;
     const NAME: &'static str = "purge";
-    const CONFIRM: bool = true;
 
-    fn label() -> tablo::Text {
-        "Purge".into()
+    fn declare() -> ActionDef<TicketResource> {
+        ActionDef::new().confirm().label("Purge")
     }
 
     fn validate_input(_cx: &Cx, purging: &Purging) -> FieldErrors<PurgingField> {
@@ -170,8 +167,8 @@ impl Action<TicketResource> for Merge {
     type Input = Merging;
     const NAME: &'static str = "merge";
 
-    fn label() -> tablo::Text {
-        "Merge".into()
+    fn declare() -> ActionDef<TicketResource> {
+        ActionDef::new().label("Merge")
     }
 
     async fn run(
@@ -556,8 +553,8 @@ impl Action<SelectResource> for Attach {
     type Input = Attaching;
     const NAME: &'static str = "attach";
 
-    fn label() -> tablo::Text {
-        "Attach".into()
+    fn declare() -> ActionDef<SelectResource> {
+        ActionDef::new().label("Attach")
     }
 
     async fn run(
@@ -576,8 +573,8 @@ impl Action<SelectResource> for Refuse {
     type Input = Strict;
     const NAME: &'static str = "refuse";
 
-    fn label() -> tablo::Text {
-        "Refuse".into()
+    fn declare() -> ActionDef<SelectResource> {
+        ActionDef::new().label("Refuse")
     }
 
     async fn run(
@@ -596,8 +593,8 @@ impl Action<SelectResource> for Select {
     type Input = Selecting;
     const NAME: &'static str = "select";
 
-    fn label() -> tablo::Text {
-        "Select".into()
+    fn declare() -> ActionDef<SelectResource> {
+        ActionDef::new().label("Select")
     }
 
     async fn run(

@@ -2,8 +2,8 @@
 //! options endpoint and on submit.
 
 use tablo::{
-    Ability, Action, ActionInputFault, Allow, DeclarationErrorKind, Field, FieldError, FormInput,
-    FormValues, NoForm, Resource, ResourceDef, Schema, Site, Table, TextColumn, lens,
+    Ability, Action, ActionDef, ActionInputFault, Allow, DeclarationErrorKind, Field, FieldError,
+    FormInput, FormValues, NoForm, Resource, ResourceDef, Schema, Site, Table, TextColumn, lens,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -292,8 +292,8 @@ async fn an_action_input_cannot_hold_a_dependent_choice() {
         type Input = Moving;
         const NAME: &'static str = "move";
 
-        fn label() -> tablo::Text {
-            "Move".into()
+        fn declare() -> ActionDef<MovingResource> {
+            ActionDef::new().label("Move")
         }
 
         async fn run(

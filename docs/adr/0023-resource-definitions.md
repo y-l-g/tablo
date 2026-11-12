@@ -17,9 +17,13 @@ access check and header actions, and the trait keeps `render`. Access sits in th
 resource's policy does, so `Panel::page_with` can narrow a page in one panel and leave it open in
 another.
 
-An action keeps its settings on its trait: `NAME` is a constant, checked at compile time as a URL
-segment and matched by `Ability::is_action`, so a def would split the action's settings between a
-constant and a value. A panel revokes a resource's action through the policy it mounts, not by editing
+An action follows the same shape: `Action::declare` returns an `ActionDef<R>` holding where its
+button shows, how it reads on each record, which records it runs on and its success message, and
+`HeaderAction::declare` a `HeaderActionDef`. The trait keeps what names and types the action, as
+`Resource` keeps its associated types: `Input`, and `NAME`, a constant checked at compile time as a
+URL segment, which `Ability::is_action`, the policies and the URL builders name before any def is
+built. It also keeps the methods that validate and write, `validate_input` and `run`. A panel
+revokes a resource's action through the policy it mounts, not by editing
 the action. A page has no policy: `page_with` adds header actions or narrows the page's access,
 and does not remove an action the page declares.
 
@@ -30,5 +34,10 @@ and does not remove an action the page declares.
 - A registry keyed by resource type across panels: one configuration per type, rebuilt silently
   for an unmounted resource.
 - A page's access as a trait method: one answer per type, which a second panel cannot narrow.
-- An `ActionDef` value: `NAME` must stay a constant, and the policy already decides per panel who
-  runs the action.
+- An action's settings as constants and functions of its trait: a second way to declare beside
+  `declare`, and two spellings of one setting, a constant and a function over the record (`ICON`
+  and `icon_for`, `label` and `label_for`). This ADR first chose them, so that `NAME` and the
+  rest would not be split between a constant and a value; `Resource` splits the same way, between
+  its associated types and its def.
+- `NAME` in the def: a value is checked at mount rather than at compile time, and `is_action` and
+  the URL builders would have to build the def to read it.

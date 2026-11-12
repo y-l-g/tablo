@@ -1,13 +1,14 @@
 //! [`Places`]: where an action's button renders.
 
-/// Where an [`Action`](super::Action)'s button renders: [`Action::PLACES`](super::Action::PLACES).
+/// Where an [`Action`](super::Action)'s button renders:
+/// [`ActionDef::places`](super::ActionDef::places).
 ///
 /// ```rust
 /// # use tablo_core::Places;
 /// // On the detail page and the bulk bar, not on each row or the edit page.
-/// const PLACES: Places = Places::DETAIL.with(Places::BULK);
-/// assert!(PLACES.contains(Places::BULK));
-/// assert!(!PLACES.contains(Places::ROW));
+/// let places = Places::DETAIL.with(Places::BULK);
+/// assert!(places.contains(Places::BULK));
+/// assert!(!places.contains(Places::ROW));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Places(u8);

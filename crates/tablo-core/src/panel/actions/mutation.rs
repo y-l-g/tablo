@@ -110,7 +110,7 @@ pub(crate) fn resource_list_action<R: Resource>(cx: &Cx, body: Body) -> BoxView<
     async_page(async move {
         let resource = gate::<R>(cx)?;
         let name = path_param_segment(cx, "action");
-        if let Some(header) = resource.header_actions.find(name).copied() {
+        if let Some(header) = resource.header_actions.find(name).cloned() {
             if !header_allowed(cx, &resource, &header) {
                 return Err(forbidden().into());
             }
@@ -150,7 +150,7 @@ fn custom_action<R: Resource>(
         .actions
         .find(name)
         .filter(|a| a.places.intersects(places))
-        .copied()
+        .cloned()
 }
 
 /// What the POST of an action asked for, read and checked before the transaction opens.
@@ -203,7 +203,9 @@ async fn mutate<'a, R: Resource>(
 ) -> Result<BoxView<'a>, topcoat::Error> {
     // An unknown action asks `ViewAny`, so a caller who may not open the list gets the 403 a
     // refused action gets, and the 404 names no action to them.
-    let resource_wide = action.map_or(Ability::ViewAny, |action| action.resource_wide);
+    let resource_wide = action
+        .as_ref()
+        .map_or(Ability::ViewAny, |action| action.resource_wide);
     if !resource.can(cx, resource_wide) {
         return Err(forbidden().into());
     }

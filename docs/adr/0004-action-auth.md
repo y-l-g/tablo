@@ -32,8 +32,8 @@ for effects outside the database. An action's `Outcome` applies only after both.
 
 ## Rejected
 
-- Authorizing an action through `View` and `can_run`: `can_run` is a static fn on the action
-  type and never sees the mounted def's policy, so a panel that mounts the resource `ReadOnly`
+- Authorizing an action through `View` and `can_run`: `can_run` belongs to the action's own def
+  and never sees the mounted resource's policy, so a panel that mounts the resource `ReadOnly`
   could not revoke its actions.
 - `can` answering the policy alone, with `can_run` asked beside it by each caller: an app's own
   page asking `can` showed a button the route refused, and each of the framework's callers had

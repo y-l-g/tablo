@@ -18,6 +18,7 @@ mod area;
 mod declaration;
 mod extend;
 mod header_action;
+mod header_action_badge;
 mod header_action_preset;
 mod layouts;
 mod load;

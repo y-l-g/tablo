@@ -2,8 +2,8 @@
 
 use jiff::tz::TimeZone;
 use tablo::{
-    Ability, Chart, Color, FieldErrors, HeaderAction, Page, PageDef, RecordTable, Series, Stat,
-    Widget, WidgetDef, can_list, db::db, filter_keys, lens, list_query, scoped_query,
+    Ability, Chart, Color, FieldErrors, HeaderAction, HeaderActionDef, Page, PageDef, RecordTable,
+    Series, Stat, Widget, WidgetDef, can_list, db::db, filter_keys, lens, list_query, scoped_query,
 };
 use topcoat::{Result, context::Cx, view::View};
 
@@ -161,10 +161,9 @@ impl HeaderAction for FeatureTagged {
     type Input = FeatureTag;
     const NAME: &'static str = "feature-tagged";
 
-    /// The dashboard admits every signed-in user and has no policy: featuring asks the post
-    /// resource's.
-    fn can_run(cx: &Cx) -> bool {
-        tablo::can::<PostResource>(cx, Ability::RunHeader { action: Self::NAME })
+    fn declare() -> HeaderActionDef {
+        HeaderActionDef::new()
+            .can_run(|cx| tablo::can::<PostResource>(cx, Ability::RunHeader { action: Self::NAME }))
     }
 
     fn validate_input(_cx: &Cx, input: &FeatureTag) -> FieldErrors<FeatureTagField> {

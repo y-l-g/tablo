@@ -5,11 +5,11 @@ use std::convert::Infallible;
 
 use topcoat::{
     context::Cx,
-    icon::{IconData, icon},
+    icon::icon,
     view::{BoxView, ViewExt, attributes, view},
 };
 
-use crate::{Action, Outcome, PanelUser, Places, Resource, WriteError};
+use crate::{Action, ActionDef, Outcome, PanelUser, Places, Resource, WriteError};
 
 /// Acts as the record's user: an [`Action`] for a resource whose model is the panel's user type,
 /// placed on its rows and record pages.
@@ -42,15 +42,14 @@ where
     type Input = ();
 
     const NAME: &'static str = "impersonate";
-    const PLACES: Places = Places::RECORD;
-    const ICON: Option<IconData> = Some(tablo_ui::icons::EYE);
 
-    fn label() -> crate::Text {
-        crate::text!("tablo-impersonation-start")
-    }
-
-    fn can_run(cx: &Cx, record: &R::Model) -> bool {
-        crate::auth::may_impersonate(cx, record)
+    fn declare() -> ActionDef<R> {
+        ActionDef::new()
+            .places(Places::RECORD)
+            .icon(tablo_ui::icons::EYE)
+            .label(crate::text!("tablo-impersonation-start"))
+            .can_run(|cx, record: &R::Model| crate::auth::may_impersonate(cx, record))
+            .success(|_| crate::text!("tablo-impersonation-started"))
     }
 
     async fn run(
@@ -68,10 +67,6 @@ where
             .await
             .map_err(WriteError::Failed)?;
         Ok(Outcome::done().redirect(crate::auth::panel_prefix(cx)))
-    }
-
-    fn success(_count: usize) -> crate::Text {
-        crate::text!("tablo-impersonation-started")
     }
 }
 

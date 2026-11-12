@@ -3,8 +3,8 @@
 
 use http::header::LOCATION;
 use tablo::{
-    Action, Allow, HeaderAction, Notification, NotificationStatus, Outcome, Resource, ResourceDef,
-    Table, TextColumn, lens,
+    Action, ActionDef, Allow, HeaderAction, Notification, NotificationStatus, Outcome, Resource,
+    ResourceDef, Table, TextColumn, lens,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -28,8 +28,8 @@ impl Action<TicketResource> for Close {
     type Input = ();
     const NAME: &'static str = "close";
 
-    fn can_run(_cx: &Cx, ticket: &Ticket) -> bool {
-        !ticket.closed
+    fn declare() -> ActionDef<TicketResource> {
+        ActionDef::new().can_run(|_cx, ticket: &Ticket| !ticket.closed)
     }
 
     async fn run(
