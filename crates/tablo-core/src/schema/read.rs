@@ -10,7 +10,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use jiff::tz::TimeZone;
 use topcoat::{Result, context::Cx};
 
-use super::{Schema, fields::ChoiceControl};
+use super::{FormMask, Posting, Schema, Unposted, fields::ChoiceControl};
 use crate::values::{FormValue, FormValues};
 
 /// A posted body's pairs, indexed by key, recording which ones a field claimed, and the time zone
@@ -137,9 +137,8 @@ impl<F> Schema<F> {
         Ok(values)
     }
 
-    /// A posted input as its parse reads it: [read](Self::read), with a condition-hidden field's
-    /// key removed and a condition-disabled field's replaced by its default, since the browser
-    /// posts nothing for either.
+    /// A posted input as its parse reads it: [read](Self::read), with each key a disabled or
+    /// hidden control would not post settled as [`resolve`](Self::resolve) settles a create's.
     ///
     /// # Errors
     ///
@@ -153,7 +152,7 @@ impl<F> Schema<F> {
     ) -> Result<FormValues> {
         use topcoat::router::error::bad_request;
 
-        let (mut input, unclaimed) = self.read_unclaimed(cx, posted).map_err(bad_request)?;
+        let (input, unclaimed) = self.read_unclaimed(cx, posted).map_err(bad_request)?;
         let unknown: Vec<String> = unclaimed
             .into_iter()
             .filter(|key| !reserved.contains(&key.as_str()))
@@ -161,16 +160,15 @@ impl<F> Schema<F> {
         if !unknown.is_empty() {
             return Err(bad_request(format!("unknown field(s): {}", unknown.join(", "))).into());
         }
-        // A disabled field's default first, which a condition reads as the browser did.
-        self.drop_disabled(&mut input, false);
-        for key in self.condition_hidden(&input) {
-            input.remove(&key);
-        }
-        let disabled = self.condition_disabled(&input);
-        for key in &disabled {
-            input.remove(key);
-        }
-        input.extend(self.defaults_of(disabled.iter().map(String::as_str)));
+        let (_, input) = self.resolve(
+            &input,
+            Posting {
+                editing: false,
+                mask: &FormMask::default(),
+                unposted: Unposted::Missing,
+                stored: &FormValues::new(),
+            },
+        );
         Ok(input)
     }
 }

@@ -16,6 +16,7 @@ mod options;
 mod read;
 pub(crate) mod relationship;
 pub(crate) mod repeater;
+mod state;
 pub(crate) mod tree;
 
 use std::{collections::HashSet, marker::PhantomData};
@@ -45,6 +46,7 @@ pub(crate) use relationship::{
     OptionLoadError, OptionSource, clamp_query_term, ensure_option_access,
 };
 pub use repeater::{MAX_REPEATER_ROWS, parse_items, write_items};
+pub(crate) use state::{Posting, Unposted};
 use topcoat::{Result, context::Cx, view::*};
 pub use tree::{IntoSchema, Source};
 pub(crate) use tree::{Node, Retype, render_nodes};
@@ -176,36 +178,6 @@ impl<F> Schema<F> {
             .iter()
             .filter_map(|field| Some((field.name().to_string(), field.default_value()?.clone())))
             .collect()
-    }
-
-    /// The `default` of each field `keys` names that declares one.
-    pub(crate) fn defaults_of<'k>(&self, keys: impl Iterator<Item = &'k str>) -> FormValues {
-        let keys: Vec<&str> = keys.collect();
-        self.fields
-            .iter()
-            .filter(|field| keys.contains(&field.name()))
-            .filter_map(|field| Some((field.name().to_string(), field.default_value()?.clone())))
-            .collect()
-    }
-
-    /// Drops what a disabled or hidden control posted, which the browser never sends: on the edit
-    /// form when `editing`, else on the create form, where the field takes its `default`. Run it
-    /// before [`condition_hidden`](Self::condition_hidden), which drops a hidden field's
-    /// default again.
-    pub(crate) fn drop_disabled(&self, values: &mut FormValues, editing: bool) {
-        for field in self
-            .fields
-            .iter()
-            .filter(|field| field.is_disabled(editing))
-        {
-            let name = field.name();
-            values.remove(name);
-            if let Some(default) = field.default_value()
-                && !editing
-            {
-                values.insert(name, default.clone());
-            }
-        }
     }
 
     /// The keys of the controls disabled on the edit form when `editing`, else the create form.

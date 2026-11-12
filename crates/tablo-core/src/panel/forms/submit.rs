@@ -33,13 +33,15 @@ use crate::{
     panel::state::uploader,
     policy::Ability,
     resource::{Change, Mounted, Resource, WriteError},
-    schema::Schema,
+    schema::{Posting, Schema},
     topcoat_compat::async_page,
 };
 
 mod parse;
 
 pub(super) use parse::{complete, named_fields, parse_form, recheck_relationships, refusal};
+
+pub(super) use crate::schema::Unposted;
 
 const WRITE_CREATE: &str = "tablo-failed-create";
 const WRITE_UPDATE: &str = "tablo-failed-update";
@@ -53,17 +55,6 @@ pub(super) struct Submission {
     /// transaction loads.
     lists: FilePosts,
     pub(super) named: HashSet<String>,
-}
-
-/// What a create submission's keys stand for when it does not post them.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Unposted {
-    /// What a browser's form leaves out: a key it renders a control for is posted, so one
-    /// missing stays missing.
-    Missing,
-    /// An import row's: the header leaves the key out, so it takes the field's `default`, as the
-    /// create page's untouched control posts it.
-    Defaulted,
 }
 
 /// Stages a create/edit submission, completing unnamed keys from the edit advisory snapshot.
@@ -90,17 +81,10 @@ pub(super) async fn prepare_submission<R: Resource>(
     }
     // Each repeater's rows, and each multiple choice's values, become its one key, which every
     // step below reads like any other.
-    let (mut values, unclaimed) = schema
+    let (posted, unclaimed) = schema
         .read_unclaimed(cx, &parts.pairs)
         .map_err(topcoat::router::error::bad_request)?;
     reject_unknown_form_keys(&schema, unclaimed)?;
-    if unposted == Unposted::Defaulted {
-        for (key, default) in schema.defaults().iter() {
-            if values.get(key).is_none() {
-                values.insert(key, default.clone());
-            }
-        }
-    }
     let mut flags = file_flags(&schema, &parts);
     let FormParts {
         mut files,
@@ -110,41 +94,19 @@ pub(super) async fn prepare_submission<R: Resource>(
     let stored = advisory
         .map(|advisory| <R::Form as RecordForm>::hydrate(cx, advisory))
         .unwrap_or_default();
-    // A disabled control posts nothing: a key posted anyway is dropped, so an edit keeps the
-    // stored value and a create takes the field's default. Conditions then read that value, as
-    // the browser did.
-    let editing = advisory.is_some();
-    for key in schema.disabled_keys(editing) {
-        files.remove(key);
-        flags.remove(key);
-    }
-    schema.drop_disabled(&mut values, editing);
-    // An edit completes a masked field from the stored record; a create takes its default.
-    if !editing {
-        values.extend(schema.defaults_of(mask.keys()));
-    }
-    // A hidden field's control is disabled, so the browser posts nothing for it: a key posted
-    // anyway is dropped, with a file field's carried upload, so an edit keeps the stored value and
-    // a create takes the blank answer. An edit that does not post the watched field reads its
-    // stored value, as the parse will.
-    let mut read = stored.clone();
-    read.extend(values.clone());
-    for key in &schema.condition_hidden(&read) {
-        values.remove(key);
-        files.remove(key);
-        flags.remove(key);
-    }
-    // A control a condition disables posts nothing either, and the server reads it as a
-    // disabled one: an edit keeps the stored value and a create takes the field's default.
-    let disabled = schema.condition_disabled(&read);
-    for key in &disabled {
-        values.remove(key);
-        files.remove(key);
-        flags.remove(key);
-    }
-    if !editing {
-        values.extend(schema.defaults_of(disabled.iter().map(String::as_str)));
-    }
+    // A disabled, masked or hidden control posts nothing: what a crafted POST carries for one,
+    // file parts and flags included, is dropped, so an edit keeps the stored value.
+    let (states, mut values) = schema.resolve(
+        &posted,
+        Posting {
+            editing: advisory.is_some(),
+            mask: &mask,
+            unposted,
+            stored: &stored,
+        },
+    );
+    files.retain(|key, _| states.posts(key));
+    flags.retain(|key, _| states.posts(key));
     // File fields take values only from file parts.
     drop_client_typed_uploads(&schema, &file_part_names, &mut values);
     // A list choosing more files than it holds stores none of them.
