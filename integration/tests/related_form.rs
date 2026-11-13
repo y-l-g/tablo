@@ -6,7 +6,8 @@ use tablo::{
     Ability, Change, DeclarationErrorKind, FieldErrors, NoForm, RelatedFormFault, Relation,
     Resource, ResourceDef, ResourcePage, Site, TextColumn, WriteError, lens,
     testing::{
-        TestClient, declined_message, field_error, form_body, input_value, sections, stale_form,
+        TestClient, WizardStep, declined_message, field_error, form_body, input_value, sections,
+        stale_form, wizard_steps,
     },
 };
 use toasty::Db;
@@ -764,4 +765,64 @@ async fn a_related_form_draws_one_section() {
     assert_eq!(headings(&html), ["About"], "{html}");
     let html = body_string(get(&router, "/admin/members/-/create").await).await;
     assert_eq!(headings(&html).len(), 1, "{html}");
+}
+
+/// A form laid out as a wizard walks its related form as its last step, which a refused child
+/// opens on; a form without one shows the related form after its fields, outside any step.
+#[tokio::test]
+async fn a_wizard_walks_its_related_form_as_its_last_step() {
+    struct WizardMembers;
+
+    impl Resource for WizardMembers {
+        type Model = Member;
+        type Form = MemberForm;
+
+        fn declare() -> ResourceDef<Self> {
+            let c = MemberForm::controls();
+            ResourceDef::new()
+                .slug("wizard-members")
+                .policy_fn(|_cx, _ability| true)
+                .form(tablo::Schema::new(tablo::Wizard::new([tablo::Step::new(
+                    "Account",
+                )
+                .schema(c.name)])))
+                .relation(Relation::has_one::<ProfileResource>(
+                    Profile::fields().member_id(),
+                ))
+        }
+    }
+
+    let db = test_db(toasty::models!(Member, Profile)).await;
+    let router = mount(
+        db,
+        panel()
+            .resource::<WizardMembers>()
+            .resource::<MemberResource>()
+            .resource::<ProfileResource>(),
+    )
+    .expect("panel builds");
+    let keys = |steps: &[WizardStep]| -> Vec<Vec<String>> {
+        steps.iter().map(|step| step.keys.clone()).collect()
+    };
+
+    let html = body_string(get(&router, "/admin/wizard-members/-/create").await).await;
+    let steps = wizard_steps(&html);
+    assert_eq!(keys(&steps), [vec!["name"], vec!["profiles.bio"]], "{html}");
+    assert!(steps[0].current && !steps[1].current, "{steps:?}");
+
+    let response = post_fields(
+        &router,
+        "/admin/wizard-members/-/create",
+        &[("name", "Ada"), ("profiles.bio", "refused")],
+    )
+    .await;
+    let html = body_string(response).await;
+    let steps = wizard_steps(&html);
+    assert!(steps[1].current && steps[1].errored, "{steps:?}");
+
+    let html = body_string(get(&router, "/admin/members/-/create").await).await;
+    assert!(wizard_steps(&html).is_empty(), "{html}");
+    let posts_bio =
+        |section: &tablo::testing::Section| section.keys.iter().any(|k| k == "profiles.bio");
+    assert!(sections(&html).iter().any(posts_bio), "{html}");
 }

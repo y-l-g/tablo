@@ -71,8 +71,9 @@ pub(crate) struct FormChrome<'a> {
     relations: Vec<BoxView<'a>>,
     /// The record's navigation, under the header.
     navigation: Vec<RecordNavLink>,
-    /// The sections of the record's related forms, inside the form after its own fields.
-    related: Vec<BoxView<'a>>,
+    /// The record's related forms: the last steps of the form's wizard, else sections after its
+    /// own fields.
+    related: Vec<crate::schema::ExtraStep<'a>>,
     /// Whether the page refuses a save because another changed the record since the form opened.
     stale: bool,
     /// The message a record fn declined the write with, shown above the fields.
@@ -171,7 +172,7 @@ impl<'a> FormChrome<'a> {
     }
 
     /// Renders `related`, the sections of the record's related forms, inside the form.
-    pub(super) fn with_related(mut self, related: Vec<BoxView<'a>>) -> Self {
+    pub(super) fn with_related(mut self, related: Vec<crate::schema::ExtraStep<'a>>) -> Self {
         self.related = related;
         self
     }
@@ -291,7 +292,9 @@ pub(crate) async fn render_form_page<'a>(
     if let Some(url) = options {
         source = source.options_at(url);
     }
-    let form_html = schema.render(cx, source).await?;
+    // A wizard walks the related forms as its last steps; any other form shows them after it.
+    let (form_html, related) = schema.render_with_steps(cx, source, related).await?;
+    let related: Vec<BoxView<'a>> = related.into_iter().map(|step| step.body).collect();
     let action = form_action(cx, &seed, picking);
     let cancel = return_target(cx).unwrap_or(cancel);
     // A refused save keeps what the user typed, which leaving the page would lose.

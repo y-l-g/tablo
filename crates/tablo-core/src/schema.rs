@@ -18,6 +18,7 @@ mod read;
 pub(crate) mod relationship;
 pub(crate) mod repeater;
 mod state;
+mod steps;
 pub(crate) mod tree;
 
 use std::{collections::HashSet, marker::PhantomData};
@@ -36,8 +37,8 @@ pub(crate) use fields::{
     is_linkable, is_rooted, option_view, read_only, stored_upload, value_cell,
 };
 pub(crate) use input::FormInput;
+pub(crate) use layouts::{ExtraStep, TabView, tab_id, tab_view, titled};
 pub use layouts::{Grid, Group, HoldsTabs, Section, Step, Tab, Tabs, Wizard};
-pub(crate) use layouts::{TabView, tab_id, tab_view, titled};
 pub(crate) use lenses::Binding;
 pub use lenses::form_key;
 pub(crate) use mask::FormMask;

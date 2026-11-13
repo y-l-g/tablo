@@ -24,6 +24,7 @@ mod wizard;
 pub use section::Section;
 pub(crate) use section::titled;
 pub(crate) use span::{Span, spanned};
+pub(crate) use wizard::ExtraStep;
 pub use wizard::{Step, Wizard};
 
 /// An unlabelled block grouping a form's fields or a detail page's columns.
