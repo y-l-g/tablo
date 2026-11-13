@@ -29,7 +29,7 @@ use crate::{
 /// behind it, edge to edge over the page's padding. On a phone the submit button takes a line of
 /// its own and the others share the next.
 const FOOTER: StaticClass = class!(
-    "sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-2 border-t border-border",
+    "sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-2",
     "bg-background/85 px-4 py-3 backdrop-blur-md supports-[not(backdrop-filter:blur(0))]:bg-background",
     "md:-mx-8 md:px-8 max-sm:[&>*]:grow max-sm:[&>:first-child]:basis-full",
 );
