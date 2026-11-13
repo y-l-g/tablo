@@ -5,8 +5,8 @@ use toasty::stmt::Expr;
 use topcoat::{Result, context::Cx};
 
 use super::super::super::relationship::{
-    OptionLoadError, OptionSource, RelationshipChecker, RelationshipLoader,
-    RelationshipSearchLoader, held_keys, related_record_check, related_records,
+    OptionLoadError, OptionSource, RelationshipChecker, RelationshipLoader, RelationshipNamer,
+    RelationshipSearchLoader, held_keys, related_record, related_record_check, related_records,
     related_records_search,
 };
 use crate::BoxFuture;
@@ -24,6 +24,8 @@ type HeldKeys =
 pub(crate) struct Relationship {
     pub(super) load: RelationshipLoader,
     pub(super) search: RelationshipSearchLoader,
+    /// The option of one key, which a select past the cap shows its value by.
+    pub(super) name: RelationshipNamer,
     pub(super) check: RelationshipChecker,
     /// Which of a relationship filter's keys the user may name, past the cap.
     pub(super) held: HeldKeys,
@@ -64,6 +66,7 @@ impl Relationship {
             (crate::toasty_compat::pk::pk_text(record), label(cx, record))
         });
         let search_project = project.clone();
+        let name_project = project.clone();
         let load = std::sync::Arc::new(move |cx: &Cx| {
             let project = project.clone();
             let cx = cx.clone();
@@ -84,10 +87,19 @@ impl Relationship {
                 Ok(records.iter().map(|record| project(&cx, record)).collect())
             }) as BoxFuture<'static, _>
         }) as RelationshipSearchLoader;
+        let name = std::sync::Arc::new(move |cx: &Cx, key: String| {
+            let project = name_project.clone();
+            let cx = cx.clone();
+            Box::pin(async move {
+                let record = related_record::<R>(&cx, &key).await?;
+                Ok(record.map(|record| project(&cx, &record)))
+            }) as BoxFuture<'static, _>
+        }) as RelationshipNamer;
         let check = std::sync::Arc::new(check_record::<R>) as RelationshipChecker;
         Self {
             load,
             search,
+            name,
             check,
             held: |cx, keys| {
                 Box::pin(async move {
