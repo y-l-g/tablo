@@ -568,7 +568,10 @@ impl Tabs<Schema> {
                 .map(|field| tab_id(&source.id(fields[field].name()), depth))
                 .unwrap_or_default();
             source.set_tab_depth(depth + 1);
+            // The block is a card, or sits flush in one: either way its sections are headings.
+            let outer = source.set_in_panel(true);
             let body = render_nodes(cx, &tab.children.nodes, fields, source).await;
+            source.set_in_panel(outer);
             source.set_tab_depth(depth);
             let body = body?;
             let view = tab_view(cx, &id, tab.face(), index == active, errored[index], body);

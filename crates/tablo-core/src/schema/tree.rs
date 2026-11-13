@@ -2,7 +2,7 @@
 
 use std::{
     collections::HashMap,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use topcoat::{Result, context::Cx, view::*};
@@ -56,6 +56,10 @@ pub struct Source<'a> {
     tab_depth: AtomicUsize,
     /// Whether a dialog frames the form, whose sections then render without a panel.
     flat: bool,
+    /// Whether a panel holds the node rendering now: a section's, a tab block's or a related
+    /// form's. A section inside one renders as a heading over its fields, never a panel in a
+    /// panel.
+    in_panel: AtomicBool,
 }
 
 impl<'a> Source<'a> {
@@ -72,6 +76,7 @@ impl<'a> Source<'a> {
             prefix: String::new(),
             tab_depth: AtomicUsize::new(0),
             flat: false,
+            in_panel: AtomicBool::new(false),
         }
     }
 
@@ -84,6 +89,22 @@ impl<'a> Source<'a> {
     /// Whether sections render without a panel.
     pub(super) fn is_flat(&self) -> bool {
         self.flat
+    }
+
+    /// Renders the form inside a panel another form draws, where its sections are headings.
+    pub(crate) fn within_panel(self) -> Self {
+        self.in_panel.store(true, Ordering::Relaxed);
+        self
+    }
+
+    /// Whether a panel holds the node rendering now.
+    pub(crate) fn in_panel(&self) -> bool {
+        self.in_panel.load(Ordering::Relaxed)
+    }
+
+    /// Renders what follows inside a panel when `inside`, and returns whether it was before.
+    pub(crate) fn set_in_panel(&self, inside: bool) -> bool {
+        self.in_panel.swap(inside, Ordering::Relaxed)
     }
 
     /// Renders the edit form of a stored record, where `disabled_on_edit` disables a control.

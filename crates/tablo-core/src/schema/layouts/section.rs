@@ -40,6 +40,13 @@ const FLAT: StaticClass = class!(
     "[&:not(:first-of-type)]:pt-6 [&:only-of-type>[data-section-title]]:hidden",
 );
 
+/// Renders a section inside another panel: a heading over the fields, a rule above it when a block
+/// precedes it in the panel.
+const SUBSECTION: StaticClass = class!(
+    "flex flex-col gap-4 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-border",
+    "[&:not(:first-child)]:pt-6",
+);
+
 /// Whether a section folds its body away.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Collapse {
@@ -168,9 +175,19 @@ impl<C> Section<C> {
         }
     }
 
-    /// The titled panel around `body`, or the title alone when the section holds nothing.
-    pub(crate) fn chrome<'a>(&self, cx: &'a Cx, body: Option<BoxView<'a>>) -> BoxView<'a> {
-        section_chrome(cx, &self.look, self.span, body, false)
+    /// The titled panel around `body`, or the title alone when the section holds nothing; inside
+    /// another `panel`, the title over `body`.
+    pub(crate) fn chrome_in<'a>(
+        &self,
+        cx: &'a Cx,
+        body: Option<BoxView<'a>>,
+        panel: bool,
+    ) -> BoxView<'a> {
+        if panel {
+            subsection(cx, &self.look, self.span, body)
+        } else {
+            section_chrome(cx, &self.look, self.span, body, false)
+        }
     }
 }
 
@@ -289,9 +306,41 @@ fn flat<'a>(cx: &'a Cx, look: &Look, span: Option<Span>, body: Option<BoxView<'a
     spanned(cx, span, view)
 }
 
+/// The section `look` describes inside another panel: its title and description over `body`,
+/// ruled off from a block before it. It neither folds nor sits aside: the panel around it already
+/// frames the fields.
+fn subsection<'a>(
+    cx: &'a Cx,
+    look: &Look,
+    span: Option<Span>,
+    body: Option<BoxView<'a>>,
+) -> BoxView<'a> {
+    let extra = look.extra_class.clone();
+    let heading = heading(cx, look);
+    let description = look.description.clone();
+    let view = view! {
+        <div class=(class!(SUBSECTION, extra)) data-section="" data-subsection="">
+            <div class="flex flex-col gap-1" data-section-title="">
+                (heading)
+                if let Some(description) = description {
+                    card_description((description))
+                }
+            </div>
+            if let Some(body) = body {
+                <div class="flex flex-col gap-6">(body)</div>
+            }
+        </div>
+    }
+    .boxed();
+    spanned(cx, span, view)
+}
+
 /// `body` under `title`, as a section declaring nothing else renders it: a related form's inside
-/// its owner's form.
-pub(crate) fn titled<'a>(cx: &'a Cx, title: crate::Text, body: BoxView<'a>) -> BoxView<'a> {
+/// its owner's form. Without a title, `body` as it is.
+pub(crate) fn titled<'a>(cx: &'a Cx, title: Option<crate::Text>, body: BoxView<'a>) -> BoxView<'a> {
+    let Some(title) = title else {
+        return body;
+    };
     let look = Look {
         title,
         description: None,
@@ -328,9 +377,14 @@ impl Section<Schema> {
         fields: &[Field],
         source: &Source<'_>,
     ) -> Result<BoxView<'a>> {
+        // A section inside another panel is a heading over its fields: a card in a card frames
+        // the same fields twice.
+        let nested = source.in_panel();
         if self.children.nodes.is_empty() {
             return Ok(if source.is_flat() {
                 flat(cx, &self.look, self.span, None)
+            } else if nested {
+                subsection(cx, &self.look, self.span, None)
             } else {
                 section_chrome(cx, &self.look, self.span, None, false)
             });
@@ -340,9 +394,15 @@ impl Section<Schema> {
             .nodes
             .iter()
             .any(|node| node.has_error(fields, source));
-        let body = render_nodes(cx, &self.children.nodes, fields, source).await?;
+        let outer = source.set_in_panel(true);
+        let body = render_nodes(cx, &self.children.nodes, fields, source).await;
+        source.set_in_panel(outer);
+        let body = body?;
         if source.is_flat() {
             return Ok(flat(cx, &self.look, self.span, Some(body)));
+        }
+        if nested {
+            return Ok(subsection(cx, &self.look, self.span, Some(body)));
         }
         Ok(section_chrome(
             cx,

@@ -435,7 +435,7 @@
     & [data-slot="table"] > table > thead {
       background: color-mix(in oklab, var(--muted) 70%, transparent);
     }
-    & [data-section]:not([data-section-aside]) > [data-section-title]:not(:only-child) {
+    & [data-section]:not([data-section-aside], [data-subsection]) > [data-section-title]:not(:only-child) {
       background: color-mix(in oklab, var(--muted) 55%, transparent);
     }
     & [data-sidebar="inset"] > [data-sidebar="header"] {

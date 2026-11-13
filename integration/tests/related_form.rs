@@ -5,7 +5,9 @@ use http::StatusCode;
 use tablo::{
     Ability, Change, DeclarationErrorKind, FieldErrors, NoForm, RelatedFormFault, Relation,
     Resource, ResourceDef, ResourcePage, Site, TextColumn, WriteError, lens,
-    testing::{TestClient, declined_message, field_error, form_body, input_value, stale_form},
+    testing::{
+        TestClient, declined_message, field_error, form_body, input_value, sections, stale_form,
+    },
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
@@ -701,4 +703,65 @@ async fn a_has_one_relation_is_refused_as_a_tab() {
         )],
         "{errors:?}"
     );
+}
+
+/// A related form whose own form is one section renders that section alone, though the form
+/// leaves its foreign key unplaced; a form of bare fields renders inside a section titled after
+/// the relation.
+#[tokio::test]
+async fn a_related_form_draws_one_section() {
+    struct SectionedProfiles;
+
+    impl Resource for SectionedProfiles {
+        type Model = Profile;
+        type Form = ProfileForm;
+
+        fn declare() -> ResourceDef<Self> {
+            let c = ProfileForm::controls();
+            ResourceDef::new()
+                .slug("sectioned-profiles")
+                .policy_fn(|_cx, _ability| true)
+                .form(tablo::Schema::new(
+                    tablo::Section::new("About").schema(c.bio),
+                ))
+        }
+    }
+
+    struct SectionedMembers;
+
+    impl Resource for SectionedMembers {
+        type Model = Member;
+        type Form = MemberForm;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new()
+                .slug("sectioned")
+                .policy_fn(|_cx, _ability| true)
+                .relation(Relation::has_one::<SectionedProfiles>(
+                    Profile::fields().member_id(),
+                ))
+        }
+    }
+
+    let db = test_db(toasty::models!(Member, Profile)).await;
+    let router = mount(
+        db,
+        panel()
+            .resource::<SectionedMembers>()
+            .resource::<SectionedProfiles>()
+            .resource::<MemberResource>()
+            .resource::<ProfileResource>(),
+    )
+    .expect("panel builds");
+    let headings = |html: &str| -> Vec<String> {
+        sections(html)
+            .into_iter()
+            .filter(|section| section.keys.iter().any(|key| key.ends_with(".bio")))
+            .map(|section| section.heading)
+            .collect()
+    };
+    let html = body_string(get(&router, "/admin/sectioned/-/create").await).await;
+    assert_eq!(headings(&html), ["About"], "{html}");
+    let html = body_string(get(&router, "/admin/members/-/create").await).await;
+    assert_eq!(headings(&html).len(), 1, "{html}");
 }
