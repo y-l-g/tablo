@@ -13,7 +13,7 @@ use crate::{
 
 /// A column of a list of [`FormInput`] items.
 ///
-/// A detail page shows each item as a block of its fields, each under its own label. A table cell
+/// A detail page shows the items as a table, a row per item and a column per field. A table cell
 /// lists the same fields as `label: value`, one item after another.
 ///
 /// ```rust
@@ -94,36 +94,62 @@ where
             return read_only(cx, &label, value_cell(cx, ""));
         }
         let schema = T::schema();
-        let items: Vec<BoxView<'a>> = items
+        let headers: Vec<String> = schema
+            .fields()
+            .map(|field| field.label().localize(cx))
+            .collect();
+        let rows: Vec<Vec<String>> = items
             .iter()
             .map(|values| {
-                let fields: Vec<BoxView<'a>> = schema
+                schema
                     .fields()
-                    .map(|field| field.display(cx, values.text(field.name()).unwrap_or_default()))
-                    .collect();
-                view! {
-                    <li class="flex flex-col gap-3 rounded-lg border border-border p-4">
-                        for field in fields {
-                            (field)
-                        }
-                    </li>
-                }
-                .boxed()
+                    .map(|field| {
+                        field
+                            .read(cx, values.text(field.name()).unwrap_or_default())
+                            .unwrap_or_default()
+                    })
+                    .collect()
             })
             .collect();
-        read_only(
-            cx,
-            &label,
-            view! {
-                <ol class="flex flex-col gap-3 whitespace-normal">
-                    for item in items {
-                        (item)
-                    }
-                </ol>
-            }
-            .boxed(),
-        )
+        read_only(cx, &label, items_table(cx, headers, rows))
     }
+}
+
+/// `rows` of read values under `headers`, one column per field of the item: a repeater's entry.
+/// A free function, so tablo-core compiles the view once rather than once per item type.
+fn items_table(cx: &Cx, headers: Vec<String>, rows: Vec<Vec<String>>) -> BoxView<'_> {
+    view! {
+        <div
+            class="mt-1 overflow-x-auto rounded-lg border border-border whitespace-normal"
+        >
+            <table class="w-full border-collapse text-sm">
+                <thead class="bg-muted/50">
+                    <tr class="border-b border-border">
+                        for header in headers {
+                            <th
+                                scope="col"
+                                class="px-3 py-2 text-start font-medium text-foreground"
+                            >
+                                (header)
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                    for cells in rows {
+                        <tr class="divide-x divide-border">
+                            for cell in cells {
+                                <td class="px-3 py-2 align-top text-foreground/75">
+                                    (value_cell(cx, &cell))
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    .boxed()
 }
 
 impl<M, T> crate::column::ColumnInternals<M> for RepeaterColumn<M, T>

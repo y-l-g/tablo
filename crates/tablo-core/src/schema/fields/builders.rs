@@ -539,6 +539,14 @@ impl<F> RepeaterField<F> {
         }
     }
 
+    /// Lays the rows out as a table: a column per control of the item, headed by its label, and
+    /// a row per item, with the add button under the last. Suits an item of a few short
+    /// controls, such as a key and its value.
+    pub fn table(mut self) -> Self {
+        self.repeater().table = true;
+        self
+    }
+
     /// The add button's label, over "Add item".
     pub fn add_label(mut self, label: impl Into<crate::Text>) -> Self {
         self.repeater().add_label = Some(label.into());

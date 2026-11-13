@@ -15,7 +15,7 @@ use tablo_ui::{
     ButtonSize, ButtonVariant, FieldLegendVariant, button, field_error as ui_field_error,
     field_legend, field_set,
 };
-use topcoat::{Result, context::Cx, view::*};
+use topcoat::{Result, context::Cx, icon::icon, view::*};
 
 use super::{
     FormInput, Schema,
@@ -39,6 +39,8 @@ pub(crate) struct RepeaterControl {
     pub(crate) add_label: Option<crate::Text>,
     /// How many rows it takes, set by `min_items` and `max_items`.
     pub(crate) bounds: Items,
+    /// Whether the rows render as a table, set by `table`.
+    pub(crate) table: bool,
 }
 
 impl RepeaterControl {
@@ -54,6 +56,7 @@ impl RepeaterControl {
             item,
             add_label: None,
             bounds: Items::default(),
+            table: false,
         }
     }
 
@@ -62,6 +65,7 @@ impl RepeaterControl {
             item: T::schema,
             add_label: None,
             bounds: Items::default(),
+            table: false,
         }
     }
 
@@ -163,22 +167,39 @@ impl RepeaterControl {
         let removable = self.bounds.min.is_none_or(|min| items.len() > min);
         for (row, item) in items.iter().enumerate() {
             let errors = source.errors();
-            rows.push(
-                self.render_row(cx, &key, &row.to_string(), item, errors, removable, source)
-                    .await?,
-            );
+            let row = row.to_string();
+            rows.push(if self.table {
+                self.render_table_row(cx, &key, &row, item, errors, removable, source)
+                    .await?
+            } else {
+                self.render_row(cx, &key, &row, item, errors, removable, source)
+                    .await?
+            });
         }
-        let blank = self
-            .render_row(
+        let blank_errors = FieldErrors::new();
+        let blank = if self.table {
+            self.render_table_row(
                 cx,
                 &key,
                 ROW,
                 &FormValues::new(),
-                &FieldErrors::new(),
+                &blank_errors,
                 true,
                 source,
             )
-            .await?;
+            .await?
+        } else {
+            self.render_row(
+                cx,
+                &key,
+                ROW,
+                &FormValues::new(),
+                &blank_errors,
+                true,
+                source,
+            )
+            .await?
+        };
         let order = (0..items.len())
             .map(|row| row.to_string())
             .collect::<Vec<_>>()
@@ -201,6 +222,7 @@ impl RepeaterControl {
                 super::fields::error_kind(error),
             )
         });
+        let head = self.table.then(|| self.table_head(cx));
         let legend_id = format!("{}-legend", source.id(&key));
         // Named as every control's error slot is, so the fieldset describes itself by it.
         let error_id = format!("{}-error", source.id(&key));
@@ -227,24 +249,61 @@ impl RepeaterControl {
                         (message)
                     )
                 }
-                <ol
-                    class="flex flex-col gap-3"
-                    aria-labelledby=(legend_id)
-                    data-repeater-rows=""
-                >
-                    for row in rows {
-                        (row)
-                    }
-                </ol>
-                <template data-repeater-blank="">(blank)</template>
-                <div>
-                    button(
-                        variant: ButtonVariant::Outline,
-                        size: ButtonSize::Sm,
-                        attrs: attributes! { type="button" data-repeater-add="" disabled=(full) },
-                        (add)
-                    )
-                </div>
+                if let Some(head) = head {
+                    <div class=(TABLE_BOX)>
+                        <div class="overflow-x-auto">
+                            <table class="w-full border-collapse text-sm">
+                                (head)
+                                <tbody
+                                    class="divide-y divide-border"
+                                    aria-labelledby=(legend_id)
+                                    data-repeater-rows=""
+                                >
+                                    for row in rows {
+                                        (row)
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <template data-repeater-blank="">(blank)</template>
+                        <div class="flex justify-center border-t border-border p-1.5">
+                            button(
+                                variant: ButtonVariant::Ghost,
+                                size: ButtonSize::Sm,
+                                attrs: attributes! {
+                                    type="button"
+                                    class="text-primary hover:text-primary"
+                                    data-repeater-add=""
+                                    disabled=(full)
+                                },
+                                icon(
+                                    data: tablo_ui::icons::PLUS,
+                                    attrs: attributes! { aria-hidden="true" }
+                                )
+                                (add)
+                            )
+                        </div>
+                    </div>
+                } else {
+                    <ol
+                        class="flex flex-col gap-3"
+                        aria-labelledby=(legend_id)
+                        data-repeater-rows=""
+                    >
+                        for row in rows {
+                            (row)
+                        }
+                    </ol>
+                    <template data-repeater-blank="">(blank)</template>
+                    <div>
+                        button(
+                            variant: ButtonVariant::Outline,
+                            size: ButtonSize::Sm,
+                            attrs: attributes! { type="button" data-repeater-add="" disabled=(full) },
+                            (add)
+                        )
+                    </div>
+                }
             )
         }
         .boxed())
@@ -313,6 +372,123 @@ impl RepeaterControl {
         .boxed())
     }
 }
+
+impl RepeaterControl {
+    /// The table's header: a column per control of the item, labelled by it, and one for the
+    /// row's buttons.
+    fn table_head<'a>(&self, cx: &'a Cx) -> BoxView<'a> {
+        let item = (self.item)();
+        let labels: Vec<_> = item.cell_labels();
+        let actions = crate::t!(cx, "tablo-repeater-actions");
+        view! {
+            <thead class="bg-muted/50">
+                <tr class="border-b border-border">
+                    for (label, required) in labels {
+                        <th
+                            scope="col"
+                            class="px-3 py-2 text-start font-medium text-foreground"
+                        >
+                            (label)
+                            if required {
+                                <span class="ms-0.5 text-destructive" aria-hidden="true">
+                                    "*"
+                                </span>
+                            }
+                        </th>
+                    }
+                    <th scope="col" class="w-px p-0">
+                        <span class="sr-only">(actions)</span>
+                    </th>
+                </tr>
+            </thead>
+        }
+        .boxed()
+    }
+
+    /// Renders the row `row` of the repeater `key` holding `item` as a table row: a cell per
+    /// control, its label read by a screen reader alone since the column's header shows it, then
+    /// the buttons that move and remove it, Remove disabled unless `removable`.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one call site renders a stored row, the other the blank one"
+    )]
+    async fn render_table_row<'a>(
+        &self,
+        cx: &'a Cx,
+        key: &str,
+        row: &str,
+        item: &FormValues,
+        errors: &FieldErrors,
+        removable: bool,
+        source: &Source<'_>,
+    ) -> Result<BoxView<'a>> {
+        let (schema, values) = self.row(key, row, item);
+        let mut rendered = Source::form(&values, errors).scoped(source.scope());
+        if let Some(options) = source.options() {
+            rendered = rendered.options_at(options);
+        }
+        let cells = schema.render_cells(cx, rendered).await?;
+        let row = row.to_string();
+        let action = move |id: &'static str, glyph, data: Attributes, disabled: bool| {
+            let label = crate::t!(cx, id);
+            view! {
+                button(
+                    variant: ButtonVariant::Ghost,
+                    size: ButtonSize::Icon,
+                    attrs: attributes! {
+                        type="button"
+                        class="size-8 text-muted-foreground"
+                        aria-label=(label.clone())
+                        title=(label)
+                        disabled=(disabled)
+                        (data)
+                    },
+                    icon(data: glyph, attrs: attributes! { aria-hidden="true" })
+                )
+            }
+        };
+        Ok(view! {
+            <tr class=(TABLE_ROW) data-repeater-row=(row)>
+                for cell in cells {
+                    <td class="border-e border-border p-0 align-top">(cell)</td>
+                }
+                <td class="w-px px-1 py-0.5 align-top whitespace-nowrap">
+                    (action(
+                        "tablo-repeater-up",
+                        tablo_ui::icons::ARROW_UP,
+                        attributes! { data-repeater-up="" },
+                        false,
+                    ))
+                    (action(
+                        "tablo-repeater-down",
+                        tablo_ui::icons::ARROW_DOWN,
+                        attributes! { data-repeater-down="" },
+                        false,
+                    ))
+                    (action(
+                        "tablo-repeater-remove",
+                        tablo_ui::icons::TRASH,
+                        attributes! { data-repeater-remove="" class="hover:text-destructive" },
+                        !removable,
+                    ))
+                </td>
+            </tr>
+        }
+        .boxed())
+    }
+}
+
+/// Renders a table repeater's box: one border around the header, the rows and the add button.
+const TABLE_BOX: &str = "overflow-hidden rounded-lg border border-border bg-background";
+
+/// Renders a table repeater's row: each control fills its cell, borderless, its focus ring drawn
+/// inside the cell, its label left to a screen reader and its error under it.
+const TABLE_ROW: &str = "[&_[data-slot=field-label]]:sr-only [&_[data-slot=field]]:gap-0 \
+     [&_:is(input,select,textarea)]:rounded-none [&_:is(input,select,textarea)]:border-0 \
+     [&_:is(input,select,textarea)]:bg-transparent [&_:is(input,select,textarea)]:shadow-none \
+     [&_:is(input,select,textarea)]:focus-visible:ring-inset \
+     [&_:is(input,select,textarea)]:focus-visible:ring-offset-0 [&_.ac-error]:px-3 \
+     [&_.ac-error]:pb-2";
 
 /// The key the row `row` of the repeater `key` posts its item's `leaf` under.
 pub(crate) fn row_key(key: &str, row: &str, leaf: &str) -> String {

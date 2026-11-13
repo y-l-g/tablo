@@ -3,6 +3,7 @@
 //! `Schema` holds layout blocks, embedded values, and [`Field`] slots and resolves every field once
 //! into one list for rendering and validation.
 
+mod cells;
 mod comparison;
 mod condition;
 mod creatable;
