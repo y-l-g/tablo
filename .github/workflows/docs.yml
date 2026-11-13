@@ -44,9 +44,10 @@ jobs:
 
       - name: Assemble site directory
         run: |
-          mkdir -p site/nightly/guide site/nightly/api
+          mkdir -p site/nightly/guide site/nightly/api site/nightly/atlas
           cp -r docs/guide/book/html/. site/nightly/guide/
           cp -r target/doc/. site/nightly/api/
+          cp -r docs/atlas/. site/nightly/atlas/
           cat > site/index.html <<'HTML'
           <!DOCTYPE html>
           <html>

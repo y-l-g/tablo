@@ -95,6 +95,7 @@ writes as the resource's `Form`, and give it a policy that allows `Create` and `
 
 - **[User guide](https://y-l.fr/tablo/nightly/guide/)**
 - **[API reference](https://y-l.fr/tablo/nightly/api/tablo/)**
+- **[Technical atlas](https://y-l.fr/tablo/nightly/atlas/)**
 - **[Showcase](https://github.com/y-l-g/tablo/blob/master/examples/showcase/)**
 - **[Vocabulary](https://github.com/y-l-g/tablo/blob/master/CONTEXT.md)**
 - **[Design decisions](https://github.com/y-l-g/tablo/blob/master/docs/adr/)**
