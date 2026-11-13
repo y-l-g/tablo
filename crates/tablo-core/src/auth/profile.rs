@@ -420,9 +420,11 @@ pub(crate) fn profile_url(cx: &Cx) -> String {
     )
 }
 
-/// Whether the request's panel installs a [`ProfileEditor`].
+/// Whether the request's panel installs a [`ProfileEditor`] and nobody acts as another user,
+/// whose profile the gate keeps from them.
 pub(crate) fn offered(cx: &Cx) -> bool {
-    current_realm(cx).is_some_and(|panel| panel.auth.profile_editor().is_some())
+    !super::impersonation::acting(cx)
+        && current_realm(cx).is_some_and(|panel| panel.auth.profile_editor().is_some())
 }
 
 /// The signed-in user and the panel's editor, or the answer to a request without them.

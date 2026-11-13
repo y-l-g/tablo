@@ -480,6 +480,12 @@ pub(crate) fn stop_url(cx: &Cx) -> String {
     format!("{}/impersonate/stop", panel_prefix(cx))
 }
 
+/// Whether someone acts as another user on this request: the pages [`refused`] names are then
+/// neither linked nor served.
+pub(crate) fn acting(cx: &Cx) -> bool {
+    signed(cx).is_some_and(|signed| signed.impersonator.is_some())
+}
+
 /// Whether the request reaches a page the actor may not use while acting as another user: one
 /// that changes the target's credentials, address, factors or tenants.
 pub(super) fn refused(cx: &Cx, panel: &Realm) -> bool {
