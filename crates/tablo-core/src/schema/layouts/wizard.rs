@@ -56,6 +56,9 @@ const STEP_NUMBER: StaticClass = class!(
 /// last. The page opens on the first step holding a field error, else on the first step; the
 /// browser opens the step of a control it refuses on submit. A step whose every field the request
 /// may not see renders no trigger, and a block with no such step renders nothing.
+///
+/// A resource form whose top level holds a wizard that no condition hides walks each `has_one`
+/// [related form](crate::Relation::has_one) as a last step of its own, titled after the relation.
 #[derive(Debug)]
 pub struct Wizard<C = Schema> {
     /// The block's steps, each one node.
@@ -138,12 +141,33 @@ impl<C> Step<C> {
     }
 }
 
+/// A step a form adds after a wizard's own: a related form, which renders outside the schema.
+pub(crate) struct ExtraStep<'a> {
+    /// The base of its trigger's and panel's DOM ids, distinct within the page.
+    pub(crate) id: String,
+    pub(crate) label: crate::Text,
+    /// Whether its body holds a field error, which opens it unless an earlier step holds one.
+    pub(crate) errored: bool,
+    pub(crate) body: BoxView<'a>,
+}
+
 impl Wizard<Schema> {
     pub(crate) async fn render<'a>(
         &self,
         cx: &'a Cx,
         fields: &[Field],
         source: &Source<'_>,
+    ) -> Result<BoxView<'a>> {
+        self.render_with(cx, fields, source, Vec::new()).await
+    }
+
+    /// Renders the block with `extra` walked after its own steps.
+    pub(crate) async fn render_with<'a>(
+        &self,
+        cx: &'a Cx,
+        fields: &[Field],
+        source: &Source<'_>,
+        extra: Vec<ExtraStep<'a>>,
     ) -> Result<BoxView<'a>> {
         let steps: Vec<(&Node, &Step)> = self
             .children
@@ -157,11 +181,13 @@ impl Wizard<Schema> {
         let errored: Vec<bool> = steps
             .iter()
             .map(|(node, _)| node.has_error(fields, source))
+            .chain(extra.iter().map(|step| step.errored))
             .collect();
         // The first step holding an error, else the first the page shows.
         let shown: Vec<bool> = steps
             .iter()
             .map(|(_, step)| source.holds(step.condition.as_ref()))
+            .chain(extra.iter().map(|_| true))
             .collect();
         let active = errored
             .iter()
@@ -190,6 +216,15 @@ impl Wizard<Schema> {
             );
             triggers.push(source.guard(cx, step.condition.as_ref(), trigger));
             panels.push(source.guard(cx, step.condition.as_ref(), panel));
+        }
+        let own = steps.len();
+        for (offset, step) in extra.into_iter().enumerate() {
+            let index = own + offset;
+            let place = index.cmp(&active);
+            let (trigger, panel) =
+                step_view(cx, &step.id, &step.label, place, errored[index], step.body);
+            triggers.push(trigger);
+            panels.push(panel);
         }
         let view = view! {
             <div data-wizard="" class="flex flex-col gap-6">

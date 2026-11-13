@@ -8,12 +8,7 @@ use std::{
 };
 
 use toasty::stmt::{Expr, List, Query};
-use topcoat::{
-    Result,
-    context::Cx,
-    router::error::bad_request,
-    view::{BoxView, ViewExt, attributes, view},
-};
+use topcoat::{Result, context::Cx, router::error::bad_request, view::BoxView};
 
 use super::{
     common::FormParts,
@@ -30,11 +25,13 @@ use crate::{
     panel::{gate::enforce_tenant, state::current},
     policy::Ability,
     resource::{Change, Mounted, Resource, WriteError, mounted, require_mounted},
-    schema::Source,
-    t,
     toasty_compat::pk::{pk_filter, pk_text},
-    topcoat_compat::async_page,
 };
+
+mod view;
+
+use view::render;
+pub(crate) use view::render_related;
 
 /// What a committed write still owes a related resource: its `after_commit` hook.
 pub(crate) type AfterCommit = Box<dyn for<'c> FnOnce(&'c Cx) -> BoxFuture<'c, ()> + Send>;
@@ -315,35 +312,6 @@ pub(crate) async fn write_related<R: Resource>(
     Ok(RelatedWrite::Done(after))
 }
 
-/// Renders the section of each related form the request may write: what the submission posted
-/// for it, else the record's child, else the form's defaults.
-pub(crate) fn render_related<'a>(cx: &'a Cx, related: &[Related]) -> Vec<BoxView<'a>> {
-    related
-        .iter()
-        .filter_map(|related| {
-            let opened = related.opened.as_ref()?;
-            let shown = Shown {
-                key: related.key.clone(),
-                label: related.label.clone(),
-                foreign_key: related.foreign_key.clone(),
-                editing: opened.record.is_some(),
-                version: opened.version,
-                values: match (&related.posted, &opened.record) {
-                    (Some(posted), _) => Some(posted.values.clone()),
-                    (None, Some(_)) => Some(opened.stored.clone()),
-                    (None, None) => None,
-                },
-                errors: related
-                    .posted
-                    .as_ref()
-                    .map(|posted| posted.errors.clone())
-                    .unwrap_or_default(),
-            };
-            Some((related.form.render)(cx, shown))
-        })
-        .collect()
-}
-
 /// The child `scope` selects for `C`, or the one a create makes when `scope` is `None`, if the
 /// request may write it.
 ///
@@ -527,67 +495,6 @@ async fn write<C: Resource>(
     Ok(Written::Done(Box::new(move |cx| {
         Box::pin(crate::resource::run_after_commit::<C>(cx, change))
     })))
-}
-
-/// Renders `C`'s form as a section of its owner's form, each control posting under `{key}.`
-/// and the foreign key renders none.
-fn render<C: Resource>(cx: &Cx, shown: Shown) -> BoxView<'_> {
-    async_page(async move {
-        let Some(child) = mounted::<C>(cx) else {
-            return Ok(().boxed());
-        };
-        let Shown {
-            key,
-            label,
-            foreign_key,
-            editing,
-            version,
-            values,
-            errors,
-        } = shown;
-        let mask = child.form_mask(cx).hiding(&foreign_key);
-        // A key the section renders no control for carries its error nowhere, so the section
-        // says only that the save cannot pass, as the owner's form does.
-        let unseen = errors.iter().any(|error| mask.hides(&error.key));
-        let version = version.filter(|_| editing).map(|version| {
-            let name = format!("{key}.{VERSION_FIELD}");
-            view! { <input type="hidden" name=(name) value=(version.to_string())> }
-        });
-        let values = mask.shown(&values.unwrap_or_else(|| child.form.defaults()));
-        let framed = !child.form.frames_itself(&mask);
-        let source = Source::form(&values, &errors)
-            .editing(editing)
-            .masked(mask)
-            .scoped(key.clone())
-            .posting_under(format!("{key}."));
-        // A form that draws its own sections shows them as they are; any other is framed in a
-        // section titled after the relation, whose sections are then headings.
-        let source = if framed {
-            source.within_panel()
-        } else {
-            source
-        };
-        let body = child.form.render(cx, source).await?;
-        Ok(view! {
-            <div class="contents" data-related-form=(key)>
-                if unseen {
-                    tablo_ui::alert(
-                        variant: tablo_ui::AlertVariant::Destructive,
-                        attrs: attributes! { role="alert" data-unseen-error="" },
-                        tablo_ui::alert_title((t!(cx, "tablo-form-unseen")))
-                        tablo_ui::alert_description(
-                            (t!(cx, "tablo-form-unseen-description"))
-                        )
-                    )
-                }
-                if let Some(version) = version {
-                    (version)
-                }
-                (crate::schema::titled(cx, framed.then_some(label), body))
-            </div>
-        }
-        .boxed())
-    })
 }
 
 /// The record an [`Opened`] of `C` holds.
