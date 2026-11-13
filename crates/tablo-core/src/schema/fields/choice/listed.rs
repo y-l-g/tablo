@@ -204,7 +204,9 @@ impl Field {
                     attrs: attributes! { id=(legend_id.clone()) class="mb-0" },
                     (label)
                     if required {
-                        <span class="text-destructive" aria-hidden="true">"*"</span>
+                        <span class="ms-0.5 text-destructive" aria-hidden="true">
+                            "*"
+                        </span>
                     }
                 )
                 <input type="hidden" name=(name) value="">
