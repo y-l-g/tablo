@@ -287,9 +287,11 @@ pub(crate) fn register_tenant_url(cx: &Cx) -> String {
     format!("{}/register-tenant", panel_prefix(cx))
 }
 
-/// Whether the request's panel installs a [`TenantRegistration`].
+/// Whether the request's panel installs a [`TenantRegistration`] and nobody acts as another user,
+/// who may not register a tenant in their name.
 pub(crate) fn offered(cx: &Cx) -> bool {
-    current_realm(cx).is_some_and(|panel| panel.auth.tenant_registration_page().is_some())
+    !super::impersonation::acting(cx)
+        && current_realm(cx).is_some_and(|panel| panel.auth.tenant_registration_page().is_some())
 }
 
 /// Whether `user` must register a tenant before `panel` serves them anything else: the panel

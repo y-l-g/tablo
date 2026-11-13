@@ -12,7 +12,9 @@ use tablo::{
     audit::{AuditEntry, PanelAuditExt},
     auth::{self, AdminUser, AuthSession, IMPERSONATE_FIELD, create_admin},
     lens,
-    testing::{form_body, impersonate_buttons, impersonation_banner, mount_with_handle},
+    testing::{
+        find_href_with, form_body, impersonate_buttons, impersonation_banner, mount_with_handle,
+    },
 };
 use toasty::Db;
 use topcoat::{
@@ -286,7 +288,7 @@ async fn the_rule_and_the_panel_refuse_alike() {
 }
 
 /// A user acting as another may not act as a third, nor open the pages that change the target's
-/// credentials.
+/// credentials, which the shell stops linking.
 #[tokio::test]
 async fn acting_as_another_reaches_no_credential_page_and_no_third_user() {
     let app = Fixture::new(
@@ -297,9 +299,13 @@ async fn acting_as_another_reaches_no_credential_page_and_no_third_user() {
     .await;
     let client = app.as_user(&app.support).await;
     assert_eq!(client.get("/admin/profile").await.status(), 200);
+    let home = client.resource::<Users>().list().await;
+    assert!(find_href_with(home.html(), "/admin/profile").is_some());
     let started = client.submit("/admin/impersonate", &act_as(&app.bob)).await;
     assert_eq!(started.status(), 303);
 
+    let home = client.resource::<Users>().list().await;
+    assert!(find_href_with(home.html(), "/admin/profile").is_none());
     assert_eq!(client.get("/admin/profile").await.status(), 403);
     let posted = client
         .submit(

@@ -272,9 +272,9 @@ pub(crate) fn tenant_profile_url(cx: &Cx) -> String {
 }
 
 /// Whether the request's signed-in user may open the tenant settings page for the tenant they act
-/// for.
+/// for, which the gate refuses to someone acting as them.
 pub(crate) fn offered(cx: &Cx) -> bool {
-    editing(cx).is_ok()
+    !super::impersonation::acting(cx) && editing(cx).is_ok()
 }
 
 /// The signed-in user, the panel's editor and the membership the request acts under, or the

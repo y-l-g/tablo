@@ -285,9 +285,12 @@ pub(super) async fn enrolled(cx: &Cx, user: &dyn PanelUser) -> topcoat::Result<O
         .map(|factor| factor.kind))
 }
 
-/// Whether the request's panel offers the signed-in user two-factor sign-in.
+/// Whether the request's panel offers the signed-in user two-factor sign-in, which it never does
+/// to someone acting as them.
 pub(crate) fn offered(cx: &Cx) -> bool {
-    super::signed(cx).is_some_and(|signed| signed.realm.auth.two_factor_config().is_some())
+    super::signed(cx).is_some_and(|signed| {
+        signed.impersonator.is_none() && signed.realm.auth.two_factor_config().is_some()
+    })
 }
 
 /// Whether `panel` sends `user` to set up an authenticator before anything else: it requires one
