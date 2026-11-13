@@ -419,6 +419,7 @@ tablo-file-browse = browse
 tablo-repeater-up = Move up
 tablo-repeater-down = Move down
 tablo-repeater-remove = Remove
+tablo-repeater-actions = Row actions
 tablo-field-taken = { $label } has already been taken
 tablo-field-too-many-results = Too many results — keep typing
 

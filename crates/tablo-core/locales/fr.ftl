@@ -411,6 +411,7 @@ tablo-file-browse = parcourez
 tablo-repeater-up = Monter
 tablo-repeater-down = Descendre
 tablo-repeater-remove = Retirer
+tablo-repeater-actions = Actions de la ligne
 tablo-field-taken = { $label } est déjà utilisé
 tablo-field-too-many-results = Trop de résultats — continuez à taper
 
