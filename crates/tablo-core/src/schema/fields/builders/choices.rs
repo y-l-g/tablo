@@ -26,6 +26,16 @@ impl<F> ChoiceField<F> {
         self
     }
 
+    /// Offers `T`'s options, each drawn in its color and with its icon when the choice renders
+    /// as [`buttons`](Self::buttons): what a record form's `#[form(options)]` field declares.
+    #[doc(hidden)]
+    pub fn options_of<T: crate::schema::Options>(mut self) -> Self {
+        let choice = self.choice_mut();
+        choice.options = T::options();
+        choice.faces = T::faces();
+        self
+    }
+
     /// Takes several options: a checkbox per option, posting the field's key once per checked
     /// box. A record form's many-to-many field (`Vec<K>` with `#[form(relationship = R)]`) is one,
     /// and so is its `Vec` with `#[form(options = T)]`, stored in a list column;

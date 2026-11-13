@@ -5,7 +5,7 @@ use tablo_ui::{
     FieldLegendVariant, checkbox as ui_checkbox, field_description as ui_field_description,
     field_error as ui_field_error, field_legend, field_set, radio_group_item,
 };
-use topcoat::{Result, context::Cx, view::*};
+use topcoat::{Result, context::Cx, icon::icon, view::*};
 
 use super::{ChoiceControl, OptionLoadError};
 use crate::schema::fields::{Field, Posting};
@@ -24,13 +24,16 @@ pub(crate) enum Layout {
 
 /// The classes of an option drawn as a button: its input is visually hidden, and the label
 /// takes the input's checked, focused and disabled states.
-const BUTTON: &str = "inline-flex h-9 cursor-pointer select-none items-center rounded-md border \
-     border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-foreground/5 \
-     has-[:checked]:border-primary has-[:checked]:bg-primary \
-     has-[:checked]:text-primary-foreground has-[:focus-visible]:ring-2 \
+const BUTTON: &str = "inline-flex h-9 cursor-pointer select-none items-center gap-1.5 rounded-md \
+     border border-border bg-background px-3 text-sm font-medium transition-colors \
+     hover:bg-foreground/5 [&>svg]:size-4 [&>svg]:shrink-0 has-[:focus-visible]:ring-2 \
      has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 \
      has-[:focus-visible]:ring-offset-background has-[:disabled]:pointer-events-none \
      has-[:disabled]:opacity-50";
+
+/// The classes of a chosen button whose option names no color: filled with the primary color.
+const PLAIN_BUTTON: &str = "has-[:checked]:border-primary has-[:checked]:bg-primary \
+     has-[:checked]:text-primary-foreground";
 
 /// The classes of an option row in a list.
 const ROW: &str = "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-foreground/5";
@@ -115,8 +118,21 @@ impl Field {
                 let (id, name) = (format!("{id}-{index}"), name.clone());
                 if buttons {
                     let kind = if multiple { "checkbox" } else { "radio" };
+                    let (color, glyph) = choice
+                        .faces
+                        .iter()
+                        .find(|(face, ..)| *face == value)
+                        .map(|(_, color, glyph)| (*color, glyph.clone()))
+                        .unwrap_or_default();
+                    let class = format!(
+                        "{BUTTON} {}",
+                        color.map_or(PLAIN_BUTTON, crate::Color::toggle_class)
+                    );
                     return view! {
-                        <label class=(BUTTON) data-choice="">
+                        <label class=(class) data-choice="">
+                            if let Some(data) = glyph {
+                                icon(data: data, attrs: attributes! { aria-hidden="true" })
+                            }
                             <input
                                 type=(kind)
                                 class="sr-only"

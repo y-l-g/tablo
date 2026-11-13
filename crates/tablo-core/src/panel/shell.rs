@@ -90,7 +90,14 @@ impl Panel {
                                         <span>(label.clone())</span>
                                     )
                                     if let Some(badge) = item.badge.clone() {
-                                        sidebar_menu_badge((badge))
+                                        sidebar_menu_badge(
+                                            (crate::display::badge(
+                                                cx,
+                                                badge,
+                                                Some(crate::Color::Primary),
+                                                None,
+                                            ))
+                                        )
                                     }
                                 )
                             }

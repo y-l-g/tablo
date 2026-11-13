@@ -196,6 +196,28 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
             }
         }
     });
+    // Only an enum that names a color or an icon lists its options' faces.
+    let faces = (color.is_some() || icon.is_some()).then(|| {
+        quote! {
+            fn faces() -> ::std::vec::Vec<(
+                ::std::string::String,
+                ::std::option::Option<#krate::__macro::Color>,
+                ::std::option::Option<#krate::__macro::IconData>,
+            )> {
+                use #krate::__macro::FormScalar as _;
+                Self::ALL
+                    .iter()
+                    .map(|option| {
+                        (
+                            ::std::string::String::from(option.value()),
+                            option.color(),
+                            option.icon(),
+                        )
+                    })
+                    .collect()
+            }
+        }
+    });
     Ok(quote! {
         impl #krate::__macro::Options for #ident {
             fn options() -> ::std::vec::Vec<(::std::string::String, #krate::__macro::Text)> {
@@ -203,6 +225,8 @@ fn expand_checked(input: &DeriveInput) -> syn::Result<TokenStream2> {
                     #((::std::string::String::from(#values), #labels)),*
                 ]
             }
+
+            #faces
         }
 
         impl #krate::__macro::FormScalar for #ident {

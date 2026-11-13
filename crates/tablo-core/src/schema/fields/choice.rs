@@ -25,6 +25,12 @@ pub(crate) struct ChoiceControl {
     pub(super) discriminant: bool,
     /// Static `(value, label)` options.
     pub(super) options: Vec<(String, crate::Text)>,
+    /// The color and icon of each static option that names one, by value.
+    pub(super) faces: Vec<(
+        String,
+        Option<crate::Color>,
+        Option<topcoat::icon::IconData>,
+    )>,
     pub(super) relationship: Option<Relationship>,
     /// The field whose value narrows the relationship's rows, set by `depends_on`.
     pub(super) parent: Option<Parent>,

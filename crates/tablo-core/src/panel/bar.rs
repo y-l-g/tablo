@@ -305,11 +305,8 @@ impl ActionButton {
             }
             (label)
             if let Some(count) = badge {
-                <span
-                    data-action-badge="count"
-                    class="rounded-full bg-muted px-1.5 text-xs font-medium tabular-nums"
-                >
-                    (count)
+                <span data-action-badge="count" class="contents tabular-nums">
+                    (crate::display::badge(cx, count, Some(color), None))
                 </span>
             }
         }

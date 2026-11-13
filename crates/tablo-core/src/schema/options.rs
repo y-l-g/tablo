@@ -73,6 +73,17 @@ pub trait Options {
     /// Every option as `(value, label)`, in declaration order.
     fn options() -> Vec<(String, Text)>;
 
+    /// Each option's `#[option(color = "…")]` and `#[option(icon = …)]` as
+    /// `(value, color, icon)`, which a choice drawn as buttons shows its options in; none when no
+    /// option names either.
+    fn faces() -> Vec<(
+        String,
+        Option<crate::Color>,
+        Option<topcoat::icon::IconData>,
+    )> {
+        Vec::new()
+    }
+
     /// The label of a `value`, or `value` itself when no option has it: a
     /// `String` row written before an option was renamed still reads.
     fn label_of(value: &str) -> Text {
@@ -87,6 +98,14 @@ pub trait Options {
 impl<T: Options> Options for Option<T> {
     fn options() -> Vec<(String, Text)> {
         T::options()
+    }
+
+    fn faces() -> Vec<(
+        String,
+        Option<crate::Color>,
+        Option<topcoat::icon::IconData>,
+    )> {
+        T::faces()
     }
 }
 
