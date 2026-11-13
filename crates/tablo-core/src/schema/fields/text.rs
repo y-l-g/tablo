@@ -365,14 +365,12 @@ impl Field {
                 .into_iter()
                 .flatten()
                 .reduce(|ids, id| format!("{ids} {id}"));
-            // The input's own class sets its rounding, which `class!` cannot drop: the side an
-            // affix joins overrides it.
-            let joined = match (prefix.is_some(), suffix.is_some()) {
-                (true, true) => Some("rounded-none!"),
-                (true, false) => Some("rounded-l-none!"),
-                (false, true) => Some("rounded-r-none!"),
-                (false, false) => None,
-            };
+            // Beside an affix the box around both draws the border and the focus ring, so the
+            // input drops its own; its class cannot be dropped through `class!`, hence `!`.
+            let joined = (prefix.is_some() || suffix.is_some()).then_some(
+                "h-full rounded-none! border-0! bg-transparent! focus-visible:ring-0! \
+                 focus-visible:ring-offset-0! disabled:opacity-100!",
+            );
             let list = list_id.clone();
             let input = view! {
                 ui_input(
@@ -425,6 +423,13 @@ impl Field {
     }
 }
 
+/// Renders an input and its affixes as one control: the box draws the border, and the focus ring
+/// the input would draw, around all of them.
+const AFFIXED: &str = "flex h-9 items-stretch overflow-hidden rounded-lg border border-border \
+     transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 \
+     focus-within:ring-offset-background has-aria-invalid:border-destructive \
+     has-aria-invalid:focus-within:ring-destructive has-disabled:opacity-50";
+
 /// `input` between its `prefix` and `suffix`, each a text and its id, followed by the datalist
 /// `suggestions` names, its id and values; `input` alone when it has none of them.
 fn affixed<'a>(
@@ -434,23 +439,19 @@ fn affixed<'a>(
     suffix: Option<(crate::Text, String)>,
     suggestions: Option<(String, Vec<String>)>,
 ) -> BoxView<'a> {
-    const AFFIX: &str = "inline-flex shrink-0 items-center border border-border bg-muted px-3 \
-         text-sm text-muted-foreground";
+    const AFFIX: &str = "inline-flex shrink-0 items-center border-border bg-muted px-3 text-sm \
+         text-muted-foreground";
     let input = if prefix.is_none() && suffix.is_none() {
         input
     } else {
         view! {
-            <div class="flex items-stretch">
+            <div class=(AFFIXED) data-affixed="">
                 if let Some((text, id)) = prefix {
-                    <span id=(id) class=(format!("{AFFIX} rounded-l-lg border-r-0"))>
-                        (text)
-                    </span>
+                    <span id=(id) class=(format!("{AFFIX} border-e"))>(text)</span>
                 }
                 <div class="min-w-0 flex-1">(input)</div>
                 if let Some((text, id)) = suffix {
-                    <span id=(id) class=(format!("{AFFIX} rounded-r-lg border-l-0"))>
-                        (text)
-                    </span>
+                    <span id=(id) class=(format!("{AFFIX} border-s"))>(text)</span>
                 }
             </div>
         }
