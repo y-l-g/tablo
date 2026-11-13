@@ -62,6 +62,7 @@ pub(crate) fn panel_state<U: crate::PanelUser>(
             auth_hooks: Vec::new(),
         }),
         nav_items: Vec::new(),
+        trails: Vec::new(),
         areas: Vec::new(),
         brand: None,
         dark_mode: false,

@@ -109,22 +109,23 @@ impl Registry {
                             .get(&link.child)
                             .map(|child| child.plural_label.clone())
                     });
-                    tabs.push((list, slug, label, parent.relation_tab));
+                    tabs.push((list, slug, label, parent.relation_tab, link.child));
                 }
             }
         }
-        for (list, slug, label, handler) in tabs {
+        for (list, slug, label, handler, child) in tabs {
             self.page(
                 http::Method::GET,
                 &format!("{list}/{RECORD_ROUTE_PARAM}/{slug}"),
                 handler,
             );
-            let trail = self
-                .nav_items
-                .iter_mut()
-                .filter_map(|entry| entry.resource_list.as_mut())
-                .find(|trail| trail.list == list);
-            if let (Some(trail), Some(label)) = (trail, label) {
+            let Some(trail) = self.trails.iter_mut().find(|trail| trail.list == list) else {
+                continue;
+            };
+            if let Some(owned) = trail.owns.iter_mut().find(|owned| owned.child == child) {
+                owned.tab = Some(slug.clone());
+            }
+            if let Some(label) = label {
                 trail.pages.push((slug, label));
             }
         }

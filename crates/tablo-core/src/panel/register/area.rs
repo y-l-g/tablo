@@ -112,7 +112,6 @@ impl Registration for Area {
                 badge: None,
             },
             visible: Arc::new(move |cx| entries.iter().any(|visible| visible(cx))),
-            resource_list: None,
             badge: None,
             area: None,
         };
@@ -225,7 +224,6 @@ impl Registry {
         let entry = NavEntry {
             item: mounted.navigation.clone().resolved(&url),
             visible: mounted.access(),
-            resource_list: None,
             badge: None,
             area: None,
         };

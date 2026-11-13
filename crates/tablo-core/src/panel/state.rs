@@ -30,8 +30,6 @@ pub(crate) struct NavEntry {
     pub(crate) item: NavigationItem,
     /// A resource's `ViewAny`, or a page's `PageDef::access`.
     pub(crate) visible: Arc<dyn Fn(&Cx) -> bool + Send + Sync>,
-    /// A resource's list, under which the trail reads its create, view and edit pages.
-    pub(crate) resource_list: Option<ResourceTrail>,
     /// A resource's [`navigation_badge`](crate::ResourceDef::navigation_badge), counted per
     /// request.
     pub(crate) badge: Option<BadgeFn>,
@@ -56,16 +54,51 @@ pub(crate) struct AreaNav {
     pub(crate) label: crate::Text,
 }
 
-/// What the trail reads under a resource's list.
+/// What the trail and the sidebar read of a resource's pages, for every resource the panel mounts:
+/// one the sidebar lists names its own entry, and one it does not is placed under the resource
+/// whose relation lists its records.
 #[derive(Debug, Clone)]
 pub(crate) struct ResourceTrail {
+    pub(crate) resource: TypeId,
     /// The list's path.
     pub(crate) list: String,
-    /// Whether the resource has a detail page, which the trail of a deeper record page links.
+    /// The resource's plural label, which names the list of a resource the sidebar does not list.
+    pub(crate) label: crate::Text,
+    /// Whether the sidebar lists the resource.
+    pub(crate) listed: bool,
+    /// Whether the resource has a detail page, which the trail links a record's title to.
     pub(crate) viewed: bool,
+    /// Whether the resource has an edit page, which the trail links a record's title to when it
+    /// has no detail page.
+    pub(crate) edited: bool,
     /// The labels of the record pages and relation tabs under a record, by slug.
     pub(crate) pages: Vec<(String, crate::Text)>,
+    /// The resources the resource's relations list, with the column each child row holds the
+    /// owner's key in and the slug of the relation's tab.
+    pub(crate) owns: Vec<Owned>,
+    /// Loads a record's title and form values, `None` when the request may not view it.
+    pub(crate) record: RecordFn,
 }
+
+/// One relation of a [`ResourceTrail`]'s resource, as the trail of its child reads it.
+#[derive(Debug, Clone)]
+pub(crate) struct Owned {
+    pub(crate) child: TypeId,
+    /// The child's form key holding the owner's key; `None` for a many-to-many relation.
+    pub(crate) foreign_key: Option<String>,
+    /// The relation's tab under an owner record, by the child's slug.
+    pub(crate) tab: Option<String>,
+}
+
+/// What the trail reads of one record.
+pub(crate) struct RecordFacts {
+    pub(crate) title: String,
+    /// The record as its form spells it, where a child reads its owner's key.
+    pub(crate) values: crate::form::FormValues,
+}
+
+/// Loads the record a key names, scoped and policy-checked as its detail page loads it.
+pub(crate) type RecordFn = for<'a> fn(&'a Cx, &'a str) -> crate::BoxFuture<'a, Option<RecordFacts>>;
 
 /// A resource the panel's global search searches, its type erased.
 #[derive(Clone)]
@@ -98,6 +131,8 @@ pub(crate) struct PanelState {
     /// the prefix, and no other panel's prefix overlaps it.
     pub(crate) realm: Arc<Realm>,
     pub(crate) nav_items: Vec<NavEntry>,
+    /// Every mounted resource's trail, in registration order.
+    pub(crate) trails: Vec<ResourceTrail>,
     /// The panel's areas, in registration order; [`AreaSlot::area`] indexes it.
     pub(crate) areas: Vec<AreaNav>,
     pub(crate) brand: Option<Brand>,
