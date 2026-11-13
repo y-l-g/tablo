@@ -514,9 +514,18 @@
     & [data-slot="table"] > table > thead {
       background: color-mix(in oklab, var(--muted) 60%, transparent);
     }
+    /* The blur sits on a layer behind the topbar: a `backdrop-filter` on the topbar itself would
+       make it the containing block of the fixed sheets it opens, clipping them to its height. */
     & [data-sidebar="inset"] > [data-sidebar="header"] {
-      background: color-mix(in oklab, var(--background) 80%, transparent);
-      backdrop-filter: blur(12px);
+      background: transparent;
+      &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: color-mix(in oklab, var(--background) 80%, transparent);
+        backdrop-filter: blur(12px);
+      }
     }
   }
 }
