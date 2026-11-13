@@ -111,5 +111,7 @@ fn entry<'a>(cx: &'a Cx, label: &crate::Text, html: String) -> BoxView<'a> {
         let html = Unescaped::new_unchecked(html);
         view! { <div class=(PROSE) data-rich-text-value="">(html)</div> }.boxed()
     };
-    crate::schema::read_only(cx, label, value)
+    // A block of text takes the whole row of a detail page's grid, as its form control does.
+    let entry = crate::schema::read_only(cx, label, value);
+    view! { <div class="col-span-full">(entry)</div> }.boxed()
 }

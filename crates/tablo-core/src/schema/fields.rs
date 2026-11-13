@@ -412,8 +412,26 @@ impl Field {
     }
 
     /// How many of its grid's columns the field spans, if set.
+    /// The columns the field spans: its declared span, else the whole row for a control taller
+    /// than a line, whose neighbor in the row would otherwise sit over an empty column.
     pub(crate) fn span(&self) -> Option<Span> {
-        self.span
+        self.span.or_else(|| self.is_tall().then_some(Span::Full))
+    }
+
+    /// Whether the control renders taller than a line: a rich-text editor, a text area, a
+    /// checkbox list, a repeater or a file list.
+    fn is_tall(&self) -> bool {
+        match &self.control {
+            ControlKind::Text(text) => text.rows.is_some(),
+            #[cfg(feature = "rich-text")]
+            ControlKind::RichText(_) => true,
+            ControlKind::Choice(choice) => {
+                choice.multiple && choice.layout != super::fields::choice::Layout::Buttons
+            }
+            ControlKind::File(file) => file.multiple,
+            ControlKind::Repeater(_) => true,
+            ControlKind::Custom(_) => false,
+        }
     }
 
     /// Shows the field only while `condition` holds, as `visible_when` does.

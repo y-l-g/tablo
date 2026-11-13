@@ -96,7 +96,10 @@ impl Group<Schema> {
 /// The grid lays its columns out once it is wide enough for them: 28rem for two columns, 42rem for
 /// three and 56rem for four or more. Narrower, it stacks its children in one column. It measures
 /// its own width rather than the screen's, so a grid in a narrow column stacks on a wide screen. A
-/// child spans more than one column through its `span`.
+/// child spans more than one column through its `span`. A control taller than a line, a rich-text
+/// editor, a text area, a checkbox list, a repeater or a file list, spans the whole row unless it
+/// declares a span, and so do a detail page's rich-text and repeater entries: a short neighbor
+/// beside one would leave its column empty below it.
 ///
 /// ```rust
 /// # #[derive(Debug, toasty::Model, tablo_core::PanelModel)]
