@@ -1,16 +1,17 @@
 //! A page's filter bar, and [`page_filters`], which its widgets read the bar's values through.
 
 use jiff::civil::Date;
-use topcoat::{
-    context::Cx,
-    view::{BoxView, ViewExt, view},
-};
+use topcoat::{context::Cx, runtime::Event, view::*};
 
 use crate::page::filters::{self, PageFilter, PageFilters};
 
+/// The DOM id of the filter bar's form; a page renders one bar.
+const FORM_ID: &str = "page-filters";
+
 /// The bar of `filters` holding `held`: a form submitting to `url`, the page, with a reset link
-/// once it holds a value. Both carry the request's other parameters, so a table on the page keeps
-/// its search, sort and filters. `None` without a filter.
+/// once it holds a value. A change submits it, after a pause so that typing a date submits once;
+/// its Apply button shows only without scripts. Both carry the request's other parameters, so a
+/// table on the page keeps its search, sort and filters. `None` without a filter.
 pub(crate) fn bar<'a>(
     cx: &'a Cx,
     filters: &[PageFilter],
@@ -45,8 +46,13 @@ pub(crate) fn bar<'a>(
             <form
                 method="get"
                 action=(url)
+                id=(FORM_ID)
                 class="flex flex-wrap items-end gap-3"
                 data-page-filters=""
+                @change=$(|_e: Event| raw!(
+                        "((f) => { clearTimeout(f.tabloFilters); f.tabloFilters = setTimeout(() => f.requestSubmit(), 400) })(document.getElementById(String(${FORM_ID})))",
+                        (),
+                    ))
             >
                 for (name, value) in kept {
                     <input type="hidden" name=(name) value=(value) />
@@ -54,15 +60,17 @@ pub(crate) fn bar<'a>(
                 for control in controls {
                     (control)
                 }
-                <button
-                    type="submit"
-                    class=(tablo_ui::button_variants(
-                        tablo_ui::ButtonVariant::Outline,
-                        tablo_ui::ButtonSize::Md,
-                    ))
-                >
-                    (crate::t!(cx, "tablo-page-filters-apply"))
-                </button>
+                <noscript>
+                    <button
+                        type="submit"
+                        class=(tablo_ui::button_variants(
+                            tablo_ui::ButtonVariant::Outline,
+                            tablo_ui::ButtonSize::Md,
+                        ))
+                    >
+                        (crate::t!(cx, "tablo-page-filters-apply"))
+                    </button>
+                </noscript>
                 if let Some(reset) = reset {
                     <a
                         href=(reset)
