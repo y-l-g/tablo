@@ -111,7 +111,9 @@ where
                     .collect()
             })
             .collect();
-        read_only(cx, &label, items_table(cx, headers, rows))
+        // The table takes the whole row of a detail page's grid, as its form control does.
+        let entry = read_only(cx, &label, items_table(cx, headers, rows));
+        view! { <div class="col-span-full">(entry)</div> }.boxed()
     }
 }
 
