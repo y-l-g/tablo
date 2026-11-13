@@ -428,9 +428,7 @@
       text-transform: uppercase;
     }
     & [data-sidebar="menu-button"][data-active="true"] {
-      box-shadow:
-        var(--shadow-xs),
-        0 0 0 1px var(--sidebar-border);
+      box-shadow: var(--shadow-xs);
     }
     & [data-slot="table"] > table > thead {
       background: color-mix(in oklab, var(--muted) 70%, transparent);

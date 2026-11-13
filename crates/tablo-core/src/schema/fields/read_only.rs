@@ -8,7 +8,7 @@ use topcoat::{context::Cx, view::*};
 use crate::Text;
 
 /// A read-only value: `label` over `value`, which wraps as text. A detail page's entry, and an
-/// embedded leaf on one.
+/// embedded leaf on one. The label is the heavier of the two, so a page of entries scans by label.
 pub(crate) fn read_only<'a>(cx: &'a Cx, label: &Text, value: BoxView<'a>) -> BoxView<'a> {
     let label = label.clone();
     view! {
@@ -16,10 +16,12 @@ pub(crate) fn read_only<'a>(cx: &'a Cx, label: &Text, value: BoxView<'a>) -> Box
             attrs: attributes! { class="ac-field" },
             ui_field_content(
                 ui_field_title(
-                    attrs: attributes! { class="text-muted-foreground" },
+                    attrs: attributes! { class="text-foreground" data-entry-label="" },
                     (label)
                 )
-                <div class="text-sm text-foreground wrap-anywhere whitespace-pre-wrap">
+                <div
+                    class="text-sm text-foreground/75 wrap-anywhere whitespace-pre-wrap"
+                >
                     (value)
                 </div>
             )
