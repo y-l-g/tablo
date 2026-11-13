@@ -164,29 +164,33 @@ impl Panel {
         let current_query = topcoat::router::request::original_uri(cx)
             .query()
             .unwrap_or_default();
-        let navigation = Self::sidebar_navigation(
-            cx,
-            nav_items,
-            current_path,
-            current_query,
-            mobile_open.clone(),
-        )
-        .await?;
+        let panel = current(cx);
+        let trails: &[ResourceTrail] = panel.as_ref().map_or(&[], |panel| &panel.trails);
+        let located = breadcrumbs::locate(trails, current_path);
+        let error = super::error_page::current_error(cx);
+        // A failed page reads no record: it may be one the request may not view. Nor does a
+        // submission, which reads it only once it passes its checks.
+        let reading = matches!(
+            *topcoat::router::request::method(cx),
+            http::Method::GET | http::Method::HEAD
+        );
+        let load = error.is_none() && reading;
+        let seen = breadcrumbs::see(cx, trails, located.as_ref(), current_query, load).await;
+        // A resource the sidebar does not list marks its owner's entry.
+        let nav_path = seen.nav_path(current_path);
+        let navigation =
+            Self::sidebar_navigation(cx, nav_items, &nav_path, current_query, mobile_open.clone())
+                .await?;
         let sidebar_brand = Self::render_brand(cx).await?;
-        let resources: Vec<&ResourceTrail> = current(cx)
-            .map(|panel| {
-                panel
-                    .nav_items
-                    .iter()
-                    .filter_map(|entry| entry.resource_list.as_ref())
-                    .collect()
-            })
-            .unwrap_or_default();
-        let trail = match super::error_page::current_error(cx) {
-            Some(error) => {
-                breadcrumbs::failed(nav_items, current_path, current_query, error.title())
-            }
-            None => breadcrumbs::trail(nav_items, &resources, current_path, current_query),
+        let trail = match error {
+            Some(error) => breadcrumbs::failed(nav_items, &nav_path, current_query, error.title()),
+            None => breadcrumbs::trail(
+                nav_items,
+                located.as_ref(),
+                &seen,
+                current_path,
+                current_query,
+            ),
         };
         let area = current(cx).and_then(|panel| {
             let area = panel.area_at(current_path)?;

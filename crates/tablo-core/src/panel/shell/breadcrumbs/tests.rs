@@ -1,3 +1,5 @@
+use topcoat::context::Cx;
+
 use super::*;
 
 fn nav() -> Vec<NavigationItem> {
@@ -8,27 +10,42 @@ fn nav() -> Vec<NavigationItem> {
     ]
 }
 
+/// Loads no record: the unit tests hand the trail what it would have loaded.
+fn no_record<'a>(
+    _cx: &'a Cx,
+    _key: &'a str,
+) -> crate::BoxFuture<'a, Option<crate::panel::state::RecordFacts>> {
+    Box::pin(async { None })
+}
+
+/// A resource's trail at `list`, listed in the sidebar, with no page or relation.
+fn resource(list: &str, viewed: bool) -> ResourceTrail {
+    ResourceTrail {
+        resource: std::any::TypeId::of::<()>(),
+        list: list.to_string(),
+        label: Text::from("Records"),
+        listed: true,
+        viewed,
+        edited: true,
+        pages: Vec::new(),
+        owns: Vec::new(),
+        record: no_record,
+    }
+}
+
 /// The resources among [`nav`]'s entries: posts have a detail page and a record page, users
 /// neither.
 fn resources() -> [ResourceTrail; 2] {
-    [
-        ResourceTrail {
-            list: "/admin/posts".to_string(),
-            viewed: true,
-            pages: vec![("preview".to_string(), Text::from("Search preview"))],
-        },
-        ResourceTrail {
-            list: "/admin/users".to_string(),
-            viewed: false,
-            pages: Vec::new(),
-        },
-    ]
+    let mut posts = resource("/admin/posts", true);
+    posts.pages = vec![("preview".to_string(), Text::from("Search preview"))];
+    [posts, resource("/admin/users", false)]
 }
 
-/// [`trail`] under [`resources`].
+/// [`trail`] under [`resources`], having loaded no record.
 fn trail(nav_items: &[NavigationItem], path: &str, query: &str) -> Vec<Crumb> {
     let resources = resources();
-    super::trail(nav_items, &resources.each_ref(), path, query)
+    let located = locate(&resources, path);
+    super::trail(nav_items, located.as_ref(), &Seen::default(), path, query)
 }
 
 /// Each crumb's English label, leaked to compare against literals, and its link.
@@ -176,5 +193,90 @@ fn an_encoded_segment_reads_decoded() {
     assert_eq!(
         labels(&trail(&nav(), "/admin/reports/Q1%20sales", "")),
         [("Dashboard", Some("/admin")), ("Q1 sales", None)]
+    );
+}
+
+/// A record the request may view reads its title, which links its detail page from its edit page.
+#[test]
+fn a_record_reads_its_title() {
+    let resources = resources();
+    let seen = Seen {
+        title: Some("Hello world".to_string()),
+        owner: None,
+    };
+    let at = |path: &str| super::trail(&nav(), locate(&resources, path).as_ref(), &seen, path, "");
+    assert_eq!(
+        labels(&at("/admin/posts/7")),
+        [("Blog Posts", Some("/admin/posts")), ("Hello world", None)]
+    );
+    assert_eq!(
+        labels(&at("/admin/posts/7/edit")),
+        [
+            ("Blog Posts", Some("/admin/posts")),
+            ("Hello world", Some("/admin/posts/7")),
+            ("Edit", None),
+        ]
+    );
+    assert_eq!(
+        labels(&at("/admin/users/7/edit")),
+        [
+            ("Users", Some("/admin/users")),
+            ("Hello world", Some("/admin/users/7/edit")),
+            ("Edit", None),
+        ],
+        "a resource with no detail page links the title to its edit page"
+    );
+}
+
+/// A resource the sidebar does not list sits under its owner: the owner's entry, the owner
+/// record and the relation's tab lead the record's own steps.
+#[test]
+fn an_unlisted_resource_sits_under_its_owner() {
+    let mut posts = resource("/admin/posts", true);
+    posts.pages = vec![("comments".to_string(), Text::from("Comments"))];
+    let mut comments = resource("/admin/comments", false);
+    comments.listed = false;
+    let resources = [posts, comments];
+    let owner = |record| SeenOwner {
+        trail: &resources[0],
+        record,
+        tab: Some("comments".to_string()),
+    };
+    let path = "/admin/comments/5/edit";
+    let located = locate(&resources, path);
+    let seen = Seen {
+        title: Some("First!".to_string()),
+        owner: Some(owner(Some((
+            "7".to_string(),
+            Some("Hello world".to_string()),
+        )))),
+    };
+    assert_eq!(
+        seen.nav_path(path),
+        "/admin/posts/7",
+        "the sidebar marks the owner"
+    );
+    assert_eq!(
+        labels(&super::trail(&nav(), located.as_ref(), &seen, path, "")),
+        [
+            ("Blog Posts", Some("/admin/posts")),
+            ("Hello world", Some("/admin/posts/7")),
+            ("Comments", Some("/admin/posts/7/comments")),
+            ("First!", Some("/admin/comments/5/edit")),
+            ("Edit", None),
+        ]
+    );
+
+    let path = "/admin/comments/-/create";
+    let located = locate(&resources, path);
+    let seen = Seen {
+        title: None,
+        owner: Some(owner(None)),
+    };
+    assert_eq!(seen.nav_path(path), "/admin/posts");
+    assert_eq!(
+        labels(&super::trail(&nav(), located.as_ref(), &seen, path, "")),
+        [("Blog Posts", Some("/admin/posts")), ("Create", None)],
+        "with no owner record, the owner's entry leads"
     );
 }

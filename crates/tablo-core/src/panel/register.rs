@@ -47,6 +47,7 @@ mod area;
 
 mod form_facts;
 mod links;
+mod trail;
 
 use form_facts::FormFacts;
 use links::Link;
@@ -91,6 +92,8 @@ pub(super) struct Registry {
     /// The registered pages as the panel mounted them, by type.
     pub(super) mounted_pages: HashMap<TypeId, Arc<MountedPage>>,
     pub(super) nav_items: Vec<NavEntry>,
+    /// Every resource's trail, in registration order.
+    pub(super) trails: Vec<ResourceTrail>,
     /// The resources the global search searches, in registration order.
     pub(super) searches: Vec<Searchable>,
     pub(super) pages: Vec<PageFn>,
@@ -148,6 +151,7 @@ impl Registry {
             urls: HashMap::new(),
             mounted_pages: HashMap::new(),
             nav_items: Vec::new(),
+            trails: Vec::new(),
             searches: Vec::new(),
             pages: Vec::new(),
             routes: Vec::new(),
@@ -313,18 +317,11 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
         if registry.root.is_none() && registry.scope.is_none() && !mounted.navigation_hidden {
             registry.root = Some(Root::Redirect(url.clone()));
         }
+        registry.trails.push(trail::trail(&mounted, url));
         if !mounted.navigation_hidden {
             let entry = NavEntry {
                 item: mounted.navigation.clone(),
                 visible: Arc::new(|cx| crate::can::<R>(cx, Ability::ViewAny)),
-                resource_list: Some(ResourceTrail {
-                    list: url,
-                    viewed: mounted.viewed(),
-                    pages: pages
-                        .iter()
-                        .map(|page| (page.slug.clone(), page.label.clone()))
-                        .collect(),
-                }),
                 badge: mounted.counts_navigation_badge().then(|| -> BadgeFn {
                     Arc::new(|cx| {
                         Box::pin(async move {
@@ -585,7 +582,6 @@ impl<P: Page> Registration for PageRegistration<P> {
         let item = NavEntry {
             item: page.navigation.clone().resolved(&url),
             visible: page.access(),
-            resource_list: None,
             badge: None,
             area: None,
         };
