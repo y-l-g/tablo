@@ -138,7 +138,8 @@ fn field_chrome<'a>(
             attrs: attributes! { for=(id) },
             (label_text)
             if required {
-                <span class="text-destructive" aria-hidden="true">"*"</span>
+                // The label spaces its children by `gap-2`; the star sits as close as a legend's.
+                <span class="-ms-1.5 text-destructive" aria-hidden="true">"*"</span>
             }
         )
     }
