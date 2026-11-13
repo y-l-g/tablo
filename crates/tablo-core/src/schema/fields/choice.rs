@@ -387,7 +387,16 @@ impl Field {
         let mut options = loaded.unwrap_or_default();
         if keep_current_value && !current.is_empty() && !options.iter().any(|(v, _)| v == &current)
         {
-            options.push((current.clone(), current.clone()));
+            // Past the cap the stored record is read alone, so the select names it rather than
+            // showing its key.
+            let named = match &choice.relationship {
+                Some(relationship) if overflowed => (relationship.name)(cx, current.clone())
+                    .await
+                    .ok()
+                    .flatten(),
+                _ => None,
+            };
+            options.push(named.unwrap_or_else(|| (current.clone(), current.clone())));
         }
         let chrome = self.chrome(
             cx,

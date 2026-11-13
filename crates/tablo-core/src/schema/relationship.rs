@@ -113,6 +113,14 @@ pub(crate) type RelationshipSearchLoader = std::sync::Arc<
         + Sync,
 >;
 
+/// Reads the option of one key: its value and label, or `None` when the source's scoped query
+/// holds no row it names.
+pub(crate) type RelationshipNamer = std::sync::Arc<
+    dyn Fn(&Cx, String) -> BoxFuture<'static, Result<Option<(String, String)>, OptionLoadError>>
+        + Send
+        + Sync,
+>;
+
 pub(crate) type RelationshipChecker = std::sync::Arc<
     dyn for<'a> Fn(
             &'a Cx,
@@ -259,6 +267,33 @@ where
         "relationship option search overflows the cap",
     )
     .await
+}
+
+/// The row of the source's scoped query that `key` names, if any.
+pub(crate) async fn related_record<R>(
+    cx: &Cx,
+    key: &str,
+) -> Result<Option<R::Model>, OptionLoadError>
+where
+    R: OptionSource,
+{
+    ensure_option_access::<R>(cx)?;
+    let Some(expr) = crate::toasty_compat::pk::pk_eq_expr::<R::Model>(key.trim()) else {
+        return Ok(None);
+    };
+    option_query::<R>(cx)?
+        .filter(expr)
+        .first()
+        .exec(&mut crate::db::db(cx).map_err(|_| OptionLoadError::Misdeclared)?)
+        .await
+        .map_err(|e| {
+            tracing::warn!(
+                resource = std::any::type_name::<R>(),
+                error = %e,
+                "relationship option read failed"
+            );
+            OptionLoadError::LoadFailed
+        })
 }
 
 /// Whether one submitted key names a row of the source's scoped query among the rows `scope`

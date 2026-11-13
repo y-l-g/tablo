@@ -227,8 +227,8 @@ async fn a_refused_source_offers_nothing_and_says_so() {
     );
 }
 
-/// Past the cap the choice loads no option but keeps the one the record stores, and a searchable
-/// one asks the server for the rest.
+/// Past the cap the choice loads no option but keeps the one the record stores, named by its
+/// label, and a searchable one asks the server for the rest.
 #[tokio::test]
 async fn past_the_cap_a_choice_keeps_its_stored_row() {
     let names: Vec<String> = (0..=MAX_RELATIONSHIP_OPTIONS)
@@ -239,6 +239,10 @@ async fn past_the_cap_a_choice_keeps_its_stored_row() {
 
     let html = edit_page(&router, "books", &book).await;
     assert!(html.contains(&stored), "{html}");
+    assert!(
+        html.contains("author-0"),
+        "the stored row reads its label: {html}"
+    );
     assert!(
         !html.contains(&format!("value=\"{}\"", authors[1].id)),
         "{html}"
