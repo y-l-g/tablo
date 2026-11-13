@@ -137,7 +137,7 @@ fn expand_struct(
                 let options = options.as_ref().unwrap_or(ty);
                 quote! {
                     #krate::__macro::Field::choice_input(#key)
-                        .options(<#options as #krate::__macro::Options>::options())
+                        .options_of::<#options>()
                 }
             }
             None if is_bool => quote! { #krate::__macro::Field::toggle_input(#key) },

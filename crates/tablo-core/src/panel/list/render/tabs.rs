@@ -1,7 +1,6 @@
 //! The tab bar above the toolbar: a link per [`ListTab`](crate::ListTab), the active one marked
 //! `aria-current`, each badged tab with its count.
 
-use tablo_ui::{BadgeVariant, badge};
 use topcoat::{context::Cx, view::*};
 
 use super::{super::TableSignals, live_link};
@@ -70,14 +69,17 @@ pub(super) fn render_tabs<'a>(
                         >
                             (tab.label)
                             if let Some(count) = tab.count {
-                                badge(
-                                    variant: BadgeVariant::Secondary,
-                                    attrs: attributes! {
-                                        data-list-tab-count=(count.to_string())
-                                        class="tabular-nums"
-                                    },
-                                    (count.to_string())
-                                )
+                                <span
+                                    class="contents tabular-nums"
+                                    data-list-tab-count=(count.to_string())
+                                >
+                                    (crate::display::badge(
+                                        cx,
+                                        count.to_string(),
+                                        tab.active.then_some(crate::Color::Primary),
+                                        None,
+                                    ))
+                                </span>
                             }
                         </a>
                     }

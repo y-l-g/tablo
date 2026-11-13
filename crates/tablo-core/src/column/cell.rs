@@ -12,7 +12,7 @@ use topcoat::{
 
 use crate::{
     Text,
-    display::{Color, FontWeight},
+    display::{Color, FontWeight, badge},
 };
 
 /// The schemes a cell's link may carry; a relative URL carries none.
@@ -114,13 +114,18 @@ fn value_view<'a>(cx: &'a Cx, cell: &TextCell) -> BoxView<'a> {
         .filter(|tooltip| !tooltip.trim().is_empty())
         .or_else(|| truncated.is_some().then(|| cell.text.clone()));
     let shown = truncated.unwrap_or_else(|| cell.text.clone());
-    let glyph = cell
-        .icon
-        .clone()
-        .map(|(data, color)| icon_view(cx, data, color));
     let content = if cell.badge {
-        badge_view(cx, shown, cell.color, glyph)
+        // A badge's icon takes the badge's color, which the icon's own falls back to.
+        let color = cell
+            .color
+            .or_else(|| cell.icon.as_ref().and_then(|(_, c)| *c));
+        let data = cell.icon.as_ref().map(|(data, _)| data.clone());
+        badge(cx, shown, color, data)
     } else {
+        let glyph = cell
+            .icon
+            .clone()
+            .map(|(data, color)| icon_view(cx, data, color));
         let class = [
             Some("inline-flex items-center gap-1.5"),
             cell.color.map(Color::text_class),
@@ -186,27 +191,6 @@ pub(crate) fn icon_view(cx: &Cx, data: IconData, color: Option<Color>) -> BoxVie
         None => "size-4 shrink-0".to_string(),
     };
     view! { icon(data: data, attrs: attributes! { class=(class) aria-hidden="true" }) }.boxed()
-}
-
-/// `text` as an outline badge, led by its icon, or else by a dot in `color` when it has one.
-fn badge_view<'a>(
-    cx: &'a Cx,
-    text: String,
-    color: Option<Color>,
-    glyph: Option<BoxView<'a>>,
-) -> BoxView<'a> {
-    view! {
-        tablo_ui::badge(
-            variant: tablo_ui::BadgeVariant::Outline,
-            if let Some(glyph) = glyph {
-                (glyph)
-            } else if let Some(color) = color {
-                <span class=(color.dot_class()) aria-hidden="true"></span>
-            }
-            (text)
-        )
-    }
-    .boxed()
 }
 
 /// A button copying `value` to the clipboard.

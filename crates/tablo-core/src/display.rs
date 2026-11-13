@@ -1,5 +1,11 @@
 //! How a cell presents its value: its [`Color`], its [`Alignment`], and the number and money
-//! spellings of a [`Numeric`] value.
+//! spellings of a [`Numeric`] value, and the badge every colored value shares.
+
+use topcoat::{
+    context::Cx,
+    icon::{IconData, icon},
+    view::{BoxView, ViewExt, attributes, view},
+};
 
 /// A semantic color for a badge, a status dot or a cell's text.
 ///
@@ -72,6 +78,50 @@ impl Color {
             Self::Warning => "size-1.5 shrink-0 rounded-full bg-warning",
             Self::Danger => "size-1.5 shrink-0 rounded-full bg-destructive",
             Self::Info => "size-1.5 shrink-0 rounded-full bg-info",
+        }
+    }
+
+    /// The classes of a badge in this color: a tint of it behind its text, ringed by a stronger
+    /// one.
+    pub(crate) const fn badge_class(self) -> &'static str {
+        match self {
+            Self::Gray => "bg-muted text-muted-foreground ring-foreground/10",
+            Self::Primary => "bg-primary/10 text-primary ring-primary/25",
+            Self::Success => "bg-success/10 text-success ring-success/25",
+            Self::Warning => "bg-warning/10 text-warning ring-warning/30",
+            Self::Danger => "bg-destructive/10 text-destructive ring-destructive/25",
+            Self::Info => "bg-info/10 text-info ring-info/25",
+        }
+    }
+
+    /// The classes of a choice's button in this color: its icon in the color, and the button
+    /// tinted in it while its option is chosen.
+    pub(crate) const fn toggle_class(self) -> &'static str {
+        match self {
+            Self::Gray => {
+                "[&>svg]:text-muted-foreground has-[:checked]:border-foreground/25 \
+                 has-[:checked]:bg-muted has-[:checked]:text-foreground"
+            }
+            Self::Primary => {
+                "[&>svg]:text-primary has-[:checked]:border-primary has-[:checked]:bg-primary/10 \
+                 has-[:checked]:text-primary"
+            }
+            Self::Success => {
+                "[&>svg]:text-success has-[:checked]:border-success has-[:checked]:bg-success/10 \
+                 has-[:checked]:text-success"
+            }
+            Self::Warning => {
+                "[&>svg]:text-warning has-[:checked]:border-warning has-[:checked]:bg-warning/10 \
+                 has-[:checked]:text-warning"
+            }
+            Self::Danger => {
+                "[&>svg]:text-destructive has-[:checked]:border-destructive \
+                 has-[:checked]:bg-destructive/10 has-[:checked]:text-destructive"
+            }
+            Self::Info => {
+                "[&>svg]:text-info has-[:checked]:border-info has-[:checked]:bg-info/10 \
+                 has-[:checked]:text-info"
+            }
         }
     }
 
@@ -306,3 +356,27 @@ use number::format_number;
 
 #[cfg(test)]
 mod tests;
+
+/// The classes every badge shares, before its color's.
+const BADGE: &str = "inline-flex w-fit shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs \
+     font-medium whitespace-nowrap ring-1 ring-inset [&>svg]:size-3.5 [&>svg]:shrink-0";
+
+/// `text` as a badge tinted in `color`, gray without one, led by `icon` when it has one: a
+/// cell's, a tab's or a sidebar entry's.
+pub(crate) fn badge<'a>(
+    cx: &'a Cx,
+    text: String,
+    color: Option<Color>,
+    icon_data: Option<IconData>,
+) -> BoxView<'a> {
+    let class = format!("{BADGE} {}", color.unwrap_or_default().badge_class());
+    view! {
+        <span class=(class) data-slot="badge">
+            if let Some(data) = icon_data {
+                icon(data: data, attrs: attributes! { aria-hidden="true" })
+            }
+            (text)
+        </span>
+    }
+    .boxed()
+}

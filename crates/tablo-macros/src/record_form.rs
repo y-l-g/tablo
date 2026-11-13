@@ -300,20 +300,20 @@ fn expand_struct(
                 quote! { #krate::__macro::ChoiceField },
                 quote! {
                     #krate::__macro::Field::choice(#path)
-                        .options(<#options as #krate::__macro::Options>::options())
+                        .options_of::<#options>()
                 },
             ),
             DefaultControl::Choices(options, _) => (
                 quote! { #krate::__macro::ChoiceField },
                 quote! {
                     #krate::__macro::Field::choice(#path)
-                        .options(<#options as #krate::__macro::Options>::options())
+                        .options_of::<#options>()
                         .multiple()
                 },
             ),
             DefaultControl::Tags(suggestions) => {
                 let suggestions = suggestions.as_ref().map(|options| {
-                    quote! { .options(<#options as #krate::__macro::Options>::options()) }
+                    quote! { .options_of::<#options>() }
                 });
                 (
                     quote! { #krate::__macro::ChoiceField },
@@ -326,7 +326,7 @@ fn expand_struct(
                     quote! { #krate::__macro::ChoiceField },
                     quote! {
                         #krate::__macro::Field::choice(#path)
-                            .options(<#ty as #krate::__macro::Options>::options())
+                            .options_of::<#ty>()
                     },
                 )
             }

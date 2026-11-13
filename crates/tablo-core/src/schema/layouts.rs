@@ -464,7 +464,7 @@ pub(crate) fn tab_view<'a>(
     let label = face.label.localize(cx);
     let glyph = face.icon.clone();
     let badge = face.badge.as_ref().map(|text| text.localize(cx));
-    let dot = face.badge_color.map(Color::dot_class);
+    let color = face.badge_color;
     let selected = if active { "true" } else { "false" };
     let tabindex = if active { "0" } else { "-1" };
     let trigger = view! {
@@ -486,14 +486,9 @@ pub(crate) fn tab_view<'a>(
             }
             (label)
             if let Some(text) = badge {
-                tablo_ui::badge(
-                    variant: tablo_ui::BadgeVariant::Secondary,
-                    attrs: attributes! { data-tab-badge="" class="tabular-nums" },
-                    if let Some(dot) = dot {
-                        <span class=(dot) aria-hidden="true"></span>
-                    }
-                    (text)
-                )
+                <span class="contents tabular-nums" data-tab-badge="">
+                    (crate::display::badge(cx, text, color, None))
+                </span>
             }
         </button>
     }
