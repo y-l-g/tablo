@@ -554,11 +554,19 @@ fn render<C: Resource>(cx: &Cx, shown: Shown) -> BoxView<'_> {
             view! { <input type="hidden" name=(name) value=(version.to_string())> }
         });
         let values = mask.shown(&values.unwrap_or_else(|| child.form.defaults()));
+        let framed = !child.form.frames_itself(&mask);
         let source = Source::form(&values, &errors)
             .editing(editing)
             .masked(mask)
             .scoped(key.clone())
             .posting_under(format!("{key}."));
+        // A form that draws its own sections shows them as they are; any other is framed in a
+        // section titled after the relation, whose sections are then headings.
+        let source = if framed {
+            source.within_panel()
+        } else {
+            source
+        };
         let body = child.form.render(cx, source).await?;
         Ok(view! {
             <div class="contents" data-related-form=(key)>
@@ -575,7 +583,7 @@ fn render<C: Resource>(cx: &Cx, shown: Shown) -> BoxView<'_> {
                 if let Some(version) = version {
                     (version)
                 }
-                (crate::schema::titled(cx, label, body))
+                (crate::schema::titled(cx, framed.then_some(label), body))
             </div>
         }
         .boxed())

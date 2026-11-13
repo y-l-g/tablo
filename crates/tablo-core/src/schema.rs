@@ -151,6 +151,22 @@ impl<F> Schema<F> {
         render_nodes(cx, &self.nodes, &self.fields, &source).await
     }
 
+    /// Whether the schema draws its own panels under `mask`: every top-level block it renders is a
+    /// section or a tab block, so a frame around it would frame the panels again. A control the
+    /// mask hides renders nothing, such as the foreign key a related form leaves out.
+    pub(crate) fn frames_itself(&self, mask: &FormMask) -> bool {
+        let mut shown = self.nodes.iter().filter(|node| match node {
+            Node::Field(index) => !mask.hides(self.fields[*index].name()),
+            _ => true,
+        });
+        let mut any = false;
+        let framed = shown.all(|node| {
+            any = true;
+            matches!(node, Node::Section(_) | Node::Tabs(_))
+        });
+        any && framed
+    }
+
     /// Appends `other`'s nodes and fields after this one's, re-slotting its field slots.
     pub(crate) fn append(&mut self, other: Schema<F>) {
         let Schema {

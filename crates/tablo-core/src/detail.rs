@@ -222,17 +222,21 @@ impl<M> Detail<M> {
         record: &M,
         hidden: &[String],
     ) -> BoxView<'a> {
-        self.render_in(cx, record, hidden, 0)
+        self.render_in(cx, record, hidden, Inside::default())
     }
 
-    /// Renders as [`render_without`](Self::render_without) does, inside `depth` tabs.
+    /// Renders as [`render_without`](Self::render_without) does, `inside` the blocks around it.
     fn render_in<'a>(
         &self,
         cx: &'a Cx,
         record: &M,
         hidden: &[String],
-        depth: usize,
+        inside: Inside,
     ) -> BoxView<'a> {
+        let framed = Inside {
+            panel: true,
+            ..inside
+        };
         let views: Vec<BoxView<'a>> = self
             .nodes
             .iter()
@@ -250,34 +254,35 @@ impl<M> Detail<M> {
                 Node::Column(column) => entry(cx, column.name(), column.entry(cx, record)),
                 Node::Section(section) => {
                     let body = (!section.children.is_empty())
-                        .then(|| section.children.render_in(cx, record, hidden, depth));
-                    section.chrome(cx, body)
+                        .then(|| section.children.render_in(cx, record, hidden, framed));
+                    section.chrome_in(cx, body, inside.panel)
                 }
                 Node::Group(group) => {
-                    group.chrome(cx, group.children.render_in(cx, record, hidden, depth))
+                    group.chrome(cx, group.children.render_in(cx, record, hidden, inside))
                 }
                 Node::Grid(grid) => {
-                    grid.chrome(cx, grid.children.render_in(cx, record, hidden, depth))
+                    grid.chrome(cx, grid.children.render_in(cx, record, hidden, inside))
                 }
                 Node::Tabs(tabs) => {
-                    tabs.chrome(cx, tabs.children.render_tabs(cx, record, hidden, depth))
+                    tabs.chrome(cx, tabs.children.render_tabs(cx, record, hidden, framed))
                 }
                 // A tab renders through its block, which lays out its trigger and its panel.
-                Node::Tab(tab) => tab.children.render_in(cx, record, hidden, depth),
+                Node::Tab(tab) => tab.children.render_in(cx, record, hidden, inside),
             })
             .collect();
         stack(cx, views)
     }
 
-    /// Renders the tabs this `Tabs` block's children hold, inside `depth` tabs, the first shown
-    /// one active, without those whose every column reads a `hidden` field.
+    /// Renders the tabs this `Tabs` block's children hold, `inside` the blocks around it, the
+    /// first shown one active, without those whose every column reads a `hidden` field.
     fn render_tabs<'a>(
         &self,
         cx: &'a Cx,
         record: &M,
         hidden: &[String],
-        depth: usize,
+        inside: Inside,
     ) -> Vec<TabView<'a>> {
+        let depth = inside.tabs;
         self.nodes
             .iter()
             .filter_map(|node| match node {
@@ -292,7 +297,15 @@ impl<M> Detail<M> {
                     .first()
                     .map(|column| tab_id(&format!("detail-{}", column.name()), depth))
                     .unwrap_or_default();
-                let body = tab.children.render_in(cx, record, hidden, depth + 1);
+                let body = tab.children.render_in(
+                    cx,
+                    record,
+                    hidden,
+                    Inside {
+                        tabs: depth + 1,
+                        ..inside
+                    },
+                );
                 tab_view(cx, &id, tab.face(), index == 0, false, body)
             })
             .collect()
@@ -313,6 +326,14 @@ impl<M> Detail<M> {
             .map(|column| column.name())
             .collect()
     }
+}
+
+/// Where a block renders: how many tabs hold it, which tells a nested block's DOM ids from its
+/// outer tab's, and whether a panel holds it, which makes a section a heading.
+#[derive(Debug, Clone, Copy, Default)]
+struct Inside {
+    tabs: usize,
+    panel: bool,
 }
 
 /// `views` one after another. A free function, so tablo-core compiles the view once rather than
