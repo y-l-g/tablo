@@ -58,13 +58,22 @@ pub(crate) async fn rendered_grid<'a>(cx: &'a Cx, widgets: &WidgetGrid) -> Resul
     Ok(grid(cx, widgets.columns, cells))
 }
 
-/// A grid `columns` wide of each widget with its body.
+/// A grid `columns` wide of each widget with its body, each row filled: the last widget of a row
+/// the next one does not fit in grows over the columns left empty.
 fn grid<'a>(cx: &'a Cx, columns: u8, cells: Vec<(&MountedWidget, BoxView<'a>)>) -> BoxView<'a> {
+    let spans = filled(
+        columns,
+        &cells
+            .iter()
+            .map(|(widget, _)| widget.span)
+            .collect::<Vec<_>>(),
+    );
     let cells: Vec<BoxView<'a>> = cells
         .into_iter()
-        .map(|(widget, body)| {
+        .zip(spans)
+        .map(|((widget, body), span)| {
             let name = widget.name.clone();
-            let class = span_class(widget.span, columns);
+            let class = span_class(span, columns);
             view! { <div data-widget=(name) class=(class)>(body)</div> }.boxed()
         })
         .collect();
@@ -79,6 +88,35 @@ fn grid<'a>(cx: &'a Cx, columns: u8, cells: Vec<(&MountedWidget, BoxView<'a>)>) 
         </div>
     }
     .boxed()
+}
+
+/// `spans` laid out in rows `columns` wide, as the widest screen lays them, with the last span of
+/// each row that leaves columns empty grown over them: a half-width widget between two full-width
+/// ones takes the whole row rather than leave half of it blank.
+fn filled(columns: u8, spans: &[Span]) -> Vec<Span> {
+    let columns = columns.max(1);
+    let width = |span: Span| match span {
+        Span::Full => columns,
+        Span::Columns(span) => span.clamp(1, columns),
+    };
+    let mut filled = spans.to_vec();
+    let mut used = 0;
+    for index in 0..spans.len() {
+        used += width(spans[index]);
+        let next = spans.get(index + 1).copied().map(width);
+        if next.is_none_or(|next| used + next > columns) {
+            if used < columns {
+                let grown = width(spans[index]) + columns - used;
+                filled[index] = if grown == columns {
+                    Span::Full
+                } else {
+                    Span::Columns(grown)
+                };
+            }
+            used = 0;
+        }
+    }
+    filled
 }
 
 /// The grid's classes: one column on a narrow screen, at most two on a medium one, `columns` on a
@@ -373,3 +411,6 @@ fn dom_scope(slug: &str, heading: &str) -> String {
         .collect();
     format!("{slug}-{heading}")
 }
+
+#[cfg(test)]
+mod tests;
