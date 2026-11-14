@@ -73,6 +73,10 @@ features. release-plz takes the bump from the commits, so a breaking commit need
   moves only with those bumps or a manual update.
 - The lockfile carries `syn` 2 and 3, because upstream crates depend on both. Leave the duplicate in
   place rather than forcing one version.
+- `cargo deny check` holds the lockfile to `deny.toml`: no RustSec advisory, no yanked crate, a
+  license from its allowlist, and crates.io as the only source. `.github/workflows/deny.yml` runs
+  it on a manifest change, daily, and before a release. An advisory with no fixed release yet is
+  ignored there by id, with the reason and the upstream release that lifts it.
 
 ## Code
 

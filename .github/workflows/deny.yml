@@ -1,0 +1,37 @@
+name: deny
+
+# cargo-deny reads the lockfile against the RustSec advisory database, the license allowlist and
+# the allowed sources in deny.toml. An advisory lands without any change here, so it also runs on a
+# schedule. On master, ci.yml calls this workflow so the release job waits for it.
+on:
+  workflow_call:
+  pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - deny.toml
+      - .github/workflows/deny.yml
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: deny-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  deny:
+    name: deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
+        with:
+          tool: cargo-deny@0.20.2
+      - run: cargo deny --workspace --locked check
