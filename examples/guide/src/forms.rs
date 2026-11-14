@@ -355,25 +355,25 @@ pub fn uploads_panel(dir: PathBuf) -> Panel {
 struct ImagesOnly(DirUploader);
 
 impl Uploader for ImagesOnly {
-    async fn store(&self, filename: &str, bytes: &[u8]) -> Result<String, String> {
+    async fn store(&self, cx: &Cx, filename: &str, bytes: &[u8]) -> Result<String, String> {
         let png = bytes.starts_with(b"\x89PNG\r\n\x1a\n");
         let jpeg = bytes.starts_with(&[0xff, 0xd8, 0xff]);
         if !png && !jpeg {
             return Err("the file is not a PNG or JPEG image".to_string());
         }
-        self.0.store(filename, bytes).await
+        self.0.store(cx, filename, bytes).await
     }
 
-    async fn holds(&self, path: &str) -> bool {
-        self.0.holds(path).await
+    async fn holds(&self, cx: &Cx, path: &str) -> bool {
+        self.0.holds(cx, path).await
     }
 
-    async fn keep(&self, path: &str) -> Result<(), String> {
-        self.0.keep(path).await
+    async fn keep(&self, cx: &Cx, path: &str) -> Result<(), String> {
+        self.0.keep(cx, path).await
     }
 
-    async fn delete(&self, path: &str) -> Result<(), String> {
-        self.0.delete(path).await
+    async fn delete(&self, cx: &Cx, path: &str) -> Result<(), String> {
+        self.0.delete(cx, path).await
     }
 }
 

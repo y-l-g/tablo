@@ -112,7 +112,7 @@ pub(super) async fn prepare_submission<R: Resource>(
     // A list choosing more files than it holds stores none of them.
     let mut upload_errors = refuse_too_many_files(&schema, &mut files);
     let (stored_errors, mut singles) =
-        crate::upload::store_uploads(uploader(cx), &schema, &files, &mut values).await;
+        crate::upload::store_uploads(cx, uploader(cx), &schema, &files, &mut values).await;
     for error in stored_errors.iter() {
         if !upload_errors.contains_key(&error.key) {
             upload_errors.push(error.clone());
