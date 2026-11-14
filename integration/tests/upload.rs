@@ -13,7 +13,10 @@ use tablo::{
     lens,
 };
 use toasty::Db;
-use topcoat::router::{Body, Router, response::Response};
+use topcoat::{
+    context::Cx,
+    router::{Body, Router, response::Response},
+};
 use uuid::Uuid;
 
 use crate::common::{
@@ -50,11 +53,11 @@ impl RecordingUploader {
 }
 
 impl Uploader for RecordingUploader {
-    async fn keep(&self, _path: &str) -> Result<(), String> {
+    async fn keep(&self, _cx: &Cx, _path: &str) -> Result<(), String> {
         Ok(())
     }
 
-    async fn store(&self, filename: &str, bytes: &[u8]) -> Result<String, String> {
+    async fn store(&self, _cx: &Cx, filename: &str, bytes: &[u8]) -> Result<String, String> {
         self.seen
             .lock()
             .expect("uploader lock")
@@ -67,12 +70,27 @@ impl Uploader for RecordingUploader {
 struct FailingUploader;
 
 impl Uploader for FailingUploader {
-    async fn keep(&self, _path: &str) -> Result<(), String> {
+    async fn keep(&self, _cx: &Cx, _path: &str) -> Result<(), String> {
         Ok(())
     }
 
-    async fn store(&self, _filename: &str, _bytes: &[u8]) -> Result<String, String> {
+    async fn store(&self, _cx: &Cx, _filename: &str, _bytes: &[u8]) -> Result<String, String> {
         Err("this deployment has no room left".to_string())
+    }
+}
+
+/// An uploader that files each upload under the panel the request is on, as one that keeps
+/// tenants apart files it under the request's tenant.
+struct PerPanelUploader;
+
+impl Uploader for PerPanelUploader {
+    async fn keep(&self, _cx: &Cx, _path: &str) -> Result<(), String> {
+        Ok(())
+    }
+
+    async fn store(&self, cx: &Cx, filename: &str, _bytes: &[u8]) -> Result<String, String> {
+        let panel = tablo::url::panel(cx).ok_or("no panel serves the request")?;
+        Ok(format!("/uploads{panel}/{filename}"))
     }
 }
 
@@ -195,6 +213,26 @@ async fn an_installed_uploader_stores_the_bytes_and_the_path_reaches_the_record(
         ],
         "the uploader receives each file part's sanitized name and content"
     );
+}
+
+/// The uploader stores for the request: it reads from it where the file goes.
+#[tokio::test]
+async fn an_uploader_reads_the_request_it_stores_for() {
+    let db = seeded_db().await;
+    let router = router(db.clone(), PerPanelUploader);
+
+    let response = TestClient::new(&router)
+        .submit_multipart(
+            "/admin/docs/-/create",
+            &[
+                ("title", None, "Notes"),
+                ("cover", Some("cover.png"), "PNG"),
+            ],
+        )
+        .await;
+
+    assert_eq!(response.status(), 303);
+    assert_eq!(docs(&db).await[0].cover, "/uploads/admin/cover.png");
 }
 
 /// Without an uploader a file field would accept a file and keep only its name.
