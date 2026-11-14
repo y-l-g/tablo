@@ -266,7 +266,7 @@ A panel that needs an audit trail without writing one turns on the shipped log, 
 `tablo-audit` crate, which the facade's `audit` feature re-exports as `tablo::audit`:
 
 ```toml
-tablo = { version = "…", features = ["sqlite", "audit"] }
+tablo = { version = "0.11.0", features = ["sqlite", "audit"] }
 ```
 
 ```rust,ignore
