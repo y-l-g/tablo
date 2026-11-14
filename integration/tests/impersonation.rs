@@ -427,9 +427,11 @@ async fn signing_out_while_acting_as_another_is_audited_as_a_stop() {
         .expect("query entries");
     entries.sort_by_key(|entry| entry.created_at);
     let events: Vec<&str> = entries.iter().map(|entry| entry.event.as_str()).collect();
-    assert_eq!(events, ["impersonate", "stop_impersonating"]);
+    assert_eq!(events, ["impersonate", "stop_impersonating", "sign_out"]);
     assert_eq!(entries[1].actor_id, Some(app.support.id.to_string()));
     assert_eq!(entries[1].record, Some(app.bob.id.to_string()));
+    // The one who signs out is the actor, not the user they acted as.
+    assert_eq!(entries[2].record, Some(app.support.id.to_string()));
 
     let until = entries[0]
         .changes

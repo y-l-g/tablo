@@ -221,6 +221,8 @@ impl<E: ProfileEditor> DynProfileEditor for E {
                 // together, or neither does. The token only reaches the browser with the response.
                 let session = super::session::start(cx).await?;
                 replace_sessions(cx, &mut tx, signed, TypeId::of::<E::User>(), &session).await?;
+                let kind = super::hook::AuthEventKind::CredentialsChanged;
+                super::hook::run_own(cx, signed, kind, &mut tx).await?;
             }
             tx.commit().await.map_err(crate::error::unavailable)?;
             let email_pending =

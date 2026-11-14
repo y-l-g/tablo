@@ -14,6 +14,7 @@ mod common;
 
 mod account;
 mod admin_credentials;
+mod auth_events;
 mod auth_override;
 mod email_change;
 mod external;

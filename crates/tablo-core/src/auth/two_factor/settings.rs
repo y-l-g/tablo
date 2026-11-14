@@ -20,7 +20,9 @@ use super::{
 };
 use crate::{
     auth::{
-        SignedIn, infrastructure_failure,
+        SignedIn,
+        hook::{self, AuthEventKind},
+        infrastructure_failure,
         realm::{hosted, panel_prefix},
         session::{replace_sessions, start_once},
         signed,
@@ -242,6 +244,7 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
                     // end.
                     let session = start_once(cx, &mut started).await?;
                     replace_sessions(cx, tx, signed, user_type, &session).await?;
+                    hook::run_own(cx, signed, AuthEventKind::TwoFactorEnabled, tx).await?;
                     Settled::Codes { codes, first: true }
                 }
                 (Intent::Cancel, None, Some(_)) => {
@@ -253,6 +256,7 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
                         return Ok(Settled::Refused(Box::new(enrolment)));
                     }
                     let codes = issue_recovery_codes(cx, tx, &user_id).await?;
+                    hook::run_own(cx, signed, AuthEventKind::RecoveryCodesReplaced, tx).await?;
                     Settled::Codes {
                         codes,
                         first: false,
@@ -265,6 +269,7 @@ pub(in crate::auth) fn settings_post(cx: &Cx, body: Body) -> BoxView<'_> {
                     remove_all(cx, tx, &user_id).await?;
                     let session = start_once(cx, &mut started).await?;
                     replace_sessions(cx, tx, signed, user_type, &session).await?;
+                    hook::run_own(cx, signed, AuthEventKind::TwoFactorDisabled, tx).await?;
                     Settled::Off
                 }
                 // An intent the factors as they stand do not allow, such as a second set-up

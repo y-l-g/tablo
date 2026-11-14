@@ -283,6 +283,31 @@ page, and the fields the write changed, as a `PanelChange` spells them: a field 
 `#[columns(skip)]` is never stored. The app lists the model in its `models!`, as
 `tablo::models!(Post, tablo::audit::AuditEntry)`; mounting refuses a `Db` without it.
 
+The trail also keeps what auth does on the panel, on no resource:
+
+| Entry | When |
+| --- | --- |
+| `sign_in` | a session opens: by password, by a provider, after the second factor, on sign-up |
+| `sign_in_failed` | the panel refuses a sign-in; the entry keeps the login as typed |
+| `second_factor_failed` | the password was right and the code wrong |
+| `sign_out` | the user signs out |
+| `credentials_changed` | the profile page saves a new password |
+| `password_reset` | a mailed reset link sets a password |
+| `email_changed` | the link mailed to a new address is confirmed |
+| `two_factor_enabled`, `two_factor_disabled`, `recovery_codes_replaced` | the two-factor page |
+| `impersonate`, `stop_impersonating` | [acting as a user](policy-auth-tenancy.md) |
+
+A sign-in, and every change of a credential, commits with its entry or not at all. A refused
+sign-in, a wrong code and a sign-out go through when the entry cannot be stored, and the failure is
+logged. A refused sign-in names no user, since a wrong password and an unknown login read alike,
+and an attempt past the [throttle](security.md) stores nothing. Anyone who reaches the login page
+can add entries by failing to sign in, and someone who types their password in the login field
+leaves it in the log: prune on a schedule, and give the log a narrow policy. These entries carry
+no tenant but for what a signed-in user does, so in a panel with tenants only a reader who acts
+outside every tenant sees a sign-in. A sign-in the app does itself under `Auth::external` is
+recorded when the panel opens its own session for it; the app's own login page records its
+failures.
+
 The log is a read-only resource at `{prefix}/audit-log`, newest first. It is denied until
 `customize` gives it a policy, and whatever that policy says, its pages never write. A reader sees
 the entries of their own panel and tenant, about the resources whose list they may open; a field
@@ -317,7 +342,7 @@ hook's executor or the panel's `Db`. Nothing deletes entries but
 `tablo::audit::prune(&handle, age)`, which a job calls on the schedule the app keeps them for.
 
 The log uses nothing an app cannot: a commit hook, an
-[`AuthHook`](https://y-l.fr/tablo/nightly/api/tablo/trait.AuthHook.html) for impersonation,
+[`AuthHook`](https://y-l.fr/tablo/nightly/api/tablo/trait.AuthHook.html) for what auth does,
 [`ResourceDef::restrict`](https://y-l.fr/tablo/nightly/api/tablo/struct.ResourceDef.html#method.restrict)
 to stay read-only, [`mounted_resources`](https://y-l.fr/tablo/nightly/api/tablo/fn.mounted_resources.html)
 to mask what its reader may not see, `Panel::require_model` and `Panel::default_translations`. A

@@ -13,7 +13,9 @@ use topcoat::{
 };
 
 use super::{
-    DynAuthenticator, PanelUser, SignedIn, infrastructure_failure,
+    DynAuthenticator, PanelUser, SignedIn,
+    hook::{AuthEvent, AuthEventKind},
+    infrastructure_failure,
     token::{CREDENTIALS, REVOCATION, TokenPurpose},
 };
 use crate::{
@@ -160,8 +162,10 @@ pub(super) async fn record(
     panel: &Realm,
 ) -> topcoat::Result<()> {
     let expires_at = Timestamp::try_from(session.expires_at).map_err(topcoat::Error::from)?;
+    let mut db = crate::db::db(cx)?;
+    let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
     insert(
-        &mut crate::db::db(cx)?,
+        &mut tx,
         &session.token_hash,
         user.user_id(),
         panel.prefix.clone(),
@@ -169,7 +173,11 @@ pub(super) async fn record(
         expires_at,
     )
     .await
-    .map_err(infrastructure_failure)
+    .map_err(infrastructure_failure)?;
+    // The session and its record commit together: a sign-in the trail cannot hold opens nothing.
+    let event = AuthEvent::own(AuthEventKind::SignIn, &panel.id, None, user);
+    super::hook::run(cx, &panel.auth_hooks, &event, &mut tx).await?;
+    tx.commit().await.map_err(infrastructure_failure)
 }
 
 /// The realms whose authenticator loads `user_type`, or `own` outside a router: the panels that

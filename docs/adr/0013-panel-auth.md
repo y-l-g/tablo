@@ -74,6 +74,10 @@ is the explicit opt-out.
   sign-in rides in a cookie sealed under the cookie `Key`, and the ID token is trusted from the
   token endpoint's TLS answer, as OpenID Connect Core §3.1.3.7 allows, rather than by its
   signature. The panel stores no identity: which account an identity is stays the app's rows.
+- Auth hands what it does to the panel's `AuthHook`s: a sign-in, a refused one, a sign-out, a
+  change of credentials, address or second factor, an impersonation. An event that grants or
+  changes something commits with what the hooks write or not at all; a refused attempt, a sign-out
+  and a stop stand when a hook fails, which is logged.
 - Every mailed link and pending sign-in is one `AuthToken` row: the token's hash, its purpose, the
   account, the issuing panel and the expiry. One `AuthMail` names the sender and the configured
   base URL every link starts with.
@@ -146,6 +150,10 @@ is the explicit opt-out.
 - Auth in a crate of its own, or behind a Cargo feature: it reads the panel's CSRF, database,
   catalog and form modules, so their items would turn `#[doc(hidden)] pub`, as ADR-0024 says of
   the declaration model; and auth is on by default, so a feature would rarely be off.
+- A sign-out or a refused sign-in that fails with its hook: a session that cannot end is worse than
+  one the trail misses, and a trail that is down would turn a wrong password into an outage page
+  that tells it apart from a right one. A sign-in event at the password, before the second factor:
+  no session exists yet, and the trail would name a sign-in that a wrong code then stops.
 - A table per mailed link, and a sender and base URL per feature: each feature repeated the
   hashing, expiry and revocation, and an app repeated its sender. An address method on each
   seam: every seam that mails asks the same question of the same user type.

@@ -19,7 +19,9 @@ use topcoat::{
 };
 
 use super::{
-    PanelUser, SignedIn, infrastructure_failure,
+    PanelUser, SignedIn,
+    hook::{AuthEvent, AuthEventKind},
+    infrastructure_failure,
     login::login_url,
     mail::{TOKEN_FIELD, after_response, private, token_from_query},
     page::{AuthPage, render},
@@ -400,6 +402,12 @@ pub(super) fn confirm_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                 .store_verified_email(cx, &row.user_id, &email, tx)
                 .await
                 .map_err(infrastructure_failure)?;
+            let kind = AuthEventKind::EmailChanged;
+            let event = match &signed {
+                Some(signed) => AuthEvent::own(kind, &panel.id, signed.tenant, &*signed.user),
+                None => AuthEvent::unsigned(kind, &panel.id, Some(&row.user_id)),
+            };
+            super::hook::run(cx, &panel.auth_hooks, &event, tx).await?;
             Ok(Some(match &signed {
                 Some(signed) => {
                     let session = start_once(cx, &mut started).await?;

@@ -14,6 +14,7 @@ use topcoat::{
 use super::{
     PanelUser,
     external::leave_for,
+    hook::{AuthEvent, AuthEventKind},
     infrastructure_failure, panel_root, resolved,
     session::{delete_session, fresh_session, record, select_tenant, stop, sweep_expired_sessions},
     signed, unauthenticated_error,
@@ -178,7 +179,18 @@ pub(super) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         };
         // One 403 for every failure: wrong password, unknown account, empty
         // fields, or valid credentials without panel access.
-        let Some(user) = verified.filter(|user| user.can_access_panel(&panel.id)) else {
+        let admitted = verified
+            .as_deref()
+            .filter(|user| user.can_access_panel(&panel.id));
+        let Some(user) = admitted else {
+            if let Some(login) = login.filter(|login| !login.is_empty()) {
+                let kind = AuthEventKind::SignInFailed { login };
+                let event = match verified.as_deref() {
+                    Some(user) => AuthEvent::own(kind, &panel.id, None, user),
+                    None => AuthEvent::unsigned(kind, &panel.id, None),
+                };
+                super::hook::note(cx, panel, &event).await;
+            }
             return login_response(cx, Some(LoginError::Credentials), next).await;
         };
         if let Some(login) = login {
@@ -193,7 +205,7 @@ pub(super) fn login_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                 .clear(cx, "account", login, None)
                 .await?;
         }
-        admit(cx, panel, &*user, next).await
+        admit(cx, panel, user, next).await
     })
 }
 
@@ -266,6 +278,15 @@ pub(super) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
         crate::csrf::verify(cx, parts.last(crate::csrf::FIELD_NAME))?;
         if let Some(signed) = signed {
             crate::auth::impersonation::stop_on_sign_out(cx, signed).await?;
+            // The one who signs out is the one who signed in, whoever they act as.
+            let user = signed.impersonator.as_deref().unwrap_or(&*signed.user);
+            let tenant = signed
+                .impersonator
+                .is_none()
+                .then_some(signed.tenant)
+                .flatten();
+            let event = AuthEvent::own(AuthEventKind::SignOut, &signed.realm.id, tenant, user);
+            super::hook::note(cx, &signed.realm, &event).await;
         }
         if let Some(hash) = stop(cx).await? {
             delete_session(cx, &hash).await?;
