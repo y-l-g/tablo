@@ -387,8 +387,10 @@ the router's cookie `Key`, which the router must hold:
 
 Add `AuthFactor` and `AuthToken` to the `Db`'s models.
 
-Each panel enrols apart, and the cookie `Key` seals the secrets, so rotating it makes every app
-code fail until its owner signs in with a recovery code.
+Panels that load the same user type share an account's factor: set up on one, it is asked on each
+that installs `Auth::two_factor`, and turning it off on one turns it off on all. The cookie `Key`
+seals the secrets, so rotating it makes every app code fail until its owner signs in with a
+recovery code.
 [`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor) lists the setup, the challenge, codes
 by email, throttling and what the mount refuses.
 

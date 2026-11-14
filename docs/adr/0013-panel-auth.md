@@ -61,10 +61,13 @@ is the explicit opt-out.
   authenticator may answer for its own table.
 - A mailed link never acts on a `GET` a mail scanner would follow when acting signs someone out;
   one that only proves an address does, since a click less is worth more.
-- Two-factor sign-in needs no seam: Tablo stores each account's factor as `AuthFactor` rows, per
-  panel, with the authenticator secret sealed under a key derived from the router's cookie `Key`
+- Two-factor sign-in needs no seam: Tablo stores each account's factor as `AuthFactor` rows, with
+  the authenticator secret sealed under a key derived from the router's cookie `Key`
   and mailed codes hashed under another, so a database read alone yields neither. A correct
   password issues a short-lived `AuthToken` instead of a session until the second factor passes.
+  A row names the panel that enrolled it, and counts on every mounted panel whose authenticator
+  loads the same user type, the panels that share its password: a password alone then enrols no
+  factor on a sibling. Two user types may hold one id, so panels of another type never read it.
 - Provider sign-in is OpenID Connect behind one seam, `IdentityLinker`, which turns a checked
   identity into the app's user; providers are values, Google one of them. It ends where a password
   sign-in does, so it takes the same two-factor challenge and session rotation. The pending
@@ -115,7 +118,9 @@ is the explicit opt-out.
   every app would migrate its table and implement a seam for state Tablo alone reads. A secret
   stored in the clear: a database read would yield every account's second factor. A key of its
   own: the cookie `Key` is already the secret an app keeps. A session row in a half-signed-in
-  state: every gate would have to check it, where a challenge token opens nothing.
+  state: every gate would have to check it, where a challenge token opens nothing. A factor per
+  panel: a password alone took a sibling panel by enrolling its holder's own factor there. A
+  factor keyed by the user type's name: renaming the type would drop every factor.
 - Provider sign-in through `ExternalAuth`: it drops the panel's own sign-up, reset, verification
   and two-factor. A plain OAuth 2 flow per provider: each would read its own profile endpoint,
   where OpenID Connect names the account the same way everywhere. Checking the ID token's

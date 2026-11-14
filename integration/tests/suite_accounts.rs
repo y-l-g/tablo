@@ -33,4 +33,5 @@ mod tenant_registration;
 mod time_zone;
 mod two_factor;
 mod two_factor_email;
+mod two_factor_shared;
 mod verification;
