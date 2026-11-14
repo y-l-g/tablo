@@ -4,8 +4,9 @@
 //! prefix the request is under, or the one it entered with
 //! [`PanelHandle::enter`](crate::PanelHandle::enter).
 //! A resource or page that panel does not register has no URL there, and the
-//! helper returns `None`. The record helpers, [`record`], [`edit`], [`record_page`], [`delete`],
-//! [`create`], [`action`] and [`bulk_action`], also answer in a
+//! helper returns `None`. [`auth`] answers for the pages auth serves: sign-in, profile,
+//! two-factor and the rest of [`AuthPage`]. The record helpers, [`record`], [`edit`],
+//! [`record_page`], [`delete`], [`create`], [`action`] and [`bulk_action`], also answer in a
 //! [`PanelHandle::context`](crate::PanelHandle::context).
 //!
 //! ```rust,no_run
@@ -56,6 +57,79 @@ pub fn resource<R: Resource>(cx: &Cx) -> Option<String> {
 /// for the panel's [`home`](super::Panel::home) page.
 pub fn page<P: Page>(cx: &Cx) -> Option<String> {
     registered::<P>(cx)
+}
+
+/// A page or an endpoint auth serves on a panel, for [`auth`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum AuthPage {
+    /// The sign-in page, `{prefix}/login`: on every panel but an [`Auth::disabled`] one.
+    ///
+    /// [`Auth::disabled`]: crate::Auth::disabled
+    Login,
+    /// Where a sign-out form posts, `{prefix}/logout`, with the CSRF field.
+    Logout,
+    /// The sign-up page of [`Auth::registration`](crate::Auth::registration).
+    Register,
+    /// The forgot-password page of [`Auth::password_reset`](crate::Auth::password_reset).
+    ForgotPassword,
+    /// The notice that asks a user to prove their address, of
+    /// [`Auth::email_verification`](crate::Auth::email_verification).
+    VerifyEmail,
+    /// The profile page of [`Auth::profile`](crate::Auth::profile).
+    Profile,
+    /// The two-factor settings page of [`Auth::two_factor`](crate::Auth::two_factor).
+    TwoFactor,
+    /// The tenant settings page of [`Auth::tenant_profile`](crate::Auth::tenant_profile).
+    TenantProfile,
+    /// The page that creates a tenant, of
+    /// [`Auth::tenant_registration`](crate::Auth::tenant_registration).
+    RegisterTenant,
+    /// Where the tenant switch posts [`TENANT_FIELD`](crate::auth::TENANT_FIELD), on a panel that
+    /// acts for tenants.
+    SwitchTenant,
+    /// Where a form posts [`IMPERSONATE_FIELD`](crate::auth::IMPERSONATE_FIELD) to act as a user,
+    /// under [`Auth::impersonation`](crate::Auth::impersonation).
+    Impersonate,
+    /// Where the Stop form posts to end acting as a user.
+    StopImpersonating,
+}
+
+/// The URL of `page` in the request's panel, such as `/admin/profile`; `None` when the panel's
+/// [`Auth`](crate::Auth) does not serve it, as the other helpers answer for a resource the panel
+/// does not register.
+///
+/// A settings page an [`Area`](crate::Area) holds is served under that area, which this answers.
+///
+/// ```rust,no_run
+/// # use tablo_core::url::{self, AuthPage};
+/// # let cx: &topcoat::context::Cx = todo!();
+/// let profile = url::auth(cx, AuthPage::Profile); // Some("/admin/profile")
+/// ```
+pub fn auth(cx: &Cx, page: AuthPage) -> Option<String> {
+    let realm = &current(cx)?.realm;
+    let (prefix, auth) = (&realm.prefix, &realm.auth);
+    let under = |served: bool, path: &str| served.then(|| format!("{prefix}/{path}"));
+    match page {
+        AuthPage::Login => under(realm.gates(), "login"),
+        AuthPage::Logout => under(realm.gates(), "logout"),
+        AuthPage::Register => under(auth.registrar().is_some(), "register"),
+        AuthPage::ForgotPassword => under(auth.reset().is_some(), "forgot-password"),
+        AuthPage::VerifyEmail => under(auth.verification().is_some(), "verify-email"),
+        AuthPage::Profile => auth.profile_editor().map(|_| realm.pages.profile.clone()),
+        AuthPage::TwoFactor => auth
+            .two_factor_config()
+            .map(|_| realm.pages.two_factor.clone()),
+        AuthPage::TenantProfile => auth
+            .tenant_editor()
+            .map(|_| realm.pages.tenant_profile.clone()),
+        AuthPage::RegisterTenant => {
+            under(auth.tenant_registration_page().is_some(), "register-tenant")
+        }
+        AuthPage::SwitchTenant => under(realm.gates() && realm.serves_tenants, "tenant"),
+        AuthPage::Impersonate => under(auth.impersonation().is_some(), "impersonate"),
+        AuthPage::StopImpersonating => under(auth.impersonation().is_some(), "impersonate/stop"),
+    }
 }
 
 /// The URL to link or show a stored file at: `path` with a signature that expires, when it
