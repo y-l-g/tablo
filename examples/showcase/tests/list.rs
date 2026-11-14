@@ -734,3 +734,18 @@ async fn posts_list_streams_its_rows_behind_the_toolbar() {
         "posts list must stream its rows into the table, got {html}"
     );
 }
+
+/// Every header cell of a list names the column it heads, so a screen reader reads it with each
+/// cell below: the data columns, the select-all box and the actions column.
+#[tokio::test]
+async fn every_header_cell_names_its_column() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let html = body_string(client.get("/admin/posts").await).await;
+    assert!(!tablo::testing::columns(&html).is_empty(), "a table");
+    assert_eq!(
+        tablo::testing::unscoped_headers(&html),
+        Vec::<String>::new()
+    );
+}

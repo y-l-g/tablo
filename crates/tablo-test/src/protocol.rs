@@ -113,6 +113,17 @@ pub fn skip_link_target(html: &str) -> Option<String> {
         .then_some(target)
 }
 
+/// The text of each `th` that names neither its column nor its row through `scope`, in
+/// document order.
+pub fn unscoped_headers(html: &str) -> Vec<String> {
+    dom::tags_where(html, |tag, attrs| {
+        tag == "th" && dom::attr_value(attrs, "scope").is_none()
+    })
+    .into_iter()
+    .map(|(_, _, inner)| dom::strip_text(&inner))
+    .collect()
+}
+
 /// The text of each script the page carries inline, in document order.
 pub fn inline_scripts(html: &str) -> Vec<String> {
     dom::tags_where(html, |tag, attrs| {

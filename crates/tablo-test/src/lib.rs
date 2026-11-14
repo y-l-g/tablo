@@ -27,7 +27,7 @@ pub use protocol::{
     record_tables, refreshes_to, response_cookies, rich_text_values, robots, row_actions, row_keys,
     rows, search_box, search_results, sections, selects_matching, session_cookie_value,
     set_cookie_header, skip_link_target, sortable_columns, stale_form, stats, summaries, tab_links,
-    tabs, tenant_page_link, trail, widgets, wizard_steps,
+    tabs, tenant_page_link, trail, unscoped_headers, widgets, wizard_steps,
 };
 pub use resource::{FieldOf, Reply, ResourceClient, Submission};
 use tablo_core::{
