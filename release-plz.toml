@@ -1,7 +1,8 @@
 [workspace]
 # The release job in ci.yml only runs for release PR merges and manual
-# dispatches, so release-plz itself does not need to check the commit.
-git_release_draft = true
+# dispatches, so release-plz itself does not need to check the commit, and it
+# already waits for every CI check: publish the release directly.
+git_release_draft = false
 pr_draft = true
 pr_labels = ["release"]
 release_always = true
