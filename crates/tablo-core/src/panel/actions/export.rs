@@ -11,7 +11,7 @@ use super::super::gate::gate;
 use crate::{
     db::db,
     policy::Ability,
-    resource::{Mounted, Resource},
+    resource::{Change, Mounted, Resource},
     table::{Table, TableState},
 };
 
@@ -96,6 +96,20 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
         )
         .await?;
         enforce_export_cap_count(count, cap)?;
+        // The hooks' record of who takes the rows commits before a byte leaves, or the export
+        // is refused.
+        let mut handle = db(cx)?;
+        let mut hooks = handle
+            .transaction()
+            .await
+            .map_err(crate::error::unavailable)?;
+        crate::panel::commit_hook::before_commit::<R>(
+            cx,
+            &Change::Export { rows: count },
+            &mut hooks,
+        )
+        .await?;
+        hooks.commit().await.map_err(crate::error::unavailable)?;
         let scanned = count > 0;
         let want_bom = export_wants_bom(cx);
         let (tx, body) = http_body_util::Channel::<bytes::Bytes, std::io::Error>::new(8);

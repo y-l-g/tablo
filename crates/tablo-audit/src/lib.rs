@@ -61,6 +61,9 @@ pub trait PanelAuditExt {
     /// group lists them with `group.resource_with::<AuditLog>(..)`. Calling it again changes
     /// nothing.
     ///
+    /// A CSV export stores an entry too, with the number of rows it hands over, before the first
+    /// byte leaves; an export whose entry fails to store is refused.
+    ///
     /// Each entry names the [actor](tablo_core::auth::actor), the tenant they act for, the
     /// resource and record, and the fields the write changed, as a
     /// [`CommitHook`](tablo_core::CommitHook) reads them: a field marked `#[columns(skip)]`, such

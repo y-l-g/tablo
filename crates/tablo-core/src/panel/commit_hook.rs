@@ -15,7 +15,8 @@ use crate::{
 /// Work every write of a panel does inside its transaction, whichever of the panel's resources
 /// wrote it: an audit trail no resource can leave out. [`Panel::before_commit`] registers it.
 ///
-/// It runs on the writes [`Resource::before_commit`] runs on, right after that hook, with the
+/// It runs on the writes [`Resource::before_commit`] runs on, and on a CSV export, right after
+/// that hook, with the
 /// same transaction and the same rules: run every statement through `ex`, and an `Err` rolls the
 /// whole write back and fails the request with the write's failure toast.
 ///

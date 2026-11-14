@@ -30,7 +30,15 @@ links, reaches two hooks with one `Change`: `Resource::before_commit` inside the
 row it writes commits with the write or not at all, and `Resource::after_commit` after the commit,
 for effects outside the database. An action's `Outcome` applies only after both.
 
+A CSV export writes nothing and still reaches `before_commit`, as `Change::Export`, in a
+transaction that commits before the first byte leaves: who took which rows is what an audit asks
+of a panel, and no hook of the app's own sits on the shipped export route.
+
 ## Rejected
+
+- A hook of its own for exports, or an `AuthEvent`: an audit would register two hooks to cover one
+  resource, and an export is no change of who a request acts as. `after_commit` on an export: it
+  would run before the file is delivered, and say it was.
 
 - Authorizing an action through `View` and `can_run`: `can_run` belongs to the action's own def
   and never sees the mounted resource's policy, so a panel that mounts the resource `ReadOnly`

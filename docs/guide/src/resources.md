@@ -336,7 +336,11 @@ snapshot rather than data to compute on. A delete stores every field the record 
 app erases on request also lives in the log until it is pruned; mark such a field
 `#[columns(skip)]`, or prune on the schedule the app's retention rules set.
 
-An app records its own events, an export or a payment, with
+A CSV export stores an entry too, with how many rows it handed over, before the first byte
+leaves: an export whose entry cannot be stored is refused. The entry says the file was asked for,
+not that the download finished.
+
+An app records its own events, a report or a payment, with
 [`AuditEvent`](https://y-l.fr/tablo/nightly/api/tablo_audit/struct.AuditEvent.html), through a
 hook's executor or the panel's `Db`. Nothing deletes entries but
 `tablo::audit::prune(&handle, age)`, which a job calls on the schedule the app keeps them for.
