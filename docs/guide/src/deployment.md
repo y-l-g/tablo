@@ -70,6 +70,9 @@ and the other subcommands. A new database has no user to sign in with: seed the 
   point both names at the binary. Panels on one origin are not isolated: [a script on one can act
   on the others](./security.md#several-panels-one-origin). A customer panel beside an admin panel
   is the case to split; panels for the same staff can share a host.
+- Pages are compressed with gzip or brotli for a browser that accepts them: a list page is mostly
+  repeated markup, and shrinks about fifteen times. Where a proxy or a CDN compresses already,
+  pass `Compression::disable()` to `Router::builder().with(...)`.
 - Behind a reverse proxy, install `TrustedProxies` on the router, so the sign-in throttle counts
   the client's address and not the proxy's.
 - Keep uploads on storage that outlives the binary: the directory `Panel::uploads_dir` writes to

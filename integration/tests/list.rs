@@ -18,7 +18,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::common::{body_string, confirms_first, get, mount, panel, rows, test_db};
+use crate::common::{body_bytes, body_string, confirms_first, get, mount, panel, rows, test_db};
 
 #[derive(Debug, Clone, toasty::Model, tablo::PanelModel)]
 struct Item {
@@ -469,4 +469,35 @@ async fn a_summary_counts_the_whole_list_under_its_search() {
         counted("/admin/items?q=Bob").await,
         [("Items".to_string(), 1), ("Starting with A".to_string(), 0)]
     );
+}
+
+/// A page is compressed for a browser that accepts it, without the app enabling anything, and
+/// sent as it is to a client that does not.
+#[tokio::test]
+async fn a_page_is_compressed_for_a_client_that_accepts_it() {
+    let router: Router = mount(
+        items(&["Ada"]).await,
+        panel().resource::<ReadOnlyResource>(),
+    )
+    .expect("panel builds");
+    let encoding = |response: &http::Response<Body>| {
+        response
+            .headers()
+            .get(http::header::CONTENT_ENCODING)
+            .map(|value| value.to_str().expect("an ascii encoding").to_owned())
+    };
+    let request = http::Request::builder()
+        .uri("/admin/items")
+        .header(http::header::ACCEPT_ENCODING, "gzip")
+        .body(Body::empty())
+        .expect("request builds");
+    let compressed = router.handle(request).await;
+    assert!(compressed.status().is_success());
+    assert_eq!(encoding(&compressed).as_deref(), Some("gzip"));
+    // A gzip stream opens with these two bytes.
+    assert!(body_bytes(compressed).await.starts_with(&[0x1f, 0x8b]));
+
+    let plain = get(&router, "/admin/items").await;
+    assert_eq!(encoding(&plain), None);
+    assert!(body_string(plain).await.contains("Ada"));
 }
