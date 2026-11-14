@@ -115,7 +115,7 @@ pub(super) fn token_from_query(cx: &Cx) -> String {
 
 /// Runs `send` after the response, with the request's panel and its [`AuthMail`], logging a
 /// failure as `what`: waiting on the database or the mail server, or answering differently,
-/// would tell the visitor whether an account exists.
+/// would tell the visitor whether an account exists. [`settled`](crate::settled) waits for it.
 pub(super) fn after_response<F, Fut>(cx: &Cx, what: &'static str, send: F)
 where
     F: FnOnce(Cx, Arc<Realm>) -> Fut + Send + 'static,
@@ -124,10 +124,10 @@ where
     let Some(panel) = current_realm(cx).map(Arc::clone) else {
         return;
     };
-    let cx = cx.clone();
-    tokio::spawn(async move {
+    let request = cx.clone();
+    crate::settle::AfterResponse::spawn(cx, async move {
         let prefix = panel.prefix.clone();
-        if let Err(error) = send(cx, panel).await {
+        if let Err(error) = send(request, panel).await {
             tracing::error!(error = %error, panel = %prefix, "{what} not sent");
         }
     });

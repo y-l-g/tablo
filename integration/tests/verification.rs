@@ -22,7 +22,7 @@ use uuid::Uuid;
 
 use crate::common::{
     TestClient, flash,
-    mail::{BASE_URL, link, mails},
+    mail::{BASE_URL, link},
     refusal, test_db,
 };
 
@@ -141,7 +141,7 @@ async fn a_sign_up_reaches_the_panel_once_its_link_verifies_the_address() {
     let mutation = client.submit("/admin/tickets/-/columns", "").await;
     assert_eq!(mutation.status(), 403);
 
-    let sent = mails(&mail, 1).await;
+    let sent = mail.sent();
     assert_eq!(sent[0].to()[0].address(), "ada@example.com");
     let link = link(&sent[0]);
     assert!(link.starts_with("/admin/verify-email/confirm?token="));
@@ -179,7 +179,7 @@ async fn a_requested_link_verifies_in_a_browser_that_is_not_signed_in() {
         requested.headers().get(LOCATION).unwrap(),
         "/admin/verify-email"
     );
-    let link = link(&mails(&mail, 1).await[0]);
+    let link = link(&mail.sent()[0]);
 
     let confirmed = TestClient::new(&router).get(&link).await;
     assert_eq!(confirmed.headers().get(LOCATION).unwrap(), "/admin/login");
@@ -220,7 +220,7 @@ async fn a_link_verifies_only_the_address_it_was_mailed_to_while_it_lasts() {
     let router = builder.build();
     let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
     client.submit("/admin/verify-email", "").await;
-    let link = link(&mails(&mail, 1).await[0]);
+    let link = link(&mail.sent()[0]);
 
     let elsewhere = link.replacen("/admin/", "/staff/", 1);
     assert_eq!(client.get(&elsewhere).await.status(), 404);
@@ -274,7 +274,7 @@ async fn link_requests_past_the_throttle_answer_429() {
 
     assert_eq!(client.submit("/admin/verify-email", "").await.status(), 303);
     assert_eq!(client.submit("/admin/verify-email", "").await.status(), 429);
-    assert_eq!(mails(&mail, 1).await.len(), 1);
+    assert_eq!(mail.sent().len(), 1);
 }
 
 fn kinds(mounted: topcoat::Result<Router>) -> Vec<DeclarationErrorKind> {

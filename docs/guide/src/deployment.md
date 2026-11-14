@@ -59,6 +59,17 @@ and the other subcommands. A new database has no user to sign in with: seed the 
 
 - `topcoat::start` binds `HOST`:`PORT`, `127.0.0.1:3000` by default; in a container set
   `HOST=0.0.0.0`.
+- A panel sends its auth mail after the response, which the server does not wait for when it
+  stops. Await [`settled`](https://y-l.fr/tablo/nightly/api/tablo/fn.settled.html) once it returns,
+  so a deploy does not drop a reset link a visitor was just promised:
+
+  ```rust,ignore
+  topcoat::start(router.clone()).await?;
+  tablo::settled(&router).await;
+  ```
+
+  A crash still loses that mail, and a mail server that is down fails it: a `Transport` that
+  queues mail in the database and sends it from a worker covers both.
 - Terminate HTTPS in front of the binary: the panel's cookies are `Secure`, so without it every
   form POST fails its CSRF check.
 - Load the router's cookie `Key` from a secret holding at least 64 random bytes (decode a hex or

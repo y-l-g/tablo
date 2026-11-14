@@ -91,7 +91,8 @@ pub fn refusal<T>(mounted: topcoat::Result<T>) -> Vec<DeclarationError> {
         .to_vec()
 }
 
-/// Sends requests carrying cookies and tenant.
+/// Sends requests carrying cookies and tenant. Each returns once the work its request left
+/// behind has run, such as the auth mail it sends.
 #[derive(Clone)]
 pub struct TestClient<'a> {
     router: &'a Router,
@@ -270,15 +271,11 @@ impl<'a> TestClient<'a> {
     }
 
     pub async fn get(&self, uri: &str) -> http::Response<Body> {
-        self.router
-            .handle(self.request(http::Method::GET, uri))
-            .await
+        self.send(self.request(http::Method::GET, uri)).await
     }
 
     pub async fn head(&self, uri: &str) -> http::Response<Body> {
-        self.router
-            .handle(self.request(http::Method::HEAD, uri))
-            .await
+        self.send(self.request(http::Method::HEAD, uri)).await
     }
 
     pub async fn post_form(&self, uri: &str, body: String) -> http::Response<Body> {
@@ -367,7 +364,16 @@ impl<'a> TestClient<'a> {
         let mut request = self.request(http::Method::POST, uri);
         request.headers_mut().insert(CONTENT_TYPE, content_type);
         *request.body_mut() = Body::from(body);
-        self.router.handle(request).await
+        self.send(request).await
+    }
+
+    /// The router's answer to `request`, once the work it left behind has run, as
+    /// [`settled`](tablo_core::settled) waits for it: the auth mail a request sends is sent when
+    /// this returns.
+    async fn send(&self, request: http::Request<Body>) -> http::Response<Body> {
+        let response = self.router.handle(request).await;
+        tablo_core::settled(self.router).await;
+        response
     }
 
     /// The CSRF cookie the client carries, as a browser keeps it across posts, else a fresh one.

@@ -33,6 +33,7 @@ const LAYERS: &[(&str, &[&str])] = &[
             "outcome",
             "flash",
             "bus",
+            "settle",
         ],
     ),
     (

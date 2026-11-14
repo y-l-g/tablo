@@ -8,13 +8,11 @@ use topcoat::{
     Result,
     asset::AssetConfig,
     context::Cx,
-    cookie::CookieLayer,
     metadata::{Metadata, Robots},
     router::{
         Body, LayoutFn, Methods, PageFn, Path, RouteFn, RouteFuture, RouterBuilder,
         RouterBuilderDirectoryExt, error::redirect,
     },
-    runtime::{PrefetchMode, RuntimeLayer},
 };
 
 use super::{
@@ -30,20 +28,20 @@ use super::{
 };
 use crate::{
     DeclarationError, DeclarationErrorKind, MountError, Site,
-    auth::{AuthHost, PagePanelStamp, PanelGate, Realm, RuntimeGate},
+    auth::{AuthHost, PanelGate, Realm},
     bus::NotificationBus,
     declaration::segment_fault,
     naming::route_path,
     resource::{MountScope, Mounts},
-    tenancy::TenantSource,
     toasty_compat::model::AppSchema,
     topcoat_compat::RUNTIME_PREFIX,
 };
 
 mod handle;
+mod shared;
 
 pub use self::handle::PanelHandle;
-use self::handle::request_mounts;
+use self::{handle::request_mounts, shared::install_shared};
 
 /// Mounts a [`Panel`] on a router the app owns.
 ///
@@ -484,32 +482,6 @@ fn mount_errors(
         }
     }
     errors
-}
-
-/// Installs what every panel on a router shares.
-fn install_shared(mut builder: RouterBuilder) -> RouterBuilder {
-    builder = builder
-        .layer(CookieLayer::new())
-        .layer(RuntimeGate::new())
-        .with(Panels::default())
-        .with(AuthHost(&PanelHost))
-        .with(MountScope(request_mounts))
-        .with(TenantSource(crate::auth::session_tenant))
-        .with(crate::values::ZoneSource(crate::auth::session_time_zone))
-        .with(crate::schema::FileHref(super::url::file))
-        .with(crate::page::PageBody(super::pages::declared_body))
-        .with(crate::i18n::CatalogSource(crate::auth::session_catalog))
-        .with(NotificationBus::new());
-    // The runtime layer has no path, so a page re-run reaches the panel's layers already rewritten
-    // to a `GET`. One the app installs before the panels sits inside this one and passes on what
-    // this one already rewrote.
-    builder = builder.layer(RuntimeLayer::new());
-    if builder.try_context::<PrefetchMode>().is_none() {
-        builder = builder.with(PrefetchMode::Never);
-    }
-    // The last pathless layer runs outermost, so this one sees the socket's handshake unless the
-    // app installs the runtime layer after the panels. `RuntimeGate` refuses those sockets' runs.
-    builder.layer(PagePanelStamp)
 }
 
 /// Redirects the panel root of a panel with no [`home`](Panel::home) page to the first declared

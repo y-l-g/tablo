@@ -24,9 +24,7 @@ use topcoat::{
 };
 use uuid::Uuid;
 
-use crate::common::{
-    TestClient, body_string, field_error_message, mail::mails, mount, refusal, test_db,
-};
+use crate::common::{TestClient, body_string, field_error_message, mount, refusal, test_db};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, toasty::Embed, tablo::Options)]
 enum Genre {
@@ -554,19 +552,16 @@ async fn a_reset_mail_reads_its_recipients_locale() {
     let router = builder.build();
     reader(&db, "Ada", Some("en")).await;
     reader(&db, "Grace", None).await;
-    // One request at a time: two reset mails racing their serializable token writes can abort
-    // one of them on PostgreSQL and MySQL.
-    for (sent, email) in ["ada@example.com", "grace@example.com"]
-        .into_iter()
-        .enumerate()
-    {
+    // One request at a time, each returning once its mail is sent: two reset mails racing their
+    // serializable token writes can abort one of them on PostgreSQL and MySQL.
+    for email in ["ada@example.com", "grace@example.com"] {
         TestClient::new(&router)
             .language("fr")
             .submit("/admin/forgot-password", &form_body(&[("email", email)]))
             .await;
-        mails(&mail, sent + 1).await;
     }
-    let sent = mails(&mail, 2).await;
+    let sent = mail.sent();
+    assert_eq!(sent.len(), 2);
     let subject = |to: &str| {
         sent.iter()
             .find(|mail| {
