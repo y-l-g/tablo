@@ -99,6 +99,7 @@ impl Frame<'_> {
                 view! {
                     table_head(
                         attrs: attributes! {
+                            scope="col"
                             class=([head_class, fit, align]
                                 .join(" ")
                                 .split_whitespace()
@@ -122,7 +123,7 @@ impl Frame<'_> {
             heads.push(
                 view! {
                     table_head(
-                        attrs: attributes! { class=(CHROME_CELL_CLASS) },
+                        attrs: attributes! { scope="col" class=(CHROME_CELL_CLASS) },
                         <span class="sr-only">(t!(cx, "tablo-list-actions"))</span>
                     )
                 }
@@ -134,7 +135,7 @@ impl Frame<'_> {
                 table_row(
                     if let Some(attrs) = select_all {
                         table_head(
-                            attrs: attributes! { class=(CHROME_CELL_CLASS) },
+                            attrs: attributes! { scope="col" class=(CHROME_CELL_CLASS) },
                             <input aria-label=(t!(cx, "tablo-list-select-all")) (attrs)>
                         )
                     }

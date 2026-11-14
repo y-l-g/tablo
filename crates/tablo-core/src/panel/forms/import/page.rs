@@ -96,11 +96,16 @@ pub(super) fn render_import_page<'a>(
                         tablo_ui::table(
                             tablo_ui::table_header(
                                 tablo_ui::table_row(
-                                    tablo_ui::table_head((crate::t!(cx, "tablo-import-row")))
                                     tablo_ui::table_head(
+                                        attrs: attributes! { scope="col" },
+                                        (crate::t!(cx, "tablo-import-row"))
+                                    )
+                                    tablo_ui::table_head(
+                                        attrs: attributes! { scope="col" },
                                         (crate::t!(cx, "tablo-import-column"))
                                     )
                                     tablo_ui::table_head(
+                                        attrs: attributes! { scope="col" },
                                         (crate::t!(cx, "tablo-import-problem"))
                                     )
                                 )
@@ -153,9 +158,15 @@ pub(super) fn render_import_page<'a>(
                 tablo_ui::table(
                     tablo_ui::table_header(
                         tablo_ui::table_row(
-                            tablo_ui::table_head((crate::t!(cx, "tablo-import-column")))
-                            tablo_ui::table_head((crate::t!(cx, "tablo-import-field")))
-                            tablo_ui::table_head("")
+                            tablo_ui::table_head(
+                                attrs: attributes! { scope="col" },
+                                (crate::t!(cx, "tablo-import-column"))
+                            )
+                            tablo_ui::table_head(
+                                attrs: attributes! { scope="col" },
+                                (crate::t!(cx, "tablo-import-field"))
+                            )
+                            tablo_ui::table_head(attrs: attributes! { scope="col" }, "")
                         )
                     )
                     tablo_ui::table_body(
