@@ -20,6 +20,7 @@
 
 tablo-shell-navigation = Navigation
 tablo-shell-close-sidebar = Fermer le menu latéral
+tablo-shell-skip-to-content = Aller au contenu
 tablo-shell-home = Accueil
 tablo-shell-back = Retour
 tablo-shell-account = Compte

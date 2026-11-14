@@ -93,6 +93,26 @@ pub fn document_title(html: &str) -> Option<String> {
     Some(dom::strip_text(&inner))
 }
 
+/// The `id` the page's skip link moves focus to, when an element the keyboard can focus carries
+/// it; `None` when the page has no skip link or its target is missing or unfocusable.
+pub fn skip_link_target(html: &str) -> Option<String> {
+    let (_, attrs, _) = dom::tags_where(html, |tag, attrs| {
+        tag == "a" && dom::attr_value(attrs, "data-skip-link").is_some()
+    })
+    .into_iter()
+    .next()?;
+    let target = dom::attr_value(&attrs, "href")?
+        .strip_prefix('#')?
+        .to_owned();
+    dom::open_tags(html)
+        .into_iter()
+        .any(|(_, attrs, _)| {
+            dom::attr_value(&attrs, "id").as_deref() == Some(target.as_str())
+                && dom::attr_value(&attrs, "tabindex").is_some()
+        })
+        .then_some(target)
+}
+
 /// The text of each script the page carries inline, in document order.
 pub fn inline_scripts(html: &str) -> Vec<String> {
     dom::tags_where(html, |tag, attrs| {

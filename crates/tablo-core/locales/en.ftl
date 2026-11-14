@@ -15,6 +15,7 @@
 
 tablo-shell-navigation = Navigation
 tablo-shell-close-sidebar = Close sidebar
+tablo-shell-skip-to-content = Skip to content
 tablo-shell-home = Home
 tablo-shell-back = Back
 tablo-shell-account = Account

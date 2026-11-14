@@ -35,6 +35,9 @@ pub(crate) struct ShellAssets {
     pub(crate) font: Font,
 }
 
+/// The `id` of the block that holds the page, which the skip link targets.
+const MAIN_CONTENT: &str = "main-content";
+
 impl Panel {
     async fn sidebar_navigation<'a>(
         cx: &'a Cx,
@@ -211,6 +214,14 @@ impl Panel {
         let toaster = Self::toaster(cx).await?;
 
         Ok(view! {
+            // The first stop of the keyboard: past the sidebar and the top bar to the page.
+            <a
+                href=(format!("#{MAIN_CONTENT}"))
+                class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-md focus:ring-2 focus:ring-ring"
+                data-skip-link=""
+            >
+                (crate::t!(cx, "tablo-shell-skip-to-content"))
+            </a>
             sidebar_provider(
                 // No `sidebar_rail`: the header's `sidebar_trigger` is the one toggle.
                 sidebar(
@@ -314,10 +325,18 @@ impl Panel {
                     for banner in banners {
                         (banner)
                     }
-                    <div class="flex flex-1 flex-col">(slot)</div>
+                    // `tabindex` lets the skip link move focus here, not only scroll.
+                    <div
+                        id=(MAIN_CONTENT)
+                        tabindex="-1"
+                        class="flex flex-1 flex-col outline-none"
+                    >
+                        (slot)
+                    </div>
                 )
                 (toaster)
-            ) // Scripts are owned by the document (layout_shell).
+            )
+            // Scripts are owned by the document (layout_shell).
         }
         .boxed())
     }
