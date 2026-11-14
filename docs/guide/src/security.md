@@ -23,6 +23,10 @@ What Tablo does by default, and what your deployment must provide for those defa
   change. An edit form that changes an `AdminUser`'s, or another `PasswordAccount`'s, email or
   password hash ends that user's sessions itself, and deactivating one
   ends them at its next request.
+- **Deleting an account.** Call
+  [`erase_user`](https://y-l.fr/tablo/nightly/api/tablo/fn.erase_user.html) in the
+  transaction that deletes the user, rather than deleting Tablo's tables by name: it deletes the
+  user's rows from every table Tablo ships, the ones a later release adds included.
 
 ## Requests and writes
 
