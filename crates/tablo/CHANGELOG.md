@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0](https://github.com/y-l-g/tablo/compare/v0.10.0...v0.11.0) - 2026-11-14
+
+### Added
+
+- *(panel)* ship four themes a brand picks with Brand::theme ([#1017](https://github.com/y-l-g/tablo/pull/1017))
+- *(panel)* [**breaking**] identify panels by a typed PanelId and return the handle from mounting ([#1011](https://github.com/y-l-g/tablo/pull/1011))
+- *(resource)* [**breaking**] hand a CSV export to the commit hooks ([#1046](https://github.com/y-l-g/tablo/pull/1046))
+- *(auth)* [**breaking**] hand sign-ins, sign-outs and credential changes to auth hooks ([#1045](https://github.com/y-l-g/tablo/pull/1045))
+- *(schema)* lay forms out for every width ([#1018](https://github.com/y-l-g/tablo/pull/1018))
+- *(auth)* [**breaking**] share a second factor across the panels of one user type ([#1044](https://github.com/y-l-g/tablo/pull/1044))
+- *(panel)* [**breaking**] bind a panel to one host with Panel::host ([#1043](https://github.com/y-l-g/tablo/pull/1043))
+- *(panel)* walk a related form as the last step of its owner's wizard ([#1039](https://github.com/y-l-g/tablo/pull/1039))
+- *(panel)* apply a page filter as it changes ([#1034](https://github.com/y-l-g/tablo/pull/1034))
+- *(schema)* span a tall control across its grid's row ([#1032](https://github.com/y-l-g/tablo/pull/1032))
+- *(schema)* lay a repeater's rows out as a table ([#1031](https://github.com/y-l-g/tablo/pull/1031))
+- *(ui)* tint badges in their color and draw choice buttons in their option's ([#1029](https://github.com/y-l-g/tablo/pull/1029))
+- *(panel)* fit the shell and the dashboard to a phone ([#1019](https://github.com/y-l-g/tablo/pull/1019))
+- *(form)* [**breaking**] key a refusal by its form, picking the field by name ([#1014](https://github.com/y-l-g/tablo/pull/1014))
+- *(table)* [**breaking**] hand a model's fields over as columns through a derived `columns()` ([#1013](https://github.com/y-l-g/tablo/pull/1013))
+- *(table)* [**breaking**] pass the request to every column, row color and row link closure ([#1010](https://github.com/y-l-g/tablo/pull/1010))
+- *(auth)* [**breaking**] sign in, edit, reset and verify an app's own user model ([#1008](https://github.com/y-l-g/tablo/pull/1008))
+- *(panel)* load a value once per request for policies to read ([#1003](https://github.com/y-l-g/tablo/pull/1003))
+- *(resource)* [**breaking**] scope a resource's rows with a predicate ([#1002](https://github.com/y-l-g/tablo/pull/1002))
+- *(auth)* make auth::impersonate public ([#996](https://github.com/y-l-g/tablo/pull/996))
+
+### Changed
+
+- *(panel)* [**breaking**] build the audit log on the public API in tablo-audit ([#1023](https://github.com/y-l-g/tablo/pull/1023))
+- [**breaking**] declare an action's settings in an ActionDef ([#1015](https://github.com/y-l-g/tablo/pull/1015))
+- [**breaking**] export the tenant auth seams from the root and rename ModelColumns to PanelModel ([#1012](https://github.com/y-l-g/tablo/pull/1012))
+- *(panel)* compress every page the router sends ([#1047](https://github.com/y-l-g/tablo/pull/1047))
+- *(schema)* resolve each form field's state once ([#1022](https://github.com/y-l-g/tablo/pull/1022))
+- *(auth)* [**breaking**] export PasswordResetter and EmailVerifier from the crate root ([#1009](https://github.com/y-l-g/tablo/pull/1009))
+
+### Fixed
+
+- *(build)* keep Iris's topbar from clipping the sheets it opens ([#1035](https://github.com/y-l-g/tablo/pull/1035))
+- *(panel)* weight a detail entry's label over its value, and drop Jade's ring on the current page ([#1028](https://github.com/y-l-g/tablo/pull/1028))
+- *(schema)* render a section inside another panel as a heading ([#1026](https://github.com/y-l-g/tablo/pull/1026))
+- *(schema)* set a required star as close to every label ([#1038](https://github.com/y-l-g/tablo/pull/1038))
+- *(schema)* name a choice's stored record past the option cap ([#1037](https://github.com/y-l-g/tablo/pull/1037))
+- *(auth)* stop linking the pages an impersonator may not open ([#1036](https://github.com/y-l-g/tablo/pull/1036))
+- *(panel)* grow the last widget of a row over the columns it leaves empty ([#1033](https://github.com/y-l-g/tablo/pull/1033))
+- *(panel)* place a resource the sidebar does not list under its owner, and name records in the trail ([#1030](https://github.com/y-l-g/tablo/pull/1030))
+- *(schema)* outline an affixed input as one control ([#1027](https://github.com/y-l-g/tablo/pull/1027))
+- *(resource)* answer `can` for an action as its button and route do ([#1004](https://github.com/y-l-g/tablo/pull/1004))
+- *(resource)* name a summary at mount only to refuse it ([#1000](https://github.com/y-l-g/tablo/pull/1000))
+- *(auth)* retry a conflicting serializable transaction up to ten times ([#1001](https://github.com/y-l-g/tablo/pull/1001))
+- *(ui)* say so when a checkbox list's filter matches nothing ([#999](https://github.com/y-l-g/tablo/pull/999))
+- *(auth)* cancel a two-factor set-up without typing a code ([#998](https://github.com/y-l-g/tablo/pull/998))
+
 ## [0.10.0](https://github.com/y-l-g/tablo/compare/v0.9.0...v0.10.0) - 2026-11-10
 
 ### Added
