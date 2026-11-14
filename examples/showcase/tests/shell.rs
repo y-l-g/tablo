@@ -324,3 +324,34 @@ async fn panel_pages_ask_search_engines_to_skip_them() {
         "the page's robots tag: {html}"
     );
 }
+
+/// A page's title names the trail from the page back to its entry, then the panel, so a tab or a
+/// screen reader names the page first; a failed page names its failure.
+#[tokio::test]
+async fn the_title_names_the_page_before_the_panel() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let list = body_string(client.get("/admin/users").await).await;
+    let edit = find_href_with(&list, "/edit").expect("a row's edit link");
+
+    for path in ["/admin/users", edit.as_str(), "/admin/unknown"] {
+        let html = body_string(client.get(path).await).await;
+        let trail = tablo::testing::trail(&html);
+        assert!(!trail.is_empty(), "{path}: a trail");
+        let named = trail
+            .into_iter()
+            .rev()
+            .map(|(label, _)| label)
+            .chain(["Tablo Blog".to_owned()])
+            .collect::<Vec<_>>()
+            .join(" · ");
+        // The showcase names its environment, which leads every title.
+        let expected = format!("[Demo] {named}");
+        assert_eq!(
+            tablo::testing::document_title(&html),
+            Some(expected),
+            "{path}"
+        );
+    }
+}

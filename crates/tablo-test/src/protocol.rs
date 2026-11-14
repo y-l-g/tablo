@@ -87,6 +87,12 @@ pub fn robots(html: &str) -> Option<String> {
     dom::attr_value(&attrs, "content")
 }
 
+/// The text of the document's `<title>`; `None` when it has none.
+pub fn document_title(html: &str) -> Option<String> {
+    let (_, _, inner) = dom::elements(html, "title").into_iter().next()?;
+    Some(dom::strip_text(&inner))
+}
+
 /// The text of each script the page carries inline, in document order.
 pub fn inline_scripts(html: &str) -> Vec<String> {
     dom::tags_where(html, |tag, attrs| {

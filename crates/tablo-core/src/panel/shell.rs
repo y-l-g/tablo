@@ -11,10 +11,7 @@ use topcoat::{
     view::{Attributes, BoxView, Child, ViewExt, attributes, internal::ThenView, view},
 };
 
-use super::{
-    Panel,
-    state::{ResourceTrail, current},
-};
+use super::{Panel, state::current};
 use crate::{navigation::NavigationItem, topcoat_compat::async_page};
 
 /// `extra` plus the attribute that sends a sidebar link through runtime
@@ -119,30 +116,30 @@ impl Panel {
         request_cookie(cx, SIDEBAR_COOKIE).as_deref() != Some("collapsed")
     }
 
-    /// Renders the shell around `slot` with an optional outer class.
-    pub async fn render_shell<'a>(
+    /// Renders the shell around `slot`, its top bar showing `trail` and its sidebar marking the
+    /// entry `nav_path` is under.
+    async fn render_shell<'a>(
         cx: &'a Cx,
-        nav_items: &[NavigationItem],
-        current_path: &str,
+        nav_items: Vec<NavigationItem>,
+        trail: Vec<breadcrumbs::Crumb>,
+        nav_path: String,
+        current_path: String,
         slot: Child<'a>,
-        extra_class: Option<String>,
     ) -> Result<BoxView<'a>> {
         // A hoisting body: the sidebar signals are declared while this view
-        // resolves, and a page re-run resumes them from the client. The owned
-        // copies pin the caller's navigation to the lazy body's lifetime.
-        let nav_items = nav_items.to_vec();
-        let current_path = current_path.to_string();
+        // resolves, and a page re-run resumes them from the client.
         Ok(async_page(async move {
-            Self::render_shell_body(cx, &nav_items, &current_path, slot, extra_class).await
+            Self::render_shell_body(cx, &nav_items, trail, &nav_path, &current_path, slot).await
         }))
     }
 
     async fn render_shell_body<'a>(
         cx: &'a Cx,
         nav_items: &[NavigationItem],
+        trail: Vec<breadcrumbs::Crumb>,
+        nav_path: &str,
         current_path: &str,
         slot: Child<'a>,
-        extra_class: Option<String>,
     ) -> Result<BoxView<'a>> {
         use tablo_ui::{
             SeparatorOrientation, SidebarCollapsible, separator, sidebar, sidebar_content,
@@ -151,7 +148,6 @@ impl Panel {
 
         let sidebar_open = signal(cx, || Self::sidebar_starts_open(cx));
         let mobile_open = signal(cx, || false);
-        let outer_class = extra_class.clone().unwrap_or_default();
         let header_title = Self::brand_name(cx);
         let variant = current(cx)
             .and_then(|panel| panel.brand.as_ref())
@@ -164,43 +160,14 @@ impl Panel {
         let current_query = topcoat::router::request::original_uri(cx)
             .query()
             .unwrap_or_default();
-        let panel = current(cx);
-        let trails: &[ResourceTrail] = panel.as_ref().map_or(&[], |panel| &panel.trails);
-        let located = breadcrumbs::locate(trails, current_path);
-        let error = super::error_page::current_error(cx);
-        // A failed page reads no record: it may be one the request may not view. Nor does a
-        // submission, which reads it only once it passes its checks.
-        let reading = matches!(
-            *topcoat::router::request::method(cx),
-            http::Method::GET | http::Method::HEAD
-        );
-        let load = error.is_none() && reading;
-        let seen = breadcrumbs::see(cx, trails, located.as_ref(), current_query, load).await;
-        // A resource the sidebar does not list marks its owner's entry.
-        let nav_path = seen.nav_path(current_path);
         let navigation =
-            Self::sidebar_navigation(cx, nav_items, &nav_path, current_query, mobile_open.clone())
+            Self::sidebar_navigation(cx, nav_items, nav_path, current_query, mobile_open.clone())
                 .await?;
         let sidebar_brand = Self::render_brand(cx).await?;
-        let trail = match error {
-            Some(error) => breadcrumbs::failed(nav_items, &nav_path, current_query, error.title()),
-            None => breadcrumbs::trail(
-                nav_items,
-                located.as_ref(),
-                &seen,
-                current_path,
-                current_query,
-            ),
-        };
-        let area = current(cx).and_then(|panel| {
-            let area = panel.area_at(current_path)?;
-            Some((panel.areas[area].clone(), panel.realm.prefix.clone()))
-        });
-        let trail = match &area {
-            Some((area, _)) => breadcrumbs::within(area.label.clone(), &area.url, trail),
-            None => trail,
-        };
-        let back = area.map_or_else(|| ().boxed(), |(_, home)| area::back_link(cx, &home));
+        let home = current(cx)
+            .filter(|panel| panel.area_at(current_path).is_some())
+            .map(|panel| panel.realm.prefix.clone());
+        let back = home.map_or_else(|| ().boxed(), |home| area::back_link(cx, &home));
         let crumbs = breadcrumbs::render(cx, trail);
         let banners: Vec<BoxView<'_>> = current(cx)
             .map(|panel| panel.banners.iter().map(|banner| banner(cx)).collect())
@@ -245,7 +212,6 @@ impl Panel {
 
         Ok(view! {
             sidebar_provider(
-                attrs: attributes! { class=(outer_class) },
                 // No `sidebar_rail`: the header's `sidebar_trigger` is the one toggle.
                 sidebar(
                     open: $(sidebar_open.get()),
@@ -422,14 +388,10 @@ impl Panel {
                 super::gate::panel_prefix(cx),
             ));
         }
-        let shell = Self::render_shell(cx, &nav_items, &path, slot, None).await?;
-        Self::render_document(
-            cx,
-            current(cx).map(|panel| &**panel),
-            Self::brand_name(cx),
-            shell,
-        )
-        .await
+        let (trail, nav_path) = breadcrumbs::for_request(cx, &nav_items, &path).await;
+        let title = breadcrumbs::title(cx, &trail, &Self::brand_name(cx));
+        let shell = Self::render_shell(cx, nav_items, trail, nav_path, path, slot).await?;
+        Self::render_document(cx, current(cx).map(|panel| &**panel), title, shell).await
     }
 }
 
