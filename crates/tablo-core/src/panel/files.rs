@@ -77,7 +77,9 @@ impl Panel {
     fn serve(mut self, path: String, dir: PathBuf, signed: bool) -> Self {
         if !is_directory_pattern(&path) {
             self.configuration_errors.push(DeclarationError::panel(
-                DeclarationErrorKind::ServeDirWithoutCatchAll { path: path.clone() },
+                DeclarationErrorKind::ServeDir(crate::ServeDirFault::WithoutCatchAll {
+                    path: path.clone(),
+                }),
             ));
         }
         self.served_dirs

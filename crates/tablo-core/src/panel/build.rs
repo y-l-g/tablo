@@ -119,6 +119,7 @@ impl Panel {
         let mut registry = Registry::new(self.prefix.clone(), db.as_ref().map(AppSchema::of_db));
         let Panel {
             prefix,
+            host,
             shell_assets,
             brand,
             dark_mode,
@@ -245,6 +246,7 @@ impl Panel {
             realm: Arc::new(Realm {
                 prefix: prefix.clone(),
                 id: crate::PanelId::new(&prefix),
+                host: host.clone(),
                 auth,
                 login_hint,
                 time_zone,
@@ -313,7 +315,10 @@ impl Panel {
             ));
         for served in served_dirs {
             builder = builder
-                .layer(headers::ServedFileHeaders::new(&served.path, served.signed))
+                .layer(headers::ServedFileHeaders::new(
+                    &served,
+                    Arc::clone(&state.realm),
+                ))
                 .serve_dir(route_path(&served.path), served.dir);
         }
         for page in page_routes {
@@ -447,9 +452,11 @@ fn mount_errors(
             .iter()
             .any(|seen| served_root(&seen.path) == root)
         {
-            refuse(DeclarationErrorKind::ServeDirTwice {
-                path: served.path.clone(),
-            });
+            refuse(DeclarationErrorKind::ServeDir(
+                crate::ServeDirFault::Twice {
+                    path: served.path.clone(),
+                },
+            ));
         }
     }
     if let Some(panels) = builder.try_context::<Panels>() {
@@ -460,10 +467,12 @@ fn mount_errors(
                     .iter()
                     .any(|served| served_root(served) == served_root(path))
                 {
-                    refuse(DeclarationErrorKind::ServeDirTaken {
-                        path: path.clone(),
-                        panel: other.realm.prefix.clone(),
-                    });
+                    refuse(DeclarationErrorKind::ServeDir(
+                        crate::ServeDirFault::Taken {
+                            path: path.clone(),
+                            panel: other.realm.prefix.clone(),
+                        },
+                    ));
                 }
             }
             let other = &other.realm.prefix;

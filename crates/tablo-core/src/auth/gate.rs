@@ -53,6 +53,10 @@ impl Layer for PanelGate {
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
+            // Before anything of the panel runs: on another host the prefix serves nothing.
+            if !self.realm.serves(cx) {
+                return Err(not_found().into());
+            }
             let Some((host, cx)) =
                 host(cx).and_then(|host| Some((host, host.enter(cx, &self.realm)?)))
             else {
@@ -323,6 +327,9 @@ pub(super) async fn refused<'a>(cx: &'a Cx, form: BoxView<'a>) -> topcoat::Resul
 /// sign in, and it answers 401 without one when the panel is gated. Any other endpoint resolves
 /// the session through its issuing panel's auth; it answers 401 when every mounted panel is
 /// gated, otherwise passes on for each panel's shard to re-check.
+///
+/// A panel bound to another host than the request's is not mounted, as far as the gate goes: an
+/// endpoint only such panels declared answers 404, and a host no panel answers on passes on.
 pub(crate) struct RuntimeGate {
     path: PathBuf,
 }
@@ -343,10 +350,21 @@ impl Layer for RuntimeGate {
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
-            let realms = realms(cx);
-            let Some(host) = host(cx).filter(|_| !realms.is_empty()) else {
+            let mounted = realms(cx);
+            let Some(host) = host(cx).filter(|_| !mounted.is_empty()) else {
                 return next.run(cx, body).await;
             };
+            // Only the panels that answer on the request's host count from here on: no other
+            // panel's session is read, and the request runs as no other panel.
+            let declared = host.declaring(cx, uri(cx).path());
+            let declaring = here(cx, declared.clone());
+            if declaring.is_empty() && !declared.is_empty() {
+                return Err(not_found().into());
+            }
+            let realms = here(cx, mounted);
+            if realms.is_empty() {
+                return next.run(cx, body).await;
+            }
             // A socket with no stamp would run as whichever session its cookies hold.
             let gated = realms.iter().any(|realm| realm.gates());
             if gated && connected_untracked(cx) && !headers(cx).contains_key(PAGE_PANEL) {
@@ -355,7 +373,6 @@ impl Layer for RuntimeGate {
                      before `.panel()`, or leave it to the panel",
                 ));
             }
-            let declaring = host.declaring(cx, uri(cx).path());
             let signed = signed_in(cx, page_panel(cx, &realms), &declaring, &realms).await?;
             // The request runs as the panel `realm` serves; a realm no panel serves answers 404.
             let enter = |cx: &Cx, realm: &Arc<Realm>| host.enter(cx, realm).ok_or_else(not_found);
@@ -419,7 +436,7 @@ impl Layer for PagePanelStamp {
             if !headers(cx).contains_key(http::header::SEC_WEBSOCKET_PROTOCOL) {
                 return next.run(cx, body).await;
             }
-            let realms = realms(cx);
+            let realms = here(cx, realms(cx));
             let stamp = panel_under(&realms, uri(cx).path())
                 .and_then(|realm| http::HeaderValue::from_str(&realm.prefix).ok())
                 .unwrap_or(NO_PANEL);
@@ -428,6 +445,12 @@ impl Layer for PagePanelStamp {
             next.run(&cx.with(stamped), body).await
         })
     }
+}
+
+/// Those of `realms` that answer on the request's host.
+fn here(cx: &Cx, mut realms: Vec<Arc<Realm>>) -> Vec<Arc<Realm>> {
+    realms.retain(|realm| realm.serves(cx));
+    realms
 }
 
 /// The realm whose prefix covers `path`.

@@ -23,7 +23,9 @@ is the explicit opt-out.
 - The panel of a page decides which session a request means; it is no boundary between panels.
   They share an origin, and cookies at `Path=/`, so a script on one panel's page can send a request
   as any other panel the browser is signed in to. Keeping the two sessions apart from a script
-  takes a separate origin for each.
+  takes a separate origin for each. `Panel::host` binds a panel to one host and the gates treat it
+  as unmounted on any other, so one binary serves each panel on its own origin without a second
+  deployment or a proxy rule per route.
 - A session's token rides in Tablo's own cookie, never the router's `SessionTokenStore`: a router has
   one of those, and a panel writing it would replace a host app's Topcoat session on every login.
 - An app that signs its users in itself keeps doing so through `ExternalAuth`, set by

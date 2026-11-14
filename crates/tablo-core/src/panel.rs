@@ -115,6 +115,8 @@ pub fn navigation_item<R: Resource>(cx: &topcoat::context::Cx) -> Option<crate::
 ///   take precedence.
 pub struct Panel {
     prefix: String,
+    /// The one host [`Self::host`] binds the panel to.
+    host: Option<String>,
     shell_assets: Option<ShellAssets>,
     brand: Option<Brand>,
     /// Whether [`Self::dark_by_default`] starts a visitor who has not chosen a theme dark.
@@ -180,6 +182,7 @@ impl Panel {
             .collect();
         Self {
             prefix,
+            host: None,
             shell_assets: None,
             brand: None,
             dark_mode: false,

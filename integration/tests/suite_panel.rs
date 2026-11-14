@@ -27,6 +27,7 @@ mod outcome;
 mod page_filters;
 mod pages;
 mod panel;
+mod panel_host;
 mod record_pages;
 mod shell;
 mod upload;

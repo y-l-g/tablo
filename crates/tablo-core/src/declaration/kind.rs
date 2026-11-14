@@ -3,8 +3,8 @@
 use super::{
     ActionInputFault, AreaFault, AuthMailFault, EditableColumnFault, FieldAccessFault,
     FieldRuleFault, LocaleFault, ManyToManyFault, OidcFault, PolicyFault, ProfileFault,
-    RelatedFormFault, ResetFault, SegmentFault, SignUpFault, TenancyFault, TenantProfileFault,
-    TenantRegistrationFault, TwoFactorFault, VerificationFault,
+    RelatedFormFault, ResetFault, SegmentFault, ServeDirFault, SignUpFault, TenancyFault,
+    TenantProfileFault, TenantRegistrationFault, TwoFactorFault, VerificationFault,
 };
 
 /// What is wrong with a declaration.
@@ -85,6 +85,13 @@ pub enum DeclarationErrorKind {
         /// The other panel's prefix.
         other: String,
     },
+    /// A `Panel::host` that is not a bare host name or address.
+    ///
+    /// Name the host alone, without a scheme, a port, a path or a wildcard: `admin.example.com`.
+    InvalidHost {
+        /// The host as declared.
+        host: String,
+    },
     /// A `Panel::endpoint` route outside Topcoat's runtime endpoints.
     ///
     /// Declare only shards and procedures; the panel's prefix guards its other routes.
@@ -92,29 +99,8 @@ pub enum DeclarationErrorKind {
         /// The route's path.
         path: String,
     },
-    /// A `Panel::serve_dir` pattern that does not end in a catch-all.
-    ///
-    /// End it in `{*file}`: `/uploads/{*file}`.
-    ServeDirWithoutCatchAll {
-        /// The pattern.
-        path: String,
-    },
-    /// The panel serves the same directory pattern twice.
-    ///
-    /// Drop the second `serve_dir`.
-    ServeDirTwice {
-        /// The pattern.
-        path: String,
-    },
-    /// Another panel already serves the directory pattern.
-    ///
-    /// Serve it from one panel.
-    ServeDirTaken {
-        /// The pattern.
-        path: String,
-        /// The serving panel's prefix.
-        panel: String,
-    },
+    /// A directory the panel cannot serve.
+    ServeDir(ServeDirFault),
     /// The panel's content security policy cannot be served.
     ContentSecurityPolicy(PolicyFault),
     /// A second `Panel::home` page.

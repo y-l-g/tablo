@@ -898,9 +898,9 @@ async fn a_serve_dir_path_without_a_catch_all_fails_the_build() {
     ));
     assert_eq!(
         errors[0].kind,
-        DeclarationErrorKind::ServeDirWithoutCatchAll {
+        DeclarationErrorKind::ServeDir(tablo::ServeDirFault::WithoutCatchAll {
             path: "/uploads".to_string(),
-        }
+        })
     );
 }
 
