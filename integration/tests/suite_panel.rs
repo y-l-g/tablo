@@ -35,5 +35,6 @@ mod upload_discard;
 mod upload_list;
 mod upload_rules;
 mod upstream;
+mod url;
 mod version;
 mod widgets;
