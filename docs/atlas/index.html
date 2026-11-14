@@ -391,8 +391,8 @@ td code { overflow-wrap: normal; }
     <p class="lede">Tablo is an admin toolkit for Rust. An app declares one <code>Resource</code> per Toasty model; a <code>Panel</code> turns those declarations into list, create, edit, detail and delete pages, rendered on the server by Topcoat. There is no SPA and no client build step.</p>
     <dl class="sheet">
       <dt>Sheet</dt><dd>tablo 0.10.0, experimental: a minor version may break the API</dd>
-      <dt>Built on</dt><dd>Topcoat 0.12 (router, views, runtime) · Toasty 0.11 (ORM) · Rust 1.99</dd>
-      <dt>Extent</dt><dd>7 crates · tablo-core holds 453 source files, about 94,000 lines</dd>
+      <dt>Built on</dt><dd>Topcoat 0.12.1 (router, views, runtime) · Toasty 0.11 (ORM) · Rust 1.99</dd>
+      <dt>Extent</dt><dd>7 crates · tablo-core holds 464 source files, about 96,000 lines</dd>
       <dt>Survey</dt><dd>26 design records in <a class="src" data-f="docs/adr/README.md">docs/adr</a> · vocabulary in <a class="src" data-f="CONTEXT.md">CONTEXT.md</a></dd>
     </dl>
   </header>
@@ -502,7 +502,7 @@ let router = builder.build();</pre>
         <tr><td class="nw"><code>tablo-core</code></td><td>Everything in the picture above: Panel, Resource, Table, Schema, policy, auth, tenancy, uploads.</td><td>macros, ui</td></tr>
         <tr><td class="nw"><code>tablo-macros</code></td><td>Six derives: <code>PanelModel</code>, <code>RecordForm</code>, <code>ModelForm</code>, <code>EmbeddedForm</code>, <code>FormInput</code>, <code>Options</code>.</td><td>none</td></tr>
         <tr><td class="nw"><code>tablo-ui</code></td><td><code>primitives/</code>, a verbatim synced copy of <code>topcoat-ui-registry</code>; <code>composites/</code>, owned here; the control scripts and the prebuilt stylesheet.</td><td>none</td></tr>
-        <tr><td class="nw"><code>tablo-test</code></td><td>An in-memory HTTP client that carries cookies, CSRF and tenant, with queries over <code>data-</code> hooks (<code>rows</code>, <code>field_error</code>, <code>notification</code>).</td><td>core</td></tr>
+        <tr><td class="nw"><code>tablo-test</code></td><td>An in-memory HTTP client that carries cookies, CSRF, tenant and host, and waits for the mail a request leaves behind, with queries over <code>data-</code> hooks (<code>rows</code>, <code>field_error</code>, <code>notification</code>).</td><td>core</td></tr>
         <tr><td class="nw"><code>tablo-audit</code></td><td>The audit log, built on the public API alone to prove an app could build it too.</td><td>core</td></tr>
         <tr><td class="nw"><code>tablo-build</code></td><td><code>tailwind()</code> for an app's <code>build.rs</code>: scans Tablo's sources, published through Cargo <code>links</code> metadata.</td><td>none</td></tr>
       </tbody>
@@ -517,7 +517,7 @@ let router = builder.build();</pre>
   <header class="plate-head">
     <p class="eyebrow"><b>Plate 02</b> · Overview</p>
     <h1>Four layers, enforced by a test</h1>
-    <p class="lede">The 37 top-level modules of <code>tablo-core</code> are listed in one array, lowest first. A module may name only the modules listed before it. The list is therefore also the order to learn them in.</p>
+    <p class="lede">The 38 top-level modules of <code>tablo-core</code> are listed in one array, lowest first. A module may name only the modules listed before it. The list is therefore also the order to learn them in.</p>
   </header>
 
   <section class="block">
@@ -561,6 +561,7 @@ builder
         <tr><td>File size ratchet</td><td>A source over 600 lines (tests 1000). Listed exceptions are capped at their current size and may only shrink.</td><td><a class="src" data-f="xtask/src/sizes.rs"></a></td></tr>
         <tr><td>Vendored copies</td><td>Drift of <code>primitives/</code> from the registry, of the TipTap bundle from its recorded hashes, or of the prebuilt CSS from what the sources build.</td><td><a class="src" data-f="xtask/src/vendored.rs"></a></td></tr>
         <tr><td>Misuse the types refuse</td><td>A <code>trybuild</code> case that starts compiling.</td><td><a class="src" data-f="coretests/compile_fail">tests/compile_fail/</a></td></tr>
+        <tr><td>Dependencies</td><td>A RustSec advisory, a yanked crate, a license outside the allowlist, or a source other than crates.io. CI runs it on a manifest change, daily and before a release.</td><td><a class="src" data-f="deny.toml"></a></td></tr>
       </tbody>
     </table></div>
   </section>
@@ -600,8 +601,10 @@ builder
         <li>A computed or custom column that could show a field another resource restricts.</li>
         <li>A create that leaves a non-nullable column unset.</li>
         <li>A duplicate or reserved slug, a prefix overlapping another panel, a model the <code>Db</code> does not register.</li>
+        <li>A <code>Panel::host</code> with a scheme, a port, a path or a wildcard.</li>
       </ul></div>
       <div><h3><span class="tag c3">request</span></h3><ul>
+        <li>A host other than the one the panel is bound to: 404, before any cookie is read.</li>
         <li>No session: redirect to login for a page, 401 for anything else.</li>
         <li>No tenant on a tenant-scoped resource: 403, never unscoped rows.</li>
         <li>A row outside the scoped query: 404, as if it did not exist.</li>
@@ -657,6 +660,7 @@ let cx = handle.context();</pre>
         <div class="field"><span class="lbl">Path</span><div class="seg" data-k="path"><button data-v="page" aria-pressed="true">A panel page</button><button data-v="public">Login or reset page</button><button data-v="logout">POST logout</button></div></div>
         <div class="field"><span class="lbl">Session cookie</span><div class="seg" data-k="session"><button data-v="none">None</button><button data-v="ok" aria-pressed="true">Valid, has panel access</button><button data-v="noaccess">Valid, access revoked</button></div></div>
         <div class="field"><span class="lbl">Request kind</span><div class="seg" data-k="kind"><button data-v="load" aria-pressed="true">Page load (GET)</button><button data-v="other">POST or runtime re-run</button></div></div>
+        <label class="check"><input type="checkbox" id="gate-host"> Panel bound with <code>Panel::host</code>, request names another host</label>
         <label class="check"><input type="checkbox" id="gate-step"> User still owes a step (verify email, set up two-factor)</label>
         <label class="check"><input type="checkbox" id="gate-imp"> Acting as another user, on a credentials page</label>
       </div>
@@ -677,7 +681,7 @@ let cx = handle.context();</pre>
           <tr><td>The panel and its realm</td><td><code>panel::state::enter</code></td><td><code>current(cx)</code>, <code>url::panel(cx)</code></td></tr>
           <tr><td>Locale and catalog</td><td>entering, then sign-in</td><td><code>t!(cx, ..)</code>, <code>Text::localize</code></td></tr>
           <tr><td>The user, type-erased</td><td><code>SignedIn::sign_into</code></td><td><code>auth::user::&lt;U&gt;(cx)</code></td></tr>
-          <tr><td>The acting tenant</td><td>the session row</td><td><code>tenant_id(cx)</code>, <code>require_tenant</code></td></tr>
+          <tr><td>The acting tenant, none on a panel that acts for no tenant</td><td>the session's choice, else the user's default, else their first</td><td><code>tenant_id(cx)</code>, <code>require_tenant</code></td></tr>
           <tr><td>Loaded values</td><td><code>Host::load</code>, once per admitted request</td><td><code>loaded::&lt;T&gt;(cx)</code></td></tr>
           <tr><td>Limits</td><td>entering</td><td>export, import and bulk caps</td></tr>
         </tbody>
@@ -694,7 +698,7 @@ let cx = handle.context();</pre>
     <h2>Sessions and the runtime path</h2>
     <div class="trio">
       <div><span class="k">Sessions</span><h3>Server-side rows, one cookie per panel</h3>
-        <p>A session is a row keyed by the token's hash, rotated on login, revocable per user, valid seven days. Each panel has its own <code>__Host-tablo_session_…</code> cookie, so a browser stays signed in to several panels and never overwrites the host app's Topcoat session.</p></div>
+        <p>A session is a row keyed by the token's hash, rotated on login, revocable per user. It lasts seven days from sign-in unless <code>Auth::sessions</code> sets a shorter lifetime or an idle timeout. Each panel has its own <code>__Host-tablo_session_…</code> cookie, so a browser stays signed in to several panels and never overwrites the host app's Topcoat session. A second factor belongs to the user, not the panel: every panel whose authenticator loads the same user type asks for it.</p></div>
       <div><span class="k">Runtime requests</span><h3>Served outside every prefix</h3>
         <p>Topcoat's runtime endpoints live at <code>/_topcoat/runtime</code>. <code>RuntimeGate</code> covers them. A fetch names its page in the <code>Referer</code>; a socket's runs carry a header stamped from the handshake URL. That name only picks which cookie counts, so forging it grants nothing.</p></div>
       <div><span class="k">Opt-in seams</span><h3>One trait per feature</h3>
@@ -879,6 +883,7 @@ if can_view_field::&lt;EmployeeResource, _&gt;(cx, lens!(Employee.salary)) { .. 
     HeaderAction { name: &amp;'static str },
     Attach { owner: M, relation: String, key: String },
     Detach { owner: M, relation: String, keys: Vec&lt;String&gt; },
+    Export { rows: u64 },  // a CSV export: writes nothing, still audited
 }
 
 // Inside the transaction: commits with the write or not at all.
@@ -888,7 +893,7 @@ async fn before_commit(cx: &amp;Cx, change: &amp;Change&lt;Post&gt;,
 // After the commit: effects outside the database.
 async fn after_commit(cx: &amp;Cx, change: Change&lt;Post&gt;) -&gt; Result&lt;()&gt;;</pre>
       <div class="prose">
-        <p><strong><code>before_commit</code></strong> runs through the open transaction. An error rolls the whole write back. This is where an audit row or a counter belongs. Opening a second connection here is refused, because on a pool of one it would wait forever.</p>
+        <p><strong><code>before_commit</code></strong> runs through the open transaction. An error rolls the whole write back. This is where an audit row or a counter belongs. Opening a second connection here is refused, because on a pool of one it would wait forever. A CSV export reaches it too, in a transaction that commits before the first byte leaves, so a failing hook refuses the export.</p>
         <p><strong>Panel-wide <code>CommitHook</code>s</strong> run right after it, with the change erased to a <code>PanelChange</code>. <code>tablo-audit</code> is one.</p>
         <p><strong><code>after_commit</code></strong> is for mail, webhooks and cache invalidation. It never runs when nothing committed, and nothing guarantees it runs: an error is logged and ignored, and a crash between the commit and the hook skips it.</p>
         <p><strong><code>WriteError</code></strong> has three shapes. <code>Refused</code> carries field errors and re-renders the form. <code>Declined</code> carries a message with no field. <code>Failed</code> is a driver error, shown as an opaque toast after a second unique probe.</p>
@@ -1040,7 +1045,8 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
           <tr><td>The resources a reader may list</td><td><code>mounted_resources(cx)</code></td></tr>
           <tr><td>Read-only whatever policy the app sets</td><td><code>ResourceDef::restrict</code></td></tr>
           <tr><td>A list that refuses a panel without its trail</td><td><code>ResourceDef::requires_commit_hook</code></td></tr>
-          <tr><td>Impersonation events</td><td><code>AuthHook</code>, <code>Panel::auth_hook</code></td></tr>
+          <tr><td>Auth events, from sign-in to impersonation</td><td><code>AuthHook</code>, <code>AuthEvent</code>, <code>Panel::auth_hook</code></td></tr>
+          <tr><td>Who exported which rows</td><td><code>Change::Export</code> through the commit hooks</td></tr>
           <tr><td>A mount that refuses a <code>Db</code> without its model</td><td><code>Panel::require_model</code></td></tr>
           <tr><td>Its words in the panel's locales</td><td><code>Panel::default_translations</code></td></tr>
           <tr><td>Its classes in the app's stylesheet</td><td><code>DEP_*_TABLO_SRC</code>, scanned by <code>tablo_build</code></td></tr>
@@ -1226,9 +1232,9 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
   /* ---------- 01 system map ---------- */
   var NODES = {
     router: ['Your app and its router', 'cx', 'The app owns the Topcoat `Router`. `RouterBuilderPanelExt::panel` mounts a panel beside the app\'s own routes, and one router mounts any number of panels at distinct prefixes.', ['The first panel installs what all panels share: cookies, the runtime gate, Topcoat\'s runtime layer.', 'The panel reads the router\'s `Db`, so `.with(db)` comes first.'], ['core/panel/build.rs']],
-    panel: ['Panel', 'c3', 'A builder that collects resources, pages, areas, auth, brand, locales, limits and hooks. Mounted, it becomes a `PanelState`: the registries every generic handler dispatches through.', ['Navigation, auth and uploads are per-panel state carried on each request, never app-wide singletons.', 'A declaration owns its label, order and icon; the panel owns its URL.'], ['core/panel.rs', 'core/panel/state.rs', 'docs/adr/0008-panel-declarative-resources.md']],
+    panel: ['Panel', 'c3', 'A builder that collects resources, pages, areas, auth, brand, locales, limits and hooks. Mounted, it becomes a `PanelState`: the registries every generic handler dispatches through.', ['Navigation, auth and uploads are per-panel state carried on each request, never app-wide singletons.', 'A declaration owns its label, order and icon; the panel owns its URL, and `Panel::host` may bind it to one host.'], ['core/panel.rs', 'core/panel/state.rs', 'docs/adr/0008-panel-declarative-resources.md']],
     gate: ['Auth gate', 'c3', '`PanelGate` is a layer over the prefix that resolves the session into the request context and answers fail-closed. `RuntimeGate` does the same over Topcoat\'s runtime path.', ['Handlers call `gate::<R>(cx)` again: sign-in, mounted, tenant.', 'An app\'s own handler asks `auth::guard(cx)`.'], ['core/auth/gate.rs', 'core/panel/gate.rs']],
-    shell: ['Shell', 'c3', 'The document every panel page renders in: sidebar, topbar, breadcrumbs, user menu, toasts, global search and the notification bell. The app writes no document HTML.', ['`Brand::theme` picks one of the shipped token sets; the app\'s `styles.css` overrides any token.', '`Area` gives a path segment a sidebar of its own.'], ['core/panel/shell.rs', 'core/panel/area.rs']],
+    shell: ['Shell', 'c3', 'The document every panel page renders in: a skip link, sidebar, topbar, breadcrumbs, user menu, toasts, global search and the notification bell. Its `<title>` names the same trail as the breadcrumbs. The app writes no document HTML.', ['`Brand::theme` picks one of the shipped token sets; the app\'s `styles.css` overrides any token.', '`Area` gives a path segment a sidebar of its own.'], ['core/panel/shell.rs', 'core/panel/area.rs']],
     resource: ['Resource', 'c2', 'A type implementing `Resource` for one Toasty model. The trait keeps two associated types, `Model` and `Form`, the `declare()` function, and the methods that validate and write.', ['`validate_record`, `create_record`, `update_record`, `delete_record`, `restore_record`, `force_delete_record`', '`before_commit` and `after_commit`, on each side of the commit', 'Every record fn has a default: `write_create`, `write_update`, `write_delete`.'], ['core/resource.rs', 'core/resource/write.rs']],
     model: ['Model and PanelModel', 'c1', 'The persisted Toasty model. Deriving `PanelModel` gives the table and detail page the resource reads as when it declares neither, a column per field a person reads.', ['`TENANT_COLUMNS` has no default, so a hand-written impl must state it.', 'A missing derive fails to compile; it never mounts an empty list.'], ['core/table/model.rs', 'macros/panel_model.rs']],
     form: ['Record form', 'c1', 'The typed value create and edit submissions parse into: one field per written column, named and typed like the model. It owns presence, the controls and the keys errors render under.', ['`ModelForm` derives it from the model; `RecordForm` from a struct of its own.', '`NoForm<M>` makes a resource list-only: no form route is registered.'], ['core/form.rs', 'macros/record_form.rs', 'docs/adr/0022-record-forms.md']],
@@ -1260,20 +1266,20 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
   var LAYERS = [
     ['Foundations', 'c0', 'No knowledge of resources or panels.', [
       ['dom', 80, 'The DOM ids and `data-` hooks markup and tests share.'], ['naming', 348, 'Slugs, sentence case, pluralization and `PanelId`.'], ['topcoat_compat', 83, 'What Tablo builds on Topcoat internals until upstream offers it.'],
-      ['declaration', 2653, '`DeclarationError`, `MountError` and a fault enum per feature: the vocabulary of mount-time refusal.'], ['cookie', 21, 'Cookie attributes shared by sessions, CSRF and flash.'], ['i18n', 1159, 'Fluent catalogs, locale negotiation and `Text`.'],
-      ['error', 177, 'The opaque mapping from driver errors to responses.'], ['toasty_compat', 2725, 'The only module that names `toasty_core`: cursors, join rows, schema reads, predicate walks, primary keys.'], ['lens', 214, '`Lens` and `Reads`.'],
+      ['declaration', 2683, '`DeclarationError`, `MountError` and a fault enum per feature: the vocabulary of mount-time refusal.'], ['cookie', 21, 'Cookie attributes shared by sessions, CSRF and flash.'], ['i18n', 1159, 'Fluent catalogs, locale negotiation and `Text`.'],
+      ['error', 177, 'The opaque mapping from driver errors to responses.'], ['toasty_compat', 2748, 'The only module that names `toasty_core`: cursors, join rows, schema reads, predicate walks, primary keys.'], ['lens', 214, '`Lens` and `Reads`.'],
       ['limits', 94, 'Export, import, bulk and body caps.'], ['db', 222, '`db(cx)` and `WriteTx`, the transaction a write runs in.'], ['csrf', 126, 'The double-submit `__Host-` cookie, compared in constant time.'],
-      ['outcome', 231, '`Outcome` and `Notification`: what a write asks of the response.'], ['flash', 179, 'The flash cookie a redirect carries a toast in.'], ['bus', 99, 'The in-process `NotificationBus`: a panel and a user id, never content.']]],
+      ['outcome', 231, '`Outcome` and `Notification`: what a write asks of the response.'], ['flash', 179, 'The flash cookie a redirect carries a toast in.'], ['bus', 99, 'The in-process `NotificationBus`: a panel and a user id, never content.'], ['settle', 146, 'The work a panel runs after its response, such as auth mail, and `settled(&router)`, which waits for it.']]],
     ['Declaration model', 'c1', 'What an app declares. No request wiring.', [
       ['policy', 983, '`Policy`, `Ability` and the combinators.'], ['tenancy', 489, '`Tenancy`, `TenantId`, `tenant_id(cx)`.'], ['navigation', 317, '`NavigationItem` and runtime links.'], ['display', 949, 'Colors, alignment and number spellings a cell and an option share.'],
       ['chart', 721, 'Line and bar charts as server-written SVG.'], ['values', 1450, '`FormValues`, `FieldErrors`, `TypedValue`: what a schema reads and a form parses.'], ['rich_text', 517, 'The `Tool` allowlist and the HTML cleaner.'],
       ['schema', 14685, 'Fields, controls, layouts, conditions, repeaters, embedded values.'], ['column', 4737, 'What a table lists and a detail page shows.'], ['detail', 623, '`Detail` and `IntoDetail`.'],
       ['table', 8964, '`Table`, filters, tabs, sort, grouping, state, pagination, export.'], ['form', 319, 'The `RecordForm` trait, `NoForm`, `Posted`.'], ['derive', 576, 'The derives\' documentation and re-exports.'], ['extend', 28, 'The public namespace of extension traits.']]],
     ['Resources', 'c2', 'A model bound to its declarations.', [
-      ['widget', 492, '`Widget`, `Stat`, `RecordTable`.'], ['resource', 6833, '`Resource`, `ResourceDef`, `Mounted`, `scoped_query`, actions, relations, field access, the mount checks.'], ['page', 731, '`Page`, `PageDef`, page filters.']]],
+      ['widget', 492, '`Widget`, `Stat`, `RecordTable`.'], ['resource', 6846, '`Resource`, `ResourceDef`, `Mounted`, `scoped_query`, actions, relations, field access, the mount checks.'], ['page', 731, '`Page`, `PageDef`, page filters.']]],
     ['Serving', 'c3', 'Routes, handlers, markup, sessions.', [
-      ['upload', 1691, '`Uploader`, `DirUploader`, signed file URLs.'], ['auth', 14701, 'Gate, sessions, login, sign-up, reset, verification, two-factor, OIDC, impersonation. Sees its panel only as a `Realm`.'],
-      ['notification', 1070, 'Stored notifications and the bell.'], ['models', 59, 'Registers Tablo\'s own models with the app\'s `Db`.'], ['panel', 23429, 'The builder, the mount, every handler, the shell, the URL scheme, the write tail.']]]
+      ['upload', 1709, '`Uploader`, `DirUploader`, signed file URLs.'], ['auth', 15314, 'Gate, sessions, login, sign-up, reset, verification, two-factor, OIDC, impersonation. Sees its panel only as a `Realm`.'],
+      ['notification', 1070, 'Stored notifications and the bell.'], ['models', 288, 'Registers Tablo\'s own models with the app\'s `Db`, and `erase_user` deletes a user\'s rows from each of them.'], ['panel', 23655, 'The builder, the mount, every handler, the shell, the URL scheme, the write tail.']]]
   ];
   var order = [];
   LAYERS.forEach(function (L, li) { L[3].forEach(function (m) { order.push({ name: m[0], lines: m[1], desc: m[2], layer: li }); }); });
@@ -1345,10 +1351,12 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
     });
   }
   function gate() {
-    var step = $('#gate-step').checked, imp = $('#gate-imp').checked, t = [], out, why, cls = 'ok';
+    var step = $('#gate-step').checked, imp = $('#gate-imp').checked, other = $('#gate-host').checked, t = [], out, why, cls = 'ok';
     var add = function (s, hit) { t.push([s, hit]); };
-    add('Enter the panel: its state, realm and locale go on the context.');
-    if (gs.auth === 'off') { add('The panel has no authenticator.', true); out = 'Served'; why = 'Auth::disabled() is the explicit opt-out. The loaders still run, then the handler.'; }
+    if (other) add('The panel answers on one host, and this request names another.', true);
+    else add('Enter the panel: its state, realm and locale go on the context.');
+    if (other) { out = '404 Not Found'; cls = 'bad'; why = 'On another host the panel is not mounted: no cookie is read and no other panel\'s session counts. The host comes from `Host` or the URI\'s authority, never `X-Forwarded-Host`.'; }
+    else if (gs.auth === 'off') { add('The panel has no authenticator.', true); out = 'Served'; why = 'Auth::disabled() is the explicit opt-out. The loaders still run, then the handler.'; }
     else if (gs.path === 'public') { add('The path is a page that must answer while signed out.', true); out = 'Served'; why = 'Login, sign-up, reset and verification pages pass on GET, HEAD and POST only. An app route at the same path under another method stays gated.'; }
     else {
       add('Not a public auth page. Resolve the session cookie into a user.');
@@ -1366,7 +1374,7 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
     $('#gate-trace').innerHTML = t.map(function (x) { return '<li' + (x[1] ? ' class="hit"' : '') + '><span>' + md(x[0]) + '</span></li>'; }).join('');
   }
   seg($('#gate-sim'), gs, gate);
-  $('#gate-step').addEventListener('change', gate); $('#gate-imp').addEventListener('change', gate);
+  ['gate-host', 'gate-step', 'gate-imp'].forEach(function (id) { $('#' + id).addEventListener('change', gate); });
   gate();
 
   /* ---------- 06 scoped query ---------- */
@@ -1502,9 +1510,10 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
     ['access', '`Load`', 'A value the panel reads once per admitted request, for synchronous policies, queries and conditions.', '`Panel::load`, read with `loaded::<T>`'],
     ['access', '`Authenticator` and `PanelUser`', 'Loads the app\'s user from credentials or a session id.', '`Auth::custom`, `Panel::auth`'],
     ['access', '`Registrar`, `ProfileEditor`, `PasswordResetter`, `EmailVerifier`, `TenantRegistrar`, `TenantEditor`, `IdentityLinker`, `ExternalAuth`', 'One opt-in auth feature each, for the same user type.', 'Methods of `Auth<U>`'],
-    ['access', '`AuthHook`', 'Receives auth events such as an impersonation start and stop.', '`Panel::auth_hook`'],
-    ['infra', '`Uploader`', 'Where a file field\'s bytes go. `DirUploader` is the stock one.', '`Panel::uploads_dir` or `Panel::uploads`'],
+    ['access', '`AuthHook`', 'Receives each `AuthEvent`: a sign-in, a refused one, a sign-out, a credential, address or factor change, an impersonation. One that grants or changes something commits with the hook\'s writes or not at all.', '`Panel::auth_hook`'],
+    ['infra', '`Uploader`', 'Where a file field\'s bytes go. Every method takes the request\'s `Cx`, so a store can file under `tenant_id(cx)` and refuse another tenant\'s path. `DirUploader` is the stock one.', '`Panel::uploads_dir` or `Panel::uploads`'],
     ['infra', '`PanelHandle`', 'A context for a background job, and `notifications()` to reach a user\'s bell.', 'Returned by `builder.panel(..)`'],
+    ['infra', '`settled` and `erase_user`', 'Await the auth mail requests left behind before a shutdown; delete a user\'s rows from every table Tablo ships, in the caller\'s transaction.', 'Free functions an app calls'],
     ['infra', 'An extension trait on `Panel`', 'A crate bundles several registrations behind one method, as `PanelAuditExt::audit_log` does.', 'Plain Rust; publish `links` metadata for its classes']
   ];
   (function () {
@@ -1528,8 +1537,8 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
     A('0029', 'soft-deletes', 'scope', 'Soft deletes are a declared column the framework scopes', 'One declaration gives the stamping delete, the live-only default of every loader, the trash control, and Restore and Delete permanently. `Trashed::{Without, With, Only}` picks the scope.', 'A trashed filter ANDed onto a query admitting every record: each loader but the list must re-add the live-only predicate, and forgetting it serves trashed rows.', 'The trash control is not a normal filter: it replaces the base query\'s default.'),
     A('0030', 'field-access', 'scope', 'Field access is declared per field and masks every page', 'A rule is a predicate over the request, applied to the field of its model across every resource the panel mounts. Posting a masked key answers 400.', '`Ability::ViewField(&str)`: a string the compiler does not check, and a per-row answer cannot drop a column. A mask per resource: the field stayed visible on every other resource over the model.', 'Closures must declare their reads, and the mount refuses many combinations.'),
     A('0018', 'export-include-scoping', 'scope', 'Relations are includes declared where they are read', 'No `Relation` trait. A column declares its includes; a relation column names the resource whose scoped query governs the related records, checked by `Column::restrict`.', 'Dropping hidden records from the loaded rows: the parent\'s policy and title then read a relation the column rewrote, and a required relation read as unloaded and panicked.', 'One extra query per relation column per page.'),
-    A('0013', 'panel-auth', 'scope', 'Authentication is part of the panel, behind one seam', 'On by default. Sessions are server-side rows keyed by token hash, with one `__Host-` cookie per panel. The gate fails closed. Policies stay synchronous and read `Load` values.', 'Stateless signed-cookie sessions; a `Panel` type parameter; an async `Policy::allows` (a list would await once per row and per button); auth in a crate of its own.', 'Panels on one origin are not isolated from each other\'s scripts.'),
-    A('0004', 'action-auth', 'writes', 'Mutations are transactional and per-record, with a hook on each side', 'The handler loads targets through the scoped query and checks the policy on each loaded record inside the transaction. Actions have their own abilities: `RunAny`, `Run`, `RunHeader`.', 'A header action authorized by `RunAny`: a policy answering `RunAny { .. } => true` would grant every header action added later. Audit rows in `after_commit`: a crash loses the row while the write stands.', '"Select all matching" is capped by `Limits::bulk_records`, since chunks would commit separately.'),
+    A('0013', 'panel-auth', 'scope', 'Authentication is part of the panel, behind one seam', 'On by default. Sessions are server-side rows keyed by token hash, with one `__Host-` cookie per panel. The gate fails closed. Policies stay synchronous and read `Load` values.', 'Stateless signed-cookie sessions; a `Panel` type parameter; an async `Policy::allows` (a list would await once per row and per button); auth in a crate of its own; a second factor per panel, which a password alone could enrol on a sibling.', 'Panels on one host are not isolated from each other\'s scripts; `Panel::host` gives each its own.'),
+    A('0004', 'action-auth', 'writes', 'Mutations are transactional and per-record, with a hook on each side', 'The handler loads targets through the scoped query and checks the policy on each loaded record inside the transaction. Actions have their own abilities: `RunAny`, `Run`, `RunHeader`. A CSV export reaches the same hooks as `Change::Export`.', 'A header action authorized by `RunAny`: a policy answering `RunAny { .. } => true` would grant every header action added later. Audit rows in `after_commit`: a crash loses the row while the write stands.', '"Select all matching" is capped by `Limits::bulk_records`, since chunks would commit separately.'),
     A('0031', 'csv-import', 'writes', 'A CSV import is the create form, once per row, in one transaction', 'The header names the form keys. Each row runs the create pipeline in a savepoint; the whole file commits or none of it, and the page lists every refusal at once.', 'Writing the rows that pass and reporting the rest: a half-imported file is re-posted whole and creates duplicates. Background jobs: Tablo has no queue.', 'The transaction is one request long, capped by `Limits::import_rows`.'),
     A('0036', 'inline-editing', 'writes', 'An editable cell posts its one key to the record\'s edit route', 'The route completes every other key from the stored record, so a cell writes through the same checks, rules and hooks as the page.', 'A cell route of its own: the next check added to one would be missing from the other. A JSON patch applied in place.', 'The landing keeps filters, sort and page, but not a cursor pager\'s position or the scroll.'),
     A('0037', 'related-forms', 'writes', 'A has_one relation\'s form is the related resource\'s own', 'Rendered inside the owner\'s form, posted under the child\'s slug, written through the child resource after the owner and in the owner\'s transaction.', 'A field of the owner\'s form typed as the child\'s form: it would bypass the child\'s policy, tenancy, field access and hooks. A second form posting to the child\'s routes: two transactions.', 'The mount refuses related forms holding file fields, repeaters or searchable choices.'),
@@ -1562,13 +1571,14 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
     R('up', 'Toasty internals behind one module', '`toasty_compat` holds about 2,700 lines built on Toasty\'s internals: cursor tokens, join rows, schema reads, predicate walks, primary-key parsing. Each item names the upstream gap it fills and retires when Toasty closes it.', 'A Toasty release can break it. Bump `topcoat` and `toasty` together with the pinned lockfile, never with a blanket `cargo update`, and read upstream APIs from the pinned version.', ['core/toasty_compat.rs', 'CONTRIBUTING.md']),
     R('up', 'Unique constraints are probed in the application', 'Toasty exposes no unique-violation predicate, so the form probes each unique index before writing and probes again if the driver then fails.', 'A `query` narrowing over the index\'s own fields that still hides a colliding row lets the database refuse the write as an opaque failure. Probe that index in the record fn and return `WriteError::Refused`.', ['core/panel/forms/unique.rs', 'core/resource/query.rs']),
     R('up', 'Includes cannot be filtered', 'Toasty 0.11 panics on a filtered include over a `via` relation. Relation columns therefore load the relation whole and restrict it with a second query.', 'Row closures see the unfiltered relation. That is why an unmasked closure is refused on panels that restrict a field.', ['docs/adr/0018-export-include-scoping.md']),
-    R('sec', 'Panels on one origin are not a boundary', 'The panel of a page decides which session a request means. It is no boundary between panels: they share an origin and cookies at `Path=/`, so a script on one panel\'s page can send a request as any other panel the browser is signed in to.', 'Keeping two panels apart from each other\'s scripts takes a separate origin for each.', ['docs/adr/0013-panel-auth.md']),
+    R('sec', 'Panels on one host are not a boundary', 'The panel of a page decides which session a request means. It is no boundary between panels on one host: they share an origin and cookies at `Path=/`, so a script on one panel\'s page can send a request as any other panel the browser is signed in to.', 'Bind each panel to its own host with `Panel::host`: on any other host the gates treat it as unmounted, so one binary serves each panel on its own origin.', ['docs/adr/0013-panel-auth.md', 'core/panel/headers.rs']),
     R('sec', 'A signed file link authorizes a path, not a record', 'The uploads directory answers only at URLs the panel signed, expiring one to two hours out. A leaked link opens the file to anyone until then.', 'Random file names are what keep paths unguessable. A column over a value users type signs any path they name.', ['docs/adr/0017-media-uploads.md', 'core/panel/files.rs']),
     R('sec', 'A catch-all policy arm grants future abilities', 'A policy closure ending in `_ => true` allows every ability it does not name, including ones a resource gains later.', 'Match every variant, read `Ability::written_record`, or build with `Abilities`, which denies what it does not declare. `RunHeader` exists as its own variant for this reason.', ['core/policy.rs']),
     R('sec', 'Record pages receive the whole record', 'The panel masks its own pages. A `RecordPage` renders the app\'s markup from an unmasked record, and a `ComputedColumn` closure reads whatever its row holds.', 'A record page must ask `can_view_field` before showing a restricted field; a closure must declare its reads with `.reading(..)`.', ['docs/adr/0030-field-access.md']),
     R('sec', 'The ID token is trusted from the TLS answer', 'Provider sign-in trusts the ID token it received from the token endpoint over TLS, as OpenID Connect Core 3.1.3.7 allows, and does not verify its signature.', 'A deliberate choice that avoids an RSA dependency and a key cache, for a token the panel received from the provider itself.', ['core/auth/oidc.rs', 'docs/adr/0013-panel-auth.md']),
     R('con', '`after_commit` is not guaranteed', 'It never runs when nothing committed, but an error it returns is logged and ignored, and a crash between the commit and the hook skips it.', 'A row that must exist whenever the write does belongs in `before_commit`. Retries are the app\'s to build.', ['core/resource.rs', 'core/resource/commit.rs']),
     R('con', 'Uploads are stored before the transaction', 'A file field\'s bytes go to the `Uploader` before the write transaction opens, so a rolled-back write does not undo a store.', 'A write that rolls back after its files were stored leaves them in the app\'s storage. Cleaning those up is the uploader\'s concern.', ['docs/adr/0017-media-uploads.md', 'core/upload.rs']),
+    R('con', 'Auth mail leaves after the response', 'A panel sends sign-up, reset and verification mail from a task it spawns once the response has left, so a request\'s timing tells no one whether an account exists.', 'Await `settled(&router)` after `serve_until` returns, or a shutdown drops mail already promised. A crash or a down mail server still loses it; a `Transport` that queues in the database covers both. `TestClient` awaits it after every request, so tests never poll.', ['core/settle.rs', 'docs/guide/src/deployment.md']),
     R('con', 'The notification bus is in-process', 'A send wakes the recipient\'s bells through a bus that lives in one process.', 'With several replicas, a send wakes only the bells connected to the sending process, until a cross-process bus lands behind the same seam.', ['core/bus.rs', 'docs/adr/0028-stored-notifications.md']),
     R('con', 'Big writes are one request long', 'A CSV import and a "select all matching" bulk action each run in one transaction inside one request, capped by `Limits`. There is no queue.', 'Raising the limits lengthens a transaction; there is no chunked mode, because chunks would commit separately.', ['core/limits.rs', 'docs/adr/0031-csv-import.md']),
     R('ux', 'A re-run forgets what scripts added', 'Related tables render on the detail and edit pages. A re-run keeps the form fields the user edited but drops repeater rows and fetched options a script added.', 'Tracked as issue 515. It is also why `has_many` rows are not edited inside the owner\'s form.', ['docs/adr/0026-topcoat-runtime-only.md']),
@@ -1812,7 +1822,7 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
    "Never: an aliased tenant column is invisible to every check.",
    "Only when the resource also has a form."
   ],
-  "The derive recognizes the field by its type's name, so an alias goes unseen. A panel acts for tenants when it offers tenant registration or settings, or mounts any resource over tenant-owned rows; there, the column check is known to miss cases (a plain `Uuid` key, the panel's own users), so every resource must state its tenancy. On a panel with no tenants, the aliased model mounts unscoped.",
+  "The derive recognizes the field by its type's name, so an alias goes unseen. A panel acts for tenants when it offers tenant registration or settings, or mounts a tenant-scoped resource (one declaring `Tenancy::none()` over tenant-owned rows does not count); there, the column check is known to miss cases (a plain `Uuid` key, the panel's own users), so every resource must state its tenancy. On a panel with no tenants, the aliased model mounts unscoped.",
   [
    "docs/adr/0002-query-seam.md"
   ]
@@ -1985,7 +1995,7 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
    "A bypass of that panel's policy checks, which trust the stamped panel.",
    "Nothing at all, since panels on one origin are isolated from each other."
   ],
-  "Forging grants no session the browser does not hold. But the last option overstates it: panels share an origin and cookies at `Path=/`, so a script on one panel's page can already send a request as any other panel the browser is signed in to. Separating them takes a separate origin for each.",
+  "Forging grants no session the browser does not hold. But the last option overstates it: panels share an origin and cookies at `Path=/`, so a script on one panel's page can already send a request as any other panel the browser is signed in to. Separating them takes a separate origin for each, which `Panel::host` gives in one binary.",
   [
    "docs/adr/0013-panel-auth.md"
   ]
@@ -3186,6 +3196,22 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
   ]
  ],
  [
+  "risks",
+  "one",
+  "A deploy stops the server just after a visitor asks for a password reset, and the reset mail never arrives. What should the app have done?",
+  [
+   "*Awaited `settled(&router)` after `topcoat::serve_until` returned, so the auth mail already promised is sent before the process exits.",
+   "Sent the mail inside the request, before the response, so the visitor knows it went.",
+   "Nothing: Tablo retries unsent mail on the next start.",
+   "Moved the reset into `after_commit`, which is guaranteed to run."
+  ],
+  "A panel sends auth mail from a task spawned once the response has left, so a request's timing tells no one whether an account exists. The server stops waiting for that task with its last response. `settled` waits for it; a crash or a down mail server still loses it, which a `Transport` queueing in the database covers.",
+  [
+   "core/settle.rs",
+   "docs/guide/src/deployment.md"
+  ]
+ ],
+ [
   "exam",
   "many",
   "A user clicks a `ToggleColumn` cell on a list row. Which of these run before the row is written?",
@@ -3335,7 +3361,7 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
   "An administrator edits a user through the users resource and changes the email. The panel signs in with `PasswordAuth`. What happens to that user's open sessions?",
   [
    "*They end inside the write's transaction, so a committed credential change leaves no session alive.",
-   "Nothing, until they expire after seven days.",
+   "Nothing, until their session lifetime runs out.",
    "They end in `after_commit`, once the write is safe.",
    "They end on every panel only if the app calls `revoke_sessions_for_user`."
   ],
@@ -3463,6 +3489,38 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
   ]
  ],
  [
+  "request",
+  "one",
+  "One binary serves `/admin` and `/portal`. A stored script runs on a portal page while the browser is also signed in to `/admin`. What keeps it from acting on `/admin`?",
+  [
+   "*Binding each panel to its own host with `Panel::host`: on any other host the gates treat the panel as unmounted and answer 404 before reading a cookie.",
+   "Each panel's own `__Host-tablo_session_…` cookie: a script on the portal cannot send the admin cookie.",
+   "The CSRF token: the admin panel's forms need a token the portal page never holds.",
+   "Nothing can, short of a second deployment or a proxy rule per route."
+  ],
+  "Panels on one host share an origin and cookies at `Path=/`, so the browser attaches the admin cookie to any same-origin request, and a same-origin script can read a form's token. A separate origin is the boundary. `Panel::host` gives each panel one in the same binary, reading the host from `Host` or the URI's authority, never `X-Forwarded-Host`.",
+  [
+   "docs/adr/0013-panel-auth.md",
+   "core/auth/gate.rs"
+  ]
+ ],
+ [
+  "request",
+  "one",
+  "`/admin` and `/support` both load `AdminUser` and both install `Auth::two_factor`. A user enrolled a factor on `/admin` and now signs in to `/support` with their password. What happens?",
+  [
+   "*`/support` asks for the factor enrolled on `/admin`: panels whose authenticator loads the same user type share it, as they share the password.",
+   "`/support` offers to enrol a new factor, since each factor belongs to the panel that enrolled it.",
+   "`/support` signs them in without a code, since the factor was set up elsewhere.",
+   "The sign-in fails: the factor's secret is sealed for `/admin` and cannot be read on `/support`."
+  ],
+  "A factor per panel let a password alone take a sibling panel: its holder enrolled their own factor there. The row still names the panel that enrolled it, which its secret is sealed for, but every lookup reads the rows of the panels that share the user type. Turning the factor off on one panel turns it off on all.",
+  [
+   "docs/adr/0013-panel-auth.md",
+   "core/auth/two_factor.rs"
+  ]
+ ],
+ [
   "read-path",
   "order",
   "Put the steps of a first GET of a resource's list in order.",
@@ -3512,6 +3570,22 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
   "Every write the resource's panel routes make comes to the hook with one `Change`: creates, updates, deletes, restores, actions and relation links. The profile and tenant-settings pages save their rows themselves and do not. A validation error, a policy denial or a refused record fn returns before the hook.",
   [
    "core/resource.rs",
+   "core/resource/commit.rs"
+  ]
+ ],
+ [
+  "write-path",
+  "one",
+  "An audit hook must record who exported which rows as CSV. How does it learn of an export?",
+  [
+   "*The export reaches `before_commit` and the panel's `CommitHook`s as `Change::Export { rows }`, in a transaction that commits before the first byte leaves.",
+   "Through `after_commit`, once the file has been delivered.",
+   "Through an `AuthEvent`, since an export reads data under the user's session.",
+   "It cannot: an export writes nothing, so it opens no transaction and reaches no hook."
+  ],
+  "No hook of the app's own sits on the shipped export route, so the export joins the commit hooks it already registers. `after_commit` was rejected because it would run before the file is delivered, and say it was. A hook that fails refuses the export.",
+  [
+   "docs/adr/0004-action-auth.md",
    "core/resource/commit.rs"
   ]
  ],
