@@ -66,10 +66,10 @@ and the other subcommands. A new database has no user to sign in with: seed the 
   `Key::generate()` and never committed: it seals two-factor secrets, so a key that changes on
   restart, or differs between replicas, leaves every enrolled account unable to sign in, and a
   key that leaks lets its holder read them.
-- Give panels of different trust their own origins, as separate deployments on separate hosts.
-  Panels on one origin are not isolated: [a script on one can act on the
-  others](./security.md#several-panels-one-origin). A customer panel beside an admin panel is the
-  case to split; panels for the same staff can share a host.
+- Give panels of different trust their own origins: bind each to its host with `Panel::host`, and
+  point both names at the binary. Panels on one origin are not isolated: [a script on one can act
+  on the others](./security.md#several-panels-one-origin). A customer panel beside an admin panel
+  is the case to split; panels for the same staff can share a host.
 - Behind a reverse proxy, install `TrustedProxies` on the router, so the sign-in throttle counts
   the client's address and not the proxy's.
 - Keep uploads on storage that outlives the binary: the directory `Panel::uploads_dir` writes to

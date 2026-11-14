@@ -167,8 +167,8 @@ pub use declaration::{
     ActionInputFault, AreaFault, AuthMailFault, DeclarationError, DeclarationErrorKind,
     EditableColumnFault, FieldAccessFault, FieldRuleFault, LocaleFault, ManyToManyFault,
     MountError, OidcFault, PolicyFault, ProfileFault, RelatedFormFault, ResetFault, SegmentFault,
-    SignUpFault, Site, TenancyFault, TenantProfileFault, TenantRegistrationFault, TwoFactorFault,
-    VerificationFault,
+    ServeDirFault, SignUpFault, Site, TenancyFault, TenantProfileFault, TenantRegistrationFault,
+    TwoFactorFault, VerificationFault,
 };
 pub use derive::{EmbeddedForm, FormInput, ModelForm, Options, PanelModel, RecordForm};
 pub use detail::{Detail, IntoDetail};

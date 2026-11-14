@@ -26,6 +26,9 @@ pub(crate) struct Realm {
     /// The same prefix as [`PanelUser::can_access_panel`](crate::PanelUser::can_access_panel)
     /// receives it.
     pub(crate) id: crate::PanelId,
+    /// The one host the panel answers on, set by [`Panel::host`](crate::Panel::host): lowercase,
+    /// without a port. `None` answers on every host.
+    pub(crate) host: Option<String>,
     pub(crate) auth: AuthConfig,
     /// The note under the login card, set by [`Panel::login_hint`](crate::Panel::login_hint).
     pub(crate) login_hint: Option<crate::Text>,
@@ -76,6 +79,46 @@ impl Realm {
     pub(crate) fn gates(&self) -> bool {
         !self.auth.is_disabled()
     }
+
+    /// Whether the request names the realm's host, when it has one: what every gate checks before
+    /// the realm's panel answers, signs anyone in or reads a session.
+    pub(crate) fn serves(&self, cx: &Cx) -> bool {
+        self.host.as_deref().is_none_or(|host| on_host(cx, host))
+    }
+}
+
+/// `host` as [`Panel::host`](crate::Panel::host) keeps it: lowercase, without a trailing dot.
+/// `None` for anything but a bare host name or address: a scheme, a port, a path, user
+/// information or a wildcard.
+pub(crate) fn declared_host(host: &str) -> Option<String> {
+    let authority: http::uri::Authority = host.parse().ok()?;
+    (authority.host() == host && !host.contains('*')).then(|| bare_host(host).to_ascii_lowercase())
+}
+
+/// A host name without the dot that roots it.
+fn bare_host(host: &str) -> &str {
+    host.strip_suffix('.').unwrap_or(host)
+}
+
+/// Whether the request names `host`, whatever the port: its `Host` header, and its URI's
+/// authority, which HTTP/2 sends in the header's place. Each one the request carries must name
+/// `host`, and a request that carries neither names no host.
+fn on_host(cx: &Cx, host: &str) -> bool {
+    let parts = topcoat::router::request::parts(cx);
+    let names =
+        |authority: &http::uri::Authority| bare_host(authority.host()).eq_ignore_ascii_case(host);
+    let mut named = parts.uri.authority().map(names);
+    for value in &parts.headers.get_all(http::header::HOST) {
+        let header = value
+            .to_str()
+            .ok()
+            .and_then(|value| value.parse::<http::uri::Authority>().ok());
+        if !header.as_ref().is_some_and(names) {
+            return false;
+        }
+        named.get_or_insert(true);
+    }
+    named == Some(true)
 }
 
 /// The request's realm, as the request's context carries it. Whatever enters a panel installs it

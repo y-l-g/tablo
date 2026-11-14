@@ -67,10 +67,9 @@ impl fmt::Display for DeclarationErrorKind {
             Self::InvalidSegment { .. }
             | Self::PrefixOverlapsRuntime { .. }
             | Self::PrefixOverlapsPanel { .. }
-            | Self::EndpointOutsideRuntime { .. }
-            | Self::ServeDirWithoutCatchAll { .. }
-            | Self::ServeDirTwice { .. }
-            | Self::ServeDirTaken { .. } => fmt_route(f, self),
+            | Self::InvalidHost { .. }
+            | Self::EndpointOutsideRuntime { .. } => fmt_route(f, self),
+            Self::ServeDir(fault) => fault.fmt(f),
             Self::ContentSecurityPolicy(fault) => fault.fmt(f),
             Self::SecondHome => {
                 f.write_str("a home page is already registered: `Panel::home` takes one")
@@ -393,22 +392,16 @@ fn fmt_route(f: &mut fmt::Formatter<'_>, kind: &DeclarationErrorKind) -> fmt::Re
             "the prefix overlaps the panel mounted at '{other}': each panel needs a prefix of \
              its own"
         ),
+        DeclarationErrorKind::InvalidHost { host } => write!(
+            f,
+            "host '{host}' is not a host name alone: name it without a scheme, a port, a path \
+             or a wildcard, as in 'admin.example.com'"
+        ),
         DeclarationErrorKind::EndpointOutsideRuntime { path } => write!(
             f,
             "endpoint '{path}' is not a shard or procedure under '{}': the panel's prefix or \
              the app's own layers guard a route elsewhere",
             crate::topcoat_compat::RUNTIME_PREFIX
-        ),
-        DeclarationErrorKind::ServeDirWithoutCatchAll { path } => write!(
-            f,
-            "serve_dir path '{path}' must end in a catch-all like '/uploads/{{*file}}'"
-        ),
-        DeclarationErrorKind::ServeDirTwice { path } => {
-            write!(f, "serve_dir path '{path}' is declared twice")
-        }
-        DeclarationErrorKind::ServeDirTaken { path, panel } => write!(
-            f,
-            "serve_dir path '{path}' is already served by the panel mounted at '{panel}'"
         ),
         _ => unreachable!("not a route's error"),
     }

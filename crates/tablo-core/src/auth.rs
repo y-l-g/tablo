@@ -82,7 +82,7 @@ pub(crate) use self::{
     },
     realm::{
         AuthHost, CurrentRealm, Host, Realm, SettingsPage, SettingsPaths, current_realm,
-        panel_prefix,
+        declared_host, panel_prefix,
     },
     registration::{Registrar, SignUp},
     tenant_profile::{TenantEditor, offered as tenant_profile_offered, tenant_profile_url},

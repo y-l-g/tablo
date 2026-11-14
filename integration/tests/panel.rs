@@ -388,10 +388,10 @@ async fn mounting_refuses_a_directory_another_panel_serves() {
     );
     assert_eq!(
         errors[0].kind,
-        DeclarationErrorKind::ServeDirTaken {
+        DeclarationErrorKind::ServeDir(tablo::ServeDirFault::Taken {
             path: "/uploads/{*path}".to_string(),
             panel: "/admin".to_string(),
-        }
+        })
     );
 
     let errors = refusal(
@@ -404,9 +404,9 @@ async fn mounting_refuses_a_directory_another_panel_serves() {
     );
     assert_eq!(
         errors[0].kind,
-        DeclarationErrorKind::ServeDirTwice {
+        DeclarationErrorKind::ServeDir(tablo::ServeDirFault::Twice {
             path: "/uploads/{*file}".to_string(),
-        }
+        })
     );
 }
 

@@ -49,6 +49,7 @@ pub(crate) fn panel_state<U: crate::PanelUser>(
         realm: std::sync::Arc::new(crate::auth::Realm {
             prefix: prefix.to_string(),
             id: crate::PanelId::new(prefix),
+            host: None,
             auth: auth.into_config(),
             login_hint: None,
             time_zone: jiff::tz::TimeZone::UTC,

@@ -99,6 +99,7 @@ pub struct TestClient<'a> {
     tenant: Option<tablo_core::TenantId>,
     panel: Option<PanelHandle>,
     language: Option<String>,
+    host: Option<String>,
 }
 
 impl<'a> TestClient<'a> {
@@ -109,6 +110,7 @@ impl<'a> TestClient<'a> {
             tenant: None,
             panel: None,
             language: None,
+            host: None,
         }
     }
 
@@ -174,6 +176,14 @@ impl<'a> TestClient<'a> {
     pub fn language(&self, languages: &str) -> Self {
         let mut client = self.clone();
         client.language = Some(languages.to_string());
+        client
+    }
+
+    /// Sends `Host: {host}` with every request, as a browser at that host does: a panel bound
+    /// with [`Panel::host`] answers 404 to a client that names no host, or another.
+    pub fn host(&self, host: &str) -> Self {
+        let mut client = self.clone();
+        client.host = Some(host.to_string());
         client
     }
 
@@ -382,6 +392,9 @@ impl<'a> TestClient<'a> {
         }
         if let Some(languages) = &self.language {
             builder = builder.header(ACCEPT_LANGUAGE, languages);
+        }
+        if let Some(host) = &self.host {
+            builder = builder.header(http::header::HOST, host);
         }
         let (mut parts, body) = builder.body(Body::empty()).unwrap().into_parts();
         if let Some(tenant) = self.tenant {

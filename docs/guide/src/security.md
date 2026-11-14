@@ -111,9 +111,25 @@ an origin, so a script running on one panel's page, or on any page of the host a
 requests to another panel as whoever the browser is signed in as there. `HttpOnly` keeps the cookie
 from being read, not from being sent.
 
-Put panels of different trust on [separate hosts](./deployment.md#run-it). A cross-site script on
-the customer panel then has no admin session to use, since `__Host-` cookies stay on the host that
-set them.
+Put panels of different trust on separate hosts. One binary serves both when each panel names
+its host:
+
+```rust,ignore
+builder.panel(Panel::new("admin").host("admin.example.com"))?;
+builder.panel(Panel::new("app").host("app.example.com"))?;
+```
+
+A panel bound with
+[`Panel::host`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.host) answers 404
+on every other host: its pages, its sign-in, the directories it serves and its runtime endpoints.
+No admin session starts on the customer host, and `__Host-` cookies stay on the host that set
+them, so a cross-site script on the customer panel has no admin session to use. Point both names
+at the binary, and have the reverse proxy pass the browser's `Host` header on: the panel reads no
+`X-Forwarded-Host`.
+
+The app's own routes outside the panels still answer on both hosts. A script injected on one of
+them at the admin host acts on the admin panel, so keep what the admin host serves as trusted as
+the panel.
 
 ## Responses
 

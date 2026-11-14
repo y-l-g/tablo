@@ -355,6 +355,48 @@ impl Panel {
         self.strict_transport_security = Some(max_age);
         self
     }
+
+    /// Serves the panel on `host` alone, so that panels of different trust in one binary sit on
+    /// different origins: without the call the panel answers on every host that reaches the
+    /// binary, and [a script on one panel's page acts on the others][one-origin].
+    ///
+    /// ```rust
+    /// # use tablo_core::Panel;
+    /// Panel::new("admin").host("admin.example.com");
+    /// Panel::new("app").host("app.example.com");
+    /// ```
+    ///
+    /// A request that names another host answers 404, before the panel reads a cookie:
+    ///
+    /// - at every path under the prefix, the sign-in pages among them, so no session of the panel
+    ///   starts on another host;
+    /// - at the directories [`serve_dir`](Self::serve_dir) and [`uploads_dir`](Self::uploads_dir)
+    ///   serve;
+    /// - at a runtime [endpoint](Self::endpoint) that only panels on other hosts declare. Any other
+    ///   runtime endpoint runs as a panel of the request's host or as none, and reads no other
+    ///   panel's session.
+    ///
+    /// The request names its host in its `Host` header, or in its URI over HTTP/2. The port does
+    /// not count, so `"admin.localhost"` matches `admin.localhost:3000`, and neither does case. A
+    /// request that names no host, or two that differ, answers 404. The panel reads no
+    /// `X-Forwarded-Host`: a reverse proxy passes the browser's `Host` on, or the panel names the
+    /// host the proxy sends.
+    ///
+    /// `host` is a name or an address alone; one with a scheme, a port, a path or a wildcard
+    /// refuses to mount.
+    ///
+    /// [one-origin]: https://y-l.fr/tablo/nightly/guide/security.html#several-panels-one-origin
+    pub fn host(mut self, host: impl Into<String>) -> Self {
+        let host = host.into();
+        self.host = crate::auth::declared_host(&host);
+        if self.host.is_none() {
+            self.configuration_errors
+                .push(crate::DeclarationError::panel(
+                    crate::DeclarationErrorKind::InvalidHost { host },
+                ));
+        }
+        self
+    }
 }
 
 /// The policy every served file carries.
@@ -386,19 +428,20 @@ pub(crate) struct ServedDir {
 }
 
 /// Hardens every file response the directory route serves, and refuses a request to a signed
-/// directory without a valid signature.
-#[derive(Debug, Clone)]
+/// directory without a valid signature, or to another host than the panel's.
 pub(crate) struct ServedFileHeaders {
     path: PathBuf,
     signed: bool,
+    realm: std::sync::Arc<crate::auth::Realm>,
 }
 
 impl ServedFileHeaders {
-    /// Wraps the directory route mounted at `pattern`.
-    pub(crate) fn new(pattern: &str, signed: bool) -> Self {
+    /// Wraps the route of `served`, a directory of `realm`'s panel.
+    pub(crate) fn new(served: &ServedDir, realm: std::sync::Arc<crate::auth::Realm>) -> Self {
         Self {
-            path: route_path(pattern),
-            signed,
+            path: route_path(&served.path),
+            signed: served.signed,
+            realm,
         }
     }
 }
@@ -411,6 +454,9 @@ impl Layer for ServedFileHeaders {
 
     fn handle<'a>(&'a self, cx: &'a Cx, body: Body, next: Next<'a>) -> LayerFuture<'a> {
         Box::pin(async move {
+            if !self.realm.serves(cx) {
+                return Err(topcoat::router::error::not_found().into());
+            }
             if self.signed {
                 let uri = uri(cx);
                 let now = crate::upload::signed::now();

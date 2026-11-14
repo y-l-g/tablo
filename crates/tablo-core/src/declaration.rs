@@ -13,6 +13,7 @@ mod mount_error;
 mod policy;
 mod related_form;
 mod segment;
+mod serve_dir;
 mod site;
 mod tenancy;
 mod wording;
@@ -37,6 +38,7 @@ pub use policy::PolicyFault;
 pub use related_form::RelatedFormFault;
 pub use segment::SegmentFault;
 pub(crate) use segment::segment_fault;
+pub use serve_dir::ServeDirFault;
 pub use site::{DeclarationError, Site};
 pub use tenancy::TenancyFault;
 
