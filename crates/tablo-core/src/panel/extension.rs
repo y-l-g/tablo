@@ -6,8 +6,9 @@ use crate::{AuthHook, auth::hook};
 
 impl Panel {
     /// Runs the [`AuthHook`] `H` inside the transaction of each [`AuthEvent`](crate::AuthEvent)
-    /// of the panel. Several hooks run in the order they are registered; registering `H` again
-    /// changes nothing, so it never runs twice.
+    /// of the panel: a sign-in, a refused one, a sign-out, a change of credentials, address or
+    /// second factor, a start or stop of impersonation. Several hooks run in the order they are
+    /// registered; registering `H` again changes nothing, so it never runs twice.
     #[must_use]
     pub fn auth_hook<H: AuthHook>(mut self) -> Self {
         let id = std::any::TypeId::of::<H>();

@@ -3,7 +3,7 @@
 //! lists them.
 //!
 //! It is built on Tablo's public API alone: a [`CommitHook`](tablo_core::CommitHook) stores the
-//! writes, an [`AuthHook`](tablo_core::AuthHook) stores impersonation, and [`AuditLog`] is an
+//! writes, an [`AuthHook`](tablo_core::AuthHook) stores what auth does, and [`AuditLog`] is an
 //! ordinary [`Resource`](tablo_core::Resource). [`PanelAuditExt`] registers them on a
 //! [`Panel`]:
 //!
@@ -56,15 +56,18 @@ pub trait PanelAuditExt {
     ) -> Self;
 
     /// Keeps an [`AuditEntry`] for each record every write of the panel names, inside the write's
-    /// transaction, and one for each start and stop of [impersonation](tablo_core::Impersonation),
-    /// without listing them: an [`Area`](tablo_core::Area) group lists them with
-    /// `group.resource_with::<AuditLog>(..)`. Calling it again changes nothing.
+    /// transaction, and one for each [`AuthEvent`](tablo_core::AuthEvent) of the panel, a sign-in
+    /// or a change of credentials among them, without listing them: an [`Area`](tablo_core::Area)
+    /// group lists them with `group.resource_with::<AuditLog>(..)`. Calling it again changes
+    /// nothing.
     ///
     /// Each entry names the [actor](tablo_core::auth::actor), the tenant they act for, the
     /// resource and record, and the fields the write changed, as a
     /// [`CommitHook`](tablo_core::CommitHook) reads them: a field marked `#[columns(skip)]`, such
     /// as a password hash, is never stored. A write whose entry fails to store rolls back with
-    /// it; a stop of impersonation goes through unrecorded. Mounting refuses a `Db` that does not
+    /// it, and so does a sign-in or a change of credentials; a refused sign-in, a sign-out and a
+    /// stop of impersonation go through unrecorded. A refused sign-in stores the login as it
+    /// was typed. Mounting refuses a `Db` that does not
     /// register [`AuditEntry`], and an [`AuditLog`] on a panel without the trail.
     #[must_use]
     fn audit_trail(self) -> Self;

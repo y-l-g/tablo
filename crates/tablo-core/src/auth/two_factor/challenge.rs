@@ -23,7 +23,9 @@ use super::{
 };
 use crate::{
     auth::{
-        PanelUser, infrastructure_failure,
+        PanelUser,
+        hook::{AuthEvent, AuthEventKind},
+        infrastructure_failure,
         login::{NEXT_FIELD, login_url, next_from_query, safe_next},
         mail::private,
         panel_root,
@@ -254,6 +256,8 @@ pub(in crate::auth) fn challenge_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                 token::spend(&mut tx, &row).await?;
             }
             tx.commit().await.map_err(infrastructure_failure)?;
+            let event = AuthEvent::own(AuthEventKind::SecondFactorFailed, &panel.id, None, &*user);
+            crate::auth::hook::note(cx, panel, &event).await;
             tracing::warn!(
                 panel = %panel.prefix,
                 client = ?client_ip(cx),

@@ -76,6 +76,16 @@ impl Column<AuditEntry> for Event {
             "detach" => built_in("tablo-audit-detach"),
             "impersonate" => built_in("tablo-audit-impersonate"),
             "stop_impersonating" => built_in("tablo-audit-stop-impersonating"),
+            "sign_in" => built_in("tablo-audit-sign-in"),
+            "sign_in_failed" => built_in("tablo-audit-sign-in-failed"),
+            "second_factor_failed" => built_in("tablo-audit-second-factor-failed"),
+            "sign_out" => built_in("tablo-audit-sign-out"),
+            "credentials_changed" => built_in("tablo-audit-credentials-changed"),
+            "password_reset" => built_in("tablo-audit-password-reset"),
+            "email_changed" => built_in("tablo-audit-email-changed"),
+            "two_factor_enabled" => built_in("tablo-audit-two-factor-enabled"),
+            "two_factor_disabled" => built_in("tablo-audit-two-factor-disabled"),
+            "recovery_codes_replaced" => built_in("tablo-audit-recovery-codes-replaced"),
             event => match event
                 .strip_prefix("action:")
                 .or_else(|| event.strip_prefix("header_action:"))
@@ -145,16 +155,31 @@ impl Changes {
     }
 }
 
-/// The label of a field an impersonation entry records, in the reader's words: the trail may
-/// write it where the request does not read the panel's catalog yet, as a lapsed session ends.
+/// The label of a field an auth entry records, in the reader's words: the trail may write it
+/// where the request does not read the panel's catalog yet, as a sign-in or a lapsed session.
 fn auth_label(cx: &Cx, row: &AuditEntry, change: &AuditChange) -> Option<String> {
-    let impersonation = matches!(row.event.as_str(), "impersonate" | "stop_impersonating");
-    if row.resource.is_some() || !impersonation {
+    // An app's own event may name a field alike: only the trail's entries are relabelled.
+    let auth = row.event.contains("impersonat")
+        || matches!(
+            row.event.as_str(),
+            "sign_in"
+                | "sign_in_failed"
+                | "second_factor_failed"
+                | "sign_out"
+                | "credentials_changed"
+                | "password_reset"
+                | "email_changed"
+                | "two_factor_enabled"
+                | "two_factor_disabled"
+                | "recovery_codes_replaced"
+        );
+    if row.resource.is_some() || !auth {
         return None;
     }
     match change.field.as_str() {
         "user" => Some(t!(cx, "tablo-audit-target")),
         "until" => Some(t!(cx, "tablo-audit-until")),
+        "login" => Some(t!(cx, "tablo-audit-login")),
         _ => None,
     }
 }

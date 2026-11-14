@@ -13,7 +13,9 @@ use topcoat::{
 
 use self::pages::{ForgotAlert, forgot_response, invalid_link, reset_response};
 use super::{
-    LoginThrottle, PanelUser, infrastructure_failure,
+    LoginThrottle, PanelUser,
+    hook::{AuthEvent, AuthEventKind},
+    infrastructure_failure,
     login::login_url,
     mail::{TOKEN_FIELD, after_response, token_from_query},
     registration::new_password_errors,
@@ -447,6 +449,9 @@ pub(super) fn reset_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             let user_type = reset.resetter().user_type();
             let panels = credential_panels(cx, user_type, panel);
             end_credentials(tx, &row.user_id, &panels, REVOCATION).await?;
+            let event =
+                AuthEvent::unsigned(AuthEventKind::PasswordReset, &panel.id, Some(&row.user_id));
+            super::hook::run(cx, &panel.auth_hooks, &event, tx).await?;
             Ok(true)
         })?;
         if !reset_done {

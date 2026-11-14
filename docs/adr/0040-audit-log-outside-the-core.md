@@ -13,7 +13,7 @@ or crate can call:
 | the resources a reader may list, their labels and hidden fields | `mounted_resources(cx)` |
 | a read-only resource whatever policy the app sets | `ResourceDef::restrict` |
 | a list that refuses a panel without its trail | `ResourceDef::requires_commit_hook` |
-| the impersonation events auth records | `AuthHook`, `AuthEvent`, `Panel::auth_hook` |
+| the events auth records, from sign-in to impersonation | `AuthHook`, `AuthEvent`, `Panel::auth_hook` |
 | a mount that refuses a `Db` without its model | `Panel::require_model` |
 | its words, in the locales a panel offers | `Panel::default_translations` |
 | its markup's classes in the app's stylesheet | `tablo_build` scans each `DEP_*_TABLO_SRC` a crate publishes |

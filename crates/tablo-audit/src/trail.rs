@@ -1,5 +1,5 @@
 //! [`Trail`]: the hooks that store an [`AuditEntry`](crate::AuditEntry) for each write and each
-//! start and stop of impersonation.
+//! [`AuthEvent`]: a sign-in, a sign-out, a change of credentials, an impersonation.
 
 use tablo_core::{
     AuthEvent, AuthEventKind, AuthHook, Change, ChangedRecord, CommitHook, PanelChange,
@@ -32,37 +32,57 @@ impl CommitHook for Trail {
 
 impl AuthHook for Trail {
     async fn on_event(cx: &Cx, event: &AuthEvent<'_>, ex: &mut dyn Executor) -> Result<()> {
-        let (name, until) = match event.kind() {
-            AuthEventKind::Impersonate { until } => ("impersonate", Some(until)),
-            AuthEventKind::StopImpersonating => ("stop_impersonating", None),
+        let name = match event.kind() {
+            AuthEventKind::Impersonate { .. } => "impersonate",
+            AuthEventKind::StopImpersonating => "stop_impersonating",
+            AuthEventKind::SignIn => "sign_in",
+            AuthEventKind::SignInFailed { .. } => "sign_in_failed",
+            AuthEventKind::SecondFactorFailed => "second_factor_failed",
+            AuthEventKind::SignOut => "sign_out",
+            AuthEventKind::CredentialsChanged => "credentials_changed",
+            AuthEventKind::PasswordReset => "password_reset",
+            AuthEventKind::EmailChanged => "email_changed",
+            AuthEventKind::TwoFactorEnabled => "two_factor_enabled",
+            AuthEventKind::TwoFactorDisabled => "two_factor_disabled",
+            AuthEventKind::RecoveryCodesReplaced => "recovery_codes_replaced",
             // An event the trail does not know records nothing rather than a guess.
             _ => return Ok(()),
         };
-        let target = event.target_name().unwrap_or(event.target_id());
-        let mut entry = AuditEvent::new(name).key(event.target_id(), None).change(
-            "user",
-            tablo_core::t!(cx, "tablo-audit-target"),
-            None,
-            Some(target.to_owned()),
-        );
-        // A session that runs out unseen records no stop, so a start names when it ends at the
-        // latest.
-        if let Some(until) = until {
-            entry = entry.change(
-                "until",
-                tablo_core::t!(cx, "tablo-audit-until"),
+        let mut entry = AuditEvent::new(name);
+        if let Some(target) = event.target_id() {
+            entry = entry.key(target, None).change(
+                "user",
+                tablo_core::t!(cx, "tablo-audit-target"),
                 None,
-                Some(until.to_string()),
+                Some(event.target_name().unwrap_or(target).to_owned()),
             );
         }
-        let actor = event.actor();
+        match event.kind() {
+            // A session that runs out unseen records no stop, so a start names when it ends at
+            // the latest.
+            AuthEventKind::Impersonate { until } => {
+                entry = entry.change(
+                    "until",
+                    tablo_core::t!(cx, "tablo-audit-until"),
+                    None,
+                    Some(until.to_string()),
+                );
+            }
+            AuthEventKind::SignInFailed { login } => {
+                entry = entry.change(
+                    "login",
+                    tablo_core::t!(cx, "tablo-audit-login"),
+                    None,
+                    Some(login.to_owned()),
+                );
+            }
+            _ => {}
+        }
+        let actor = event
+            .actor()
+            .map(|actor| (actor.user_id(), actor.display_name().to_owned()));
         entry
-            .write(
-                ex,
-                event.panel().to_string(),
-                event.tenant(),
-                Some((actor.user_id(), actor.display_name().to_owned())),
-            )
+            .write(ex, event.panel().to_string(), event.tenant(), actor)
             .await?;
         Ok(())
     }
