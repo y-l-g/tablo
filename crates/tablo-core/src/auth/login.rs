@@ -16,7 +16,9 @@ use super::{
     external::leave_for,
     hook::{AuthEvent, AuthEventKind},
     infrastructure_failure, panel_root, resolved,
-    session::{delete_session, fresh_session, record, select_tenant, stop, sweep_expired_sessions},
+    session::{
+        delete_session, fresh_session, record, select_tenant, stop, sweep::sweep_expired_sessions,
+    },
     signed, unauthenticated_error,
 };
 use crate::{

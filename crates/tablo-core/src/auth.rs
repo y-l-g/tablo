@@ -24,7 +24,7 @@ pub(crate) mod password_reset;
 pub(crate) mod profile;
 mod realm;
 pub(crate) mod registration;
-mod session;
+pub(crate) mod session;
 pub(crate) mod tenant_profile;
 pub(crate) mod tenant_registration;
 pub(crate) mod throttle;

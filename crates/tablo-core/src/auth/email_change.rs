@@ -26,7 +26,7 @@ use super::{
     mail::{TOKEN_FIELD, after_response, private, token_from_query},
     page::{AuthPage, render},
     panel_root,
-    session::{credential_panels, end_credentials, resolve, start_once},
+    session::{Activity, credential_panels, end_credentials, resolve, start_once},
     token::{self, AuthToken, CREDENTIALS, REVOCATION, TokenPurpose, run_serializable},
     verification::VERIFICATION_LIFETIME,
 };
@@ -280,7 +280,7 @@ async fn opened(
         return Ok(None);
     };
     // The routes answer signed out, so the gate resolved no session for them.
-    let signed = resolve(cx, panel, authenticator)
+    let signed = resolve(cx, panel, authenticator, Activity::Counts)
         .await?
         .filter(|signed| signed.user.user_id() == row.user_id && signed.impersonator.is_none());
     Ok(Some(Opened {

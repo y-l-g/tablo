@@ -24,7 +24,7 @@ use super::{
     panel_root,
     realm::current_realm,
     registration::with_next,
-    session::{fresh_session, record, session_row, sweep_expired_sessions},
+    session::{Activity, fresh_session, record, session_row, sweep::sweep_expired_sessions},
 };
 use crate::{BoxFuture, DeclarationErrorKind, auth::AuthConfig, error::TabloError};
 
@@ -210,7 +210,7 @@ pub(super) fn external_login(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         if !user.can_access_panel(&panel.id) {
             return no_access(cx, external.logout_url(cx)).await;
         }
-        let holds_theirs = session_row(cx, panel)
+        let holds_theirs = session_row(cx, panel, Activity::Ignored)
             .await
             .map_err(infrastructure_failure)?
             .is_some_and(|row| row.user_id == user.user_id());

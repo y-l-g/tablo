@@ -24,7 +24,7 @@ use super::{
     password_reset::{forgot_url, offered as reset_offered, reset_url},
     realm::{Realm, host, hosted, realms},
     registration::{offered, register_url},
-    session::resolve,
+    session::{Activity, resolve},
     tenant_registration, two_factor, unauthenticated_error, verification,
 };
 use crate::naming::route_path;
@@ -120,7 +120,8 @@ impl Layer for PanelGate {
                 // panel instead of offering to replace their session with a new one.
                 if sign_up
                     && matches!(*method(&cx), http::Method::GET | http::Method::HEAD)
-                    && let Some(signed) = resolve(&cx, &self.realm, authenticator).await?
+                    && let Some(signed) =
+                        resolve(&cx, &self.realm, authenticator, Activity::Counts).await?
                     && signed.may_enter()
                 {
                     return Err(redirect(self.realm.prefix.clone()).into());
@@ -136,7 +137,7 @@ impl Layer for PanelGate {
             // identity to any handler an app might mount at the same path.
             let logout_route =
                 uri(&cx).path() == logout_url(&cx) && matches!(*method(&cx), http::Method::POST);
-            let signed = resolve(&cx, &self.realm, authenticator).await?;
+            let signed = resolve(&cx, &self.realm, authenticator, Activity::Counts).await?;
             // A user acting as another never reaches the pages that change the target's
             // credentials, factors or tenants.
             if signed
@@ -268,7 +269,7 @@ pub(crate) async fn still_signed_in(cx: &Cx) -> topcoat::Result<bool> {
     let Some(authenticator) = signed.realm.auth.authenticator() else {
         return Ok(true);
     };
-    let Some(now) = resolve(cx, &signed.realm, authenticator).await? else {
+    let Some(now) = resolve(cx, &signed.realm, authenticator, Activity::Ignored).await? else {
         return Ok(false);
     };
     let tenant = crate::tenant_id(cx);
@@ -499,7 +500,7 @@ async fn signed_in(
         let Some(authenticator) = realm.auth.authenticator() else {
             continue;
         };
-        if let Some(signed) = resolve(cx, realm, authenticator).await? {
+        if let Some(signed) = resolve(cx, realm, authenticator, Activity::Counts).await? {
             if held.is_some() {
                 return Ok(None);
             }

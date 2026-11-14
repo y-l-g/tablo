@@ -148,6 +148,7 @@ pub use auth::{
     password_reset::{PasswordReset, PasswordResetter},
     profile::{Profile, ProfileEditor, ProfileField, ProfileKeys, ProfileUpdate},
     registration::{Registrar, SignUp},
+    session::Sessions,
     tenant_profile::TenantEditor,
     tenant_registration::{TenantRegistrar, TenantRegistration},
     throttle::LoginThrottle,

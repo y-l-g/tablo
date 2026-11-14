@@ -27,7 +27,7 @@ use super::{
     login::login_url,
     mail::{after_response, private, token_from_query},
     panel_root, resolved,
-    session::resolve,
+    session::{Activity, resolve},
     token::{self, TokenPurpose, run_serializable},
     unauthenticated_error,
 };
@@ -402,7 +402,7 @@ pub(super) fn confirm_page(cx: &Cx, _body: Body) -> RouteFuture<'_> {
         );
         // The route answers signed out, so the gate resolved no session for it.
         let signed_in_here = match panel.auth.authenticator() {
-            Some(authenticator) => resolve(cx, panel, authenticator)
+            Some(authenticator) => resolve(cx, panel, authenticator, Activity::Counts)
                 .await?
                 .is_some_and(|signed| {
                     signed.user.user_id() == row.user_id && signed.impersonator.is_none()
