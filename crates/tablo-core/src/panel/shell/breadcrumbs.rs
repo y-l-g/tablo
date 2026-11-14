@@ -375,6 +375,68 @@ fn humanize(segment: &str) -> String {
         .unwrap_or_default()
 }
 
+/// The trail to the page at `current_path`, with the path the sidebar marks its entry by: what
+/// the top bar shows and the document's title names. A failed page names its failure; a
+/// submission or a failed page reads no record, since it may be one the request may not view.
+pub(super) async fn for_request(
+    cx: &Cx,
+    nav_items: &[NavigationItem],
+    current_path: &str,
+) -> (Vec<Crumb>, String) {
+    let current_query = topcoat::router::request::original_uri(cx)
+        .query()
+        .unwrap_or_default();
+    let panel = crate::panel::state::current(cx);
+    let trails: &[ResourceTrail] = panel.as_ref().map_or(&[], |panel| &panel.trails);
+    let located = locate(trails, current_path);
+    let error = crate::panel::error_page::current_error(cx);
+    let reading = matches!(
+        *topcoat::router::request::method(cx),
+        http::Method::GET | http::Method::HEAD
+    );
+    let seen = see(
+        cx,
+        trails,
+        located.as_ref(),
+        current_query,
+        error.is_none() && reading,
+    )
+    .await;
+    // A resource the sidebar does not list marks its owner's entry.
+    let nav_path = seen.nav_path(current_path);
+    let crumbs = match error {
+        Some(error) => failed(nav_items, &nav_path, current_query, error.title()),
+        None => trail(
+            nav_items,
+            located.as_ref(),
+            &seen,
+            current_path,
+            current_query,
+        ),
+    };
+    let area = panel.as_ref().and_then(|panel| {
+        let area = panel.area_at(current_path)?;
+        Some(panel.areas[area].clone())
+    });
+    let crumbs = match area {
+        Some(area) => within(area.label.clone(), &area.url, crumbs),
+        None => crumbs,
+    };
+    (crumbs, nav_path)
+}
+
+/// The document's title for `crumbs` under the panel named `brand`: the steps from the page the
+/// request is on back to the first, then the brand, so a tab names its page before its panel.
+pub(super) fn title(cx: &Cx, crumbs: &[Crumb], brand: &str) -> String {
+    crumbs
+        .iter()
+        .rev()
+        .map(|crumb| crumb.label.localize(cx))
+        .chain(std::iter::once(brand.to_owned()))
+        .collect::<Vec<_>>()
+        .join(" · ")
+}
+
 /// Render `crumbs`, or nothing for an empty trail. Below `sm` the top bar has no room for it.
 pub(super) fn render(cx: &Cx, crumbs: Vec<Crumb>) -> BoxView<'_> {
     if crumbs.is_empty() {
