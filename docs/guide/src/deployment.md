@@ -78,8 +78,11 @@ and the other subcommands. A new database has no user to sign in with: seed the 
 - Keep uploads on storage that outlives the binary: the directory `Panel::uploads_dir` writes to
   is a volume, or the `Uploader` writes elsewhere. Its links are signed with a key derived from
   the router's cookie `Key`, so replicas that should open each other's links share that `Key`.
-- Several replicas share the database, and sessions with it. The sign-in throttle counts per
-  process, so limit attempts across replicas at the proxy.
+- Several replicas share the database, and sessions with it. The sign-in throttle counts in each
+  process by default:
+  [`LoginThrottle::in_database`](https://y-l.fr/tablo/nightly/api/tablo/struct.LoginThrottle.html#method.in_database)
+  keeps its counts in the database, where every replica reads them; without it, limit attempts
+  across replicas at the proxy.
 - The notification bell wakes over an in-process channel, as
   [ADR-0028](https://github.com/y-l-g/tablo/blob/master/docs/adr/0028-stored-notifications.md)
   records: a send, a read or a sign-out on one replica re-renders only the bells connected to that
