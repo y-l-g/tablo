@@ -223,7 +223,7 @@ pub(super) async fn resolve(
             let event = AuthEvent::new(
                 AuthEventKind::StopImpersonating,
                 &panel.id,
-                row.tenant,
+                crate::auth::acting_tenant(panel, &*actor, row.tenant, cx),
                 &*actor,
                 target,
                 None,

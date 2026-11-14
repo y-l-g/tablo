@@ -230,6 +230,41 @@ impl SignedIn {
         }
         crate::i18n::addressed_to(cx, self.user.locale().as_ref()).with(self)
     }
+
+    /// The tenant the user acts for on a request to their panel: the one the test claims, else the
+    /// one the session selected, else the user's default, else their first, each while it is
+    /// still one of the user's memberships. `None` on a panel that does not act for tenants.
+    pub(crate) fn acting_tenant(&self, cx: &Cx) -> Option<TenantId> {
+        acting_tenant(&self.realm, &*self.user, self.tenant, cx)
+    }
+}
+
+/// The tenant `user` acts for on `realm`, the session having selected `selected`: what
+/// [`SignedIn::acting_tenant`] answers, for a user a session holds beside the one it signs in.
+pub(crate) fn acting_tenant(
+    realm: &Realm,
+    user: &dyn PanelUser,
+    selected: Option<TenantId>,
+    cx: &Cx,
+) -> Option<TenantId> {
+    if !realm.serves_tenants {
+        return None;
+    }
+    let tenants = user.tenants();
+    let member = |tenant: TenantId| tenants.iter().find(|m| m.tenant == tenant);
+    claimed_tenant(cx)
+        .and_then(member)
+        .or_else(|| selected.and_then(member))
+        .or_else(|| user.default_tenant().and_then(member))
+        .or_else(|| tenants.first())
+        .map(|membership| membership.tenant)
+}
+
+/// The tenant a test claims its request acts for.
+fn claimed_tenant(cx: &Cx) -> Option<TenantId> {
+    try_context::<http::request::Parts>(cx)
+        .and_then(|parts| parts.extensions.get::<crate::tenancy::ClaimedTenant>())
+        .map(|claimed| claimed.0)
 }
 
 /// The request's signed-in user on the request's panel, whatever their panel
@@ -267,23 +302,10 @@ pub fn membership(cx: &Cx) -> Option<&Membership> {
 /// first: the [`TenantSource`](crate::tenancy::TenantSource) the panel installs. `None` on a panel
 /// that does not act for tenants, which offers no way to see or switch the tenant.
 pub(crate) fn session_tenant(cx: &Cx) -> Option<TenantId> {
-    let claimed = try_context::<http::request::Parts>(cx)
-        .and_then(|parts| parts.extensions.get::<crate::tenancy::ClaimedTenant>())
-        .map(|claimed| claimed.0);
-    let Some(signed) = signed(cx) else {
-        return claimed;
-    };
-    if !signed.realm.serves_tenants {
-        return None;
+    match signed(cx) {
+        Some(signed) => signed.acting_tenant(cx),
+        None => claimed_tenant(cx),
     }
-    let tenants = signed.user.tenants();
-    let member = |tenant: TenantId| tenants.iter().find(|m| m.tenant == tenant);
-    claimed
-        .and_then(member)
-        .or_else(|| signed.tenant.and_then(member))
-        .or_else(|| signed.user.default_tenant().and_then(member))
-        .or_else(|| tenants.first())
-        .map(|membership| membership.tenant)
 }
 
 /// The signed-in user's [`time_zone`](PanelUser::time_zone), else the request panel's
