@@ -7,7 +7,8 @@ use super::{Action, HeaderAction, Resource};
 /// What one write of a resource changed: the mutation and the rows it wrote.
 ///
 /// [`Resource::before_commit`] receives it inside the write's transaction and
-/// [`Resource::after_commit`] once the transaction commits.
+/// [`Resource::after_commit`] once the transaction commits. An [`Export`](Change::Export) writes
+/// nothing and reaches `before_commit` alone.
 ///
 /// The enum is exhaustive on purpose: an audit hook that matches every variant stops compiling
 /// when a new kind of write appears, instead of skipping it.
@@ -57,12 +58,18 @@ pub enum Change<M> {
         relation: String,
         keys: Vec<String>,
     },
+    /// The CSV export hands `rows` rows of the list, as its filters narrow it, to the user. It
+    /// writes nothing: [`Resource::before_commit`] runs in a transaction of its own that commits
+    /// before the first byte leaves, so an audit records who took the rows, and an `Err` refuses
+    /// the export. [`Resource::after_commit`] does not run.
+    Export { rows: u64 },
 }
 
 impl<M> Change<M> {
     /// The rows of this resource the change names: the created row and the updated row as the
     /// write left them, the deleted, restored or force-deleted rows and the rows an action ran on
-    /// as they stood before it, the owner of an attach or a detach, and none for a header action.
+    /// as they stood before it, the owner of an attach or a detach, and none for a header action
+    /// or an export.
     pub fn records(&self) -> &[M] {
         match self {
             Self::Create(record)
@@ -73,7 +80,7 @@ impl<M> Change<M> {
             | Self::Restore(records)
             | Self::ForceDelete(records)
             | Self::Action { records, .. } => records,
-            Self::HeaderAction { .. } => &[],
+            Self::HeaderAction { .. } | Self::Export { .. } => &[],
         }
     }
 
@@ -93,6 +100,7 @@ impl<M> Change<M> {
                 records: records.iter().map(f).collect(),
             },
             Self::HeaderAction { name } => Change::HeaderAction { name },
+            Self::Export { rows } => Change::Export { rows: *rows },
             Self::Attach {
                 owner,
                 relation,

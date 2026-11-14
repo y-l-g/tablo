@@ -5,7 +5,7 @@ use toasty::Db;
 use topcoat::context::Cx;
 use uuid::Uuid;
 
-use crate::common::{mount, panel, post_fields, test_db};
+use crate::common::{get, mount, panel, post_fields, test_db};
 
 #[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
 struct Memo {
@@ -94,6 +94,7 @@ impl CommitHook for Audit {
             Change::Create(_) => "create",
             Change::Update { .. } => "update",
             Change::Delete(_) => "delete",
+            Change::Export { rows } => &format!("export {rows}"),
             _ => "other",
         };
         let first = change.change().records().first();
@@ -235,6 +236,38 @@ async fn a_hook_error_rolls_the_write_back() {
     };
     assert!(memos.is_empty(), "the write rolled back");
     assert!(trails(&db).await.is_empty(), "so did the hook's row");
+}
+
+/// A CSV export reaches the hook with the rows it hands over, and a hook that refuses stops the
+/// export before it delivers a row.
+#[tokio::test]
+async fn an_export_reaches_the_hook_which_may_refuse_it() {
+    let db = db().await;
+    let recording = mount(
+        db.clone(),
+        panel().resource::<MemoResource>().before_commit::<Audit>(),
+    )
+    .expect("panel builds");
+    post_fields(&recording, "/admin/memos/-/create", &[("title", "Alpha")]).await;
+
+    let exported = get(&recording, "/admin/memos/-/export").await;
+    assert_eq!(exported.status(), 200);
+    let kinds: Vec<String> = trails(&db).await.into_iter().map(|t| t.kind).collect();
+    assert!(kinds.contains(&"export 1".to_string()), "{kinds:?}");
+
+    let refusing = mount(
+        db.clone(),
+        panel().resource::<MemoResource>().before_commit::<Refuse>(),
+    )
+    .expect("panel builds");
+    let before = trails(&db).await.len();
+    let refused = get(&refusing, "/admin/memos/-/export").await;
+    assert!(refused.status().is_server_error(), "{}", refused.status());
+    assert_eq!(
+        trails(&db).await.len(),
+        before,
+        "the hook's row rolled back"
+    );
 }
 
 /// The hook reads the fields each write changed, by the model's columns: what a create filled, what

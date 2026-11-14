@@ -292,6 +292,7 @@ pub trait Resource: Sized + Send + Sync + 'static {
     ///         Change::Action { name, .. } | Change::HeaderAction { name } => name,
     ///         Change::Attach { .. } => "attach",
     ///         Change::Detach { .. } => "detach",
+    ///         Change::Export { .. } => "export",
     ///     };
     ///     for post in change.records() {
     ///         toasty::create!(Audit {

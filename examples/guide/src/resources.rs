@@ -300,6 +300,7 @@ pub async fn before_commit(
         Change::ForceDelete(posts) => format!("deleted {} posts for good", posts.len()),
         Change::Action { name, records } => format!("ran {name} on {} posts", records.len()),
         Change::HeaderAction { name } => format!("ran {name}"),
+        Change::Export { rows } => format!("exported {rows} posts"),
         Change::Attach {
             owner,
             relation,

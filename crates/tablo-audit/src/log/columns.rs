@@ -74,6 +74,7 @@ impl Column<AuditEntry> for Event {
             "force_delete" => built_in("tablo-audit-force-delete"),
             "attach" => built_in("tablo-audit-attach"),
             "detach" => built_in("tablo-audit-detach"),
+            "export" => built_in("tablo-audit-export"),
             "impersonate" => built_in("tablo-audit-impersonate"),
             "stop_impersonating" => built_in("tablo-audit-stop-impersonating"),
             event => match event

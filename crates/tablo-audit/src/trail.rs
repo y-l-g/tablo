@@ -99,6 +99,12 @@ fn events(cx: &Cx, change: &PanelChange) -> Vec<AuditEvent> {
         Change::HeaderAction { name } => {
             vec![AuditEvent::new(format!("header_action:{name}")).resource(change.slug())]
         }
+        Change::Export { rows } => vec![AuditEvent::new("export").resource(change.slug()).change(
+            "rows",
+            tablo_core::t!(cx, "tablo-audit-rows"),
+            None,
+            Some(rows.to_string()),
+        )],
         Change::Attach {
             owner,
             relation,
