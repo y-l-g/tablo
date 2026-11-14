@@ -1,23 +1,9 @@
 //! The mail a panel's auth sends, read back from a `MemoryTransport`.
 
-use std::time::Duration;
-
-use topcoat::mail::{Mail, MemoryTransport};
+use topcoat::mail::Mail;
 
 /// The host every test's auth mail links to.
 pub const BASE_URL: &str = "https://admin.example.com";
-
-/// The mail `mail` holds once it holds `count`: auth mails after the response.
-pub async fn mails(mail: &MemoryTransport, count: usize) -> Vec<Mail> {
-    for _ in 0..500 {
-        let sent = mail.sent();
-        if sent.len() >= count {
-            return sent;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
-    panic!("expected {count} mails, got {}", mail.sent().len());
-}
 
 /// The plain-text body of `mail`.
 pub fn text(mail: &Mail) -> &str {

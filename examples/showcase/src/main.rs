@@ -30,5 +30,7 @@ async fn main() {
 
     let router = router(db);
 
-    topcoat::start(router).await.expect("serve");
+    topcoat::start(router.clone()).await.expect("serve");
+    // The auth mail a request promised before the shutdown still goes out.
+    tablo::settled(&router).await;
 }

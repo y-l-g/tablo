@@ -122,6 +122,7 @@ mod resource;
 #[cfg(feature = "rich-text")]
 pub mod rich_text;
 mod schema;
+mod settle;
 mod table;
 mod tenancy;
 #[cfg(test)]
@@ -209,6 +210,7 @@ pub use schema::{
     Schema, Section, Source, Step, Switch, Tab, Tabs, TextField, Toggle, Watched, Wizard,
     input::FormInput, parse_items, write_items,
 };
+pub use settle::settled;
 pub use table::{
     ActionLayout, Cursor, DEFAULT_PAGE_SIZE, DEFAULT_PER_PAGE_OPTIONS, DateFilter, FieldColumn,
     FilterValue, IntoFilters, ListTab, NumberFilter, PagePosition, Pagination, PanelModel,

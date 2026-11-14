@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 use crate::common::{
     TestClient, flash,
-    mail::{BASE_URL, link, mails, token},
+    mail::{BASE_URL, link, token},
     test_db,
 };
 
@@ -118,7 +118,8 @@ async fn ask_for_change<'r>(
         .await;
     assert_eq!(saved.status(), 303);
     assert!(flash(&saved).description.is_some());
-    let sent = mails(mail, 2).await;
+    let sent = mail.sent();
+    assert_eq!(sent.len(), 2);
     let to = |address: &str| {
         sent.iter()
             .find(|mail| mail.to()[0].address() == address)
@@ -251,8 +252,8 @@ async fn a_new_password_keeps_the_change_saved_with_it() {
         .await;
     assert_eq!(saved.status(), 303);
     let renewed = session_cookie_value(&saved).expect("a new password renews the session");
-    let to_new = mails(&mail, 2)
-        .await
+    let to_new = mail
+        .sent()
         .into_iter()
         .find(|mail| mail.to()[0].address() == "ada@new.example")
         .expect("a mail to the new address");

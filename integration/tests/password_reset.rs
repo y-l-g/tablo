@@ -22,7 +22,7 @@ use uuid::Uuid;
 
 use crate::common::{
     TestClient, body_string, field_error, flash,
-    mail::{link, mails, token},
+    mail::{link, token},
     refusal, test_db,
 };
 
@@ -152,7 +152,7 @@ async fn a_reset_request_answers_the_same_whether_an_account_uses_the_address() 
         let notice = flash(response);
         assert_eq!(notice.status, NotificationStatus::Success);
     }
-    let sent = mails(&mail, 1).await;
+    let sent = mail.sent();
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0].to()[0].address(), "ada@example.com");
     assert!(link(&sent[0]).starts_with("/admin/reset-password?token="));
@@ -171,7 +171,7 @@ async fn a_reset_link_sets_the_password_once_and_ends_every_session() {
     let mail = MemoryTransport::new();
     let router = router(db.clone(), &mail);
     request_link(&router, "ada@example.com").await;
-    let link = link(&mails(&mail, 1).await[0]);
+    let link = link(&mail.sent()[0]);
 
     let page = TestClient::new(&router).get(&link).await;
     assert_eq!(page.status(), 200);
@@ -216,7 +216,7 @@ async fn an_expired_or_unknown_link_resets_nothing() {
     let mail = MemoryTransport::new();
     let router = router(db.clone(), &mail);
     request_link(&router, "ada@example.com").await;
-    let link = link(&mails(&mail, 1).await[0]);
+    let link = link(&mail.sent()[0]);
     AuthToken::all()
         .update()
         .expires_at(Timestamp::now() - Duration::from_secs(1))
@@ -242,7 +242,7 @@ async fn a_refused_password_keeps_the_link() {
     let mail = MemoryTransport::new();
     let router = router(db.clone(), &mail);
     request_link(&router, "ada@example.com").await;
-    let token = token(&link(&mails(&mail, 1).await[0]));
+    let token = token(&link(&mail.sent()[0]));
 
     let refused = TestClient::new(&router)
         .submit(
@@ -280,10 +280,10 @@ async fn a_new_request_replaces_the_earlier_link() {
     let mail = MemoryTransport::new();
     let router = router(db.clone(), &mail);
     request_link(&router, "ada@example.com").await;
-    mails(&mail, 1).await;
     request_link(&router, "ada@example.com").await;
 
-    let sent = mails(&mail, 2).await;
+    let sent = mail.sent();
+    assert_eq!(sent.len(), 2);
     assert_eq!(tokens(&db).await.len(), 1);
     assert_eq!(
         choose(&router, &token(&link(&sent[0])), "new password")
@@ -321,7 +321,7 @@ async fn requests_racing_from_several_accounts_each_get_their_link() {
         assert_eq!(request_link(&router, email).await.status(), 303);
     }
 
-    assert_eq!(mails(&mail, emails.len()).await.len(), emails.len());
+    assert_eq!(mail.sent().len(), emails.len());
     assert_eq!(tokens(&db).await.len(), emails.len());
 }
 
@@ -360,7 +360,7 @@ async fn reset_requests_past_the_limit_are_refused() {
     let throttled = request_link(&router, "ADA@example.com").await;
 
     assert_eq!(throttled.status(), 429);
-    assert_eq!(mails(&mail, 1).await.len(), 1);
+    assert_eq!(mail.sent().len(), 1);
 }
 
 /// The login page links to the forgot-password page only when the panel offers a reset, and
@@ -400,7 +400,7 @@ async fn a_forged_reset_answers_403() {
     let mail = MemoryTransport::new();
     let router = router(db.clone(), &mail);
     request_link(&router, "ada@example.com").await;
-    let token = token(&link(&mails(&mail, 1).await[0]));
+    let token = token(&link(&mail.sent()[0]));
 
     let forged = TestClient::new(&router)
         .post_form(
@@ -431,7 +431,7 @@ async fn a_deactivated_account_cannot_use_its_link() {
     let mail = MemoryTransport::new();
     let router = router(db.clone(), &mail);
     request_link(&router, "ada@example.com").await;
-    let token = token(&link(&mails(&mail, 1).await[0]));
+    let token = token(&link(&mail.sent()[0]));
     AdminUser::filter(AdminUser::fields().id().eq(admin.id))
         .update()
         .active(false)
@@ -466,7 +466,7 @@ async fn a_changed_password_ends_the_reset_link() {
     )
     .expect("panel builds");
     request_link(&router, "ada@example.com").await;
-    let token = token(&link(&mails(&mail, 1).await[0]));
+    let token = token(&link(&mail.sent()[0]));
     let client = TestClient::new(&router).sign_in(&db, "admin", &admin).await;
 
     let saved = client
@@ -523,9 +523,9 @@ async fn a_link_belongs_to_its_panel_and_a_reset_ends_the_others() {
             &form_body(&[("email", "ada@example.com")]),
         )
         .await;
-    let staff = token(&link(&mails(&mail, 1).await[0]));
+    let staff = token(&link(&mail.sent()[0]));
     request_link(&router, "ada@example.com").await;
-    let admin_token = token(&link(&mails(&mail, 2).await[1]));
+    let admin_token = token(&link(&mail.sent()[1]));
 
     let elsewhere = TestClient::new(&router)
         .submit(
@@ -602,7 +602,7 @@ async fn a_revocation_through_a_panel_handle_ends_the_reset_link() {
         .expect("panel builds");
     let router = builder.build();
     request_link(&router, "ada@example.com").await;
-    let token = token(&link(&mails(&mail, 1).await[0]));
+    let token = token(&link(&mail.sent()[0]));
 
     let cx = handle.enter(&handle.context());
     assert!(tablo::auth::enforced(&cx));

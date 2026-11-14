@@ -21,7 +21,7 @@ use topcoat::{
 
 use crate::common::{
     TestClient, body_string, field_error,
-    mail::{BASE_URL, link, mails, token},
+    mail::{BASE_URL, link, token},
     test_db,
 };
 
@@ -371,7 +371,7 @@ async fn a_reset_link_sets_the_customers_password() {
             &form_body(&[("email", "ADA@example.com")]),
         )
         .await;
-    let link = link(&mails(&mail, 1).await[0]);
+    let link = link(&mail.sent()[0]);
     let saved = TestClient::new(&router)
         .submit(
             "/admin/reset-password",
@@ -410,7 +410,7 @@ async fn a_verification_link_marks_the_customer_verified() {
     assert_eq!(client.get("/admin/notes").await.status(), 307);
 
     client.submit("/admin/verify-email", "").await;
-    let link = link(&mails(&mail, 1).await[0]);
+    let link = link(&mail.sent()[0]);
     TestClient::new(&router).get(&link).await;
 
     let stored = reload(&db, &ada).await;
