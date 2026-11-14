@@ -90,12 +90,17 @@ panel keeps to itself, and what it does not:
   `/portal`. A `PanelId` equals its prefix in any spelling, `"admin"` or `"/admin/"`, and offers no
   string to match a part of. Name each panel and answer `false` for the rest: a panel added or
   renamed later then admits nobody until it has a rule.
-- **The weakest panel is the floor.** Email verification, a required second factor and tenant
-  registration are each declared per panel, and a factor belongs to the panel it was set up on
-  ([`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor)).
-  A password alone takes a sibling panel that admits the user and holds no factor of theirs: one
-  that requires none signs the holder in, and one that requires a factor lets the holder set up
-  their own.
+- **A second factor is shared too.** A factor set up on one panel is asked on every sibling that
+  installs
+  [`Auth::two_factor`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.two_factor),
+  so a password alone neither signs in there nor sets up a factor of its holder's. Turning it off
+  on one panel turns it off on all, and takes a code.
+- **The weakest panel is the floor.** Email verification, two-factor sign-in, requiring a factor
+  and tenant registration are each declared per panel. A sibling without `Auth::two_factor` asks
+  no account for a code, so a password alone signs in there. An account that holds no factor signs
+  in to every sibling with its password, and one that requires a factor lets the holder set up
+  their own, which then stands on each. A sibling that mails no codes asks an account set up for
+  mailed codes for a recovery code.
 
 The sharing follows the user type, not the table. Two user types over one table share passwords,
 yet a password change on one type's panel ends no session on the other's. To give two panels

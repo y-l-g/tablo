@@ -323,8 +323,8 @@ impl<U: PanelUser> Auth<U> {
     ///   page then shows a QR code and the key, and turns two-factor sign-in on once a code from
     ///   the app matches. It then shows eight recovery codes, once: the panel stores only their
     ///   hashes, keyed like the secrets.
-    /// - Each panel enrols apart. A factor signs in to the panel that set it up only, even when
-    ///   other panels load the same user type: enrol on each.
+    /// - Panels that load the same user type share an account's factor: set up on one, it is asked
+    ///   on each that installs two-factor sign-in. Panels of another user type share nothing.
     /// - Signing in, a correct password leads to `{prefix}/two-factor-challenge` instead of a
     ///   session. The challenge lasts five minutes in its own cookie and takes a code from the app
     ///   or a recovery code. Each code works once: an app code does not sign in twice, and a

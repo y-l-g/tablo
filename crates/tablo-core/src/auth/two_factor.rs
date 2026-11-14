@@ -7,6 +7,7 @@ mod challenge;
 mod cipher;
 mod email;
 mod pages;
+mod scope;
 mod settings;
 mod totp;
 
@@ -165,7 +166,8 @@ impl Default for TwoFactor {
 }
 
 /// Shipped second-factor record: an account's authenticator secret, sealed, or the hash of one of
-/// its recovery codes, on the panel that enrolled it.
+/// its recovery codes. It signs in to the panel that enrolled it and to every panel whose
+/// authenticator loads the same user type.
 #[derive(Debug, Clone, toasty::Model)]
 pub struct AuthFactor {
     #[key]
@@ -174,7 +176,7 @@ pub struct AuthFactor {
     /// [`PanelUser::user_id`](super::PanelUser::user_id) of the account the factor signs in.
     #[index]
     pub user_id: String,
-    /// The prefix of the panel that enrolled the factor: the only panel it signs in to.
+    /// The prefix of the panel that enrolled the factor, which its secret is sealed for.
     pub panel: String,
     pub kind: FactorKind,
     /// The authenticator secret, sealed under the router's cookie key, or the hash of a recovery
@@ -224,25 +226,9 @@ fn binding(user_id: &str, panel: &str) -> String {
     format!("{user_id}\n{panel}")
 }
 
-/// Every factor `user_id` holds on the panel at `panel`, read through `ex`.
-async fn factors(
-    ex: &mut dyn toasty::Executor,
-    panel: &str,
-    user_id: &str,
-) -> topcoat::Result<Vec<AuthFactor>> {
-    AuthFactor::filter(
-        AuthFactor::fields()
-            .user_id()
-            .eq(user_id.to_string())
-            .and(AuthFactor::fields().panel().eq(panel.to_string())),
-    )
-    .exec(ex)
-    .await
-    .map_err(infrastructure_failure)
-}
-
-/// What `user_id` holds on the request's panel: the confirmed factor, an authenticator or mailed
-/// codes, the one being set up, and how many recovery codes are left.
+/// What `user_id` holds on the request's panel and the panels sharing with it: the confirmed
+/// factor, an authenticator or mailed codes, the one being set up, and how many recovery codes
+/// are left.
 #[derive(Debug, Default)]
 pub(super) struct Enrolment {
     pub(super) confirmed: Option<AuthFactor>,
@@ -256,20 +242,25 @@ pub(super) async fn enrolment(
     ex: &mut dyn toasty::Executor,
     user_id: &str,
 ) -> topcoat::Result<Enrolment> {
-    enrolment_on(ex, &panel_prefix(cx), user_id).await
+    enrolment_on(ex, &scope::here(cx), &panel_prefix(cx), user_id).await
 }
 
-/// `user_id`'s [`Enrolment`] on the panel at `panel`.
+/// `user_id`'s [`Enrolment`] on `panels`, the panel at `own` and those sharing with it. Factors
+/// confirmed on two of them before they shared stay apart: `own`'s counts, else the oldest.
 async fn enrolment_on(
     ex: &mut dyn toasty::Executor,
-    panel: &str,
+    panels: &[String],
+    own: &str,
     user_id: &str,
 ) -> topcoat::Result<Enrolment> {
     let mut enrolment = Enrolment::default();
-    for factor in factors(ex, panel, user_id).await? {
+    for factor in scope::factors(ex, panels, user_id).await? {
         match (factor.kind, factor.confirmed_at.is_some()) {
             (FactorKind::RecoveryCode, _) => enrolment.recovery_codes += 1,
-            (_, true) => enrolment.confirmed = Some(factor),
+            (_, true) if enrolment.confirmed.is_none() || factor.panel == own => {
+                enrolment.confirmed = Some(factor);
+            }
+            (_, true) => {}
             (_, false) => enrolment.unconfirmed = Some(factor),
         }
     }
@@ -303,7 +294,8 @@ pub(super) async fn setup_pending(
     match panel.auth.two_factor_config() {
         Some(two_factor) if two_factor.requires(cx, user) => {
             let mut db = crate::db::db(cx)?;
-            let enrolment = enrolment_on(&mut db, &panel.prefix, &user.user_id()).await?;
+            let panels = scope::sharing(cx, panel);
+            let enrolment = enrolment_on(&mut db, &panels, &panel.prefix, &user.user_id()).await?;
             Ok(enrolment.confirmed.is_none())
         }
         _ => Ok(false),
@@ -319,22 +311,14 @@ async fn start(
     kind: FactorKind,
     secret: String,
 ) -> topcoat::Result<()> {
-    let panel = panel_prefix(cx);
     // A recovery code is confirmed when issued: only a factor being set up matches.
-    AuthFactor::filter(
-        AuthFactor::fields()
-            .user_id()
-            .eq(user_id.to_string())
-            .and(AuthFactor::fields().panel().eq(panel.clone()))
-            .and(AuthFactor::fields().confirmed_at().is_none()),
-    )
-    .delete()
-    .exec(&mut *ex)
-    .await
-    .map_err(infrastructure_failure)?;
+    scope::remove(cx, &mut *ex, user_id, |factor| {
+        factor.confirmed_at.is_none()
+    })
+    .await?;
     toasty::create!(AuthFactor {
         user_id: user_id.to_string(),
-        panel,
+        panel: panel_prefix(cx),
         kind,
         secret,
         confirmed_at: None,
@@ -417,29 +401,33 @@ fn recovery_hash(cx: &Cx, user_id: &str, panel: &str, code: &str) -> topcoat::Re
     ))
 }
 
-/// Whether `code` is one of `user_id`'s recovery codes on the request's panel; a match is deleted
-/// through `ex`, so each works once.
+/// Whether `code` is one of `user_id`'s recovery codes on the request's panel or one sharing with
+/// it; a match is deleted through `ex`, so each works once.
 async fn spend_recovery_code(
     cx: &Cx,
     ex: &mut dyn toasty::Executor,
     user_id: &str,
     code: &str,
 ) -> topcoat::Result<bool> {
-    let panel = panel_prefix(cx);
-    let hash = recovery_hash(cx, user_id, &panel, code)?;
-    let codes = factors(&mut *ex, &panel, user_id).await?;
-    let Some(matched) = codes.iter().find(|factor| {
-        factor.kind == FactorKind::RecoveryCode
-            && bool::from(factor.secret.as_bytes().ct_eq(hash.as_bytes()))
-    }) else {
-        return Ok(false);
-    };
-    AuthFactor::filter(AuthFactor::fields().id().eq(matched.id))
-        .delete()
-        .exec(ex)
-        .await
-        .map_err(infrastructure_failure)?;
-    Ok(true)
+    for factor in scope::factors(&mut *ex, &scope::here(cx), user_id).await? {
+        // A hash is bound to the panel that issued the code.
+        if factor.kind == FactorKind::RecoveryCode
+            && bool::from(
+                factor
+                    .secret
+                    .as_bytes()
+                    .ct_eq(recovery_hash(cx, user_id, &factor.panel, code)?.as_bytes()),
+            )
+        {
+            AuthFactor::filter(AuthFactor::fields().id().eq(factor.id))
+                .delete()
+                .exec(ex)
+                .await
+                .map_err(infrastructure_failure)?;
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// Whether `code` is a code of `factor`, used up: its authenticator's current one, or the one
@@ -485,7 +473,7 @@ pub(super) async fn accept(
     }
 }
 
-/// Fresh recovery codes for `user_id` on the request's panel, in place of any earlier ones.
+/// Fresh recovery codes for `user_id`, issued by the request's panel, in place of any earlier ones.
 /// Answers the codes, which are shown once: only their hashes are stored.
 async fn issue_recovery_codes(
     cx: &Cx,
@@ -493,17 +481,10 @@ async fn issue_recovery_codes(
     user_id: &str,
 ) -> topcoat::Result<Vec<String>> {
     let panel = panel_prefix(cx);
-    AuthFactor::filter(
-        AuthFactor::fields()
-            .user_id()
-            .eq(user_id.to_string())
-            .and(AuthFactor::fields().panel().eq(panel.clone()))
-            .and(AuthFactor::fields().kind().eq(FactorKind::RecoveryCode)),
-    )
-    .delete()
-    .exec(&mut *ex)
-    .await
-    .map_err(infrastructure_failure)?;
+    scope::remove(cx, &mut *ex, user_id, |factor| {
+        factor.kind == FactorKind::RecoveryCode
+    })
+    .await?;
     let mut codes = Vec::with_capacity(RECOVERY_CODES);
     let now = Timestamp::now();
     for _ in 0..RECOVERY_CODES {
@@ -539,18 +520,10 @@ fn recovery_code() -> String {
     format!("{}-{}", &chars[..5], &chars[5..])
 }
 
-/// Deletes every factor `user_id` holds on the request's panel, through `ex`.
+/// Deletes every factor `user_id` holds on the request's panel and the panels sharing with it,
+/// through `ex`.
 async fn remove_all(cx: &Cx, ex: &mut dyn toasty::Executor, user_id: &str) -> topcoat::Result<()> {
-    AuthFactor::filter(
-        AuthFactor::fields()
-            .user_id()
-            .eq(user_id.to_string())
-            .and(AuthFactor::fields().panel().eq(panel_prefix(cx))),
-    )
-    .delete()
-    .exec(ex)
-    .await
-    .map_err(infrastructure_failure)
+    scope::remove(cx, ex, user_id, |_| true).await
 }
 
 /// The mistakes in a panel's [`Auth::two_factor`](super::Auth::two_factor): two-factor sign-in
