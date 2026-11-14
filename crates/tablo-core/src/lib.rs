@@ -178,7 +178,7 @@ pub use form::{NoForm, Posted, RecordForm};
 pub use i18n::Text;
 pub use lens::{Lens, Reads};
 pub use limits::Limits;
-pub use models::register_models;
+pub use models::{erase_user, register_models};
 pub use naming::PanelId;
 pub use navigation::{NavTarget, NavigationItem};
 pub use notification::stored::Notifications;
