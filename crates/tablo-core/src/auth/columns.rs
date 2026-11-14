@@ -18,8 +18,8 @@ pub struct ColumnPreference {
     /// The panel, the user and the resource, query-encoded: one row per user per list.
     #[key]
     pub key: String,
-    /// [`PanelUser::user_id`](crate::PanelUser::user_id) of the user who chose; indexed so an app
-    /// deleting a user can delete their rows, which the panel leaves behind.
+    /// [`PanelUser::user_id`](crate::PanelUser::user_id) of the user who chose; indexed so
+    /// [`erase_user`](crate::erase_user) deletes their rows, which the panel leaves behind.
     #[index]
     pub user_id: String,
     /// The prefix of the panel the list is on (e.g. `/admin`).

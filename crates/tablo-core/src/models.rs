@@ -1,9 +1,10 @@
-//! The models Tablo ships, for auth and the bell, and [`models!`](crate::models!), which registers
-//! them beside the app's.
+//! The models Tablo ships, for auth and the bell: [`models!`](crate::models!), which registers
+//! them beside the app's, and [`erase_user`], which deletes a user's rows from them.
 
 use crate::{
     auth::{AdminUser, AuthFactor, AuthSession, AuthThrottle, AuthToken, ColumnPreference},
     notification::StoredNotification,
+    toasty_compat::model::AppSchema,
 };
 
 /// Register every model Tablo ships in `models`: [`AdminUser`], [`AuthSession`],
@@ -25,6 +26,73 @@ pub fn register_models(models: &mut toasty::schema::ModelSet) {
     <AuthFactor as toasty::schema::Model>::register(models);
     <AuthThrottle as toasty::schema::Model>::register(models);
     <StoredNotification as toasty::schema::Model>::register(models);
+}
+
+/// Deletes every row the tables Tablo ships hold for `user_id`, its
+/// [`PanelUser::user_id`](crate::PanelUser::user_id), on every panel, through `ex`: its sessions,
+/// its mailed links and pending sign-ins, its second factors and recovery codes, its column
+/// choices and its notifications. Call it where the app deletes an account, inside the same
+/// transaction, rather than deleting those tables by name: a table a later release ships joins it.
+///
+/// It reads a model only when `ex`'s schema registers it, so an app that registers the few its
+/// panel reads calls it as is. It leaves three things to the app:
+///
+/// - the user record, an [`AdminUser`](crate::auth::AdminUser) row included, which is the app's to
+///   delete;
+/// - the [`AuthThrottle`](crate::auth::AuthThrottle) counts, which hold a hash of the login and the
+///   address, never either in the clear, and end with their window;
+/// - what the app's own tables and the audit log record of the user.
+///
+/// A page the user has open keeps what it shows; its next request is anonymous.
+///
+/// ```rust
+/// # async fn delete_account(db: &mut toasty::Db, user_id: &str) -> toasty::Result<()> {
+/// use toasty::Executor as _;
+///
+/// let mut tx = db.transaction().await?;
+/// tablo_core::erase_user(&mut tx, user_id).await?;
+/// // ... delete the app's own rows for the user, then the user.
+/// tx.commit().await
+/// # }
+/// ```
+///
+/// # Errors
+///
+/// The driver's error when a delete fails; the transaction then holds whatever ran before it.
+pub async fn erase_user(ex: &mut dyn toasty::Executor, user_id: &str) -> toasty::Result<()> {
+    let schema = AppSchema::of_executor(ex);
+    let id = user_id.to_owned();
+    if schema.registers("AuthSession") {
+        AuthSession::filter(AuthSession::fields().user_id().eq(id.clone()))
+            .delete()
+            .exec(&mut *ex)
+            .await?;
+    }
+    if schema.registers("AuthToken") {
+        AuthToken::filter(AuthToken::fields().user_id().eq(id.clone()))
+            .delete()
+            .exec(&mut *ex)
+            .await?;
+    }
+    if schema.registers("AuthFactor") {
+        AuthFactor::filter(AuthFactor::fields().user_id().eq(id.clone()))
+            .delete()
+            .exec(&mut *ex)
+            .await?;
+    }
+    if schema.registers("ColumnPreference") {
+        ColumnPreference::filter(ColumnPreference::fields().user_id().eq(id.clone()))
+            .delete()
+            .exec(&mut *ex)
+            .await?;
+    }
+    if schema.registers("StoredNotification") {
+        StoredNotification::filter(StoredNotification::fields().user_id().eq(id))
+            .delete()
+            .exec(&mut *ex)
+            .await?;
+    }
+    Ok(())
 }
 
 /// [`toasty::models!`] with the models Tablo ships appended, so a panel's `Db` holds every table
@@ -57,3 +125,6 @@ macro_rules! models {
         models
     }};
 }
+
+#[cfg(test)]
+mod tests;

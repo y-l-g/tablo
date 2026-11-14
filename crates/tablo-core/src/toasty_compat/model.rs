@@ -93,14 +93,6 @@ impl AppSchema {
     pub(crate) fn inner(&self) -> &toasty_core::Schema {
         &self.0
     }
-
-    /// Whether the schema registers a model named `name`, in upper camel case.
-    pub(crate) fn registers(&self, name: &str) -> bool {
-        self.0
-            .app
-            .models()
-            .any(|model| model.name().upper_camel_case() == name)
-    }
 }
 
 /// A typed path with its model and value types erased: the steps a declaration resolves.
@@ -587,6 +579,7 @@ fn app_embedded<'a>(schema: &'a toasty_core::Schema, field: &app::Field) -> Opti
 mod belongs_to;
 mod lookup;
 mod reach;
+mod registered;
 pub(crate) use belongs_to::{BelongsTo, belongs_to, belongs_tos};
 use lookup::{app_field_at, mapping_field_at};
 pub(crate) use reach::{included_models, read_relations};
