@@ -355,3 +355,25 @@ async fn the_title_names_the_page_before_the_panel() {
         );
     }
 }
+
+/// The shell's skip link moves focus past the sidebar and the top bar to the page.
+#[tokio::test]
+async fn the_skip_link_reaches_the_page() {
+    let db = seeded_db().await;
+    let router = router(db.clone());
+    let client = demo_client(&router, &db).await;
+    let html = body_string(client.get("/admin/users").await).await;
+    let target = tablo::testing::skip_link_target(&html).expect("a skip link to a focusable page");
+    let at = |needle: &str| {
+        html.find(needle)
+            .unwrap_or_else(|| panic!("{needle} in {html}"))
+    };
+    assert!(
+        at("data-skip-link") < at("data-sidebar=\"sidebar\""),
+        "the skip link comes before the sidebar"
+    );
+    assert!(
+        at(&format!("id=\"{target}\"")) < at("data-page-title"),
+        "the target holds the page's heading"
+    );
+}

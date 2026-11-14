@@ -26,8 +26,8 @@ pub use protocol::{
     page_filter_bar, page_language, page_title, picked, posts_picking, record_navigation,
     record_tables, refreshes_to, response_cookies, rich_text_values, robots, row_actions, row_keys,
     rows, search_box, search_results, sections, selects_matching, session_cookie_value,
-    set_cookie_header, sortable_columns, stale_form, stats, summaries, tab_links, tabs,
-    tenant_page_link, trail, widgets, wizard_steps,
+    set_cookie_header, skip_link_target, sortable_columns, stale_form, stats, summaries, tab_links,
+    tabs, tenant_page_link, trail, widgets, wizard_steps,
 };
 pub use resource::{FieldOf, Reply, ResourceClient, Submission};
 use tablo_core::{
