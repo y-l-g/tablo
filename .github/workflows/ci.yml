@@ -15,6 +15,10 @@ concurrency:
 # The toolchain is the one rust-toolchain.toml pins; `rustup toolchain install` reads it.
 # Warning denial lives in [workspace.lints.rust], not RUSTFLAGS: RUSTFLAGS partitions the build
 # cache through every unit's fingerprint.
+# A job that writes names what it writes; every other job reads the repository and nothing else.
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   # Incremental compilation busts the shared action-cache budget, so CI disables it.
@@ -41,7 +45,7 @@ jobs:
     steps:
       - name: Check merged release PR
         id: check
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             if (context.eventName === 'workflow_dispatch') {
@@ -80,7 +84,7 @@ jobs:
       && (startsWith(github.head_ref, 'release-plz-')
         || needs.release-pr-merge.outputs.release == 'true')
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Refuse a release while a manifest patches a dependency
         run: |
           if grep -n '^\[patch' Cargo.toml examples/quickstart/Cargo.toml; then
@@ -92,9 +96,9 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo test --workspace --locked
       # Ignored by default: trybuild checks Tablo again in a target directory of its own.
       - run: cargo test -p tablo-core --test compile_fail --locked -- --ignored
@@ -117,9 +121,9 @@ jobs:
     env:
       TABLO_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tablo
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo test -p showcase --features postgresql --test it --locked
       # The bench's Postgres leg, off in the workspace build.
       - run: cargo check -p tablo-bench --features postgresql --locked
@@ -141,9 +145,9 @@ jobs:
     env:
       TABLO_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tablo
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo test -p tablo-integration --features postgresql --tests --locked
 
   mysql:
@@ -162,9 +166,9 @@ jobs:
     env:
       TABLO_TEST_DATABASE_URL: mysql://root:mysql@localhost:3306/tablo
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo test -p showcase --features mysql --test it --locked
 
   # The integration build is the step that exhausts the runner's memory. Its own job keeps that
@@ -185,9 +189,9 @@ jobs:
     env:
       TABLO_TEST_DATABASE_URL: mysql://root:mysql@localhost:3306/tablo
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo test -p tablo-integration --features mysql --tests --locked
 
   turso:
@@ -196,9 +200,9 @@ jobs:
     env:
       TABLO_TEST_DATABASE_URL: "turso::memory:"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo test -p showcase --features turso --test it --locked
       - run: cargo test -p tablo-integration --features turso --tests --locked
 
@@ -208,8 +212,8 @@ jobs:
     name: assets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
       - run: >-
@@ -230,9 +234,9 @@ jobs:
     name: clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo clippy --workspace --all-targets --locked
       # The build without the default features, tests included: an app may drop `rich-text`.
       - run: cargo clippy -p tablo-core -p tablo --no-default-features --all-targets --locked
@@ -241,13 +245,13 @@ jobs:
     name: docs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       # `-D warnings` promotes every rustdoc lint to a failure.
       - run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
       - name: Install mdBook and mdbook-linkcheck2
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@4a76afe23f9e08d2d9550fb56e556444e8611d21 # v2.90.4
         with:
           tool: mdbook@0.5.2,mdbook-linkcheck2@0.13.0
       # Build the book here too: docs.yml only runs on master, so linkcheck catches a bad link
@@ -259,9 +263,9 @@ jobs:
     name: external
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo xtask external-check
 
   # udeps runs in `udeps.yml` on nightly. A pull request runs it when it touches a manifest;
@@ -274,14 +278,14 @@ jobs:
     name: fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Workspace fmt uses the pinned nightly: rustfmt.toml keys are nightly-only.
       - run: rustup toolchain install
       - run: rustup toolchain install nightly-2026-08-24 --profile minimal --component rustfmt
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: Restore topcoat CLI cache
         id: cache-topcoat
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cargo/bin/topcoat
           key: topcoat-cli-0.12.1
@@ -306,9 +310,9 @@ jobs:
       && (startsWith(github.head_ref, 'release-plz-')
         || needs.release-pr-merge.outputs.release == 'true')
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo install cargo-semver-checks --version 0.51.0 --locked
       - run: cargo semver-checks --workspace --default-features
 
@@ -330,7 +334,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: true
@@ -341,7 +345,7 @@ jobs:
       # publishes the family in dependency order. It is idempotent: versions
       # already on crates.io and tags/releases that already exist are skipped.
       - name: Run release-plz
-        uses: release-plz/action@v0.5
+        uses: release-plz/action@66b324fd6c72d05d2a08568492ecdd62bfb8a62b # v0.5.148
         with:
           command: release
         env:
@@ -365,7 +369,7 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: master
           fetch-depth: 0
@@ -375,7 +379,7 @@ jobs:
         run: rustup toolchain install
       - name: Run release-plz
         id: release-plz
-        uses: release-plz/action@v0.5
+        uses: release-plz/action@66b324fd6c72d05d2a08568492ecdd62bfb8a62b # v0.5.148
         with:
           command: release-pr
         env:
