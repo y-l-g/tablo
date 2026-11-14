@@ -10,7 +10,10 @@ use uuid::Uuid;
 
 use super::{
     login::{GENERIC_ERROR, login_post},
-    session::{SESSION_SWEEP_BATCH, sweep_expired_sessions, token_key},
+    session::{
+        sweep::{SESSION_SWEEP_BATCH, sweep_expired_sessions},
+        token_key,
+    },
     *,
 };
 use crate::{

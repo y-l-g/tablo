@@ -23,7 +23,14 @@ use crate::{
     auth::realm::{Realm, current_realm, realms},
 };
 
-/// How long a session stays valid: seven days, fixed.
+mod lifetime;
+pub(super) mod sweep;
+
+pub use self::lifetime::Sessions;
+use self::lifetime::Standing;
+
+/// How long a session stays valid unless [`Auth::sessions`](crate::Auth::sessions) says otherwise:
+/// seven days.
 pub const SESSION_LIFETIME: Duration = Duration::from_hours(24 * 7);
 
 /// What every panel's [`session_cookie`] starts with.
@@ -78,8 +85,9 @@ fn session_panel(cx: &Cx) -> topcoat::Result<&Arc<Realm>> {
 /// the user it authenticates, the panel that signed the user in, and its
 /// expiry. The raw token is never stored.
 ///
-/// A session rides in its panel's [`session_cookie`], lasts [`SESSION_LIFETIME`] from login, is
-/// replaced on each login and deleted on logout; each successful login also deletes up to 500
+/// A session rides in its panel's [`session_cookie`], lasts as long as the panel's
+/// [`Sessions`] say, [`SESSION_LIFETIME`] from login by default, is replaced on each login and
+/// deleted on logout; each successful login also deletes up to 500
 /// expired sessions. It belongs to the panel
 /// that signed the user in: another panel's gate treats the request as anonymous, and
 /// [`auth::user`](crate::auth::user) answers `None` there. A browser holds one session on each
@@ -121,12 +129,15 @@ pub struct AuthSession {
 /// Starts a new session, issuing a fresh token in the request's panel's [`session_cookie`].
 pub(super) async fn start(cx: &Cx) -> topcoat::Result<session::Session> {
     let token = session::Token::random();
-    token_store(session_panel(cx)?)
-        .write(cx, token.clone(), SESSION_LIFETIME)
+    let panel = session_panel(cx)?;
+    let sessions = &panel.auth.sessions;
+    // The cookie outlives an idle timeout: the row decides, and a request moves its end.
+    token_store(panel)
+        .write(cx, token.clone(), sessions.lasts())
         .await?;
     Ok(session::Session {
         token_hash: token.hash(),
-        expires_at: SystemTime::now() + SESSION_LIFETIME,
+        expires_at: SystemTime::from(sessions.first_end(Timestamp::now())),
     })
 }
 
@@ -450,43 +461,17 @@ fn wake_bells<'a>(cx: &Cx, user_id: &str, panels: impl Iterator<Item = &'a str>)
     }
 }
 
-/// How many expired session rows one sweep drops: the bound that keeps one
-/// login from deleting an unbounded number of rows.
-pub(super) const SESSION_SWEEP_BATCH: usize = 500;
-
-/// Drops up to [`SESSION_SWEEP_BATCH`] expired session rows on successful login.
-pub(super) async fn sweep_expired_sessions(cx: &Cx) -> topcoat::Result<()> {
-    let now = Timestamp::now();
-    let mut db = crate::db::db(cx)?;
-    let expired: Vec<String> = AuthSession::filter(AuthSession::fields().expires_at().le(now))
-        .limit(SESSION_SWEEP_BATCH)
-        .exec(&mut db)
-        .await
-        .map_err(infrastructure_failure)?
-        .into_iter()
-        .map(|row| row.token_hash)
-        .collect();
-    if expired.is_empty() {
-        return Ok(());
-    }
-    // The expiry is re-checked: the select and the delete are two statements.
-    AuthSession::filter(
-        AuthSession::fields()
-            .token_hash()
-            .in_list(expired)
-            .and(AuthSession::fields().expires_at().le(now)),
-    )
-    .delete()
-    .exec(&mut db)
-    .await
-    .map_err(infrastructure_failure)?;
-    Ok(())
-}
-
 /// Returns the live session row the request presents to `panel`, purging it when expired and
 /// reading nothing when `panel`'s cookie is absent. A token moved over from another panel's cookie
 /// finds no row here, since a row serves only the panel that issued it.
-pub(super) async fn session_row(cx: &Cx, panel: &Realm) -> topcoat::Result<Option<AuthSession>> {
+///
+/// `activity` says whether the request counts against the panel's
+/// [`idle_timeout`](Sessions::idle_timeout): one that does moves the row's end forward.
+pub(super) async fn session_row(
+    cx: &Cx,
+    panel: &Realm,
+    activity: Activity,
+) -> topcoat::Result<Option<AuthSession>> {
     let Some(hash) = token_hash(cx, panel).await? else {
         return Ok(None);
     };
@@ -497,14 +482,42 @@ pub(super) async fn session_row(cx: &Cx, panel: &Realm) -> topcoat::Result<Optio
         .exec(&mut db)
         .await
         .map_err(infrastructure_failure)?;
-    let Some(row) = row else {
+    let Some(mut row) = row else {
         return Ok(None);
     };
-    if row.expires_at <= Timestamp::now() {
-        delete_session_row(cx, &row.token_hash).await?;
+    let end = match panel.auth.sessions.check(&row, Timestamp::now()) {
+        Standing::Ended => {
+            delete_session_row(cx, &row.token_hash).await?;
+            return Ok(None);
+        }
+        Standing::Live(end) => end,
+    };
+    if row.panel != panel.prefix {
         return Ok(None);
     }
-    Ok((row.panel == panel.prefix).then_some(row))
+    if let (Activity::Counts, Some(end)) = (activity, end) {
+        AuthSession::filter(
+            AuthSession::fields()
+                .token_hash()
+                .eq(row.token_hash.clone()),
+        )
+        .update()
+        .expires_at(end)
+        .exec(&mut db)
+        .await
+        .map_err(infrastructure_failure)?;
+        row.expires_at = end;
+    }
+    Ok(Some(row))
+}
+
+/// Whether a request that presents a session counts as its user being there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Activity {
+    /// A request the user's browser sends: it moves an idle timeout's end.
+    Counts,
+    /// A look at the session from a connection already open, which proves no one is there.
+    Ignored,
 }
 
 /// Resolves `row` to its user, purging the row when the user no longer authenticates.
@@ -549,8 +562,9 @@ pub(super) async fn resolve(
     cx: &Cx,
     panel: &Arc<Realm>,
     authenticator: &dyn DynAuthenticator,
+    activity: Activity,
 ) -> topcoat::Result<Option<SignedIn>> {
-    match session_row(cx, panel).await? {
+    match session_row(cx, panel, activity).await? {
         Some(row) => session_user(cx, row, panel, authenticator).await,
         None => Ok(None),
     }

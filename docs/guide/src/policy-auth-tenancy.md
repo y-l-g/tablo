@@ -199,7 +199,10 @@ without a session only when every panel is gated.
   ([Security](./security.md#authentication)). [`PasswordAuth`](https://y-l.fr/tablo/nightly/api/tablo/struct.PasswordAuth.html) has
   the details, and what to do about rows stored with capitals.
 - **Sessions** are rows in `AuthSession`, valid for seven days, and each belongs to the panel that
-  signed the user in: a user signed in to `/admin` is anonymous on `/portal`.
+  signed the user in: a user signed in to `/admin` is anonymous on `/portal`. A back office
+  usually wants less: `Auth::sessions(Sessions::new().lifetime(..).idle_timeout(..))` shortens
+  the lifetime and ends a session nobody uses
+  ([`Sessions`](https://y-l.fr/tablo/nightly/api/tablo/struct.Sessions.html)).
   [`AuthSession`](https://y-l.fr/tablo/nightly/api/tablo/auth/struct.AuthSession.html) has the rules and the columns it needs.
 - **Revoking.** Call `auth::revoke_sessions_for_user(cx, user_id)` when a user's password changes
   or their account is deactivated; otherwise existing sessions stay valid until they expire.
