@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(auth)* record a stop when a user signs out while acting as another ([#985](https://github.com/y-l-g/tablo/pull/985))
 - *(auth)* require a second factor of the users a rule names ([#984](https://github.com/y-l-g/tablo/pull/984))
 
+### Migrations
+
+- `tablo::models!` now registers `AuthThrottle`: add its table.
+
 ## [0.9.0](https://github.com/y-l-g/tablo/compare/v0.8.0...v0.9.0) - 2026-11-09
 
 ### Added
@@ -150,6 +154,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Follow-ups from a review of #885–#896 ([#902](https://github.com/y-l-g/tablo/pull/902))
 
+### Migrations
+
+- `tablo::models!` now registers `AuditEntry`: add its table.
+- `AuthSession` gains nullable `impersonating` and `impersonating_until` columns: add them.
+
 ## [0.8.0](https://github.com/y-l-g/tablo/compare/v0.7.0...v0.8.0) - 2026-10-25
 
 ### Added
@@ -274,6 +283,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(panel)* [**breaking**] keep the theme in one Tablo-named cookie ([#642](https://github.com/y-l-g/tablo/pull/642))
 - *(ui)* close a select's list on Escape without closing its dialog ([#681](https://github.com/y-l-g/tablo/pull/681))
 - *(ui)* keep a searchable select's server matches in its list ([#679](https://github.com/y-l-g/tablo/pull/679))
+
+### Migrations
+
+- `tablo::models!` now registers `AuthToken`, `AuthFactor`, `ColumnPreference` and `StoredNotification`: add their tables.
+- `AdminUser` gains a nullable `email_verified_at` column: add it.
 
 ## [0.7.0](https://github.com/y-l-g/tablo/compare/v0.6.0...v0.7.0) - 2026-10-14
 
