@@ -62,7 +62,7 @@ features. release-plz takes the bump from the commits, so a breaking commit need
 
 ## Toolchain and dependencies
 
-- The MSRV is the workspace `rust-version`, 1.99. Every crate inherits it, so cargo refuses to build
+- The MSRV is the workspace `rust-version`, 1.100. Every crate inherits it, so cargo refuses to build
   one with an older compiler. `rust-toolchain.toml` pins the same toolchain for local and CI builds,
   so CI tests the MSRV rather than the newest compiler. Move both in one PR.
 - CI builds the workspace with `--locked`, so a dependency change commits its `Cargo.lock` change

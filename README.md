@@ -12,7 +12,7 @@ Try the live demo at [demo.tablo.y-l.fr](https://demo.tablo.y-l.fr).
 
 ## Quick start
 
-Tablo needs Rust 1.99 or newer; every crate declares that as its `rust-version`.
+Tablo needs Rust 1.100 or newer; every crate declares that as its `rust-version`.
 
 Run the showcase, a blog's admin panel that exercises every feature, through the Topcoat CLI:
 
