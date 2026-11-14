@@ -12,7 +12,7 @@
       "matchStrings": [
         "cargo install (?<depName>[a-z0-9-]+) --version (?<currentValue>\\d+\\.\\d+\\.\\d+)",
         "key: (?<depName>topcoat-cli)-(?<currentValue>\\d+\\.\\d+\\.\\d+)",
-        "(?<depName>mdbook(?:-linkcheck2)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+        "(?<depName>mdbook(?:-linkcheck2)?|cargo-deny)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"
       ],
       "datasourceTemplate": "crate"
     }

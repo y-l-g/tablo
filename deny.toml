@@ -1,0 +1,44 @@
+# What `cargo deny check` holds the lockfile to; `.github/workflows/deny.yml` runs it.
+
+[graph]
+all-features = true
+
+# A vulnerability or an unsound crate anywhere in the graph fails the check.
+[advisories]
+# An unmaintained crate fails only as a direct dependency: one further down is its parent's to drop.
+unmaintained = "workspace"
+yanked = "deny"
+ignore = [
+    { id = "RUSTSEC-2026-0459", reason = "bundled SQLite through toasty-driver-sqlite's rusqlite 0.40; the fix is rusqlite 0.41, which Toasty picks. Local vector: it needs a crafted database and WAL pair, and Tablo opens the app's own database" },
+    { id = "RUSTSEC-2023-0071", reason = "rsa through toasty-driver-mysql's sqlx-mysql, which pins a 0.10 release candidate; the fix is rsa 0.10.0. It signs nothing here: the MySQL client encrypts a password with the server's public key" },
+]
+
+[licenses]
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.8
+
+# The unpublished workspace crates carry no license field.
+[licenses.private]
+ignore = true
+
+[bans]
+# The lockfile carries duplicates through upstream crates, `syn` 2 and 3 among them.
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+# Crates come from crates.io alone: a git or alternate-registry source fails the check.
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
