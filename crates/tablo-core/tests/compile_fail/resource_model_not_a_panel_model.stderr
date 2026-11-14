@@ -18,6 +18,8 @@ help: the trait `PanelModel` is implemented for `AdminUser`
 note: required by a bound in `tablo_core::Resource::Model`
   --> src/resource.rs
    |
+   | pub trait Resource: Sized + Send + Sync + 'static {
+...
    |     type Model: crate::PanelModel
    |                 ^^^^^^^^^^^^^^^^^ required by this bound in `Resource::Model`
    = note: this error originates in the derive macro `crate::PanelModel` (in Nightly builds, run with -Z macro-backtrace for more info)

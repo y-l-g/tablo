@@ -17,8 +17,9 @@ help: the following other types implement trait `TenantColumn`
 note: required by a bound in `tablo_core::Tenancy::<M>::column`
   --> src/tenancy.rs
    |
+   | impl<M: toasty::schema::Model + 'static> Tenancy<M> {
+...
    |     pub fn column<T>(lens: impl Into<Path<M, T>>) -> Self
-   |            ------ required by a bound in this associated function
    |     where
    |         T: TenantColumn,
    |            ^^^^^^^^^^^^ required by this bound in `Tenancy::<M>::column`

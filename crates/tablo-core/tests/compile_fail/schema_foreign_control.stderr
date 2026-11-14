@@ -22,6 +22,8 @@ help: the trait `IntoSchema<UserForm>` is not implemented for `TextField`
 note: required by a bound in `tablo_core::Schema::<F>::new`
   --> src/schema.rs
    |
+   | impl<F> Schema<F> {
+...
    |     pub fn new(children: impl IntoSchema<F>) -> Self {
    |                               ^^^^^^^^^^^^^ required by this bound in `Schema::<F>::new`
    = note: this error originates in the macro `base_modifiers` which comes from the expansion of the macro `common_modifiers` (in Nightly builds, run with -Z macro-backtrace for more info)

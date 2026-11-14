@@ -17,8 +17,9 @@ error[E0277]: the trait bound `toasty::stmt::List<std::string::String>: IntoExpr
 note: required by a bound in `tablo_core::Field::text`
  --> src/schema/fields.rs
   |
+  | impl Field {
+...
   |     pub fn text<M, T>(lens: impl Into<Path<M, T>>) -> TextField
-  |            ---- required by a bound in this associated function
 ...
   |         T: FormScalar + toasty::stmt::IntoExpr<T> + 'static,
   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `Field::text`
@@ -46,8 +47,9 @@ error[E0277]: `toasty::stmt::List<std::string::String>` is not a form scalar
 note: required by a bound in `tablo_core::Field::text`
  --> src/schema/fields.rs
   |
+  | impl Field {
+...
   |     pub fn text<M, T>(lens: impl Into<Path<M, T>>) -> TextField
-  |            ---- required by a bound in this associated function
 ...
   |         T: FormScalar + toasty::stmt::IntoExpr<T> + 'static,
   |            ^^^^^^^^^^ required by this bound in `Field::text`

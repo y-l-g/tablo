@@ -14,7 +14,6 @@ note: required by a bound in `tablo_core::__macro::embedded_field`
   --> src/schema/embedded.rs
    |
    | pub fn embedded_field<M, T, K>(
-   |        -------------- required by a bound in this function
 ...
    |     T: EmbeddedForm,
    |        ^^^^^^^^^^^^ required by this bound in `embedded_field`

@@ -11,5 +11,7 @@ error[E0277]: expected an `FnOnce(_)` closure, found `&str`
 note: required by a bound in `WriteError::<F>::field`
   --> src/resource/write_error.rs
    |
+   | impl<F: FormFields> WriteError<F> {
+   |     /// Refuse the submission with `message` under `field`: `WriteError::field(|f| f.room, ..)`.
    |     pub fn field(pick: impl FnOnce(F::Keys) -> F::Field, message: impl Into<crate::Text>) -> Self {
    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `WriteError::<F>::field`
