@@ -264,3 +264,86 @@ async fn a_hook_reads_the_event() {
         .await;
     assert_eq!(refused.status(), 403);
 }
+
+/// Members of tenants and the notes they keep, as a tenant app's panels sign them in.
+mod tenants {
+    use tablo::{
+        Auth, NoForm, Panel, ReadOnly, Resource, ResourceDef, RouterBuilderPanelExt, Tenancy,
+        TenantId,
+        audit::{AuditEntry, PanelAuditExt},
+        auth::AuthSession,
+        testing::TestClient,
+    };
+    use toasty::Db;
+    use topcoat::router::{Router, RouterBuilderDiscoverExt};
+
+    use crate::common::{
+        members::{Member, MemberAuth, Note, NoteResource, Seat, member},
+        test_db,
+    };
+
+    /// Every tenant's notes, as a back office reads them.
+    struct AllNotes;
+
+    impl Resource for AllNotes {
+        type Model = Note;
+        type Form = NoForm<Note>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().policy(ReadOnly).tenancy(Tenancy::none())
+        }
+    }
+
+    async fn db() -> Db {
+        test_db(toasty::models!(Member, Seat, Note, AuthSession, AuditEntry)).await
+    }
+
+    /// The `admin` panel signing members in, with its trail, as `customize` leaves it.
+    fn router(db: Db, customize: impl FnOnce(Panel) -> Panel) -> Router {
+        let panel = Panel::new("admin")
+            .auth(Auth::custom(MemberAuth))
+            .audit_trail();
+        let mut builder = Router::builder().discover().with(db);
+        builder.panel(customize(panel)).unwrap();
+        builder.build()
+    }
+
+    /// Signs `name`, who holds a seat in each of `tenants`, in and out; the tenant the sign-out's
+    /// entry names, and the tenants the member holds.
+    async fn sign_out_tenant(
+        customize: impl FnOnce(Panel) -> Panel,
+        tenants: &[&str],
+    ) -> (Option<TenantId>, Vec<TenantId>) {
+        let db = db().await;
+        let ada = member(&db, "Ada", tenants).await;
+        let router = router(db.clone(), customize);
+        let client = TestClient::new(&router).sign_in(&db, "admin", &ada).await;
+        assert_eq!(client.submit("/admin/logout", "").await.status(), 303);
+        let entries = AuditEntry::all().exec(&mut db.clone()).await.unwrap();
+        assert_eq!(entries.len(), 1, "{entries:?}");
+        assert_eq!(entries[0].event, "sign_out");
+        let held = ada.tenants.iter().map(|m| m.tenant).collect();
+        (entries[0].tenant, held)
+    }
+
+    /// A member who never picked a tenant acts for their first, and their own account's events
+    /// name it, as the writes they make there do.
+    #[tokio::test]
+    async fn an_event_names_the_tenant_the_member_acts_for() {
+        let (tenant, held) = sign_out_tenant(
+            |panel| panel.resource::<NoteResource>(),
+            &["Acme", "Globex"],
+        )
+        .await;
+        assert_eq!(tenant, Some(held[0]));
+    }
+
+    /// A panel that serves every tenant's rows, through `Tenancy::none()` over a tenant column,
+    /// acts for none of its members' tenants: its trail files nothing under the staff's own.
+    #[tokio::test]
+    async fn a_panel_serving_every_tenant_files_its_events_under_none() {
+        let (tenant, _) =
+            sign_out_tenant(|panel| panel.resource::<AllNotes>(), &["Acme", "Globex"]).await;
+        assert_eq!(tenant, None);
+    }
+}

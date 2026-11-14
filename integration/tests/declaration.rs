@@ -930,6 +930,15 @@ async fn a_mount_refuses_each_misdeclaration() {
             mounted(panel().resource::<ScopedParents>().resource::<OpenDocs>()),
         ),
         (
+            // Serving every tenant's rows, the panel acts for no tenant.
+            "no tenancy beside `Tenancy::none` over tenant-owned rows",
+            mounted(
+                panel()
+                    .resource::<OpenParents>()
+                    .resource::<UndeclaredDocs>(),
+            ),
+        ),
+        (
             "`Tenancy::via` through a relation",
             mounted(panel().resource::<Inherited>()),
         ),

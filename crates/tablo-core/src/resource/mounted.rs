@@ -362,12 +362,15 @@ impl<R: Resource> Mounted<R> {
 }
 
 /// The resources one panel mounted, by resource type, the models whose rows belong to a tenant:
-/// a resource over one is tenant-scoped, or the model has a tenant column, and the field rules
-/// the resources declare, by model.
+/// a resource over one is tenant-scoped, or the model has a tenant column, whether a resource is
+/// tenant-scoped, and the field rules the resources declare, by model.
 #[derive(Default)]
 pub(crate) struct Mounts {
     resources: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
     tenant_models: std::collections::HashSet<crate::toasty_compat::model::ModelId>,
+    /// Whether a mounted resource is tenant-scoped. One that declares `Tenancy::none()` over a
+    /// tenant column serves every tenant, as a back office does, and needs no tenant to act for.
+    scopes_tenants: bool,
     /// Every mounted resource's field rules, by the model they restrict: a rule restricts its
     /// field for every resource over that model.
     field_rules: HashMap<crate::toasty_compat::model::ModelId, Vec<super::FieldRule>>,
@@ -375,6 +378,7 @@ pub(crate) struct Mounts {
 
 impl Mounts {
     pub(crate) fn insert<R: Resource>(&mut self, mounted: Arc<Mounted<R>>) {
+        self.scopes_tenants |= mounted.tenancy.is_scoped();
         if mounted.tenancy.is_scoped()
             || !<R::Model as crate::PanelModel>::TENANT_COLUMNS.is_empty()
         {
@@ -393,9 +397,9 @@ impl Mounts {
         self.tenant_models.contains(&model)
     }
 
-    /// Whether a mounted resource serves tenant-owned rows.
-    pub(crate) fn has_tenant_models(&self) -> bool {
-        !self.tenant_models.is_empty()
+    /// Whether a mounted resource is tenant-scoped.
+    pub(crate) fn scopes_tenants(&self) -> bool {
+        self.scopes_tenants
     }
 
     /// The field rules every mounted resource over `model` declares.

@@ -85,7 +85,7 @@ pub(crate) fn check_resource<R: Resource>(cx: &Cx, errors: &mut Vec<DeclarationE
 }
 
 /// Marks the declaration check of a panel that acts for tenants: it offers a tenant registration
-/// or settings page, or mounts a resource over tenant-owned rows.
+/// or settings page, or mounts a tenant-scoped resource.
 #[derive(Clone, Copy)]
 pub(crate) struct ServesTenants;
 

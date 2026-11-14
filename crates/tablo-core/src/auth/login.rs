@@ -285,7 +285,7 @@ pub(super) fn logout_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
             let tenant = signed
                 .impersonator
                 .is_none()
-                .then_some(signed.tenant)
+                .then(|| signed.acting_tenant(cx))
                 .flatten();
             let event = AuthEvent::own(AuthEventKind::SignOut, &signed.realm.id, tenant, user);
             super::hook::note(cx, &signed.realm, &event).await;

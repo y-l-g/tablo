@@ -404,7 +404,9 @@ pub(super) fn confirm_post(cx: &Cx, body: Body) -> RouteFuture<'_> {
                 .map_err(infrastructure_failure)?;
             let kind = AuthEventKind::EmailChanged;
             let event = match &signed {
-                Some(signed) => AuthEvent::own(kind, &panel.id, signed.tenant, &*signed.user),
+                Some(signed) => {
+                    AuthEvent::own(kind, &panel.id, signed.acting_tenant(cx), &*signed.user)
+                }
                 None => AuthEvent::unsigned(kind, &panel.id, Some(&row.user_id)),
             };
             super::hook::run(cx, &panel.auth_hooks, &event, tx).await?;

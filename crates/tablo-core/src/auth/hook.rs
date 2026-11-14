@@ -262,6 +262,11 @@ pub(crate) async fn run_own(
     kind: AuthEventKind<'_>,
     ex: &mut dyn Executor,
 ) -> Result<()> {
-    let event = AuthEvent::own(kind, &signed.realm.id, signed.tenant, &*signed.user);
+    let event = AuthEvent::own(
+        kind,
+        &signed.realm.id,
+        signed.acting_tenant(cx),
+        &*signed.user,
+    );
     run(cx, &signed.realm.auth_hooks, &event, ex).await
 }
