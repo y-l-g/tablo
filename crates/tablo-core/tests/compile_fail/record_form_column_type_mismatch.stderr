@@ -61,7 +61,6 @@ note: required by a bound in `UserCreate::age`
    |                        ^^^^^^^^^^^^^ required by this bound in `UserCreate::age`
 ...
  7 |     age: i64,
-   |     --- required by a bound in this associated function
    = note: this error originates in the macro `impl_into_expr_for_copy` which comes from the expansion of the derive macro `toasty::Model` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `i32: Assign<i64>` is not satisfied
@@ -95,5 +94,4 @@ note: required by a bound in `UserUpdate::<__toasty_T>::set_age`
    |                        ^^^^^^^^^^^^^ required by this bound in `UserUpdate::<__toasty_T>::set_age`
 ...
  7 |     age: i64,
-   |     --- required by a bound in this associated function
    = note: this error originates in the derive macro `tablo_core::RecordForm` which comes from the expansion of the derive macro `toasty::Model` (in Nightly builds, run with -Z macro-backtrace for more info)

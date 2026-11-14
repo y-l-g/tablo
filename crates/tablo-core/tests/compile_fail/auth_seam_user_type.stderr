@@ -9,6 +9,8 @@ error[E0271]: type mismatch resolving `<PasswordSignUp as Registrar>::User == St
 note: required by a bound in `Auth::<U>::registration`
   --> src/auth/config.rs
    |
+   | impl<U: PanelUser> Auth<U> {
+...
    |     pub fn registration(mut self, registrar: impl Registrar<User = U>) -> Self {
    |                                                             ^^^^^^^^ required by this bound in `Auth::<U>::registration`
 
@@ -23,6 +25,8 @@ error[E0271]: type mismatch resolving `<PasswordAuth as ProfileEditor>::User == 
 note: required by a bound in `Auth::<U>::profile`
   --> src/auth/config.rs
    |
+   | impl<U: PanelUser> Auth<U> {
+...
    |     pub fn profile(mut self, editor: impl ProfileEditor<User = U>) -> Self {
    |                                                         ^^^^^^^^ required by this bound in `Auth::<U>::profile`
 
