@@ -94,7 +94,7 @@ pub trait PanelUser: Any + Send + Sync {
     /// until the user selects another. Defaults to none: the user has no tenant.
     ///
     /// A panel acts for tenants when it offers a tenant registration or settings page, or mounts
-    /// a resource over tenant-owned rows. Any other acts for no tenant:
+    /// a tenant-scoped resource. Any other acts for no tenant:
     /// [`tenant_id`](crate::tenant_id) answers `None` there, and the panel offers no tenant
     /// menu and no route to switch.
     ///

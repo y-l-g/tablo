@@ -33,10 +33,13 @@ intent. The derive recognizes the field by its type's name, `TenantId`, so an al
 unseen, as it does for `ModelForm`.
 
 On a panel that acts for tenants (it offers a tenant registration or settings page, or mounts a
-resource over tenant-owned rows) every resource declares its tenancy, or the panel does not mount.
+tenant-scoped resource) every resource declares its tenancy, or the panel does not mount.
 There the column check misses what matters most: a table whose tenant key is a plain `Uuid`, or
 the panel's own users, which serve every tenant's rows to each tenant's members. A resource that
-means it says `Tenancy::none()`; on a panel without tenants none has to.
+means it says `Tenancy::none()`; on a panel without tenants none has to. A resource that declares
+`Tenancy::none()` over tenant-owned rows does not make its panel act for tenants: it serves every
+tenant, as a back office does, and a tenant the panel acted for would file the back office's
+audit entries under its staff's own tenants.
 
 The tenant column is typed `TenantId` (or `Option<TenantId>`), and a tenancy lens must name a
 field implementing `TenantColumn`. The type is the only thing that tells a tenant column apart

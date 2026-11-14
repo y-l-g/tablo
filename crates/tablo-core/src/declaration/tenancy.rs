@@ -28,7 +28,7 @@ pub enum TenancyFault {
         relation: String,
     },
     /// No tenancy declared on a panel that acts for tenants: it offers a tenant registration or
-    /// settings page, or mounts a resource over tenant-owned rows.
+    /// settings page, or mounts a tenant-scoped resource.
     ///
     /// Declare `Tenancy::column` or `Tenancy::via`, or `Tenancy::none()` to serve every tenant.
     UndeclaredOnTenantPanel {

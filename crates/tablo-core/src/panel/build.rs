@@ -420,11 +420,12 @@ impl Registry {
 }
 
 /// Whether a panel with `auth` and `mounts` acts for tenants: it offers a tenant registration or
-/// settings page, or mounts a resource over tenant-owned rows.
+/// settings page, or mounts a tenant-scoped resource. A resource that declares `Tenancy::none()`
+/// over tenant-owned rows serves every tenant, so it makes no tenant the panel's.
 fn serves_tenants(auth: &crate::auth::AuthConfig, mounts: &Mounts) -> bool {
     auth.tenant_registration_page().is_some()
         || auth.tenant_editor().is_some()
-        || mounts.has_tenant_models()
+        || mounts.scopes_tenants()
 }
 
 /// What refuses a panel at `prefix` before its resources are checked.

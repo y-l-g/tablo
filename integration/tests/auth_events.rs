@@ -268,7 +268,8 @@ async fn a_hook_reads_the_event() {
 /// Members of tenants and the notes they keep, as a tenant app's panels sign them in.
 mod tenants {
     use tablo::{
-        Auth, Panel, RouterBuilderPanelExt, TenantId,
+        Auth, NoForm, Panel, ReadOnly, Resource, ResourceDef, RouterBuilderPanelExt, Tenancy,
+        TenantId,
         audit::{AuditEntry, PanelAuditExt},
         auth::AuthSession,
         testing::TestClient,
@@ -280,6 +281,18 @@ mod tenants {
         members::{Member, MemberAuth, Note, NoteResource, Seat, member},
         test_db,
     };
+
+    /// Every tenant's notes, as a back office reads them.
+    struct AllNotes;
+
+    impl Resource for AllNotes {
+        type Model = Note;
+        type Form = NoForm<Note>;
+
+        fn declare() -> ResourceDef<Self> {
+            ResourceDef::new().policy(ReadOnly).tenancy(Tenancy::none())
+        }
+    }
 
     async fn db() -> Db {
         test_db(toasty::models!(Member, Seat, Note, AuthSession, AuditEntry)).await
@@ -323,5 +336,14 @@ mod tenants {
         )
         .await;
         assert_eq!(tenant, Some(held[0]));
+    }
+
+    /// A panel that serves every tenant's rows, through `Tenancy::none()` over a tenant column,
+    /// acts for none of its members' tenants: its trail files nothing under the staff's own.
+    #[tokio::test]
+    async fn a_panel_serving_every_tenant_files_its_events_under_none() {
+        let (tenant, _) =
+            sign_out_tenant(|panel| panel.resource::<AllNotes>(), &["Acme", "Globex"]).await;
+        assert_eq!(tenant, None);
     }
 }
