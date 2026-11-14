@@ -8,6 +8,7 @@ use std::{
 };
 
 use percent_encoding::percent_decode_str;
+use topcoat::context::Cx;
 
 use crate::{
     BoxFuture,
@@ -26,6 +27,11 @@ pub(crate) use self::body::{Capture, FormParts, parse_body, parse_file_body};
 
 /// Stores one uploaded file and names the value a record stores; installed once
 /// per panel with [`Panel::uploads`](crate::Panel::uploads).
+///
+/// Each method takes the request it serves, so a store reads who asks: an uploader that keeps
+/// tenants apart names each file under [`tenant_id(cx)`](crate::tenant_id), and answers
+/// [`holds`](Self::holds) only for a path under the request's tenant, so no record of one tenant
+/// stores, carries or deletes another's file.
 ///
 /// `filename` arrives sanitized to a non-empty basename without directories or
 /// control characters; `bytes` are bounded by the panel's
@@ -68,6 +74,7 @@ pub trait Uploader: Send + Sync + 'static {
     /// inside the field's inline error, so it must be user-actionable.
     fn store(
         &self,
+        cx: &Cx,
         filename: &str,
         bytes: &[u8],
     ) -> impl Future<Output = Result<String, String>> + Send;
@@ -78,9 +85,9 @@ pub trait Uploader: Send + Sync + 'static {
     /// A file field carries a refused submission's pending upload back through a hidden
     /// `keep_<field>`, so this is what decides which paths a record may point at: a store that
     /// answers `true` for a file it never wrote lets a forged carry point the record at it.
-    fn holds(&self, path: &str) -> impl Future<Output = bool> + Send {
+    fn holds(&self, cx: &Cx, path: &str) -> impl Future<Output = bool> + Send {
         async move {
-            let _ = path;
+            let _ = (cx, path);
             false
         }
     }
@@ -94,7 +101,7 @@ pub trait Uploader: Send + Sync + 'static {
     ///
     /// It has no default: an uploader wrapping another forwards it, or the inner one deletes the
     /// files of saved records. A store that deletes nothing answers `Ok(())`.
-    fn keep(&self, path: &str) -> impl Future<Output = Result<(), String>> + Send;
+    fn keep(&self, cx: &Cx, path: &str) -> impl Future<Output = Result<(), String>> + Send;
 
     /// Deletes the file at `path`, which a committed write no longer stores; the default keeps
     /// every file.
@@ -104,9 +111,9 @@ pub trait Uploader: Send + Sync + 'static {
     /// (a soft delete keeps them until the force delete), and a file field's previous file when
     /// an edit clears or replaces it. An `Err(reason)` is logged; the write stands. A path two
     /// records share goes with the first that lets it go.
-    fn delete(&self, path: &str) -> impl Future<Output = Result<(), String>> + Send {
+    fn delete(&self, cx: &Cx, path: &str) -> impl Future<Output = Result<(), String>> + Send {
         async move {
-            let _ = path;
+            let _ = (cx, path);
             Ok(())
         }
     }
@@ -178,7 +185,7 @@ impl DirUploader {
 }
 
 impl Uploader for DirUploader {
-    async fn store(&self, filename: &str, bytes: &[u8]) -> Result<String, String> {
+    async fn store(&self, _cx: &Cx, filename: &str, bytes: &[u8]) -> Result<String, String> {
         let basename = sanitize_filename(filename);
         let mut cut = basename.len().saturating_sub(MAX_STORED_BASENAME);
         while !basename.is_char_boundary(cut) {
@@ -211,7 +218,7 @@ impl Uploader for DirUploader {
     /// Whether the directory holds the file a URL `store` returned names. The name `store` writes
     /// is the check, since the directory keeps no index of what it wrote: a file whose name it
     /// would not write is not held.
-    async fn holds(&self, path: &str) -> bool {
+    async fn holds(&self, _cx: &Cx, path: &str) -> bool {
         let Some(name) = self.file_name(path) else {
             return false;
         };
@@ -224,7 +231,7 @@ impl Uploader for DirUploader {
     }
 
     /// Drops the pending mark of the file a URL `store` returned names.
-    async fn keep(&self, path: &str) -> Result<(), String> {
+    async fn keep(&self, _cx: &Cx, path: &str) -> Result<(), String> {
         match self.file_name(path).filter(|name| is_stored_name(name)) {
             Some(name) => pending::keep(&self.dir, &name)
                 .await
@@ -235,7 +242,7 @@ impl Uploader for DirUploader {
 
     /// Removes the file a URL `store` returned names, and its pending mark; a file already gone
     /// is no error.
-    async fn delete(&self, path: &str) -> Result<(), String> {
+    async fn delete(&self, _cx: &Cx, path: &str) -> Result<(), String> {
         let Some(name) = self.file_name(path).filter(|name| is_stored_name(name)) else {
             return Ok(());
         };
@@ -332,40 +339,42 @@ impl InstalledUploader {
 pub(crate) trait DynUploader: Send + Sync {
     fn store<'a>(
         &'a self,
+        cx: &'a Cx,
         filename: &'a str,
         bytes: &'a [u8],
     ) -> BoxFuture<'a, Result<String, String>>;
-    fn holds<'a>(&'a self, path: &'a str) -> BoxFuture<'a, bool>;
-    fn keep<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<(), String>>;
-    fn delete<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<(), String>>;
+    fn holds<'a>(&'a self, cx: &'a Cx, path: &'a str) -> BoxFuture<'a, bool>;
+    fn keep<'a>(&'a self, cx: &'a Cx, path: &'a str) -> BoxFuture<'a, Result<(), String>>;
+    fn delete<'a>(&'a self, cx: &'a Cx, path: &'a str) -> BoxFuture<'a, Result<(), String>>;
 }
 
 impl<U: Uploader> DynUploader for U {
     fn store<'a>(
         &'a self,
+        cx: &'a Cx,
         filename: &'a str,
         bytes: &'a [u8],
     ) -> BoxFuture<'a, Result<String, String>> {
-        Box::pin(Uploader::store(self, filename, bytes))
+        Box::pin(Uploader::store(self, cx, filename, bytes))
     }
 
-    fn holds<'a>(&'a self, path: &'a str) -> BoxFuture<'a, bool> {
-        Box::pin(Uploader::holds(self, path))
+    fn holds<'a>(&'a self, cx: &'a Cx, path: &'a str) -> BoxFuture<'a, bool> {
+        Box::pin(Uploader::holds(self, cx, path))
     }
 
-    fn keep<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<(), String>> {
-        Box::pin(Uploader::keep(self, path))
+    fn keep<'a>(&'a self, cx: &'a Cx, path: &'a str) -> BoxFuture<'a, Result<(), String>> {
+        Box::pin(Uploader::keep(self, cx, path))
     }
 
-    fn delete<'a>(&'a self, path: &'a str) -> BoxFuture<'a, Result<(), String>> {
-        Box::pin(Uploader::delete(self, path))
+    fn delete<'a>(&'a self, cx: &'a Cx, path: &'a str) -> BoxFuture<'a, Result<(), String>> {
+        Box::pin(Uploader::delete(self, cx, path))
     }
 }
 
 /// Whether `uploader`, a panel's installed one, still holds `path`; `false` without one.
-pub(crate) async fn holds(uploader: Option<&InstalledUploader>, path: &str) -> bool {
+pub(crate) async fn holds(cx: &Cx, uploader: Option<&InstalledUploader>, path: &str) -> bool {
     match uploader {
-        Some(uploader) => uploader.0.holds(path).await,
+        Some(uploader) => uploader.0.holds(cx, path).await,
         None => false,
     }
 }
@@ -392,6 +401,7 @@ fn stored_paths<'a>(values: &'a FormValues, name: &str) -> Vec<&'a str> {
 ///
 /// The reason the uploader could not keep a path, for the write to fail on.
 pub(crate) async fn keep(
+    cx: &Cx,
     uploader: Option<&InstalledUploader>,
     schema: &Schema,
     before: Option<&FormValues>,
@@ -404,11 +414,11 @@ pub(crate) async fn keep(
         let stored = before.map(|before| stored_paths(before, field.name()));
         for path in stored_paths(after, field.name()) {
             if stored.as_ref().is_some_and(|stored| stored.contains(&path))
-                || !uploader.holds(path).await
+                || !uploader.holds(cx, path).await
             {
                 continue;
             }
-            uploader.keep(path).await?;
+            uploader.keep(cx, path).await?;
         }
     }
     Ok(())
@@ -418,6 +428,7 @@ pub(crate) async fn keep(
 /// store in `after`, or every one when `after` is `None`; only a path the uploader holds, and each
 /// path once.
 pub(crate) async fn discard(
+    cx: &Cx,
     uploader: Option<&InstalledUploader>,
     schema: &Schema,
     before: &[FormValues],
@@ -438,10 +449,10 @@ pub(crate) async fn discard(
         }
     }
     for path in gone {
-        if !uploader.holds(&path).await {
+        if !uploader.holds(cx, &path).await {
             continue;
         }
-        if let Err(reason) = uploader.delete(&path).await {
+        if let Err(reason) = uploader.delete(cx, &path).await {
             tracing::error!(path, reason, "an upload the write let go was not deleted");
         }
     }
@@ -453,6 +464,7 @@ pub(crate) async fn discard(
 /// submitted value. A file list's value becomes the paths it stored, in the order the files
 /// posted, whether or not one failed. Call outside the write transaction.
 pub(crate) async fn store_uploads(
+    cx: &Cx,
     uploader: Option<&InstalledUploader>,
     schema: &Schema,
     files: &HashMap<String, Vec<StagedUpload>>,
@@ -500,7 +512,7 @@ pub(crate) async fn store_uploads(
             let stored_path = match refusal {
                 Some(refusal) => Err(refusal),
                 None => uploader
-                    .store(&staged.filename, &staged.bytes)
+                    .store(cx, &staged.filename, &staged.bytes)
                     .await
                     .map_err(|reason| {
                         crate::text!(

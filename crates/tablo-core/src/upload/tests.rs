@@ -1,4 +1,5 @@
 use super::{DirUploader, Uploader, is_windows_reserved_name, sanitize_filename};
+use crate::test_support::cx;
 
 #[test]
 fn a_filename_reduces_to_its_basename_and_drops_reserved_names() {
@@ -51,7 +52,10 @@ proptest::proptest! {
 async fn a_dir_uploader_holds_the_names_it_writes() {
     let dir = std::env::temp_dir().join(format!("tablo-dir-uploader-{}", uuid::Uuid::new_v4()));
     let uploader = DirUploader::new("/uploads/", &dir);
-    let path = uploader.store("my cover é.png", b"png").await.unwrap();
+    let path = uploader
+        .store(&cx(), "my cover é.png", b"png")
+        .await
+        .unwrap();
     let segment = path.strip_prefix("/uploads/").expect("under the prefix");
     assert!(
         segment.ends_with("-my%20cover%20%C3%A9.png"),
@@ -61,7 +65,7 @@ async fn a_dir_uploader_holds_the_names_it_writes() {
         .decode_utf8()
         .unwrap();
     assert_eq!(std::fs::read(dir.join(&*name)).unwrap(), b"png");
-    assert!(uploader.holds(&path).await);
+    assert!(uploader.holds(&cx(), &path).await);
 
     std::fs::write(dir.join("other.png"), b"x").unwrap();
     for refused in [
@@ -72,20 +76,20 @@ async fn a_dir_uploader_holds_the_names_it_writes() {
         "/uploads/..%2Fother.png",
         "/uploads/sub/other.png",
     ] {
-        assert!(!uploader.holds(refused).await, "{refused}");
+        assert!(!uploader.holds(&cx(), refused).await, "{refused}");
     }
     assert!(
-        !uploader.holds("/uploads/other%2Epng").await,
+        !uploader.holds(&cx(), "/uploads/other%2Epng").await,
         "a spelling store never returns"
     );
     assert!(
-        !uploader.holds("/uploads/other.png").await,
+        !uploader.holds(&cx(), "/uploads/other.png").await,
         "a file beside them, named by nobody, is not held"
     );
     let shaped = format!("{}-other.png", uuid::Uuid::new_v4());
     std::fs::write(dir.join(&shaped), b"x").unwrap();
     assert!(
-        uploader.holds(&format!("/uploads/{shaped}")).await,
+        uploader.holds(&cx(), &format!("/uploads/{shaped}")).await,
         "the name store writes is the check, not an index of what it wrote"
     );
     for unwritable in [
@@ -95,7 +99,9 @@ async fn a_dir_uploader_holds_the_names_it_writes() {
     ] {
         std::fs::write(dir.join(&unwritable), b"x").unwrap();
         assert!(
-            !uploader.holds(&format!("/uploads/{unwritable}")).await,
+            !uploader
+                .holds(&cx(), &format!("/uploads/{unwritable}"))
+                .await,
             "a name store would not write is not held: {unwritable}"
         );
     }
@@ -107,18 +113,18 @@ async fn a_dir_uploader_keeps_a_long_name_within_the_filesystem_limit() {
     let dir = std::env::temp_dir().join(format!("tablo-dir-uploader-{}", uuid::Uuid::new_v4()));
     let uploader = DirUploader::new("/uploads", &dir);
     let long = format!("{}.png", "é".repeat(200));
-    let path = uploader.store(&long, b"png").await.unwrap();
+    let path = uploader.store(&cx(), &long, b"png").await.unwrap();
     let segment = path.strip_prefix("/uploads/").unwrap();
     let name = percent_encoding::percent_decode_str(segment)
         .decode_utf8()
         .unwrap();
     assert!(name.len() <= 255, "{} bytes", name.len());
     assert!(name.ends_with("éé.png"), "the tail is kept: {name}");
-    assert!(uploader.holds(&path).await);
+    assert!(uploader.holds(&cx(), &path).await);
 
-    let bare = uploader.store("..", b"x").await.unwrap();
+    let bare = uploader.store(&cx(), "..", b"x").await.unwrap();
     assert!(
-        uploader.holds(&bare).await,
+        uploader.holds(&cx(), &bare).await,
         "a refused name stores as its UUID"
     );
     std::fs::remove_dir_all(&dir).unwrap();
@@ -139,9 +145,9 @@ async fn a_sweep_deletes_the_pending_files_and_keeps_the_kept_ones() {
     let dir = temp_dir();
     let uploader =
         DirUploader::new("/uploads", &dir).expire_pending(std::time::Duration::from_secs(3600));
-    let kept = uploader.store("kept.png", b"KEPT").await.unwrap();
-    let left = uploader.store("left.png", b"LEFT").await.unwrap();
-    uploader.keep(&kept).await.unwrap();
+    let kept = uploader.store(&cx(), "kept.png", b"KEPT").await.unwrap();
+    let left = uploader.store(&cx(), "left.png", b"LEFT").await.unwrap();
+    uploader.keep(&cx(), &kept).await.unwrap();
 
     super::pending::sweep(&dir, std::time::Duration::ZERO)
         .await
@@ -155,7 +161,7 @@ async fn a_sweep_keeps_a_pending_file_younger_than_its_age() {
     let dir = temp_dir();
     let uploader =
         DirUploader::new("/uploads", &dir).expire_pending(std::time::Duration::from_secs(3600));
-    let fresh = uploader.store("fresh.png", b"FRESH").await.unwrap();
+    let fresh = uploader.store(&cx(), "fresh.png", b"FRESH").await.unwrap();
     super::pending::sweep(&dir, std::time::Duration::from_secs(3600))
         .await
         .unwrap();
@@ -166,7 +172,7 @@ async fn a_sweep_keeps_a_pending_file_younger_than_its_age() {
 async fn without_expiry_nothing_is_pending() {
     let dir = temp_dir();
     let uploader = DirUploader::new("/uploads", &dir);
-    let stored = uploader.store("a.png", b"A").await.unwrap();
+    let stored = uploader.store(&cx(), "a.png", b"A").await.unwrap();
     super::pending::sweep(&dir, std::time::Duration::ZERO)
         .await
         .unwrap();
@@ -178,12 +184,12 @@ async fn a_keep_after_the_sweep_took_the_file_fails() {
     let dir = temp_dir();
     let uploader =
         DirUploader::new("/uploads", &dir).expire_pending(std::time::Duration::from_secs(3600));
-    let swept = uploader.store("swept.png", b"SWEPT").await.unwrap();
+    let swept = uploader.store(&cx(), "swept.png", b"SWEPT").await.unwrap();
     super::pending::sweep(&dir, std::time::Duration::ZERO)
         .await
         .unwrap();
     assert!(
-        uploader.keep(&swept).await.is_err(),
+        uploader.keep(&cx(), &swept).await.is_err(),
         "a write must not commit a path the sweep deleted"
     );
     std::fs::remove_dir_all(&dir).unwrap();
@@ -194,7 +200,7 @@ async fn a_sweep_finishes_a_claim_a_stopped_sweep_left() {
     let dir = temp_dir();
     let uploader =
         DirUploader::new("/uploads", &dir).expire_pending(std::time::Duration::from_secs(3600));
-    let stored = uploader.store("half.png", b"HALF").await.unwrap();
+    let stored = uploader.store(&cx(), "half.png", b"HALF").await.unwrap();
     let name = stored.strip_prefix("/uploads/").unwrap();
     std::fs::rename(
         dir.join(".pending").join(name),
@@ -202,7 +208,7 @@ async fn a_sweep_finishes_a_claim_a_stopped_sweep_left() {
     )
     .unwrap();
     assert!(
-        uploader.keep(&stored).await.is_err(),
+        uploader.keep(&cx(), &stored).await.is_err(),
         "a claimed file is not kept"
     );
     super::pending::sweep(&dir, std::time::Duration::from_secs(3600))

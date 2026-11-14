@@ -9,7 +9,7 @@ use tablo::{
     Allow, Auth, Panel, Resource, ResourceDef, Schema, Tab, Table, Tabs, TextColumn, Uploader, lens,
 };
 use toasty::Db;
-use topcoat::router::Router;
+use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, form_body, input_value, mount, test_db};
@@ -29,15 +29,15 @@ struct Customer {
 struct KeepAll;
 
 impl Uploader for KeepAll {
-    async fn keep(&self, _path: &str) -> Result<(), String> {
+    async fn keep(&self, _cx: &Cx, _path: &str) -> Result<(), String> {
         Ok(())
     }
 
-    async fn store(&self, filename: &str, _bytes: &[u8]) -> Result<String, String> {
+    async fn store(&self, _cx: &Cx, filename: &str, _bytes: &[u8]) -> Result<String, String> {
         Ok(format!("/uploads/{filename}"))
     }
 
-    async fn holds(&self, _path: &str) -> bool {
+    async fn holds(&self, _cx: &Cx, _path: &str) -> bool {
         true
     }
 }

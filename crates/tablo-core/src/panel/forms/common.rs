@@ -164,7 +164,10 @@ pub(super) async fn restore_pending_uploads(
             continue;
         };
         let taken = file.takes_path(candidate);
-        if !taken || candidate.is_empty() || !crate::upload::holds(uploader(cx), candidate).await {
+        if !taken
+            || candidate.is_empty()
+            || !crate::upload::holds(cx, uploader(cx), candidate).await
+        {
             continue;
         }
         values.insert(name.clone(), candidate);
@@ -311,7 +314,7 @@ pub(super) async fn gather_file_lists(
                 Some(path) => {
                     let held = !path.is_empty()
                         && file.takes_path(path)
-                        && crate::upload::holds(uploader(cx), path).await;
+                        && crate::upload::holds(cx, uploader(cx), path).await;
                     if held {
                         carried.push(path.to_string());
                     }

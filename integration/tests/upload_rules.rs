@@ -8,7 +8,7 @@ use tablo::{
     TextColumn, Uploader, lens, testing::ErrorKind,
 };
 use toasty::Db;
-use topcoat::router::Router;
+use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
 use crate::common::{
@@ -60,16 +60,16 @@ struct HoldingUploader {
 }
 
 impl Uploader for HoldingUploader {
-    async fn keep(&self, _path: &str) -> Result<(), String> {
+    async fn keep(&self, _cx: &Cx, _path: &str) -> Result<(), String> {
         Ok(())
     }
 
-    async fn store(&self, filename: &str, _bytes: &[u8]) -> Result<String, String> {
+    async fn store(&self, _cx: &Cx, filename: &str, _bytes: &[u8]) -> Result<String, String> {
         self.stored.lock().expect("lock").push(filename.to_string());
         Ok(format!("/uploads/{filename}"))
     }
 
-    async fn holds(&self, path: &str) -> bool {
+    async fn holds(&self, _cx: &Cx, path: &str) -> bool {
         path.starts_with("/uploads/")
     }
 }

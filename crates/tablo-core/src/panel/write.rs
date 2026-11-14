@@ -110,7 +110,7 @@ async fn keep_uploads<R: Resource>(
         Change::Update { before, after } => (Some(hydrate(before)), hydrate(after)),
         _ => return Ok(()),
     };
-    crate::upload::keep(uploader(cx), &resource.form, before.as_ref(), &after)
+    crate::upload::keep(cx, uploader(cx), &resource.form, before.as_ref(), &after)
         .await
         .map_err(crate::error::unavailable)
 }
@@ -127,7 +127,7 @@ async fn discard_uploads<R: Resource>(cx: &Cx, resource: &Mounted<R>, change: &C
         Change::ForceDelete(records) => (records.iter().map(hydrate).collect(), None),
         _ => return,
     };
-    crate::upload::discard(uploader(cx), &resource.form, &before, after.as_ref()).await;
+    crate::upload::discard(cx, uploader(cx), &resource.form, &before, after.as_ref()).await;
 }
 
 /// [`commit_write`]'s tail for any write: commit, run `after` on what was written, and land as

@@ -239,7 +239,7 @@ async fn upload(cx: &Cx, mut multipart: Multipart) -> Result<SeeOther> {
     let MediaStore(store) = try_context::<MediaStore>(cx)
         .ok_or_else(|| bad_request("This deployment stores no uploads."))?;
     let path = store
-        .store(&filename, &part.bytes)
+        .store(cx, &filename, &part.bytes)
         .await
         .map_err(bad_request)?;
     toasty::create!(MediaAsset {
