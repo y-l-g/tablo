@@ -1,0 +1,540 @@
+/* Ledger: the visual identity Tablo's site, the demo and the SaaS template share.
+
+   A page is a ruled sheet. Sections are rows that open with a header bar in mono caps and a row
+   number in the margin; content sits in cells divided by hairlines. Two inks, black and ledger
+   red, on pale green columnar paper, plus a highlighter yellow that only ever marks what the
+   reader is pointing at.
+
+   This file is the source. tablo-demo and tablo-saas carry a copy in their `styles.css`; change it
+   here and copy it across. Every class starts with `ld-`, so the copy never meets a Tailwind
+   utility or a Tablo class. The fonts are the host page's to load: Schibsted Grotesk and
+   Martian Mono. */
+
+.ld {
+  --ld-paper: #eceee2;
+  --ld-sheet: #f7f8f1;
+  --ld-sunk: #e2e6d6;
+  --ld-ink: #121912;
+  --ld-ink-2: #465046;
+  --ld-ink-3: #687266;
+  --ld-rule: #c8cebb;
+  --ld-rule-2: #9fa891;
+  --ld-red: #d33c1c;
+  --ld-red-ink: #b2300f;
+  --ld-on-red: #fff8f2;
+  --ld-mark: #f2d94a;
+  --ld-on-mark: #121912;
+  --ld-code: #121912;
+  --ld-code-ink: #dfe5d2;
+  --ld-code-dim: #8a957f;
+  --ld-code-key: #ff8a66;
+  --ld-code-str: #c9dc8a;
+  --ld-code-type: #f2d94a;
+  --ld-code-mac: #9ec7ff;
+  --ld-display: "Schibsted Grotesk", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --ld-body: "Schibsted Grotesk", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --ld-mono: "Martian Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --ld-gutter: clamp(16px, 3.2vw, 40px);
+  --ld-margin: 72px;
+  --ld-max: 1280px;
+
+  background: var(--ld-paper);
+  color: var(--ld-ink);
+  font: 400 16px/1.55 var(--ld-body);
+  font-feature-settings: "tnum" 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+  overflow-x: clip;
+}
+
+/* The night ledger: the same sheet under a desk lamp. A host puts `.dark` on an ancestor (Tablo's
+   panels do), or `data-scheme="dark"` on the root, or gives the sheet `.ld-auto` to follow the
+   reader's system, which `data-scheme="light"` overrides. */
+.dark .ld,
+.ld.ld-dark,
+:root[data-scheme="dark"] .ld {
+  --ld-paper: #0d120e;
+  --ld-sheet: #131913;
+  --ld-sunk: #0a0e0a;
+  --ld-ink: #e5e9da;
+  --ld-ink-2: #aab3a2;
+  --ld-ink-3: #808a78;
+  --ld-rule: #263027;
+  --ld-rule-2: #3d4a3d;
+  --ld-red: #ff6a45;
+  --ld-red-ink: #ff7d5c;
+  --ld-on-red: #1a0b05;
+  --ld-mark: #e7cf3e;
+  --ld-on-mark: #121912;
+  --ld-code: #070a07;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-scheme="light"]) .ld.ld-auto {
+    --ld-paper: #0d120e;
+    --ld-sheet: #131913;
+    --ld-sunk: #0a0e0a;
+    --ld-ink: #e5e9da;
+    --ld-ink-2: #aab3a2;
+    --ld-ink-3: #808a78;
+    --ld-rule: #263027;
+    --ld-rule-2: #3d4a3d;
+    --ld-red: #ff6a45;
+    --ld-red-ink: #ff7d5c;
+    --ld-on-red: #1a0b05;
+    --ld-mark: #e7cf3e;
+    --ld-on-mark: #121912;
+    --ld-code: #070a07;
+    color-scheme: dark;
+  }
+}
+
+/* The reset weighs one class, as `:where` keeps it, so any `ld-` class overrides it. */
+.ld *, .ld *::before, .ld *::after { box-sizing: border-box; }
+.ld :where(a) { color: inherit; }
+.ld :focus-visible { outline: 2px solid var(--ld-red); outline-offset: 2px; }
+.ld ::selection { background: var(--ld-mark); color: var(--ld-on-mark); }
+.ld :where(img) { display: block; max-width: 100%; height: auto; }
+.ld :where(h1, h2, h3, h4, p, ul, ol, dl, dd, figure, pre) { margin: 0; }
+.ld :where(ul, ol) { padding: 0; list-style: none; }
+.ld :where(button) { font: inherit; color: inherit; }
+.ld :where(code, kbd, pre) { font-family: var(--ld-mono); }
+.ld .ld-hide { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ---------- the sheet ---------- */
+
+/* The content column: a sheet with ruled edges laid on the paper. */
+.ld-sheet {
+  max-width: var(--ld-max);
+  margin: 0 auto;
+  background: var(--ld-sheet);
+  border-inline: 1px solid var(--ld-rule);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- masthead ---------- */
+
+.ld-mast {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--ld-ink);
+  background: var(--ld-sheet);
+  min-height: 56px;
+}
+.ld-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 var(--ld-gutter);
+  text-decoration: none;
+  font: 900 22px/1 var(--ld-display);
+  letter-spacing: -0.035em;
+  border-right: 1px solid var(--ld-rule);
+}
+.ld-brand svg { width: 26px; height: 26px; flex: none; }
+.ld-brand small {
+  font: 500 10px/1 var(--ld-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ld-ink-3);
+  align-self: center;
+  margin-left: 2px;
+}
+.ld-nav {
+  display: flex;
+  align-items: stretch;
+  margin-left: auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ld-nav::-webkit-scrollbar { display: none; }
+.ld-nav a,
+.ld-nav button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 18px;
+  border: 0;
+  border-left: 1px solid var(--ld-rule);
+  background: none;
+  font: 500 11.5px/1 var(--ld-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  color: var(--ld-ink-2);
+  cursor: pointer;
+}
+.ld-nav a:hover, .ld-nav button:hover { background: var(--ld-sunk); color: var(--ld-ink); }
+.ld-nav a[aria-current="page"] { color: var(--ld-ink); box-shadow: inset 0 -3px 0 var(--ld-red); }
+.ld-nav .ld-nav-cta { background: var(--ld-ink); color: var(--ld-sheet); border-left-color: var(--ld-ink); }
+.ld-nav .ld-nav-cta:hover { background: var(--ld-red); color: var(--ld-on-red); }
+.ld-nav svg { width: 14px; height: 14px; }
+.ld-nav form { display: contents; }
+
+/* ---------- rows ---------- */
+
+/* A section: the margin with its row number, then the content. */
+.ld-row {
+  display: grid;
+  grid-template-columns: var(--ld-margin) minmax(0, 1fr);
+  border-bottom: 1px solid var(--ld-ink);
+}
+.ld-row > .ld-num {
+  border-right: 1px solid var(--ld-rule);
+  padding: 22px 0 0;
+  text-align: center;
+  font: 500 12px/1 var(--ld-mono);
+  color: var(--ld-ink-3);
+}
+.ld-row > .ld-num b { display: block; color: var(--ld-red-ink); font-weight: 600; }
+.ld-row > .ld-body { min-width: 0; }
+
+/* The header bar every section opens with: its name in mono caps, a note on the right. */
+.ld-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 44px;
+  padding: 0 var(--ld-gutter);
+  border-bottom: 1px solid var(--ld-rule);
+  font: 500 11.5px/1.3 var(--ld-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ld-ink-2);
+}
+.ld-head > :last-child:not(:first-child) { margin-left: auto; color: var(--ld-ink-3); text-align: right; }
+.ld-head i { font-style: normal; color: var(--ld-red-ink); }
+
+.ld-pad { padding: clamp(28px, 4.4vw, 56px) var(--ld-gutter); }
+.ld-pad-sm { padding: 22px var(--ld-gutter); }
+
+/* ---------- type ---------- */
+
+.ld-h1 {
+  font: 900 clamp(44px, 8.2vw, 112px)/0.9 var(--ld-display);
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+.ld-h2 {
+  font: 800 clamp(30px, 4.4vw, 56px)/0.98 var(--ld-display);
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.ld-h3 {
+  font: 800 clamp(20px, 2vw, 24px)/1.12 var(--ld-display);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.ld-red { color: var(--ld-red-ink); }
+.ld-lede {
+  font-size: clamp(17px, 1.6vw, 20px);
+  line-height: 1.5;
+  color: var(--ld-ink-2);
+  max-width: 60ch;
+  text-wrap: pretty;
+}
+.ld-text { color: var(--ld-ink-2); max-width: 62ch; text-wrap: pretty; }
+.ld-text + .ld-text { margin-top: 0.8em; }
+.ld-label {
+  font: 500 11px/1.3 var(--ld-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ld-ink-3);
+}
+.ld-mono { font-family: var(--ld-mono); font-size: 0.86em; }
+.ld p code, .ld li code, .ld td code, .ld dd code {
+  font-size: 0.84em;
+  background: var(--ld-sunk);
+  border: 1px solid var(--ld-rule);
+  padding: 0.04em 0.34em;
+  overflow-wrap: anywhere;
+}
+.ld-link {
+  color: var(--ld-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--ld-red);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+.ld-link:hover { background: var(--ld-mark); color: var(--ld-on-mark); }
+
+/* ---------- hero ---------- */
+
+/* The opening row: a label, a headline whose second sentence is red, then two cells under it. */
+.ld-hero { padding: clamp(32px, 5vw, 64px) var(--ld-gutter) clamp(24px, 3vw, 36px); display: flex; flex-direction: column; gap: 22px; }
+.ld-hero .ld-h1 { font-size: clamp(44px, 7.8vw, 112px); }
+.ld-hero-sub { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-top: 1px solid var(--ld-rule); }
+.ld-hero-sub > * { padding: 26px var(--ld-gutter) 30px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.ld-hero-sub > * + * { border-left: 1px solid var(--ld-rule); }
+.ld-hero-sub .ld-lede { max-width: none; }
+.ld-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 400 11px/1.5 var(--ld-mono); color: var(--ld-ink-3); }
+.ld-meta a { color: inherit; }
+
+/* ---------- buttons ---------- */
+
+.ld-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.ld-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--ld-ink);
+  background: var(--ld-sheet);
+  color: var(--ld-ink);
+  font: 600 12px/1 var(--ld-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  box-shadow: 3px 3px 0 var(--ld-ink);
+}
+.ld-btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ld-ink); }
+.ld-btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 var(--ld-ink); }
+.ld-btn-primary { background: var(--ld-red); border-color: var(--ld-ink); color: var(--ld-on-red); }
+.ld-btn svg { width: 16px; height: 16px; flex: none; }
+
+/* A command to copy: the prompt, the command, and a copy button. */
+.ld-cmd {
+  display: flex;
+  align-items: stretch;
+  max-width: 100%;
+  border: 1px solid var(--ld-ink);
+  background: var(--ld-code);
+  color: var(--ld-code-ink);
+  font: 400 13px/1 var(--ld-mono);
+}
+.ld-cmd code { display: flex; align-items: center; gap: 10px; padding: 14px 16px; overflow-x: auto; scrollbar-width: none; white-space: nowrap; min-width: 0; flex: 1; }
+.ld-cmd code::before { content: "$"; color: var(--ld-code-key); }
+.ld-cmd button {
+  flex: none;
+  border: 0;
+  border-left: 1px solid #ffffff2b;
+  background: transparent;
+  color: var(--ld-code-ink);
+  padding: 0 14px;
+  font: 500 10.5px/1 var(--ld-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.ld-cmd button:hover { background: var(--ld-mark); color: var(--ld-on-mark); }
+
+/* ---------- cells ---------- */
+
+/* Columns divided by hairlines. Each child is a cell; on a phone they stack, ruled between. */
+.ld-cells { display: grid; grid-template-columns: repeat(var(--ld-cols, 3), minmax(0, 1fr)); }
+.ld-cells > * { border-left: 1px solid var(--ld-rule); min-width: 0; }
+.ld-cells-2 { --ld-cols: 2; }
+.ld-cells-3 { --ld-cols: 3; }
+.ld-cells-4 { --ld-cols: 4; }
+.ld-cells-2 > :nth-child(2n + 1), .ld-cells-3 > :nth-child(3n + 1), .ld-cells-4 > :nth-child(4n + 1) { border-left: 0; }
+.ld-cells-3 > :nth-child(n + 4), .ld-cells-2 > :nth-child(n + 3), .ld-cells-4 > :nth-child(n + 5) { border-top: 1px solid var(--ld-rule); }
+.ld-cell { padding: 24px var(--ld-gutter) 28px; display: flex; flex-direction: column; gap: 10px; }
+.ld-cell .ld-label { margin-bottom: 4px; }
+
+/* ---------- ledger tables ---------- */
+
+.ld-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.ld-table th {
+  text-align: left;
+  font: 500 10.5px/1.3 var(--ld-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ld-ink-3);
+  padding: 12px var(--ld-gutter);
+  border-bottom: 1px solid var(--ld-ink);
+  vertical-align: bottom;
+}
+.ld-table td {
+  padding: 16px var(--ld-gutter);
+  border-bottom: 1px solid var(--ld-rule);
+  vertical-align: top;
+  color: var(--ld-ink-2);
+}
+.ld-table th + th, .ld-table td + td { border-left: 1px solid var(--ld-rule); }
+.ld-table tbody tr:last-child td { border-bottom: 0; }
+.ld-table td:first-child { color: var(--ld-ink); font-weight: 700; }
+.ld-table tbody tr { transition: background 0.12s ease; }
+.ld-table tbody tr:hover { background: color-mix(in srgb, var(--ld-mark) 22%, transparent); }
+
+.ld-table b { color: var(--ld-ink); }
+/* A row the reader should act on, highlighted as by hand. */
+.ld-table tr.ld-marked td { background: color-mix(in srgb, var(--ld-mark) 30%, var(--ld-sheet)); color: var(--ld-ink); }
+.ld-table tr.ld-marked td:first-child { box-shadow: inset 4px 0 0 var(--ld-red); }
+.dark .ld .ld-table tr.ld-marked td, .ld.ld-dark .ld-table tr.ld-marked td, :root[data-scheme="dark"] .ld .ld-table tr.ld-marked td { background: color-mix(in srgb, var(--ld-mark) 12%, var(--ld-sheet)); }
+.ld-table td.ld-path { white-space: nowrap; }
+.ld-table td.ld-path a { text-decoration: none; }
+.ld-table td.ld-path a:hover code { border-color: var(--ld-red); }
+/* A stamp beside a name: what to do with it. */
+.ld-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 4px 6px;
+  font: 600 10px/1 var(--ld-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+  background: var(--ld-red);
+  color: var(--ld-on-red);
+}
+.ld-ruled { border-top: 1px solid var(--ld-rule); }
+
+/* ---------- code ---------- */
+
+.ld-code {
+  background: var(--ld-code);
+  color: var(--ld-code-ink);
+  font: 400 12.5px/1.75 var(--ld-mono);
+  overflow-x: auto;
+  padding: 20px 0;
+  tab-size: 4;
+}
+.ld-code > span { display: block; padding: 0 22px; white-space: pre; }
+.ld-code .k { color: var(--ld-code-key); }
+.ld-code .s { color: var(--ld-code-str); }
+.ld-code .t { color: var(--ld-code-type); }
+.ld-code .m { color: var(--ld-code-mac); }
+.ld-code .c { color: var(--ld-code-dim); }
+
+/* ---------- captures ---------- */
+
+/* A UI capture, framed as a pasted print: a hairline, a hard offset shadow, a caption strip. */
+.ld-capture { border: 1px solid var(--ld-ink); background: var(--ld-sheet); box-shadow: 6px 6px 0 var(--ld-ink); }
+.ld-capture > figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--ld-ink);
+  font: 500 10.5px/1.3 var(--ld-mono);
+  letter-spacing: 0.04em;
+  color: var(--ld-ink-2);
+  background: var(--ld-sheet);
+}
+.ld-capture > figcaption > :last-child { color: var(--ld-ink-3); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ld-capture img { width: 100%; }
+
+/* ---------- switches ---------- */
+
+/* A segmented switch in the masthead: a language, a scheme. */
+.ld-seg { display: flex; align-items: stretch; border-left: 1px solid var(--ld-rule); }
+.ld-nav .ld-seg button { border-left: 0; padding: 0 10px; min-width: 38px; justify-content: center; }
+.ld-nav .ld-seg button + button, .ld-nav .ld-seg form + form button { border-left: 1px dotted var(--ld-rule); }
+.ld-nav .ld-seg [aria-current="true"], .ld-nav .ld-seg [aria-checked="true"] { color: var(--ld-ink); box-shadow: inset 0 -3px 0 var(--ld-red); }
+
+/* A row that signs in: who, what they may do, and the button. */
+.ld-who { display: flex; align-items: center; gap: 12px; }
+.ld-who > span:first-child {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ld-ink);
+  font: 600 12px/1 var(--ld-mono);
+  background: var(--ld-sheet);
+  color: var(--ld-ink);
+}
+.ld-who b { display: block; color: var(--ld-ink); font-weight: 700; }
+.ld-who small { display: block; font: 400 11px/1.4 var(--ld-mono); color: var(--ld-ink-3); }
+.ld-who-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 18px; padding: 14px 0; border-block: 1px solid var(--ld-rule); }
+.ld-who-row .ld-btn { min-height: 40px; padding: 0 14px; font-size: 11px; box-shadow: 2px 2px 0 var(--ld-ink); }
+.ld-table form { margin: 0; }
+
+/* A grant: how far someone reaches into something. A red square changes it, a hollow one reads
+   it, a dash has no access. `data-level` is `full`, `read`, `yes` (drawn as full) or `none`. */
+.ld-grant {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  font: 500 11px/1.3 var(--ld-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ld-ink);
+}
+.ld-grant::before { content: ""; flex: none; width: 11px; height: 11px; border: 1.5px solid var(--ld-ink); background: var(--ld-red); }
+.ld-grant[data-level="read"] { color: var(--ld-ink-2); }
+.ld-grant[data-level="read"]::before { background: transparent; }
+.ld-grant[data-level="none"] { color: var(--ld-ink-3); }
+.ld-grant[data-level="none"]::before { height: 0; border-width: 1.5px 0 0; border-color: var(--ld-ink-3); background: none; }
+.ld-table .ld-grants { padding-inline: 14px; }
+.ld-table td.ld-grants { vertical-align: middle; white-space: nowrap; }
+.ld-legend { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.ld-split { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 40px; }
+.ld-table td.ld-go { width: 1%; white-space: nowrap; vertical-align: middle; padding-inline: 16px var(--ld-gutter); }
+.ld-table .ld-btn { min-height: 40px; padding: 0 14px; font-size: 11px; box-shadow: 2px 2px 0 var(--ld-ink); }
+
+/* ---------- footer ---------- */
+
+.ld-foot { margin-top: auto; }
+.ld-foot .ld-cells { border-bottom: 1px solid var(--ld-rule); }
+.ld-foot h4 { font: 500 10.5px/1 var(--ld-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ld-ink-3); margin: 0 0 10px; }
+.ld-foot li a { display: inline-block; padding: 4px 0; text-decoration: none; color: var(--ld-ink); }
+.ld-foot li a:hover { text-decoration: underline; text-decoration-color: var(--ld-red); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.ld-foot li a small { font: 400 10.5px/1 var(--ld-mono); color: var(--ld-ink-3); margin-left: 6px; }
+.ld-colophon {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding: 16px var(--ld-gutter) 22px;
+  font: 400 11px/1.5 var(--ld-mono);
+  color: var(--ld-ink-3);
+}
+
+/* ---------- phone ---------- */
+
+@media (max-width: 860px) {
+  .ld { --ld-margin: 0px; }
+  .ld-hero-sub { grid-template-columns: minmax(0, 1fr); }
+  .ld-hero-sub > * + * { border-left: 0; border-top: 1px solid var(--ld-rule); }
+  .ld-row { grid-template-columns: minmax(0, 1fr); }
+  .ld-row > .ld-num { display: none; }
+  .ld-cells-3, .ld-cells-4 { --ld-cols: 2; }
+  .ld-cells-3 > *, .ld-cells-4 > * { border-left: 1px solid var(--ld-rule); border-top: 0; }
+  .ld-cells-3 > :nth-child(2n + 1), .ld-cells-4 > :nth-child(2n + 1) { border-left: 0; }
+  .ld-cells-3 > :nth-child(n + 3), .ld-cells-4 > :nth-child(n + 3) { border-top: 1px solid var(--ld-rule); }
+}
+@media (max-width: 600px) {
+  .ld-cells-2, .ld-cells-3, .ld-cells-4 { --ld-cols: 1; }
+  .ld-cells-2 > *, .ld-cells-3 > *, .ld-cells-4 > * { border-left: 0 !important; }
+  .ld-cells-2 > :nth-child(n + 2), .ld-cells-3 > :nth-child(n + 2), .ld-cells-4 > :nth-child(n + 2) { border-top: 1px solid var(--ld-rule); }
+  .ld-brand { border-right: 0; padding-right: 6px; gap: 8px; font-size: 20px; }
+  .ld-brand svg { width: 22px; height: 22px; }
+  .ld-nav a, .ld-nav button { padding: 0 9px; font-size: 10px; letter-spacing: 0; }
+  .ld-cmd { font-size: 12px; }
+  .ld-nav .ld-hide-sm { display: none; }
+  .ld-capture { box-shadow: 4px 4px 0 var(--ld-ink); }
+  /* A ledger table becomes one block per row, its header named above each value. */
+  .ld-table-stack, .ld-table-stack tbody { display: block; }
+  .ld-table-stack thead { display: none; }
+  .ld-head > :last-child:not(:first-child) { display: none; }
+  .ld-table-stack tr { display: block; border-bottom: 1px solid var(--ld-rule); padding: 14px 0; }
+  .ld-table-stack td { display: block; width: auto !important; border: 0 !important; padding: 4px var(--ld-gutter); }
+  /* Grants sit side by side, each under its column's name. */
+  .ld-table-stack td.ld-grants { display: inline-block; padding: 8px 0 8px var(--ld-gutter); min-width: 33%; }
+  .ld-table-stack td.ld-go { padding-top: 10px; }
+  .ld-table-stack td[data-th]::before {
+    content: attr(data-th);
+    display: block;
+    font: 500 10px/1.4 var(--ld-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ld-ink-3);
+    margin-bottom: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ld *, .ld *::before, .ld *::after { transition: none !important; animation: none !important; }
+}

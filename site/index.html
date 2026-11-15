@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tablo: admin panels for Rust</title>
+<meta name="description" content="Tablo is an admin toolkit for Rust. Declare a resource per model and get its list, forms, detail page and delete, behind sign-in, policies and an audit log. Server-rendered on Topcoat and Toasty.">
+<meta property="og:title" content="Tablo: admin panels for Rust">
+<meta property="og:description" content="Declare the model. Get the back office.">
+<meta property="og:image" content="https://y-l.fr/tablo/assets/captures/posts.webp">
+<meta name="theme-color" content="#eceee2">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="preload" href="assets/fonts/schibsted-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/martian-mono.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/ledger.css">
+<link rel="stylesheet" href="assets/site.css">
+<script>
+  // The scheme the reader picked last, before the first paint.
+  try { const s = localStorage.getItem("ld-scheme"); if (s) document.documentElement.dataset.scheme = s; } catch {}
+</script>
+</head>
+<body class="ld ld-auto">
+<a class="skip" href="#main">Skip to content</a>
+<div class="ld-sheet">
+
+<header class="ld-mast">
+  <a class="ld-brand" href="./" aria-label="Tablo home">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" fill="var(--ld-sheet)" stroke="var(--ld-ink)" stroke-width="2"/><rect x="1" y="1" width="30" height="10" fill="var(--ld-ink)"/><rect x="11" y="11" width="10" height="20" fill="var(--ld-red)"/><path d="M11 11v20M21 11v20M1 21h10M21 21h10" fill="none" stroke="var(--ld-ink)" stroke-width="1.5"/></svg>
+    Tablo
+  </a>
+  <nav class="ld-nav" aria-label="Site">
+    <a href="nightly/guide/">Guide</a>
+    <a class="ld-hide-sm" href="nightly/api/tablo/">API</a>
+    <a class="ld-hide-sm" href="nightly/atlas/">Atlas</a>
+    <a href="examples/">Examples</a>
+    <a class="ld-hide-sm" href="https://github.com/y-l-g/tablo">GitHub</a>
+    <button type="button" data-scheme-toggle aria-label="Switch to dark pages">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.8a6.2 6.2 0 0 1 0 12.4z" fill="currentColor"/></svg>
+    </button>
+    <a class="ld-nav-cta" href="https://demo.tablo.y-l.fr"><span class="ld-hide-sm">Live&nbsp;</span>demo</a>
+  </nav>
+</header>
+
+<main id="main">
+
+<!-- 01: what it is, in one look -->
+<section class="ld-row" aria-labelledby="h-hero">
+  <div class="ld-num"><b>01</b></div>
+  <div class="ld-body">
+    <div class="hero">
+      <div class="ld-hero">
+        <p class="ld-label">Admin toolkit for Rust</p>
+        <h1 class="ld-h1" id="h-hero">Declare the model.<br><span class="ld-red">Get the back office.</span></h1>
+      </div>
+      <div class="ld-hero-sub">
+        <div><p class="ld-lede">One resource declaration gives a model its list, forms, detail page and delete, behind sign-in, policies and an audit log. Tablo renders every page on the server with Topcoat and queries your Toasty models, with no JavaScript build.</p></div>
+        <div>
+          <div class="ld-cmd"><code>cargo add tablo --features sqlite</code><button type="button" data-copy="cargo add tablo --features sqlite">Copy</button></div>
+          <div class="ld-actions">
+            <a class="ld-btn ld-btn-primary" href="nightly/guide/first-panel.html">Build a first panel
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a>
+            <a class="ld-btn" href="https://demo.tablo.y-l.fr">Open the demo</a>
+          </div>
+          <p class="ld-meta"><span>MIT</span><a href="https://crates.io/crates/tablo">crates.io/crates/tablo</a><span>Rust 1.100+</span><span>Experimental until 1.0</span></p>
+        </div>
+      </div>
+
+      <figure class="hero-fig" data-pins>
+        <figcaption class="ld-head"><span>The code, <i>then</i> the page it serves</span><span>tablo-demo · src/blog/post.rs, condensed</span></figcaption>
+        <div class="pins">
+<pre class="ld-code" aria-label="The post resource's declaration"><span><span class="k">impl</span> <span class="t">Resource</span> <span class="k">for</span> <span class="t">PostResource</span> {</span><span>    <span class="k">type</span> <span class="t">Model</span> = <span class="t">Post</span>;</span><span>    <span class="k">type</span> <span class="t">Form</span> = <span class="t">PostForm</span>;</span><span> </span><span>    <span class="k">fn</span> declare() -&gt; <span class="t">ResourceDef</span>&lt;<span class="t">Self</span>&gt; {</span><span>        <span class="k">let</span> col = <span class="t">Post</span>::columns();</span><span>        <span class="t">ResourceDef</span>::new()</span><span data-pin="create">            .policy(access::policy(<span class="t">Domain</span>::Blog))</span><span data-pin="widget">            .list_widget::&lt;<span class="t">PostStatusWidget</span>&gt;()</span><span>            .table(<span class="t">Table</span>::new((</span><span>                col.image.image(),</span><span>                col.title.text()</span><span data-pin="search">                    .searchable()</span><span data-pin="sort">                    .sortable(),</span><span data-pin="author">                <span class="t">RelationColumn</span>::of::&lt;<span class="t">AuthorResource</span>&gt;(</span><span data-pin="author">                    <span class="m">relation!</span>(<span class="t">Post</span>.author)),</span><span>                col.published_at.date().sortable(),</span><span>            ))</span><span data-pin="filters">            .filters((<span class="t">DateFilter</span>::new(</span><span data-pin="filters">                <span class="m">lens!</span>(<span class="t">Post</span>.published_at)).range(),)))</span><span data-pin="action">            .action::&lt;<span class="t">TogglePostPublish</span>&gt;()</span><span>    }</span><span>}</span></pre>
+          <div class="pins-shot">
+            <div class="shot">
+              <img src="assets/captures/posts.webp" width="1800" height="1213" alt="The demo's post list: a Create Post button, published and draft counts, a search box, column and filter menus, and a table of posts with image, title, author, status, tags and publishing date.">
+              <span class="pin" data-pin="create" data-n="1" style="left:85.64%;top:9.78%;width:9.87%;height:4%"></span>
+              <span class="pin" data-pin="widget" data-n="2" style="left:4.49%;top:16.44%;width:91.02%;height:15.11%"></span>
+              <span class="pin" data-pin="search" data-n="3" style="left:6.36%;top:34.78%;width:21.56%;height:4%"></span>
+              <span class="pin" data-pin="sort" data-n="4" style="left:12.98%;top:40.22%;width:24.98%;height:4.69%"></span>
+              <span class="pin" data-pin="author" data-n="5" style="left:37.96%;top:44.91%;width:9.39%;height:6.78%"></span>
+              <span class="pin" data-pin="filters" data-n="6" style="left:86.45%;top:34.78%;width:7.18%;height:4%"></span>
+              <span class="pin" data-pin="action" data-n="7" style="left:90.94%;top:46.3%;width:2.69%;height:4%"></span>
+            </div>
+            <div class="pin-dots" role="group" aria-label="Callouts">
+              <button type="button" data-pin="create" aria-pressed="false">1</button>
+              <button type="button" data-pin="widget" aria-pressed="false">2</button>
+              <button type="button" data-pin="search" aria-pressed="false">3</button>
+              <button type="button" data-pin="sort" aria-pressed="false">4</button>
+              <button type="button" data-pin="author" aria-pressed="false">5</button>
+              <button type="button" data-pin="filters" aria-pressed="false">6</button>
+              <button type="button" data-pin="action" aria-pressed="false">7</button>
+            </div>
+            <p class="pin-note" aria-live="polite" data-pin-note>Point at a highlighted line, or a number, to see what it puts on the page.</p>
+            <template data-note="create"><b>The policy decides the buttons.</b> This role may create posts, so the list offers Create Post. A role that may not sees no button, and the create route answers 403.</template>
+            <template data-note="widget"><b>A widget over the list's own query.</b> The published and draft counts follow the search and filters the reader applies.</template>
+            <template data-note="search"><b>A searchable column feeds the search box.</b> The term reaches the database as a bound parameter, never as SQL text.</template>
+            <template data-note="sort"><b>Sorting is a link.</b> The header points at <code>?sort=title&amp;dir=asc</code>, so it works with JavaScript off.</template>
+            <template data-note="author"><b>Relations load with the rows.</b> Each author arrives through an include, and only when the authors resource would show it to this reader.</template>
+            <template data-note="filters"><b>Filters live in the URL.</b> The date range is <code>f.published_at.from</code> and <code>.to</code>: a filtered list is a link you can send.</template>
+            <template data-note="action"><b>A record action in each row's menu.</b> It runs in a transaction that reloads the post through the scoped query and checks the policy on that row.</template>
+          </div>
+        </div>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- 02: four figures -->
+<section class="ld-row" aria-label="Tablo in figures">
+  <div class="ld-num">02</div>
+  <div class="ld-body">
+    <div class="ld-cells ld-cells-4 figs">
+      <div class="ld-cell"><span class="fig-n">0</span><span class="fig-t">lines of JavaScript to write or bundle. The pages are HTML from the server.</span></div>
+      <div class="ld-cell"><span class="fig-n">5.8<small>ms</small></span><span class="fig-t">median for the demo's post list, signed in, rendered whole. <a class="ld-link" href="#speed">How we measured</a></span></div>
+      <div class="ld-cell"><span class="fig-n">4</span><span class="fig-t">themes, each in light and dark, and your own tokens on top.</span></div>
+      <div class="ld-cell"><span class="fig-n">22</span><span class="fig-t">resources in the demo: a shop, HR, projects and a blog, on one panel.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 03: the value over a bare framework -->
+<section class="ld-row" id="why" aria-labelledby="h-why">
+  <div class="ld-num">03</div>
+  <div class="ld-body">
+    <div class="ld-head"><span>Topcoat and Toasty alone, <i>versus</i> with Tablo</span><span>What you stop writing</span></div>
+    <div class="ld-pad intro">
+      <h2 class="ld-h2" id="h-why">A framework serves pages. A back office needs everything else.</h2>
+      <p class="ld-lede">Topcoat renders views and routes requests. Toasty reads and writes your models. Between them and a back office someone can trust sits everything below. Tablo is that part, declared beside the model.</p>
+    </div>
+    <table class="ld-table ld-table-stack versus">
+      <thead><tr><th scope="col">Concern</th><th scope="col">On a bare framework, you build</th><th scope="col">With Tablo, you write</th></tr></thead>
+      <tbody>
+        <tr><td data-th="Concern">Lists</td><td data-th="You build">Pagination, sort and search parameters, filter forms, empty states, CSV export, bulk delete with a confirmation</td><td data-th="You write"><code class="snip">Table::new((col.title.text()<i>.searchable().sortable()</i>, …))</code></td></tr>
+        <tr><td data-th="Concern">Forms</td><td data-th="You build">Markup, parsing, error messages, CSRF tokens, uploads, relation pickers, and a refusal of any field the form does not show</td><td data-th="You write"><code class="snip">#[derive(<i>tablo::RecordForm</i>)]
+struct PostForm { title: String, … }</code></td></tr>
+        <tr><td data-th="Concern">Sign-in</td><td data-th="You build">Argon2id hashing, sessions stored as hashes, throttling, reset and verification mail, authenticator apps</td><td data-th="You write"><code class="snip">Auth::password()<i>.two_factor(TwoFactor::new())</i></code></td></tr>
+        <tr><td data-th="Concern">Permissions</td><td data-th="You build">A check on every page, action, export and search result, and a mask for the fields a role may not read</td><td data-th="You write"><code class="snip">.policy(<i>when(is_editor)</i>)
+.field_access(…)</code></td></tr>
+        <tr><td data-th="Concern">Tenancy</td><td data-th="You build">A tenant filter on every query, a guard on every write, a team switcher</td><td data-th="You write"><code class="snip">.tenancy(<i>Tenancy::column(lens!(Post.team_id))</i>)</code></td></tr>
+        <tr><td data-th="Concern">Audit</td><td data-th="You build">A trail table, a hook in each write's transaction, a diff of the fields, a page to read it</td><td data-th="You write"><code class="snip">panel<i>.audit_log(|log| log)</i></code></td></tr>
+        <tr><td data-th="Concern">Look</td><td data-th="You build">A design system, dark mode, a shell with navigation, global search, notifications</td><td data-th="You write"><code class="snip">Brand::new("Acme")<i>.theme(Theme::Iris)</i></code></td></tr>
+        <tr><td data-th="Concern">Languages</td><td data-th="You build">Every label, message and mail, in each language, with the reader's pick remembered</td><td data-th="You write"><code class="snip"><span class="gone">nothing: English and French ship, and</span> .locales(…) <span class="gone">picks</span></code></td></tr>
+        <tr><td data-th="Concern">Tests</td><td data-th="You build">A client that signs in, carries the CSRF pair and reads rows back out of the HTML</td><td data-th="You write"><code class="snip">client<i>.submit("/admin/posts/-/create", body)</i></code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 04: auth -->
+<section class="ld-row" id="auth" aria-labelledby="h-auth">
+  <div class="ld-num">04</div>
+  <div class="ld-body">
+    <div class="ld-head"><span>Auth, policy, tenancy</span><span>Fails closed</span></div>
+    <div class="plate">
+      <div class="plate-copy">
+        <h2 class="ld-h2" id="h-auth">Locked until you open it.</h2>
+        <p class="ld-text">A panel requires sign-in unless you say otherwise. Every policy predicate denies until you allow it. A missing tenant, session or token refuses the request; nothing falls back to a laxer default.</p>
+        <ul class="ticks">
+          <li><span><b>Passwords</b> hashed with Argon2id, sign-ins throttled per login and address.</span></li>
+          <li><span><b>Sign-up</b> with email verification, and password reset by mail.</span></li>
+          <li><span><b>Two-factor</b> by authenticator app or emailed code, optional or required.</span></li>
+          <li><span><b>Google</b> or any OpenID Connect provider, bound to the browser that started it.</span></li>
+          <li><span><b>Acting as a user</b> when a rule allows it, named in the audit log.</span></li>
+          <li><span><b>Your own sign-in</b> in front, through <code>Auth::external</code>.</span></li>
+        </ul>
+      </div>
+      <div class="plate-art">
+        <div class="gates" role="img" aria-label="A request passes five checks in order: session, CSRF token, policy, tenant scope, field access. Each refuses on its own.">
+          <div class="gates-track">
+            <div class="gate"><span class="ld-label"><span>1</span>Session</span><p>Signed in to this panel?</p><em>no: to the sign-in page</em></div>
+            <div class="gate"><span class="ld-label"><span>2</span>CSRF</span><p>Every POST carries the token pair.</p><em>no: 403</em></div>
+            <div class="gate"><span class="ld-label"><span>3</span>Policy</span><p>This ability, on this row.</p><em>no: 403</em></div>
+            <div class="gate"><span class="ld-label"><span>4</span>Tenant</span><p>Every query scoped to the request's team.</p><em>no tenant: 403</em></div>
+            <div class="gate"><span class="ld-label"><span>5</span>Fields</span><p>A field a role may not read never renders.</p><em>masked</em></div>
+          </div>
+          <div class="gates-rail" aria-hidden="true"><span class="packet-trail"></span></div>
+          <div class="gates-foot"><span>Request</span><span>Page</span></div>
+        </div>
+        <figure class="ld-capture">
+          <figcaption><span>Two-factor setup</span><span>demo.tablo.y-l.fr/app/settings/two-factor</span></figcaption>
+          <img src="assets/captures/two-factor.webp" width="1100" height="733" loading="lazy" alt="The two-factor setup page: a QR code, the key spelled out, a field for the six-digit code, and Turn on.">
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 05: forms -->
+<section class="ld-row" id="forms" aria-labelledby="h-forms">
+  <div class="ld-num">05</div>
+  <div class="ld-body">
+    <div class="ld-head"><span>Forms</span><span>Checked when the server starts</span></div>
+    <div class="plate flip">
+      <div class="plate-copy">
+        <h2 class="ld-h2" id="h-forms">The form is a struct.</h2>
+        <p class="ld-text">Derive it, lay it out in sections, grids and tabs, and pick a control per field: rich text, image uploads, searchable relation pickers, tags, repeaters, conditional fields, wizard steps.</p>
+        <p class="ld-text">Mounting checks every declaration against the model before the first request. A required column nothing writes stops the server with the fix:</p>
+<pre class="term"><span class="e">panel '/admin' cannot mount:</span>
+  - `PostResource` form: nothing writes the non-nullable column `status` on create: the record form has no such field, toasty fills no `#[default(..)]` for it, and no `create_column` names it, so every create would fail at the driver; <span class="d">a resource that creates nothing declares `without_page(ResourcePage::Create)`</span></pre>
+      </div>
+      <div class="plate-art">
+<pre class="ld-code" aria-label="The post form"><span><span class="m">#[derive(tablo::RecordForm)]</span></span><span><span class="m">#[form(model = Post)]</span></span><span><span class="k">pub struct</span> <span class="t">PostForm</span> {</span><span>    <span class="k">pub</span> title: <span class="t">String</span>,</span><span>    <span class="k">pub</span> content: <span class="t">String</span>,</span><span>    <span class="m">#[form(relationship = AuthorResource)]</span></span><span>    <span class="k">pub</span> author_id: <span class="t">Option</span>&lt;<span class="t">u64</span>&gt;,</span><span>    <span class="m">#[form(relationship = TagResource)]</span></span><span>    <span class="k">pub</span> tags: <span class="t">Vec</span>&lt;<span class="t">u64</span>&gt;,</span><span>    <span class="m">#[form(file, optional)]</span></span><span>    <span class="k">pub</span> image: <span class="t">String</span>,</span><span>}</span></pre>
+        <figure class="ld-capture crop">
+          <figcaption><span>The same form, refusing an empty title</span><span>/admin/posts/16/edit</span></figcaption>
+          <img src="assets/captures/post-form.webp" width="1800" height="1213" loading="lazy" alt="The post edit form with a Title field marked in red and the message Title is required, a rich text editor, and author, category and tag pickers.">
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 06: audit -->
+<section class="ld-row" id="audit" aria-labelledby="h-audit">
+  <div class="ld-num">06</div>
+  <div class="ld-body">
+    <div class="ld-head"><span>Audit log</span><span>In the write's transaction</span></div>
+    <div class="plate">
+      <div class="plate-copy">
+        <h2 class="ld-h2" id="h-audit">Who changed what, field by field.</h2>
+        <p class="ld-text"><code>.audit_log(|log| log)</code> keeps an entry for each record a write names, inside that write's transaction, with the fields it changed. Sign-ins and changes of credentials land beside them.</p>
+        <p class="ld-text">A write that never committed leaves no entry, and one that committed always has one. An administrator acting as a colleague is named next to the colleague. The log is a resource like any other: searchable, exportable, behind its own policy.</p>
+      </div>
+      <div class="plate-art">
+        <figure class="ld-capture">
+          <figcaption><span>Three writes and a sign-in</span><span>/admin/audit-log</span></figcaption>
+          <img src="assets/captures/audit-log.webp" width="1800" height="862" loading="lazy" alt="The audit log: rows for a post's title change, a product's price change and a sign-in, each with the old value struck through beside the new one.">
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 07: themes -->
+<section class="ld-row" id="themes" aria-labelledby="h-themes">
+  <div class="ld-num">07</div>
+  <div class="ld-body">
+    <div class="ld-head"><span>Themes</span><span>One line, four looks, two schemes</span></div>
+    <div class="themes" data-themes>
+      <div class="themes-pick">
+        <h2 class="ld-h2" id="h-themes">Pick a look. Keep your tokens.</h2>
+        <p class="ld-text">Each theme sets colors, radii and the sidebar's frame. Redeclare any token in your stylesheet to make it yours.</p>
+        <div class="swatches" role="group" aria-label="Theme">
+          <button class="swatch" type="button" data-theme="jade" aria-pressed="true"><i style="background:#047857"></i><b>Jade</b><small>Tablo's own: jade on cool neutrals, the page inset in the sidebar.</small></button>
+          <button class="swatch" type="button" data-theme="amber" aria-pressed="false"><i style="background:#f59e0b"></i><b>Amber</b><small>Amber on plain grays, a white sidebar ruled off, rounder cards.</small></button>
+          <button class="swatch" type="button" data-theme="graphite" aria-pressed="false"><i style="background:#18181b"></i><b>Graphite</b><small>Black and white, square corners, a charcoal sidebar.</small></button>
+          <button class="swatch" type="button" data-theme="iris" aria-pressed="false"><i style="background:#594ddc"></i><b>Iris</b><small>Violet on tinted grays, rounder still, the sidebar floating.</small></button>
+        </div>
+        <div class="scheme" role="group" aria-label="Color scheme">
+          <button type="button" data-dark="false" aria-pressed="true">Light</button>
+          <button type="button" data-dark="true" aria-pressed="false">Dark</button>
+        </div>
+      </div>
+      <div class="themes-view">
+        <figure class="ld-capture">
+          <figcaption><span data-theme-name>Jade, light</span><span>The demo's panel home</span></figcaption>
+          <img data-theme-shot src="assets/captures/theme-jade-light.webp" width="1600" height="1000" loading="lazy" alt="The demo's panel home in the Jade theme: record counts with sparklines, revenue and hours charts, and the latest posts.">
+        </figure>
+<pre class="ld-code" aria-label="The brand declaration"><span><span class="t">Panel</span>::new(<span class="s">"admin"</span>).brand(<span class="t">Brand</span>::new(<span class="s">"Acme"</span>).theme(<span class="t">Theme</span>::<b data-theme-code>Jade</b>))</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 08: speed -->
+<section class="ld-row" id="speed" aria-labelledby="h-speed">
+  <div class="ld-num">08</div>
+  <div class="ld-body">
+    <div class="ld-head"><span>Rust</span><span>Compiled, typed, measured</span></div>
+    <div class="ld-pad intro">
+      <h2 class="ld-h2" id="h-speed">Milliseconds, with the checks on.</h2>
+      <p class="ld-lede">Every figure is a full request to the demo's release build: session lookup, policy, query, the whole page rendered. Nothing is cached.</p>
+    </div>
+    <table class="ld-table ld-table-stack speed" data-speed>
+      <thead><tr><th scope="col">Request</th><th scope="col">Median, then 99th percentile</th></tr></thead>
+      <tbody>
+        <tr><td data-th="Request"><code>/admin/posts</code><span>16 posts with authors and tags, a status widget, the shell</span></td><td data-th="Median, 99th"><div class="bar" style="--v:5.79;--p:7.0"><span class="track"><i></i><i></i></span><b>5.8 <small>/ 7.0 ms</small></b></div></td></tr>
+        <tr><td data-th="Request"><code>/admin/employees</code><span>25 of 126 employees, their pay behind a field access rule</span></td><td data-th="Median, 99th"><div class="bar" style="--v:7.86;--p:8.81"><span class="track"><i></i><i></i></span><b>7.9 <small>/ 8.8 ms</small></b></div></td></tr>
+        <tr><td data-th="Request"><code>/admin/orders</code><span>25 of 600 orders with their customers and status badges</span></td><td data-th="Median, 99th"><div class="bar" style="--v:8.37;--p:10.02"><span class="track"><i></i><i></i></span><b>8.4 <small>/ 10.0 ms</small></b></div></td></tr>
+        <tr><td data-th="Request"><code>/admin</code><span>the panel home: four counts with sparklines, two twelve-week charts, the latest posts</span></td><td data-th="Median, 99th"><div class="bar" style="--v:17.41;--p:19.4"><span class="track"><i></i><i></i></span><b>17.4 <small>/ 19.4 ms</small></b></div></td></tr>
+      </tbody>
+    </table>
+    <div class="ld-cells ld-cells-3">
+      <div class="ld-cell"><span class="ld-label">How</span><p class="ld-text">400 sequential requests after 30 to warm up, one keep-alive connection, an Intel i7-8700 from 2017, in-memory SQLite, signed in as the administrator.</p></div>
+      <div class="ld-cell"><span class="ld-label">On the wire</span><p class="ld-text">The 391 kB order list leaves as 25 kB of Brotli. One binary serves the pages, the assets and Topcoat's runtime: no Node, no bundler, no WASM.</p></div>
+      <div class="ld-cell"><span class="ld-label">Typed</span><p class="ld-text">Columns, fields and filters name a model field through a lens such as <code>lens!(Post.title)</code>. Rename the field and the panel stops compiling.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 09: what people build -->
+<section class="ld-row" id="built" aria-labelledby="h-built">
+  <div class="ld-num">09</div>
+  <div class="ld-body">
+    <div class="ld-head"><span>Built with Tablo</span><a class="ld-link" href="examples/">The examples gallery</a></div>
+    <div class="ld-pad-sm"><h2 class="ld-h2" id="h-built">Open them. Sign in. Change anything.</h2></div>
+    <div class="ld-cells ld-cells-3 works">
+      <div class="ld-cell"><a class="work" href="https://demo.tablo.y-l.fr">
+        <div class="work-shot"><img src="assets/captures/demo-home.webp" width="1600" height="1000" loading="lazy" alt="The Tablo demo's landing page."></div>
+        <div class="work-body"><span class="ld-label"><span>Demo</span><span>4 roles, 3 panels</span></span><h3 class="ld-h3">A company's back office</h3><p class="ld-text">Shop, HR, projects and a blog. Sign in as the administrator, the shop or HR manager, or a viewer, and watch each role see its own part.</p><span class="work-go">demo.tablo.y-l.fr</span></div>
+      </a></div>
+      <div class="ld-cell"><a class="work" href="https://saas.tablo.y-l.fr">
+        <div class="work-shot"><img src="assets/captures/saas-home.webp" width="1600" height="1000" loading="lazy" alt="The Tablo SaaS template's landing page."></div>
+        <div class="work-body"><span class="ld-label"><span>Template</span><span>Stripe, teams, jobs</span></span><h3 class="ld-h3">A SaaS to fork</h3><p class="ld-text">Teams as tenants, per-seat Stripe billing, a job queue in Postgres, a staff back office with an audit log. Replace the projects domain with your product.</p><span class="work-go">saas.tablo.y-l.fr</span></div>
+      </a></div>
+      <div class="ld-cell"><a class="work" href="examples/">
+        <div class="work-shot"><div class="work-empty" aria-hidden="true">+</div></div>
+        <div class="work-body"><span class="ld-label"><span>Gallery</span><span>Open to entries</span></span><h3 class="ld-h3">Every example, and yours</h3><p class="ld-text">The showcase, the quickstart, the guide's snippets, and the apps people send in. One entry is a few lines of HTML in the repository.</p><span class="work-go">Browse the examples</span></div>
+      </a></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10: the stack -->
+<section class="ld-row" id="stack" aria-labelledby="h-stack">
+  <div class="ld-num">10</div>
+  <div class="ld-body">
+    <div class="ld-head"><span>The stack</span><span>Three projects, one binary</span></div>
+    <div class="plate">
+      <div class="plate-copy">
+        <h2 class="ld-h2" id="h-stack">A layer, not a cage.</h2>
+        <p class="ld-text">Tablo sits on two upstream projects and hides neither. Your own pages use the same <code>view!</code> and <code>#[component]</code> as the panel, and your own queries the same Toasty models.</p>
+        <p class="ld-text">The <a class="ld-link" href="nightly/atlas/">Atlas</a> maps how the parts fit: the core's layers, a request's path, where each check runs.</p>
+      </div>
+      <div class="plate-art">
+        <div class="stack">
+          <div class="layer you"><b>Your app</b><p>Models, resources, policies, and any page of your own beside the panel.</p><span></span></div>
+          <div class="layer tablo"><b>Tablo</b><p>Panels, resources, tables, forms, actions, auth, tenancy, audit, themes.</p><a href="https://github.com/y-l-g/tablo">Repository</a></div>
+          <div class="layer split">
+            <div><b>Topcoat</b><a class="ld-link" href="https://github.com/tokio-rs/topcoat">Repository</a><p>Views, routing, the request context, reactivity, assets, cookies.</p></div>
+            <div><b>Toasty</b><a class="ld-link" href="https://github.com/tokio-rs/toasty">Repository</a><p>The ORM: models, relations, queries on SQLite, PostgreSQL, MySQL, Turso.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="ld-foot">
+  <div class="ld-cells ld-cells-4">
+    <div class="ld-cell"><h4>Read</h4><ul>
+      <li><a href="nightly/guide/">Guide</a></li>
+      <li><a href="nightly/api/tablo/">API reference</a></li>
+      <li><a href="nightly/atlas/">Atlas</a></li>
+      <li><a href="https://github.com/y-l-g/tablo/tree/master/docs/adr">Design decisions</a></li>
+    </ul></div>
+    <div class="ld-cell"><h4>Install</h4><ul>
+      <li><a href="https://crates.io/crates/tablo">tablo <small>crates.io</small></a></li>
+      <li><a href="https://crates.io/crates/tablo-build">tablo-build <small>crates.io</small></a></li>
+      <li><a href="https://crates.io/crates/topcoat-cli">topcoat-cli <small>crates.io</small></a></li>
+    </ul></div>
+    <div class="ld-cell"><h4>Source</h4><ul>
+      <li><a href="https://github.com/y-l-g/tablo">Tablo <small>y-l-g</small></a></li>
+      <li><a href="https://github.com/tokio-rs/topcoat">Topcoat <small>tokio-rs</small></a></li>
+      <li><a href="https://github.com/tokio-rs/toasty">Toasty <small>tokio-rs</small></a></li>
+    </ul></div>
+    <div class="ld-cell"><h4>Try</h4><ul>
+      <li><a href="https://demo.tablo.y-l.fr">Demo</a></li>
+      <li><a href="https://saas.tablo.y-l.fr">SaaS template</a></li>
+      <li><a href="examples/">Examples gallery</a></li>
+    </ul></div>
+  </div>
+  <div class="ld-colophon"><span>Tablo is MIT licensed. Experimental until 1.0.</span><span>Set in Schibsted Grotesk and Martian Mono, on ledger paper.</span></div>
+</footer>
+
+</div>
+<script src="assets/site.js" defer></script>
+</body>
+</html>
