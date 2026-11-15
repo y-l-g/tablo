@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}nightly/guide/
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -42,23 +42,19 @@ jobs:
       - name: Build Rust API docs
         run: cargo doc --workspace --no-deps
 
+      # The landing page and the examples gallery at the root, from `site/`; the docs under
+      # `nightly/`. `site/scripts/` and the README stay in the repository.
       - name: Assemble site directory
         run: |
-          mkdir -p site/nightly/guide site/nightly/api site/nightly/atlas
-          cp -r docs/guide/book/html/. site/nightly/guide/
-          cp -r target/doc/. site/nightly/api/
-          cp -r docs/atlas/. site/nightly/atlas/
-          cat > site/index.html <<'HTML'
-          <!DOCTYPE html>
-          <html>
-            <head><meta http-equiv="refresh" content="0; url=nightly/guide/"></head>
-            <body><a href="nightly/guide/">Redirect to the Tablo Guide</a></body>
-          </html>
-          HTML
+          mkdir -p _site/nightly/guide _site/nightly/api _site/nightly/atlas
+          cp -r site/index.html site/examples site/assets _site/
+          cp -r docs/guide/book/html/. _site/nightly/guide/
+          cp -r target/doc/. _site/nightly/api/
+          cp -r docs/atlas/. _site/nightly/atlas/
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: site
+          path: _site
 
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

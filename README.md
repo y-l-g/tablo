@@ -93,6 +93,7 @@ writes as the resource's `Form`, and give it a policy that allows `Create` and `
 
 ## Documentation
 
+- **[Tablo's site](https://y-l.fr/tablo/)**, with the [examples gallery](https://y-l.fr/tablo/examples/)
 - **[User guide](https://y-l.fr/tablo/nightly/guide/)**
 - **[API reference](https://y-l.fr/tablo/nightly/api/tablo/)**
 - **[Technical atlas](https://y-l.fr/tablo/nightly/atlas/)**
