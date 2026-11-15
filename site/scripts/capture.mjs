@@ -139,19 +139,6 @@ async function signIn(page, panel) {
   await page.close();
 }
 
-// ---- signed out: the customer panel's sign-in ----
-{
-  const page = await context.newPage();
-  await page.goto(`${base}/app/login`);
-  const card = await box(page, "main form, form");
-  const pad = 72;
-  await shoot(page, "sign-in", {
-    width: 1100,
-    clip: { x: card.x - pad * 2, y: card.y - pad * 2.2, width: card.width + pad * 4, height: card.height + pad * 3.4 },
-  });
-  await page.close();
-}
-
 // ---- the customer panel: two-factor sign-in ----
 {
   const page = await context.newPage();
