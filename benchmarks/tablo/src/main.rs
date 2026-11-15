@@ -2,8 +2,8 @@ use std::time::Instant;
 
 use jiff::Timestamp;
 use tablo_core::{
-    Ability, CountColumn, Panel, RelationColumn, Resource, ResourceDef, RouterBuilderPanelExt,
-    Table, Tenancy, Tenant, TenantId, TextColumn, lens, relation,
+    Ability, CountColumn, Panel, PanelHandle, RelationColumn, Resource, ResourceDef, ResourcePage,
+    RouterBuilderPanelExt, Table, Tenancy, Tenant, TenantId, TextColumn, lens, relation,
 };
 use toasty::{Db, Deferred};
 use topcoat::{
@@ -87,7 +87,10 @@ impl Resource for PostResource {
     type Form = PostForm;
 
     fn declare() -> ResourceDef<Self> {
+        // The form edits a title only, so nothing could create a post: the create page goes, and
+        // the policy refuses `Create` too, which keeps a policy on the measured path.
         ResourceDef::new()
+            .without_page(ResourcePage::Create)
             .policy_fn(|_cx, ability| !matches!(ability, Ability::Create))
             .tenancy(Tenancy::column(lens!(Post.tenant_id)))
             .table(
@@ -155,16 +158,18 @@ async fn seed_50(db: &mut Db, tenant: TenantId) {
     }
 }
 
-fn bench_cx(db: &Db, tenant: TenantId) -> Cx {
+/// A request to `/admin/posts` inside the mounted panel, scoped to `tenant`, as the panel's own
+/// list route sees it. The panel's context holds the database and the mounted resources, without
+/// which `can_list` finds no resource and refuses; entering the panel adds its auth and limits.
+fn bench_cx(panel: &PanelHandle, tenant: TenantId) -> Cx {
     let parts = http::Request::builder()
         .uri("/admin/posts")
         .body(())
         .expect("bench request parts")
         .into_parts()
         .0;
-    Cx::default()
-        .with(db.clone())
-        .with(parts)
+    panel
+        .enter(&panel.context().with(parts))
         .with(Tenant(tenant))
 }
 
@@ -180,10 +185,10 @@ fn summarize(mut times: Vec<f64>) -> (f64, f64, f64, f64, f64) {
     )
 }
 
-async fn bench_list_path(db: &Db, tenant: TenantId, iterations: usize) -> Vec<f64> {
+async fn bench_list_path(panel: &PanelHandle, tenant: TenantId, iterations: usize) -> Vec<f64> {
     let mut times_ms = Vec::with_capacity(iterations);
     for _ in 0..iterations {
-        let cx = bench_cx(db, tenant);
+        let cx = bench_cx(panel, tenant);
         // The list's gate: the shipped page answers 403 without a tenant and
         // `ViewAny`, so a bench that skipped them would not be the list path.
         assert!(
@@ -213,10 +218,10 @@ async fn bench_list_path(db: &Db, tenant: TenantId, iterations: usize) -> Vec<f6
     times_ms
 }
 
-async fn bench_query_only(db: &Db, tenant: TenantId, iterations: usize) -> Vec<f64> {
+async fn bench_query_only(panel: &PanelHandle, tenant: TenantId, iterations: usize) -> Vec<f64> {
     let mut times_ms = Vec::with_capacity(iterations);
     for _ in 0..iterations {
-        let cx = bench_cx(db, tenant);
+        let cx = bench_cx(panel, tenant);
         let start = Instant::now();
         let mut db2 = tablo_core::db::db(&cx).expect("no write is open while the benchmark reads");
         let inc_author: toasty::stmt::Include<Post, Author> = Post::fields().author().into();
@@ -244,8 +249,10 @@ async fn run_leg(db: Db, label: &str, iterations: usize) {
     let tenant = TenantId::from(uuid::Uuid::new_v4());
     let mut seed_db = db.clone();
     seed_50(&mut seed_db, tenant).await;
-    let (p50, p90, p99, min, max) = summarize(bench_list_path(&db, tenant, iterations).await);
-    let (q50, _, _, _, _) = summarize(bench_query_only(&db, tenant, 20).await);
+    // The panel the HTTP mode serves, mounted on this leg's database.
+    let (_router, panel) = router(db);
+    let (p50, p90, p99, min, max) = summarize(bench_list_path(&panel, tenant, iterations).await);
+    let (q50, _, _, _, _) = summarize(bench_query_only(&panel, tenant, 20).await);
     println!("--- {label} ---");
     println!("tenant: {tenant} (fresh per run; 5 authors + 50 posts + 50 comments)");
     println!(
@@ -339,9 +346,11 @@ async fn inject_server_tenant(cx: &Cx, body: Body, next: Next<'_>) -> Result<Res
     next.run(&cx.with(Tenant(SERVER_TENANT)), body).await
 }
 
-fn router(db: Db) -> Router {
+/// The router the HTTP mode serves, and the handle of its `admin` panel, which the bench path
+/// enters.
+fn router(db: Db) -> (Router, PanelHandle) {
     let mut builder = Router::builder().discover().with(db);
-    builder
+    let panel = builder
         .panel(
             Panel::new("admin")
                 .auth(tablo_core::Auth::disabled())
@@ -349,7 +358,7 @@ fn router(db: Db) -> Router {
                 .resource::<PostResource>(),
         )
         .expect("panel mounts");
-    builder.build()
+    (builder.build(), panel)
 }
 
 #[tokio::main]
@@ -374,7 +383,7 @@ async fn main() {
         .expect("connect");
     db.push_schema().await.expect("push_schema");
     seed_50(&mut db, SERVER_TENANT).await;
-    let router = router(db);
+    let (router, _panel) = router(db);
     println!("tablo-bench listening on http://localhost:3000/ (try /admin/posts)");
     topcoat::start(router).await.unwrap();
 }
