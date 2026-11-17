@@ -77,7 +77,9 @@ impl Panel {
         let (lang, dir) = (locale.id().clone(), locale.id().direction());
         let page = metadata(cx).await?;
         let brand = panel.and_then(|panel| panel.brand.as_ref());
-        let theme = brand.map(super::Brand::current_theme).unwrap_or_default();
+        let theme = brand
+            .map(|brand| brand.current_theme(cx))
+            .unwrap_or_default();
         // The page sets in the font the shell links, whichever the app picked, then lays the
         // brand's colors over the theme: after the stylesheet, so both win.
         let font = panel

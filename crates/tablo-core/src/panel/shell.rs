@@ -154,7 +154,10 @@ impl Panel {
         let header_title = Self::brand_name(cx);
         let variant = current(cx)
             .and_then(|panel| panel.brand.as_ref())
-            .map_or_else(|| Theme::default().sidebar(), Brand::sidebar_frame)
+            .map_or_else(
+                || Theme::default().sidebar(),
+                |brand| brand.sidebar_frame(cx),
+            )
             .variant();
         // One navigation tree: the upstream sidebar renders its children once
         // and shares them between the desktop panel and the mobile sheet.
@@ -426,7 +429,7 @@ mod toaster;
 mod user_menu;
 
 pub(in crate::panel) use area::area_entries;
-pub use brand::{Brand, Radius, SidebarFrame, Theme};
+pub use brand::{Brand, Look, Radius, SidebarFrame, Theme};
 pub use environment::Environment;
 pub(crate) use language::{LANGUAGE_SEGMENT, language_post};
 use scheme::{SIDEBAR_COOKIE, Scheme};

@@ -48,7 +48,7 @@ pub use self::{
     mounted::{MountedResource, mounted_resources},
     page_filters::page_filters,
     pages::page_filter_bar,
-    shell::{Brand, Environment, Radius, SidebarFrame, Theme},
+    shell::{Brand, Environment, Look, Radius, SidebarFrame, Theme},
     widgets::{record_table, stats, widgets},
 };
 pub(crate) use self::{bar::header_bar, pages::current_page};

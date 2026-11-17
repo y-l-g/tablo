@@ -187,7 +187,7 @@ pub use outcome::{Notification, NotificationAction, NotificationStatus, Outcome}
 pub use page::{Page, PageDef, PageFilter, PageFilters};
 pub use panel::{
     Area, AreaGroup, Banner, Brand, ChangedField, ChangedRecord, CommitHook, Environment,
-    Impersonate, Load, MountedResource, Panel, PanelChange, PanelHandle, Radius,
+    Impersonate, Load, Look, MountedResource, Panel, PanelChange, PanelHandle, Radius,
     RouterBuilderPanelExt, SidebarFrame, Theme, WiredTable, can_list, can_open, can_view_field,
     list_query, loaded, mounted_resources, navigation_item, page_filter_bar, page_filters,
     pages::{header_action_button, header_action_buttons},

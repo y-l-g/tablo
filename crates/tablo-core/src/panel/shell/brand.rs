@@ -26,7 +26,11 @@ pub struct Brand {
     radius: Option<Radius>,
     theme: Theme,
     sidebar: Option<SidebarFrame>,
+    look: Option<LookFn>,
 }
+
+/// What [`Brand::look`] takes: the [`Look`] a request wears.
+type LookFn = fn(&Cx) -> Look;
 
 /// A [`Brand`]'s colors over its theme's primary tokens.
 #[derive(Debug, Clone, Default)]
@@ -69,6 +73,19 @@ impl Theme {
         }
     }
 
+    /// The theme the request's page wears: its panel's brand's, under the brand's [`Look`], or
+    /// the default for a panel without a brand; `None` outside every panel. A picker reads it to
+    /// mark the theme in use.
+    pub fn current(cx: &Cx) -> Option<Self> {
+        let panel = current(cx)?;
+        Some(
+            panel
+                .brand
+                .as_ref()
+                .map_or_else(Self::default, |brand| brand.current_theme(cx)),
+        )
+    }
+
     /// The frame the theme was drawn beside, unless the brand picks another.
     pub(super) const fn sidebar(self) -> SidebarFrame {
         match self {
@@ -93,12 +110,67 @@ pub enum SidebarFrame {
 }
 
 impl SidebarFrame {
+    /// The frame the request's page wears, as [`Theme::current`] reads the theme; `None` outside
+    /// every panel.
+    pub fn current(cx: &Cx) -> Option<Self> {
+        let panel = current(cx)?;
+        Some(panel.brand.as_ref().map_or_else(
+            || Theme::default().sidebar(),
+            |brand| brand.sidebar_frame(cx),
+        ))
+    }
+
     pub(crate) const fn variant(self) -> tablo_ui::SidebarVariant {
         match self {
             Self::Ruled => tablo_ui::SidebarVariant::Sidebar,
             Self::Inset => tablo_ui::SidebarVariant::Inset,
             Self::Floating => tablo_ui::SidebarVariant::Floating,
         }
+    }
+}
+
+/// The theme and the sidebar frame one request wears over its [`Brand`]'s, which the function
+/// passed to [`Brand::look`] answers for every page the panel renders, sign-in included: a
+/// visitor's own pick, read from a cookie the app writes.
+///
+/// A look that names a theme but no frame keeps the brand's [`sidebar`](Brand::sidebar), else
+/// takes the theme's own.
+///
+/// ```rust
+/// # use tablo_core::{Brand, Look, Theme};
+/// # use topcoat::{context::Cx, cookie::{Cookies, cookies}};
+/// fn visitor_look(cx: &Cx) -> Look {
+///     match cookies(cx)
+///         .get("acme_theme")
+///         .as_ref()
+///         .map(|cookie| cookie.value())
+///     {
+///         Some("iris") => Look::default().theme(Theme::Iris),
+///         _ => Look::default(),
+///     }
+/// }
+///
+/// Brand::new("Acme").look(visitor_look);
+/// ```
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Look {
+    theme: Option<Theme>,
+    sidebar: Option<SidebarFrame>,
+}
+
+impl Look {
+    /// Wear `theme` instead of the brand's.
+    #[must_use]
+    pub const fn theme(mut self, theme: Theme) -> Self {
+        self.theme = Some(theme);
+        self
+    }
+
+    /// Frame the page with the sidebar as `frame` says instead of as the brand or the theme does.
+    #[must_use]
+    pub const fn sidebar(mut self, frame: SidebarFrame) -> Self {
+        self.sidebar = Some(frame);
+        self
     }
 }
 
@@ -143,6 +215,7 @@ impl Brand {
             radius: None,
             theme: Theme::default(),
             sidebar: None,
+            look: None,
         }
     }
 
@@ -181,14 +254,29 @@ impl Brand {
         self
     }
 
-    /// The theme the brand picks.
-    pub(crate) fn current_theme(&self) -> Theme {
-        self.theme
+    /// Let each request pick its theme and sidebar frame over the brand's, through the [`Look`]
+    /// `look` answers for it.
+    pub fn look(mut self, look: fn(&Cx) -> Look) -> Self {
+        self.look = Some(look);
+        self
     }
 
-    /// The sidebar's frame: the brand's, else its theme's.
-    pub(crate) fn sidebar_frame(&self) -> SidebarFrame {
-        self.sidebar.unwrap_or_else(|| self.theme.sidebar())
+    /// The look `cx` wears: the brand's theme and frame, under the request's [`Look`].
+    fn current_look(&self, cx: &Cx) -> Look {
+        self.look.map(|look| look(cx)).unwrap_or_default()
+    }
+
+    /// The theme `cx` wears: the request's, else the brand's.
+    pub(crate) fn current_theme(&self, cx: &Cx) -> Theme {
+        self.current_look(cx).theme.unwrap_or(self.theme)
+    }
+
+    /// The sidebar's frame `cx` wears: the request's, else the brand's, else its theme's.
+    pub(crate) fn sidebar_frame(&self, cx: &Cx) -> SidebarFrame {
+        let look = self.current_look(cx);
+        look.sidebar
+            .or(self.sidebar)
+            .unwrap_or_else(|| look.theme.unwrap_or(self.theme).sidebar())
     }
 
     /// Round the panel's corners to `radius`.
