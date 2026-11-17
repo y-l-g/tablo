@@ -42,12 +42,12 @@ jobs:
       - name: Build Rust API docs
         run: cargo doc --workspace --no-deps
 
-      # The landing page and the examples gallery at the root, from `site/`; the docs under
+      # The landing page at the root, from `site/`; the docs under
       # `nightly/`. `site/scripts/` and the README stay in the repository.
       - name: Assemble site directory
         run: |
           mkdir -p _site/nightly/guide _site/nightly/api _site/nightly/atlas
-          cp -r site/index.html site/examples site/assets _site/
+          cp -r site/index.html site/assets _site/
           cp -r docs/guide/book/html/. _site/nightly/guide/
           cp -r target/doc/. _site/nightly/api/
           cp -r docs/atlas/. _site/nightly/atlas/
