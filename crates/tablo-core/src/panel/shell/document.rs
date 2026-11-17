@@ -85,8 +85,14 @@ impl Panel {
         let font = panel
             .and_then(|panel| panel.shell_assets)
             .map(|ShellAssets { font, .. }| font_style(font.family()));
-        let style: String = font
+        // A theme with faces of its own declares them; the browser fetches one only once a rule
+        // sets text in it.
+        let faces = topcoat::asset::try_asset_config(cx)
+            .filter(|_| panel.is_some_and(|panel| panel.shell_assets.is_some()))
+            .map(|assets| face_style(theme, |asset| assets.resolve(cx, asset)));
+        let style: String = faces
             .into_iter()
+            .chain(font)
             .chain(brand.and_then(super::Brand::style))
             .collect();
         let style = (!style.is_empty()).then_some(style);
@@ -131,11 +137,43 @@ impl Panel {
     }
 }
 
-/// The style sheet that sets the page in `family`, ahead of the theme's fallbacks. A quote or a
-/// backslash in the name would end the CSS string early, so both are escaped.
+/// The `@font-face` rules of `theme`'s faces, each file's URL as `url` resolves it; empty for a
+/// theme in the app's own font.
+fn face_style(theme: super::Theme, url: impl Fn(topcoat::asset::Asset) -> String) -> String {
+    theme
+        .faces()
+        .iter()
+        .map(|(family, file, weights)| {
+            let url = css_string(&url(*file));
+            format!(
+                "@font-face{{font-family:\"{family}\";src:url(\"{url}\") format(\"woff2\");\
+                 font-weight:{weights};font-style:normal;font-display:swap}}"
+            )
+        })
+        .collect()
+}
+
+/// The style sheet that sets the page in `family`, ahead of the theme's fallbacks.
 fn font_style(family: &str) -> String {
-    let family = family.replace('\\', "\\\\").replace('"', "\\\"");
+    let family = css_string(family);
     format!(":root{{--tablo-font:\"{family}\"}}")
+}
+
+/// `text` escaped to sit between double quotes in a `<style>` element: a quote, a backslash or a
+/// newline would end the CSS string early, and a `<` could end the element.
+fn css_string(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\a "),
+            '\r' => escaped.push_str("\\d "),
+            '<' => escaped.push_str("\\3c "),
+            c => escaped.push(c),
+        }
+    }
+    escaped
 }
 
 #[cfg(test)]

@@ -36,6 +36,9 @@ owned components carry `data-slot`, and a button its `data-tone` and `data-size`
 as a button repeats. No test asserts appearance, so renaming or dropping a hook means checking each
 theme's skin by eye.
 
+A theme may set the panel in faces of its own. They ship as `tablo-ui` assets, and the shell
+declares them, inline, only on a panel that serves its assets (`shell_assets`).
+
 An app on the default theme that writes no Tailwind classes of its own may skip that build:
 `tablo-ui` ships the same build over Tablo's sources alone, prebuilt, as `DEFAULT_STYLESHEET`. A
 showcase test fails when the committed copy drifts from what Tablo's sources build.

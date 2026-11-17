@@ -2,7 +2,7 @@
    `styles.css`, so a token the app redeclares under `:root` or `.dark` wins.
 
    The files run in order: this one, the grammar every theme shares (`identity.css`), then Jade,
-   Amber, Graphite and Iris. Jade, the
+   Amber, Graphite, Iris and Ledger. Jade, the
    default, is the `:root` and `.dark` tokens. Every other theme redeclares them under
    `:root:where([data-tablo-theme=…])` and `.dark:where([data-tablo-theme=…])`, which the shell
    writes on `<html>` from `Brand::theme`. `:where` keeps those selectors as specific as `:root`, so

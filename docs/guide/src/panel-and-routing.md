@@ -406,11 +406,13 @@ is marked as with a highlighter. Each theme then sets that grammar in a voice of
 | `Theme::Amber` | the workshop: warm stone neutrals and an amber primary, bold titles, ringed cards, the current page an amber plate; close to Filament's default look |
 | `Theme::Graphite` | the instrument: black and white, barely rounded and flat, captions and figures in the monospace, gridded tables, beside a charcoal sidebar in either color scheme |
 | `Theme::Iris` | the studio: a violet primary on tinted grays, pills for buttons, badges and tabs, soft violet shadows, the sidebar a card floating beside the page under a frosted topbar |
+| `Theme::Ledger` | Tablo's own site as a panel: ink on paper, square corners, a heavy grotesk over monospaced capitals, numbered sidebar groups, stamped buttons with a hard offset shadow, a red primary and a yellow highlighter |
 
 Each theme has a light and a dark palette, so the visitor's choice of scheme still applies. A theme
 sets the [tokens](#theme-tokens) and the sidebar's frame; the brand's colors and radius, and the
 tokens an app's `styles.css` redeclares, apply over it. The page sets in the font the app passes to
-`shell_assets`, whichever theme it wears.
+`shell_assets`, except under Ledger, which ships its own faces (Schibsted Grotesk and Martian Mono)
+and links them from the panel's assets.
 
 `Brand::sidebar` frames the page another way than the theme does: `SidebarFrame::Ruled`, the sidebar
 flush with the window and ruled off from the page; `SidebarFrame::Inset`, the page a sheet inset in

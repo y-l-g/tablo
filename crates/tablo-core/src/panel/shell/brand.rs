@@ -65,6 +65,10 @@ pub enum Theme {
     /// The studio: a violet primary on tinted grays, pills for buttons, badges and tabs, soft
     /// violet shadows, the sidebar floating beside the page under a frosted topbar.
     Iris,
+    /// Tablo's site as a panel: black and red inks on pale green paper, square corners, mono
+    /// capitals over ink rules, set in Schibsted Grotesk and Martian Mono, which the shell loads
+    /// for it.
+    Ledger,
 }
 
 impl Theme {
@@ -76,6 +80,21 @@ impl Theme {
             Self::Amber => Some("amber"),
             Self::Graphite => Some("graphite"),
             Self::Iris => Some("iris"),
+            Self::Ledger => Some("ledger"),
+        }
+    }
+
+    /// The faces the theme sets its pages in, which the shell loads with it: each family's name,
+    /// its file, and the weights the file spans. Empty for a theme in the app's own font.
+    pub(crate) const fn faces(
+        self,
+    ) -> &'static [(&'static str, topcoat::asset::Asset, &'static str)] {
+        match self {
+            Self::Ledger => &[
+                ("Schibsted Grotesk", tablo_ui::SCHIBSTED_GROTESK, "400 900"),
+                ("Martian Mono", tablo_ui::MARTIAN_MONO, "100 800"),
+            ],
+            Self::Jade | Self::Amber | Self::Graphite | Self::Iris => &[],
         }
     }
 
@@ -96,7 +115,7 @@ impl Theme {
     pub(super) const fn sidebar(self) -> SidebarFrame {
         match self {
             Self::Jade => SidebarFrame::Inset,
-            Self::Amber | Self::Graphite => SidebarFrame::Ruled,
+            Self::Amber | Self::Graphite | Self::Ledger => SidebarFrame::Ruled,
             Self::Iris => SidebarFrame::Floating,
         }
     }
@@ -107,7 +126,8 @@ impl Theme {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum SidebarFrame {
-    /// Flush with the window's edge, a rule between it and the page: Amber's and Graphite's.
+    /// Flush with the window's edge, a rule between it and the page: Amber's, Graphite's and
+    /// Ledger's.
     Ruled,
     /// The page a sheet inset in the sidebar's color, the sidebar its frame: Jade's.
     Inset,
