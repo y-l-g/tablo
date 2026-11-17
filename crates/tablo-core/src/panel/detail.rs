@@ -103,12 +103,19 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
                     <a
                         (crate::navigation::runtime_link(cx, &back))
                         class=(outline.clone())
+                        data-slot="button"
+                        data-tone="outline"
                     >
                         icon(data: tablo_ui::icons::ARROW_LEFT)
                         (crate::t!(cx, "tablo-detail-back"))
                     </a>
                     if let Some(link) = public_link {
-                        <a href=(link.url) class=(outline.clone())>
+                        <a
+                            href=(link.url)
+                            class=(outline.clone())
+                            data-slot="button"
+                            data-tone="outline"
+                        >
                             icon(data: tablo_ui::icons::EXTERNAL_LINK)
                             (link.label.localize(cx))
                         </a>
@@ -121,6 +128,8 @@ fn detail_page<'a>(cx: &'a Cx, page: DetailPage<'a>) -> BoxView<'a> {
                                 tablo_ui::ButtonVariant::Primary,
                                 tablo_ui::ButtonSize::Md,
                             ))
+                            data-slot="button"
+                            data-tone="primary"
                         >
                             icon(data: tablo_ui::icons::PENCIL)
                             (crate::t!(cx, "tablo-action-edit"))

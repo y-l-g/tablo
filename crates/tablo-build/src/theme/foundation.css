@@ -1,0 +1,160 @@
+/* Tablo's themes. `tablo_build::tailwind()` imports them after Tailwind and before the app's
+   `styles.css`, so a token the app redeclares under `:root` or `.dark` wins.
+
+   The files run in order: this one, the grammar every theme shares (`identity.css`), then Jade,
+   Amber, Graphite and Iris. Jade, the
+   default, is the `:root` and `.dark` tokens. Every other theme redeclares them under
+   `:root:where([data-tablo-theme=…])` and `.dark:where([data-tablo-theme=…])`, which the shell
+   writes on `<html>` from `Brand::theme`. `:where` keeps those selectors as specific as `:root`, so
+   source order decides: a theme's tokens beat Jade's, the app's beat the theme's. A theme's dark
+   block follows its light one and redeclares every color it does, so a dark page never keeps a
+   light value.
+
+   Tablo's look is one grammar every theme speaks, in its own voice:
+
+   - the caption: structural labels (a sidebar group, a column, a stat, a legend) in small tracked
+     capitals, the `tablo-caption` utility;
+   - the ruled head: every surface opens with a band on `--head`, ruled off from its body;
+   - the masthead: a page's title stands over a rule that spans the page;
+   - the notch: a short bar in the primary color marks where the reader is, in the sidebar and
+     along a row of tabs;
+   - the highlighter: `--mark` tints what the pointer crosses and what the reader selects;
+   - figures: numbers set in tabular figures, a stat's in the display face.
+
+   A theme sets the voice through the tokens below and, for what tokens cannot say, its skin. */
+
+/* Dark mode: put the `dark` class on an ancestor, typically <html>. */
+@custom-variant dark (&:is(.dark *));
+
+/* Indirection through `:root`/`.dark` lets the values swap when the theme or the color scheme
+   changes. */
+@theme inline {
+  /* `--tablo-font` is the family the shell links (`Panel::shell_assets`); a theme with a face of
+     its own sets `--tablo-face` ahead of it. The stack after it covers a page rendered without
+     either. */
+  --font-sans: var(--tablo-face), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  --font-display: var(--tablo-display), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--tablo-mono), ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas,
+    monospace;
+  /* Every corner derives from `--radius`: `rounded-lg` is the token, the other steps two and
+     four pixels either side of it, never below square. */
+  --radius-sm: max(0px, calc(var(--radius) - 4px));
+  --radius-md: max(0px, calc(var(--radius) - 2px));
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px * var(--tablo-round));
+  --radius-2xl: calc(var(--radius) + 8px * var(--tablo-round));
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-control: var(--control);
+  --color-head: var(--head);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-mark: var(--mark);
+  --color-mark-foreground: var(--mark-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-card: var(--shadow-card);
+  --shadow-control: var(--shadow-control);
+  --shadow-button: var(--shadow-button);
+}
+
+/* The voice every theme starts from. A theme redeclares the ones it speaks differently. These
+   hold in either color scheme. */
+:root {
+  --tablo-font: system-ui;
+  --tablo-face: var(--tablo-font);
+  --tablo-display: var(--tablo-face);
+  --tablo-mono: ui-monospace;
+  /* 1 lets the larger corners grow past `--radius`; 0 keeps a square theme square. */
+  --tablo-round: 1;
+  --tablo-heading-weight: 600;
+  --tablo-heading-tracking: -0.015em;
+  --tablo-title-size: 1.625rem;
+  --tablo-caption-font: var(--tablo-face);
+  --tablo-caption-size: 0.6875rem;
+  --tablo-caption-weight: 600;
+  --tablo-caption-tracking: 0.075em;
+  --tablo-caption-case: uppercase;
+  --tablo-figure-font: var(--tablo-display);
+  --tablo-figure-weight: 600;
+  --tablo-figure-tracking: -0.025em;
+  --tablo-notch: 3px;
+}
+
+/* A structural label: a sidebar group, a column, a stat, a legend. */
+@utility tablo-caption {
+  font-family: var(--tablo-caption-font);
+  font-size: var(--tablo-caption-size);
+  font-weight: var(--tablo-caption-weight);
+  letter-spacing: var(--tablo-caption-tracking);
+  text-transform: var(--tablo-caption-case);
+  line-height: 1.35;
+}
+
+/* A heading in the display face: a page's, a card's, a section's. */
+@utility tablo-heading {
+  font-family: var(--tablo-display), ui-sans-serif, system-ui, sans-serif;
+  font-weight: var(--tablo-heading-weight);
+  letter-spacing: var(--tablo-heading-tracking);
+}
+
+/* A figure that stands for itself, such as a stat's value. */
+@utility tablo-figure {
+  font-family: var(--tablo-figure-font), ui-sans-serif, system-ui, sans-serif;
+  font-weight: var(--tablo-figure-weight);
+  letter-spacing: var(--tablo-figure-tracking);
+  font-variant-numeric: tabular-nums;
+}
+
+@layer base {
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  /* Native controls, such as a table's row checkboxes, take the primary color too. */
+  :root {
+    accent-color: var(--primary);
+  }
+
+  /* The highlighter marks what the reader selects. */
+  ::selection {
+    background: var(--mark-strong, var(--mark));
+    color: var(--mark-foreground);
+  }
+
+  /* A search hit's matched text, as by hand. */
+  mark {
+    background: var(--mark-strong, var(--mark));
+    color: var(--mark-foreground);
+    border-radius: 2px;
+    padding-inline: 1px;
+  }
+}

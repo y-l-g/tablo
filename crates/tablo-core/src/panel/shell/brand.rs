@@ -41,7 +41,10 @@ struct Palette {
 }
 
 /// One of the looks Tablo ships, which a [`Brand`] picks with [`Brand::theme`]: its palette in both
-/// color schemes, its corners, its shadows, and the [`SidebarFrame`] it suggests.
+/// color schemes, its type, corners and shadows, and the [`SidebarFrame`] it suggests. Every theme
+/// speaks the same grammar (captions over the sidebar's groups and the tables' columns, the
+/// current page notched in the primary color, the title ruled off from the page, ruled head
+/// bands), each in a voice of its own.
 ///
 /// A brand's [`color`](Brand::color), [`radius`](Brand::radius) and
 /// [`sidebar`](Brand::sidebar), and the tokens an app's stylesheet redeclares, apply over the
@@ -49,15 +52,18 @@ struct Palette {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Theme {
-    /// Tablo's own: a jade primary on cool neutrals, the page inset in the sidebar's frame.
+    /// Tablo's own, the ruled sheet: a jade primary on cool neutrals, the page a white sheet
+    /// inset in the sidebar's frame.
     #[default]
     Jade,
-    /// An amber primary on plain grays, a white sidebar ruled off from the page, and rounder
-    /// cards: close to Filament's default look.
+    /// The workshop: warm stone neutrals and an amber primary, bold titles, ringed cards, the
+    /// current page an amber plate. Close to Filament's default look.
     Amber,
-    /// Black and white with square corners, beside a charcoal sidebar in either color scheme.
+    /// The instrument: black and white, barely rounded and flat, captions and figures in the
+    /// monospace and tables gridded, beside a charcoal sidebar in either color scheme.
     Graphite,
-    /// A violet primary on tinted grays, rounder still, with the sidebar floating beside the page.
+    /// The studio: a violet primary on tinted grays, pills for buttons, badges and tabs, soft
+    /// violet shadows, the sidebar floating beside the page under a frosted topbar.
     Iris,
 }
 
@@ -478,7 +484,10 @@ impl Panel {
         Ok(view! {
             <div class="flex min-w-0 items-center gap-2 font-semibold text-foreground">
                 (mark)
-                <span class="truncate md:group-data-[collapsible=icon]/sidebar:hidden">
+                <span
+                    class="truncate tracking-[var(--tablo-heading-tracking)] md:group-data-[collapsible=icon]/sidebar:hidden"
+                    data-brand-name=""
+                >
                     (name)
                 </span>
             </div>
@@ -493,7 +502,7 @@ impl Panel {
         view! {
             <div class="flex flex-col items-center gap-3 text-center" data-brand="">
                 (mark)
-                <span class="text-lg font-semibold tracking-tight text-foreground">
+                <span class="tablo-heading text-lg text-foreground" data-brand-name="">
                     (name)
                 </span>
             </div>

@@ -393,14 +393,19 @@ tenant predicate. See [Data access](./data-access.md).
 
 ### Themes
 
-`Brand::theme` dresses the panel, its sign-in pages included, in one of the themes Tablo ships:
+`Brand::theme` dresses the panel, its sign-in pages included, in one of the themes Tablo ships.
+They share one grammar, so a panel reads as Tablo in any of them: the sidebar's groups and the
+tables' columns are headed by small captions, the current page is notched by a bar in the primary
+color, the page's title is ruled off from its content by a line notched the same way, cards open on a
+ruled head band, a record's entries are captions over their values, and a selected or hovered row
+is marked as with a highlighter. Each theme then sets that grammar in a voice of its own:
 
 | Theme | Looks like |
 | --- | --- |
-| `Theme::Jade`, the default | a jade primary on cool neutrals; the page a white sheet inset in the sidebar's frame, small-caps headings over the sidebar's groups and the tables' columns |
-| `Theme::Amber` | an amber primary on plain grays, a white sidebar and topbar ruled off from a gray page, rounder cards and bold titles: close to Filament's default look |
-| `Theme::Graphite` | black and white with square corners, flat surfaces and monospaced labels, beside a charcoal sidebar in either color scheme |
-| `Theme::Iris` | a violet primary on tinted grays, generous corners and soft shadows, the sidebar a card floating beside the page |
+| `Theme::Jade`, the default | the ruled sheet: a jade primary on cool neutrals, the page a white sheet inset in the sidebar's frame |
+| `Theme::Amber` | the workshop: warm stone neutrals and an amber primary, bold titles, ringed cards, the current page an amber plate; close to Filament's default look |
+| `Theme::Graphite` | the instrument: black and white, barely rounded and flat, captions and figures in the monospace, gridded tables, beside a charcoal sidebar in either color scheme |
+| `Theme::Iris` | the studio: a violet primary on tinted grays, pills for buttons, badges and tabs, soft violet shadows, the sidebar a card floating beside the page under a frosted topbar |
 
 Each theme has a light and a dark palette, so the visitor's choice of scheme still applies. A theme
 sets the [tokens](#theme-tokens) and the sidebar's frame; the brand's colors and radius, and the
@@ -489,7 +494,11 @@ name, such as `bg-primary` or `text-muted-foreground`, in the panel's markup and
 | `--border` | borders and dividers |
 | `--input` | the edges of inputs, selects, checkboxes and radios, a step stronger than `--border` |
 | `--ring` | focus rings |
-| `--shadow-xs`, `--shadow-sm`, `--shadow-md`, `--shadow-lg` | the shadows of the same names: cards, then menus and dialogs |
+| `--control` | the face of inputs, selects and outline buttons |
+| `--head`, `--rule`, `--rule-strong` | the head bands of cards, sections and tables; the rules inside a surface; the rule under a table's head and under the page's title |
+| `--mark`, `--mark-strong`, `--mark-foreground` | the highlighter: hovered and selected rows, then text selection and `<mark>` |
+| `--shadow-xs`, `--shadow-sm`, `--shadow-md`, `--shadow-lg` | the shadows of the same names: menus and dialogs take `--shadow-lg` |
+| `--shadow-card`, `--shadow-control`, `--shadow-button` | the shadows of cards, inputs, and solid buttons |
 | `--radius` | the corners: `rounded-lg`, with `rounded-md` and `rounded-sm` 2px and 4px smaller and `rounded-xl` 4px larger |
 | `--sidebar`, `--sidebar-foreground` | the sidebar and its text |
 | `--sidebar-primary`, `--sidebar-primary-foreground` | the sidebar's primary elements, `--primary` by default |
@@ -497,7 +506,10 @@ name, such as `bg-primary` or `text-muted-foreground`, in the panel's markup and
 | `--sidebar-border`, `--sidebar-ring` | the sidebar's borders and focus rings, `--border` and `--ring` by default |
 
 The font is `--font-sans`, under Tailwind's `@theme`: the family `shell_assets` links, then the
-system's sans-serif.
+system's sans-serif. The type of the grammar is set by `--tablo-*` properties a theme redeclares:
+`--tablo-heading-weight`, `--tablo-heading-tracking` and `--tablo-title-size` for titles, the
+`--tablo-caption-*` family for captions, `--tablo-figure-*` for a stat's figure, and `--tablo-notch`
+for the width of the bar marking the current page.
 
 ## Assets
 

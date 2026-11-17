@@ -1,0 +1,175 @@
+/* ── Graphite ──────────────────────────────────────────────────────────────────────────────────
+   The instrument: pure neutrals and a black primary, beside a charcoal sidebar in either color
+   scheme. Corners are barely rounded and surfaces flat, drawn by their borders alone. Captions
+   and figures are set in the monospace, like a readout; tables are gridded, their columns ruled
+   apart and their rows dense; the current page is marked by a white bar in the dark frame. */
+
+:root:where([data-tablo-theme="graphite"]) {
+  --radius: 0.3rem;
+  --tablo-round: 0.5;
+  --tablo-heading-weight: 600;
+  --tablo-heading-tracking: -0.03em;
+  --tablo-title-size: 1.625rem;
+  --tablo-caption-font: var(--tablo-mono), ui-monospace, Menlo, monospace;
+  --tablo-caption-size: 0.6875rem;
+  --tablo-caption-weight: 500;
+  --tablo-caption-tracking: 0.04em;
+  --tablo-figure-font: var(--tablo-mono), ui-monospace, Menlo, monospace;
+  --tablo-figure-weight: 500;
+  --tablo-figure-tracking: -0.04em;
+  --tablo-notch: 2px;
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.17 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.17 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.17 0 0);
+  --muted: oklch(0.965 0 0);
+  --muted-foreground: oklch(0.47 0 0);
+  --primary: oklch(0.2 0 0);
+  --primary-foreground: oklch(0.99 0 0);
+  --destructive: oklch(0.55 0.21 27);
+  --destructive-foreground: oklch(0.99 0.01 25);
+  --success: oklch(0.55 0.13 150);
+  --warning: oklch(0.62 0.15 60);
+  --info: oklch(0.52 0.17 255);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.82 0 0);
+  --ring: oklch(0.45 0 0);
+  --control: oklch(1 0 0);
+  --head: oklch(0.985 0 0);
+  --rule: oklch(0.915 0 0);
+  --rule-strong: oklch(0.2 0 0);
+  --mark: oklch(0.965 0 0);
+  --mark-strong: oklch(0.86 0 0);
+  --mark-foreground: oklch(0.17 0 0);
+  --shadow-xs: 0 0 0 transparent;
+  --shadow-sm: 0 1px 1px oklch(0 0 0 / 3%);
+  --shadow-md: 0 1px 2px oklch(0 0 0 / 6%), 0 6px 16px -6px oklch(0 0 0 / 14%);
+  --shadow-lg: 0 2px 4px oklch(0 0 0 / 6%), 0 16px 32px -12px oklch(0 0 0 / 22%);
+  --shadow-card: 0 0 0 transparent;
+  --shadow-control: 0 0 0 transparent;
+  --shadow-button: 0 0 0 transparent;
+  --sidebar: oklch(0.2 0 0);
+  --sidebar-foreground: oklch(0.82 0 0);
+  --sidebar-primary: oklch(0.99 0 0);
+  --sidebar-primary-foreground: oklch(0.17 0 0);
+  --sidebar-accent: oklch(0.27 0 0);
+  --sidebar-accent-foreground: oklch(0.99 0 0);
+  --sidebar-border: oklch(0.29 0 0);
+  --sidebar-ring: oklch(0.7 0 0);
+}
+
+.dark:where([data-tablo-theme="graphite"]) {
+  --background: oklch(0.16 0 0);
+  --foreground: oklch(0.96 0 0);
+  --card: oklch(0.185 0 0);
+  --card-foreground: oklch(0.96 0 0);
+  --popover: oklch(0.21 0 0);
+  --popover-foreground: oklch(0.96 0 0);
+  --muted: oklch(0.24 0 0);
+  --muted-foreground: oklch(0.7 0 0);
+  --primary: oklch(0.96 0 0);
+  --primary-foreground: oklch(0.17 0 0);
+  --destructive: oklch(0.65 0.2 25);
+  --destructive-foreground: oklch(0.99 0.01 25);
+  --success: oklch(0.74 0.14 150);
+  --warning: oklch(0.8 0.14 75);
+  --info: oklch(0.72 0.13 250);
+  --border: oklch(0.28 0 0);
+  --input: oklch(0.36 0 0);
+  --ring: oklch(0.7 0 0);
+  --control: oklch(0.17 0 0);
+  --head: oklch(0.2 0 0);
+  --rule: oklch(0.26 0 0);
+  --rule-strong: oklch(0.8 0 0);
+  --mark: oklch(0.23 0 0);
+  --mark-strong: oklch(0.42 0 0);
+  --mark-foreground: oklch(0.98 0 0);
+  --shadow-xs: 0 0 0 transparent;
+  --shadow-sm: 0 1px 1px oklch(0 0 0 / 30%);
+  --shadow-md: 0 2px 4px oklch(0 0 0 / 35%), 0 8px 20px -6px oklch(0 0 0 / 50%);
+  --shadow-lg: 0 4px 8px oklch(0 0 0 / 35%), 0 20px 40px -12px oklch(0 0 0 / 60%);
+  --shadow-card: 0 0 0 transparent;
+  --shadow-control: 0 0 0 transparent;
+  --shadow-button: 0 0 0 transparent;
+  --sidebar: oklch(0.12 0 0);
+  --sidebar-foreground: oklch(0.8 0 0);
+  --sidebar-primary: oklch(0.96 0 0);
+  --sidebar-primary-foreground: oklch(0.17 0 0);
+  --sidebar-accent: oklch(0.2 0 0);
+  --sidebar-accent-foreground: oklch(0.99 0 0);
+  --sidebar-border: oklch(0.22 0 0);
+  --sidebar-ring: oklch(0.7 0 0);
+}
+
+@layer tablo-skin {
+  :root[data-tablo-theme="graphite"] {
+    & [data-sidebar="inset"] > [data-sidebar="header"] {
+      border-bottom-color: var(--border);
+    }
+    & [data-sidebar="group-label"] {
+      color: oklch(0.6 0 0);
+    }
+    /* The current page: a white bar the frame's full height, the entry squared off. */
+    & [data-sidebar="menu-button"] {
+      border-radius: 2px;
+    }
+    & [data-sidebar="menu-button"][data-active="true"] {
+      &::before {
+        height: 100%;
+        border-radius: 0;
+      }
+      & > svg {
+        color: var(--sidebar-accent-foreground);
+      }
+    }
+    & [data-sidebar="menu-badge"] [data-slot="badge"] {
+      background: transparent;
+      color: var(--sidebar-foreground);
+    }
+    /* Heads are flat: the rule under them says it all. */
+    & :is([data-slot="card-header"], [data-section] > [data-section-title]:not(:only-child), [data-slot="table"] > table > thead) {
+      background: transparent;
+    }
+    & [data-slot="card-header"] :is(h2, h3) {
+      font-family: var(--tablo-caption-font);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    /* A gridded table: columns ruled apart, rows dense. */
+    & [data-slot="table"] > table > :is(thead, tbody) > tr > :is(th, td) + :is(th, td) {
+      border-inline-start: 1px solid var(--rule);
+    }
+    & [data-slot="table"] > table > thead > tr > th {
+      height: 2.25rem;
+    }
+    & [data-slot="table"] > table > tbody > tr > td {
+      height: 2.5rem;
+      padding-block: 0.25rem;
+    }
+    /* Badges are square tags in the monospace. */
+    & [data-slot="badge"] {
+      border-radius: 2px;
+      font-family: var(--tablo-caption-font);
+      font-size: 0.6875rem;
+      font-weight: 500;
+    }
+    /* Buttons are flat; the primary inks itself in. */
+    & [data-slot="button"] {
+      border-radius: 3px;
+    }
+    /* Tabs are underlined by a hairline of ink. */
+    & :is([data-list-tab], [data-record-nav], [data-tabs] [role="tab"]) {
+      font-family: var(--tablo-caption-font);
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    /* A stat is a readout: the figure large in the monospace. */
+    & [data-stat] > p:nth-child(2) {
+      font-size: 2.25rem;
+    }
+  }
+}

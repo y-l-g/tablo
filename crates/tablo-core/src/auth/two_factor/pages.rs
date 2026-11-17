@@ -422,6 +422,8 @@ pub(super) async fn settings(cx: &Cx, settings: Settings) -> topcoat::Result<Box
                     tablo_ui::ButtonVariant::Primary,
                     tablo_ui::ButtonSize::Md,
                 ))
+                data-slot="button"
+                data-tone="primary"
             >
                 (t!(cx, "tablo-two-factor-done"))
             </a>

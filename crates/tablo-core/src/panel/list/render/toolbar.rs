@@ -276,7 +276,7 @@ impl Frame<'_> {
             dropdown_menu(
                 dropdown_menu_trigger(
                     target: &menu,
-                    attrs: attributes! { class=(trigger) },
+                    attrs: attributes! { class=(trigger) data-slot="button" data-tone="outline" },
                     icon(data: tablo_ui::icons::COLUMNS_3)
                     (t!(cx, "tablo-list-columns"))
                 )

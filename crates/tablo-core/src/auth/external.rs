@@ -236,6 +236,8 @@ fn sign_out_link(cx: &Cx, url: String) -> BoxView<'_> {
         <a
             href=(url)
             class=(button_variants(ButtonVariant::Outline, ButtonSize::Md))
+            data-slot="button"
+            data-tone="outline"
             data-external-sign-out=""
         >
             icon(data: tablo_ui::icons::LOG_OUT)

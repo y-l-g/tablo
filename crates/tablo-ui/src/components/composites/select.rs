@@ -1,4 +1,6 @@
-// SYNC: topcoat-ui-registry@0.12.1 sha256:044fb72b888ef18e16ed17feeb495010f9aaad8fde8b0933ff750e66d612c9ff — do not hand-edit. Sync via `cargo xtask sync-topcoat-ui` (ADR-0007).
+//! Tablo's select: a native `<select>` on the control surface, its picker customizable where the
+//! browser allows. The wrapper carries `data-slot="select"`.
+
 use topcoat::{
     Result,
     context::Cx,
@@ -8,21 +10,21 @@ use topcoat::{
 
 /// Classes for the select control, with space for a custom dropdown arrow.
 const SELECT: StaticClass = class!(
-    "h-9 w-full appearance-none items-center rounded-lg border border-border",
-    "bg-transparent pr-8 pl-3 text-left text-sm transition-colors outline-none",
-    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-    "aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive",
-    "focus-visible:ring-offset-background disabled:pointer-events-none",
+    "h-9 w-full cursor-pointer appearance-none items-center rounded-md border border-input",
+    "bg-control pr-8 pl-3 text-left text-sm text-foreground shadow-control",
+    "transition-[border-color,box-shadow] outline-none",
+    "hover:border-[color-mix(in_oklab,var(--input),var(--foreground)_22%)]",
+    "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20",
+    "aria-invalid:border-destructive aria-invalid:focus-visible:ring-destructive/20",
+    "disabled:pointer-events-none",
 );
 
-/// Classes for browsers that support customizable select pickers. Other browsers use
-/// their native picker.
 const PICKER: StaticClass = class!(
     "[&::picker(select)]:[appearance:base-select]",
     "[&::picker(select)]:mt-1 [&::picker(select)]:rounded-lg",
     "[&::picker(select)]:border [&::picker(select)]:border-border",
     "[&::picker(select)]:bg-popover [&::picker(select)]:p-1",
-    "[&::picker(select)]:text-popover-foreground [&::picker(select)]:shadow-sm",
+    "[&::picker(select)]:text-popover-foreground [&::picker(select)]:shadow-lg",
     "[&::picker-icon]:hidden",
     "[&_optgroup>legend]:px-2 [&_optgroup>legend]:py-1.5",
     "[&_optgroup>legend]:text-xs [&_optgroup>legend]:font-medium",
@@ -30,7 +32,7 @@ const PICKER: StaticClass = class!(
     "[&_optgroup>legend]:select-none",
     "[&_option]:flex [&_option]:items-center [&_option]:gap-2 [&_option]:rounded-md",
     "[&_option]:px-2 [&_option]:py-1.5 [&_option]:text-sm [&_option]:outline-none",
-    "[&_option:hover]:bg-foreground/5 [&_option:focus]:bg-foreground/5",
+    "[&_option:hover]:bg-mark [&_option:focus]:bg-mark",
     "[&_option:checked]:font-medium",
     "[&_option::checkmark]:order-1 [&_option::checkmark]:ml-auto",
     "[&_option::checkmark]:size-4 [&_option::checkmark]:shrink-0",
@@ -98,6 +100,7 @@ pub async fn select(
     // invalid declaration and keep the fallback.
     Ok(view! {
         <span
+            data-slot="select"
             class=(class!(
                 "relative block has-[:disabled]:opacity-50",
                 "[&>select]:[appearance:base-select]",

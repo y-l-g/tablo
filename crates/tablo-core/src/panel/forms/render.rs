@@ -396,6 +396,8 @@ pub(crate) async fn render_form_page<'a>(
                             tablo_ui::ButtonVariant::Outline,
                             tablo_ui::ButtonSize::Md,
                         ))
+                        data-slot="button"
+                        data-tone="outline"
                     >
                         (t!(cx, "tablo-cancel"))
                     </a>
@@ -424,6 +426,8 @@ pub(crate) async fn render_form_page<'a>(
                                     tablo_ui::ButtonVariant::Outline,
                                     tablo_ui::ButtonSize::Md,
                                 ))
+                                data-slot="button"
+                                data-tone="outline"
                             >
                                 icon(data: tablo_ui::icons::EXTERNAL_LINK)
                                 (link.label.localize(cx))

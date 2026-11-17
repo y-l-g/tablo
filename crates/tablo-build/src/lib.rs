@@ -38,8 +38,21 @@ const EXTENSION_SUFFIX: &str = "_TABLO_SRC";
 /// The stylesheet [`tailwind`] reads, relative to the package root.
 pub const STYLESHEET: &str = "styles.css";
 
-/// Tablo's design tokens, which the app's stylesheet overrides.
-const THEME: &str = include_str!("theme.css");
+/// Tablo's design tokens, its shared look and each theme's, in the order they cascade; the app's
+/// stylesheet overrides them.
+const THEME: &str = concat!(
+    include_str!("theme/foundation.css"),
+    "\n",
+    include_str!("theme/identity.css"),
+    "\n",
+    include_str!("theme/jade.css"),
+    "\n",
+    include_str!("theme/amber.css"),
+    "\n",
+    include_str!("theme/graphite.css"),
+    "\n",
+    include_str!("theme/iris.css"),
+);
 
 /// Why [`tailwind`] failed.
 #[derive(Debug)]

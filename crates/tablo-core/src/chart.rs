@@ -196,36 +196,46 @@ pub fn chart(cx: &Cx, chart: Chart) -> BoxView<'_> {
     view! {
         <section
             data-chart=(kind.name())
-            class="relative flex flex-col gap-4 overflow-hidden rounded-xl border border-border bg-card p-5 text-card-foreground shadow-xs"
+            data-slot="card"
+            class="relative flex flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-card"
         >
             if heading.is_some() || description.is_some() {
-                <div class="flex flex-col gap-1">
+                <div
+                    class="flex flex-col gap-1 border-b border-rule bg-head px-5 py-3.5"
+                    data-slot="card-header"
+                >
                     if let Some(heading) = heading {
-                        <h2 class="text-base font-semibold">(heading)</h2>
+                        <h2 class="tablo-heading text-[0.9375rem] leading-snug">
+                            (heading)
+                        </h2>
                     }
                     if let Some(description) = description {
                         <p class="text-sm text-muted-foreground">(description)</p>
                     }
                 </div>
             }
-            if let Some(plot) = plot {
-                (plot)
-            } else {
-                <p class="py-12 text-center text-sm text-muted-foreground">(empty)</p>
-            }
-            if !legend.is_empty() {
-                <ul
-                    class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground"
-                    aria-hidden="true"
-                >
-                    for (label, dot) in legend {
-                        <li class="flex items-center gap-1.5">
-                            <span class=(dot)></span>
-                            (label)
-                        </li>
-                    }
-                </ul>
-            }
+            <div class="flex flex-col gap-4 p-5">
+                if let Some(plot) = plot {
+                    (plot)
+                } else {
+                    <p class="py-12 text-center text-sm text-muted-foreground">
+                        (empty)
+                    </p>
+                }
+                if !legend.is_empty() {
+                    <ul
+                        class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground"
+                        aria-hidden="true"
+                    >
+                        for (label, dot) in legend {
+                            <li class="flex items-center gap-1.5">
+                                <span class=(dot)></span>
+                                (label)
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
             (table)
         </section>
     }

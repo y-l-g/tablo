@@ -114,7 +114,12 @@ fn record_page<'a>(cx: &'a Cx, header: RecordHeader, body: BoxView<'a>) -> BoxVi
             tablo_ui::page_header(
                 tablo_ui::page_title((title))
                 tablo_ui::page_actions(
-                    <a (crate::navigation::runtime_link(cx, &back)) class=(outline)>
+                    <a
+                        (crate::navigation::runtime_link(cx, &back))
+                        class=(outline)
+                        data-slot="button"
+                        data-tone="outline"
+                    >
                         icon(data: tablo_ui::icons::ARROW_LEFT)
                         (crate::t!(cx, "tablo-detail-back"))
                     </a>

@@ -67,6 +67,8 @@ pub(crate) fn bar<'a>(
                             tablo_ui::ButtonVariant::Outline,
                             tablo_ui::ButtonSize::Md,
                         ))
+                        data-slot="button"
+                        data-tone="outline"
                     >
                         (crate::t!(cx, "tablo-page-filters-apply"))
                     </button>

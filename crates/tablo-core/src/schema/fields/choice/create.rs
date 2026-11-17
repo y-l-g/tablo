@@ -31,6 +31,8 @@ pub(super) fn with_create_link<'a>(
                 target="_blank"
                 rel="noopener"
                 class=(button_variants(ButtonVariant::Outline, ButtonSize::Md))
+                data-slot="button"
+                data-tone="outline"
                 aria-label=(title.clone())
                 aria-haspopup="dialog"
                 data-create-option=(dialog_id.clone())

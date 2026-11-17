@@ -139,7 +139,13 @@ pub(crate) fn error_page(cx: &Cx, _body: Body) -> BoxView<'_> {
                 <p class="max-w-md text-sm text-muted-foreground">
                     (error.description().localize(cx))
                 </p>
-                <a (home) class=(button) data-panel-error-home="">
+                <a
+                    (home)
+                    class=(button)
+                    data-slot="button"
+                    data-tone="outline"
+                    data-panel-error-home=""
+                >
                     icon(data: tablo_ui::icons::ARROW_LEFT)
                     (crate::t!(cx, "tablo-error-home"))
                 </a>

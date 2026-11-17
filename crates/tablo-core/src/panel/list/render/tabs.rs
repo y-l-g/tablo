@@ -54,7 +54,7 @@ pub(super) fn render_tabs<'a>(
         view! {
             <nav
                 aria-label=(t!(cx, "tablo-list-tabs"))
-                class="overflow-x-auto border-b border-border px-4 pb-px sm:px-6"
+                class="overflow-x-auto border-b border-rule px-4 pb-px sm:px-5"
             >
                 <div class="-mb-px flex gap-4">
                     for (tab, link) in links {

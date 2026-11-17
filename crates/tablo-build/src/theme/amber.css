@@ -1,0 +1,154 @@
+/* ── Amber ─────────────────────────────────────────────────────────────────────────────────────
+   The workshop: warm and sturdy, close to Filament's default look. Stone neutrals warmed toward
+   the amber primary, a white sidebar ruled off from a warm gray page, rounder cards whose edge is
+   a hairline ring over a soft drop. Titles are bold; the current page is an amber-tinted plate
+   with a thick rounded notch; buttons are solid, with a lit top edge; the highlighter is the pale
+   yellow of a workbench lamp. */
+
+:root:where([data-tablo-theme="amber"]) {
+  --radius: 0.625rem;
+  --tablo-heading-weight: 700;
+  --tablo-heading-tracking: -0.02em;
+  --tablo-title-size: 1.75rem;
+  --tablo-caption-size: 0.6875rem;
+  --tablo-caption-weight: 650;
+  --tablo-caption-tracking: 0.05em;
+  --tablo-figure-weight: 700;
+  --tablo-figure-tracking: -0.03em;
+  --tablo-notch: 4px;
+  --background: oklch(0.982 0.003 75);
+  --foreground: oklch(0.22 0.012 60);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.012 60);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.012 60);
+  --muted: oklch(0.965 0.004 75);
+  --muted-foreground: oklch(0.52 0.014 65);
+  /* Amber 600: white text on it stays legible at the button's medium weight. */
+  --primary: oklch(0.666 0.179 58.3);
+  --primary-foreground: oklch(1 0 0);
+  --destructive: oklch(0.577 0.215 27.3);
+  --destructive-foreground: oklch(0.99 0.01 25);
+  --success: oklch(0.596 0.145 163);
+  --warning: oklch(0.666 0.179 58.3);
+  --info: oklch(0.546 0.2 262.9);
+  --border: oklch(0.22 0.012 60 / 9%);
+  --input: oklch(0.22 0.012 60 / 22%);
+  --ring: oklch(0.769 0.188 70);
+  --control: oklch(1 0 0);
+  --head: oklch(0.977 0.004 75);
+  --rule: oklch(0.22 0.012 60 / 8%);
+  --rule-strong: oklch(0.22 0.012 60 / 15%);
+  --mark: oklch(0.985 0.028 92);
+  --mark-strong: oklch(0.92 0.11 90);
+  --mark-foreground: oklch(0.22 0.012 60);
+  --shadow-xs: 0 1px 2px oklch(0.3 0.03 60 / 6%);
+  --shadow-sm: 0 1px 2px oklch(0.3 0.03 60 / 6%), 0 1px 3px oklch(0.3 0.03 60 / 6%);
+  --shadow-md: 0 4px 6px -1px oklch(0.3 0.03 60 / 8%), 0 2px 4px -2px oklch(0.3 0.03 60 / 6%);
+  --shadow-lg: 0 10px 15px -3px oklch(0.3 0.03 60 / 10%), 0 4px 6px -4px oklch(0.3 0.03 60 / 8%);
+  --shadow-card: 0 1px 2px oklch(0.3 0.03 60 / 5%), 0 1px 3px oklch(0.3 0.03 60 / 4%);
+  --shadow-control: 0 1px 2px oklch(0.3 0.03 60 / 5%);
+  --shadow-button: inset 0 1px 0 oklch(1 0 0 / 22%), 0 1px 2px oklch(0.45 0.12 58 / 30%);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.38 0.014 60);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.975 0.022 85);
+  --sidebar-accent-foreground: oklch(0.52 0.15 52);
+  --sidebar-border: oklch(0.22 0.012 60 / 9%);
+  --sidebar-ring: var(--ring);
+}
+
+.dark:where([data-tablo-theme="amber"]) {
+  --background: oklch(0.155 0.006 60);
+  --foreground: oklch(0.975 0.003 75);
+  --card: oklch(0.205 0.008 60);
+  --card-foreground: oklch(0.975 0.003 75);
+  --popover: oklch(0.225 0.008 60);
+  --popover-foreground: oklch(0.975 0.003 75);
+  --muted: oklch(0.265 0.008 60);
+  --muted-foreground: oklch(0.72 0.012 70);
+  --primary: oklch(0.79 0.17 72);
+  --primary-foreground: oklch(0.21 0.04 60);
+  --destructive: oklch(0.65 0.21 25.3);
+  --destructive-foreground: oklch(0.99 0.01 25);
+  --success: oklch(0.765 0.157 163);
+  --warning: oklch(0.828 0.169 84.4);
+  --info: oklch(0.72 0.145 254.6);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: oklch(0.769 0.188 70);
+  --control: oklch(0.185 0.007 60);
+  --head: oklch(0.225 0.008 60);
+  --rule: oklch(1 0 0 / 8%);
+  --rule-strong: oklch(1 0 0 / 15%);
+  --mark: oklch(0.28 0.04 75);
+  --mark-strong: oklch(0.5 0.11 80);
+  --mark-foreground: oklch(0.985 0.003 75);
+  --shadow-xs: 0 1px 2px oklch(0 0 0 / 30%);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 30%);
+  --shadow-md: 0 4px 6px -1px oklch(0 0 0 / 40%), 0 2px 4px -2px oklch(0 0 0 / 30%);
+  --shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 50%), 0 4px 6px -4px oklch(0 0 0 / 40%);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 30%);
+  --shadow-control: 0 1px 2px oklch(0 0 0 / 25%);
+  --shadow-button: inset 0 1px 0 oklch(1 0 0 / 25%), 0 1px 2px oklch(0 0 0 / 40%);
+  --sidebar: oklch(0.205 0.008 60);
+  --sidebar-foreground: oklch(0.87 0.006 70);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.79 0.17 72 / 10%);
+  --sidebar-accent-foreground: oklch(0.84 0.16 80);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: var(--ring);
+}
+
+@layer tablo-skin {
+  :root[data-tablo-theme="amber"] {
+    /* A white bar over the warm page, lifted by its shadow. */
+    & [data-sidebar="inset"] > [data-sidebar="header"] {
+      background: var(--card);
+      box-shadow:
+        0 1px 0 var(--border),
+        var(--shadow-sm);
+    }
+    /* Cards are ringed rather than bordered, so their edge stays crisp over the drop. */
+    & :is([data-slot="card"], [data-stat], [data-section]:not([data-section-aside], [data-subsection]), [data-section-aside] > :last-child) {
+      border-color: transparent;
+      box-shadow:
+        0 0 0 1px var(--border),
+        var(--shadow-card);
+    }
+    /* The current page: an amber plate, its label and icon in the amber's ink. */
+    & [data-sidebar="menu-button"] {
+      border-radius: calc(var(--radius) - 2px);
+    }
+    & [data-sidebar="menu-button"][data-active="true"] {
+      font-weight: 650;
+      &::before {
+        inset-inline-start: 0.25rem;
+        height: 1rem;
+        border-radius: 999px;
+      }
+      & > svg {
+        color: var(--sidebar-accent-foreground);
+      }
+    }
+    & [data-sidebar="menu-button"][data-active="true"]:has(> svg) {
+      padding-inline-start: 0.75rem;
+    }
+    /* Column heads read in the foreground, on a warm band. */
+    & [data-slot="table"] > table > thead th {
+      color: var(--foreground);
+    }
+    /* Badges and the tab counts are rounded tags. */
+    & [data-slot="badge"] {
+      border-radius: 0.375rem;
+      font-weight: 600;
+    }
+    /* Tabs are notched in a thicker amber bar. */
+    & :is([data-list-tab], [data-record-nav])[aria-current="page"],
+    & [data-tabs] [role="tab"][aria-selected="true"] {
+      border-bottom-width: 3px;
+    }
+  }
+}

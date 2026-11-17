@@ -13,7 +13,8 @@ const PAGE_HEADER: StaticClass = class!(
 );
 // The basis keeps a title readable: past it, the actions wrap below instead of squeezing it.
 const PAGE_TITLE: StaticClass = class!(
-    "min-w-0 flex-1 basis-64 truncate text-2xl font-semibold tracking-tight text-foreground"
+    "tablo-heading min-w-0 flex-1 basis-64 truncate text-[length:var(--tablo-title-size)]",
+    "leading-[1.2] text-foreground",
 );
 const PAGE_DESCRIPTION: StaticClass = class!("text-sm text-muted-foreground");
 // Capped at the header's width, so on a narrow screen the buttons wrap among themselves rather
@@ -58,7 +59,13 @@ pub async fn page_header(
     #[default] child: Child<'_>,
 ) -> Result<impl View> {
     Ok(view! {
-        <div class=(class!(PAGE_HEADER, attrs.remove("class"))) (attrs)>(child)</div>
+        <div
+            class=(class!(PAGE_HEADER, attrs.remove("class")))
+            data-page-header=""
+            (attrs)
+        >
+            (child)
+        </div>
     })
 }
 
