@@ -115,8 +115,11 @@
 
 @layer tablo-skin {
   :root[data-tablo-theme="ledger"] {
+    /* Proportional figures, as on the site: Schibsted Grotesk's tabular set widens the comma, the
+       colon and the period with the digits, so "Tabs, Tags" would read "Tabs , Tags". Settings
+       outrank `font-variant-numeric`, so the `tabular-nums` of a table or an amount yields too. */
     & body {
-      font-feature-settings: normal;
+      font-feature-settings: "tnum" 0;
     }
 
     /* ── The frame: a sheet ruled off in ink, its groups numbered like the site's rows. */
