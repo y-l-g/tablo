@@ -4,51 +4,56 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tablo Atlas</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;900&family=Martian+Mono:wght@400;500&display=swap">
+<script>
+  // The scheme the reader picked last, shared with the site, before the first paint.
+  try { const s = localStorage.getItem("ld-scheme"); if (s) document.documentElement.dataset.theme = s; } catch {}
+</script>
 <style>
 /* Base rules a host page would otherwise supply. */
 body { margin: 0; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
 /* Layout: a survey atlas. A fixed index rail on the left, one plate at a time on the right.
-   The four core layers are a cool-to-warm strata ramp and colour every module, node and step. */
+   The four core layers are a cool-to-warm strata ramp and colour every module, node and step.
+   The colours are Ledger's, the site's identity: ink and ledger red on pale green paper. */
 :root {
-  --paper: #f1f4f1; --surface: #fbfcfa; --sunk: #e6ebe7;
-  --ink: #15201d; --ink-2: #44524e; --ink-3: #6a7873;
-  --rule: #d2dad5; --rule-2: #b9c4be;
-  --accent: #0a6b60; --accent-ink: #ffffff; --accent-wash: #dbebe6;
-  --l0: #566a8a; --l1: #0c8172; --l2: #9c6a0a; --l3: #b3432c;
-  --l0w: #e3e8f0; --l1w: #d9ede9; --l2w: #f3e9d2; --l3w: #f6e0da;
-  --ok: #1c7347; --okw: #dcefe3; --bad: #ad3325; --badw: #f7e1dc; --warn: #8f6208; --warnw: #f4ead0;
-  --code-bg: #13201d; --code-ink: #d9e5e0; --code-dim: #7f948d;
-  --tk-key: #7fd4c4; --tk-type: #f0c674; --tk-str: #f29e85; --tk-mac: #a9c1ee;
-  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-  --body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --paper: #eceee2; --surface: #f7f8f1; --sunk: #e2e6d6;
+  --ink: #121912; --ink-2: #465046; --ink-3: #687266;
+  --rule: #c8cebb; --rule-2: #9fa891;
+  --accent: #b2300f; --accent-ink: #fff8f2; --accent-wash: #f6dcd2;
+  --l0: #3f5a7d; --l1: #2e6a4a; --l2: #8a6a00; --l3: #d33c1c;
+  --l0w: #e0e6ee; --l1w: #dcebdf; --l2w: #f4eccb; --l3w: #f8dfd6;
+  --ok: #1f6b3a; --okw: #dcebdc; --bad: #c2321a; --badw: #f8dfd6; --warn: #8a6100; --warnw: #f4eccb;
+  --code-bg: #121912; --code-ink: #dfe5d2; --code-dim: #8a957f;
+  --tk-key: #ff8a66; --tk-type: #f2d94a; --tk-str: #c9dc8a; --tk-mac: #9ec7ff;
+  --display: "Schibsted Grotesk", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --body: "Schibsted Grotesk", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --mono: "Martian Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --rail: 268px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #0d1412; --surface: #141d1a; --sunk: #090f0d;
-    --ink: #e3ebe7; --ink-2: #b4c1bc; --ink-3: #8a9a94;
-    --rule: #25322e; --rule-2: #36453f;
-    --accent: #58cfbb; --accent-ink: #06211d; --accent-wash: #12302a;
-    --l0: #93a8cb; --l1: #49c6b2; --l2: #e2ae48; --l3: #f08a6d;
-    --l0w: #1a2231; --l1w: #10302b; --l2w: #33290f; --l3w: #381d16;
-    --ok: #5fd096; --okw: #11301f; --bad: #f48b78; --badw: #3a1a14; --warn: #e2ae48; --warnw: #33290f;
-    --code-bg: #090f0d; --code-ink: #d9e5e0; --code-dim: #7f948d;
+    --paper: #0d120e; --surface: #131913; --sunk: #0a0e0a;
+    --ink: #e5e9da; --ink-2: #aab3a2; --ink-3: #808a78;
+    --rule: #263027; --rule-2: #3d4a3d;
+    --accent: #ff7d5c; --accent-ink: #1a0b05; --accent-wash: #3a1d14;
+    --l0: #93a8cb; --l1: #7fcf9d; --l2: #f2d94a; --l3: #ff6a45;
+    --l0w: #1a2231; --l1w: #15281d; --l2w: #302a0c; --l3w: #381d16;
+    --ok: #7fd49a; --okw: #15301f; --bad: #ff6a45; --badw: #381d16; --warn: #e7cf3e; --warnw: #302a0c;
+    --code-bg: #070a07; --code-ink: #dfe5d2; --code-dim: #8a957f;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --paper: #0d1412; --surface: #141d1a; --sunk: #090f0d;
-  --ink: #e3ebe7; --ink-2: #b4c1bc; --ink-3: #8a9a94;
-  --rule: #25322e; --rule-2: #36453f;
-  --accent: #58cfbb; --accent-ink: #06211d; --accent-wash: #12302a;
-  --l0: #93a8cb; --l1: #49c6b2; --l2: #e2ae48; --l3: #f08a6d;
-  --l0w: #1a2231; --l1w: #10302b; --l2w: #33290f; --l3w: #381d16;
-  --ok: #5fd096; --okw: #11301f; --bad: #f48b78; --badw: #3a1a14; --warn: #e2ae48; --warnw: #33290f;
-  --code-bg: #090f0d; --code-ink: #d9e5e0; --code-dim: #7f948d;
+  --paper: #0d120e; --surface: #131913; --sunk: #0a0e0a;
+  --ink: #e5e9da; --ink-2: #aab3a2; --ink-3: #808a78;
+  --rule: #263027; --rule-2: #3d4a3d;
+  --accent: #ff7d5c; --accent-ink: #1a0b05; --accent-wash: #3a1d14;
+  --l0: #93a8cb; --l1: #7fcf9d; --l2: #f2d94a; --l3: #ff6a45;
+  --l0w: #1a2231; --l1w: #15281d; --l2w: #302a0c; --l3w: #381d16;
+  --ok: #7fd49a; --okw: #15301f; --bad: #ff6a45; --badw: #381d16; --warn: #e7cf3e; --warnw: #302a0c;
+  --code-bg: #070a07; --code-ink: #dfe5d2; --code-dim: #8a957f;
   color-scheme: dark;
 }
 *, *::before, *::after { box-sizing: border-box; }
@@ -68,6 +73,11 @@ p { margin: 0; }
   border-right: 1px solid var(--rule); background: var(--surface);
   padding-block: 22px 28px; padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: 14px;
   display: flex; flex-direction: column; gap: 20px; }
+.rail-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.scheme { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--rule-2); border-radius: 4px;
+  background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.scheme:hover { color: var(--ink); border-color: var(--ink-3); }
+.scheme svg { width: 16px; height: 16px; }
 .brand { display: flex; align-items: baseline; gap: 8px; text-decoration: none; color: var(--ink); }
 .brand b { font: 700 21px/1 var(--display); letter-spacing: -.02em; }
 .brand span { font: 500 11px/1 var(--mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: .12em; }
@@ -368,7 +378,12 @@ td code { overflow-wrap: normal; }
 <body>
 <div class="shell">
 <nav class="rail" aria-label="Atlas index">
-  <a class="brand" href="#overview"><b>Tablo Atlas</b><span>v0.10</span></a>
+  <div class="rail-top">
+    <a class="brand" href="#overview"><b>Tablo Atlas</b><span>v0.10</span></a>
+    <button type="button" class="scheme" data-scheme-toggle aria-label="Switch to dark pages">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.8a6.2 6.2 0 0 1 0 12.4z" fill="currentColor"/></svg>
+    </button>
+  </div>
   <div class="nav" id="nav"></div>
   <div class="progress" id="rail-progress" aria-live="polite"></div>
   <div class="legend" aria-label="Legend">
@@ -4017,6 +4032,22 @@ ResourceDef::new().soft_delete(lens!(Post.deleted_at));</pre>
 
   ORDER.forEach(drawSection);
   progress();
+})();
+</script>
+<script>
+// The light and dark toggle: the reader's pick, else the system's. It shares the site's ld-scheme key.
+(function () {
+  var root = document.documentElement, btn = document.querySelector('[data-scheme-toggle]');
+  var sys = matchMedia('(prefers-color-scheme: dark)');
+  function isDark() { return root.dataset.theme ? root.dataset.theme === 'dark' : sys.matches; }
+  function label() { btn.setAttribute('aria-label', isDark() ? 'Switch to light pages' : 'Switch to dark pages'); }
+  label();
+  sys.addEventListener('change', label);
+  btn.addEventListener('click', function () {
+    root.dataset.theme = isDark() ? 'light' : 'dark';
+    try { localStorage.setItem('ld-scheme', root.dataset.theme); } catch (e) { /* storage unavailable: the toggle still works */ }
+    label();
+  });
 })();
 </script>
 </body>
