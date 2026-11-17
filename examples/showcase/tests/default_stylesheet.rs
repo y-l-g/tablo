@@ -47,7 +47,7 @@ fn the_shipped_stylesheet_carries_the_default_theme() {
 /// An app on the prebuilt stylesheet can wear any theme `Brand::theme` picks.
 #[test]
 fn the_shipped_stylesheet_carries_every_theme() {
-    for theme in ["amber", "graphite", "iris"] {
+    for theme in ["amber", "graphite", "iris", "ledger"] {
         assert!(
             SHIPPED.contains(&format!("[data-tablo-theme=\"{theme}\"]"))
                 || SHIPPED.contains(&format!("[data-tablo-theme={theme}]")),

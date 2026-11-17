@@ -97,6 +97,15 @@ pub const CHOICE_CREATE_JS: topcoat::asset::Asset =
 /// no page loads it otherwise.
 pub const TIPTAP_JS: topcoat::asset::Asset = topcoat::asset::asset!("../assets/tiptap/tiptap.js");
 
+/// Schibsted Grotesk, the Ledger theme's text and display face: a variable font, weights 400 to
+/// 900, latin subset, under the SIL Open Font License 1.1 (`assets/fonts/`).
+pub const SCHIBSTED_GROTESK: topcoat::asset::Asset =
+    topcoat::asset::asset!("../assets/fonts/schibsted-grotesk.woff2");
+/// Martian Mono, the Ledger theme's caption face: a variable font, weights 100 to 800, latin
+/// subset, under the SIL Open Font License 1.1 (`assets/fonts/`).
+pub const MARTIAN_MONO: topcoat::asset::Asset =
+    topcoat::asset::asset!("../assets/fonts/martian-mono.woff2");
+
 /// The scripts every panel page loads, in order.
 pub const SHELL_SCRIPTS: [topcoat::asset::Asset; 12] = [
     SIDEBAR_JS,

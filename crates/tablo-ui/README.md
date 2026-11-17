@@ -18,3 +18,6 @@ The public API is the composites plus the primitives a custom page builds from: 
 separator and skeleton. The other primitives (dialogs, menus, the sidebar, pagination) are hidden:
 `tablo-core` renders with them, but they follow the registry rather than Tablo's semver. The
 [API reference](https://docs.rs/tablo-ui) lists the public ones.
+
+The crate also ships the faces the Ledger theme sets in, Schibsted Grotesk and Martian Mono, as
+`Asset` constants under the SIL Open Font License (`assets/fonts/`).

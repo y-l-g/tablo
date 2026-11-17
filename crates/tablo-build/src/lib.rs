@@ -52,6 +52,8 @@ const THEME: &str = concat!(
     include_str!("theme/graphite.css"),
     "\n",
     include_str!("theme/iris.css"),
+    "\n",
+    include_str!("theme/ledger.css"),
 );
 
 /// Why [`tailwind`] failed.
