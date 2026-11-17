@@ -23,8 +23,10 @@ const base = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
 const out = join(dirname(fileURLToPath(import.meta.url)), "..", "assets", "captures");
 const viewport = { width: 1600, height: 1000 };
 
-/** The themes Tablo ships, with the sidebar frame each is drawn beside. */
+/** The themes Tablo ships, with the sidebar frame each is drawn beside. The demo renders Ledger, so
+ *  its pages declare Ledger's faces, and the others are worn over it in the page. */
 const THEMES = {
+  ledger: { attr: "ledger", variant: "sidebar" },
   jade: { attr: null, variant: "inset" },
   amber: { attr: "amber", variant: "sidebar" },
   graphite: { attr: "graphite", variant: "sidebar" },
@@ -149,7 +151,8 @@ async function signIn(page, panel) {
   await Promise.all([page.waitForLoadState("networkidle"), page.locator("main button").filter({ hasText: /authenticator/i }).first().click()]);
   await page.locator("main svg, main img").last().waitFor();
   // From the heading to the buttons, without the empty page to their right.
-  const head = await box(page, "main h1, main h2");
+  // The page title: the appearance drawer, a banner ahead of it, holds a hidden heading too.
+  const head = await box(page, "main h1");
   const end = await page.locator("main button").last().boundingBox();
   const top = head.y - 48;
   await shoot(page, "two-factor", { width: 1100, clip: { x: head.x - 56, y: top, width: 880, height: end.y + end.height + 56 - top } });

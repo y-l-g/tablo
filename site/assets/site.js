@@ -85,7 +85,7 @@ for (const block of document.querySelectorAll("[data-themes]")) {
   const shot = block.querySelector("[data-theme-shot]");
   const name = block.querySelector("[data-theme-name]");
   const code = block.querySelector("[data-theme-code]");
-  const state = { theme: "jade", dark: false };
+  const state = { theme: "ledger", dark: false };
   const title = (s) => s[0].toUpperCase() + s.slice(1);
   const render = () => {
     const file = `assets/captures/theme-${state.theme}-${state.dark ? "dark" : "light"}.webp`;
@@ -102,11 +102,11 @@ for (const block of document.querySelectorAll("[data-themes]")) {
   };
   for (const b of block.querySelectorAll("[data-theme]")) b.addEventListener("click", () => { state.theme = b.dataset.theme; render(); });
   for (const b of block.querySelectorAll("[data-dark]")) b.addEventListener("click", () => { state.dark = b.dataset.dark === "true"; render(); });
-  // Fetch the other seven shots once the block is near, so a switch shows at once.
+  // Fetch the other nine shots once the block is near, so a switch shows at once.
   new IntersectionObserver(([entry], observer) => {
     if (!entry.isIntersecting) return;
     observer.disconnect();
-    for (const t of ["jade", "amber", "graphite", "iris"]) for (const s of ["light", "dark"]) new Image().src = `assets/captures/theme-${t}-${s}.webp`;
+    for (const t of ["ledger", "jade", "amber", "graphite", "iris"]) for (const s of ["light", "dark"]) new Image().src = `assets/captures/theme-${t}-${s}.webp`;
   }, { rootMargin: "400px" }).observe(block);
 }
 

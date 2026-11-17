@@ -72,13 +72,13 @@
           <div class="pins-shot">
             <div class="shot">
               <img src="assets/captures/posts.webp" width="1800" height="1213" alt="The demo's post list: a Create Post button, published and draft counts, a search box, column and filter menus, and a table of posts with image, title, author, status, tags and publishing date.">
-              <span class="pin" data-pin="create" data-n="1" style="left:85.64%;top:9.78%;width:9.87%;height:4%"></span>
-              <span class="pin" data-pin="widget" data-n="2" style="left:4.49%;top:16.44%;width:91.02%;height:15.11%"></span>
-              <span class="pin" data-pin="search" data-n="3" style="left:6.36%;top:34.78%;width:21.56%;height:4%"></span>
-              <span class="pin" data-pin="sort" data-n="4" style="left:12.98%;top:40.22%;width:24.98%;height:4.69%"></span>
-              <span class="pin" data-pin="author" data-n="5" style="left:37.96%;top:44.91%;width:9.39%;height:6.78%"></span>
-              <span class="pin" data-pin="filters" data-n="6" style="left:86.45%;top:34.78%;width:7.18%;height:4%"></span>
-              <span class="pin" data-pin="action" data-n="7" style="left:90.94%;top:46.3%;width:2.69%;height:4%"></span>
+              <span class="pin" data-pin="create" data-n="1" style="left:85.4%;top:9.78%;width:10.94%;height:4%"></span>
+              <span class="pin" data-pin="widget" data-n="2" style="left:3.66%;top:18.78%;width:92.68%;height:17.35%"></span>
+              <span class="pin" data-pin="search" data-n="3" style="left:5.26%;top:39.35%;width:21.95%;height:4%"></span>
+              <span class="pin" data-pin="sort" data-n="4" style="left:12.04%;top:44.8%;width:24.72%;height:4.44%"></span>
+              <span class="pin" data-pin="author" data-n="5" style="left:36.75%;top:49.24%;width:9.68%;height:5.44%"></span>
+              <span class="pin" data-pin="filters" data-n="6" style="left:86.28%;top:39.35%;width:8.46%;height:4%"></span>
+              <span class="pin" data-pin="action" data-n="7" style="left:92%;top:49.96%;width:2.74%;height:4%"></span>
             </div>
             <div class="pin-dots" role="group" aria-label="Callouts">
               <button type="button" data-pin="create" aria-pressed="false">1</button>
@@ -111,7 +111,7 @@
     <div class="ld-cells ld-cells-4 figs">
       <div class="ld-cell"><span class="fig-n">0</span><span class="fig-t">lines of JavaScript to write or bundle. The pages are HTML from the server.</span></div>
       <div class="ld-cell"><span class="fig-n">5.8<small>ms</small></span><span class="fig-t">median for the demo's post list, signed in, rendered whole. <a class="ld-link" href="#speed">How we measured</a></span></div>
-      <div class="ld-cell"><span class="fig-n">4</span><span class="fig-t">themes, each in light and dark, and your own tokens on top.</span></div>
+      <div class="ld-cell"><span class="fig-n">5</span><span class="fig-t">themes, each in light and dark, and your own tokens on top.</span></div>
       <div class="ld-cell"><span class="fig-n">22</span><span class="fig-t">resources in the demo: a shop, HR, projects and a blog, on one panel.</span></div>
     </div>
   </div>
@@ -137,7 +137,7 @@ struct PostForm { title: String, … }</code></td></tr>
 .field_access(…)</code></td></tr>
         <tr><td data-th="Concern">Tenancy</td><td data-th="You build">A tenant filter on every query, a guard on every write, a team switcher</td><td data-th="You write"><code class="snip">.tenancy(<i>Tenancy::column(lens!(Post.team_id))</i>)</code></td></tr>
         <tr><td data-th="Concern">Audit</td><td data-th="You build">A trail table, a hook in each write's transaction, a diff of the fields, a page to read it</td><td data-th="You write"><code class="snip">panel<i>.audit_log(|log| log)</i></code></td></tr>
-        <tr><td data-th="Concern">Look</td><td data-th="You build">A design system, dark mode, a shell with navigation, global search, notifications</td><td data-th="You write"><code class="snip">Brand::new("Acme")<i>.theme(Theme::Iris)</i></code></td></tr>
+        <tr><td data-th="Concern">Look</td><td data-th="You build">A design system, dark mode, a shell with navigation, global search, notifications</td><td data-th="You write"><code class="snip">Brand::new("Acme")<i>.theme(Theme::Ledger)</i></code></td></tr>
         <tr><td data-th="Concern">Languages</td><td data-th="You build">Every label, message and mail, in each language, with the reader's pick remembered</td><td data-th="You write"><code class="snip"><span class="gone">nothing: English and French ship, and</span> .locales(…) <span class="gone">picks</span></code></td></tr>
         <tr><td data-th="Concern">Tests</td><td data-th="You build">A client that signs in, carries the CSRF pair and reads rows back out of the HTML</td><td data-th="You write"><code class="snip">client<i>.submit("/admin/posts/-/create", body)</i></code></td></tr>
       </tbody>
@@ -233,16 +233,17 @@ struct PostForm { title: String, … }</code></td></tr>
 <section class="ld-row" id="themes" aria-labelledby="h-themes">
   <div class="ld-num">07</div>
   <div class="ld-body">
-    <div class="ld-head"><span>Themes</span><span>One line, four looks, two schemes</span></div>
+    <div class="ld-head"><span>Themes</span><span>One line, five looks, two schemes</span></div>
     <div class="themes" data-themes>
       <div class="themes-pick">
         <h2 class="ld-h2" id="h-themes">Pick a look. Keep your tokens.</h2>
-        <p class="ld-text">Each theme sets colors, radii and the sidebar's frame. Redeclare any token in your stylesheet to make it yours.</p>
+        <p class="ld-text">Every theme speaks one grammar: captions in small capitals, ruled heads, the current page notched in the primary, a highlighter on what you point at. Each sets it in its own voice. Redeclare any token in your stylesheet to make it yours.</p>
         <div class="swatches" role="group" aria-label="Theme">
-          <button class="swatch" type="button" data-theme="jade" aria-pressed="true"><i style="background:#047857"></i><b>Jade</b><small>Tablo's own: jade on cool neutrals, the page inset in the sidebar.</small></button>
-          <button class="swatch" type="button" data-theme="amber" aria-pressed="false"><i style="background:#f59e0b"></i><b>Amber</b><small>Amber on plain grays, a white sidebar ruled off, rounder cards.</small></button>
-          <button class="swatch" type="button" data-theme="graphite" aria-pressed="false"><i style="background:#18181b"></i><b>Graphite</b><small>Black and white, square corners, a charcoal sidebar.</small></button>
-          <button class="swatch" type="button" data-theme="iris" aria-pressed="false"><i style="background:#594ddc"></i><b>Iris</b><small>Violet on tinted grays, rounder still, the sidebar floating.</small></button>
+          <button class="swatch" type="button" data-theme="ledger" aria-pressed="true"><i style="background:#d33c1c"></i><b>Ledger</b><small>This site as a panel: ink on pale green paper, square corners, numbered groups, stamped buttons.</small></button>
+          <button class="swatch" type="button" data-theme="jade" aria-pressed="false"><i style="background:#047857"></i><b>Jade</b><small>Quiet: jade on cool neutrals, the page a white sheet inset in the sidebar.</small></button>
+          <button class="swatch" type="button" data-theme="amber" aria-pressed="false"><i style="background:#f59e0b"></i><b>Amber</b><small>Warm stone and amber, bold titles, the current page an amber plate.</small></button>
+          <button class="swatch" type="button" data-theme="graphite" aria-pressed="false"><i style="background:#18181b"></i><b>Graphite</b><small>Black and white, flat, monospaced captions, gridded tables, a charcoal sidebar.</small></button>
+          <button class="swatch" type="button" data-theme="iris" aria-pressed="false"><i style="background:#594ddc"></i><b>Iris</b><small>Violet on tinted grays, pills and soft shadows, the sidebar floating.</small></button>
         </div>
         <div class="scheme" role="group" aria-label="Color scheme">
           <button type="button" data-dark="false" aria-pressed="true">Light</button>
@@ -251,10 +252,10 @@ struct PostForm { title: String, … }</code></td></tr>
       </div>
       <div class="themes-view">
         <figure class="ld-capture">
-          <figcaption><span data-theme-name>Jade, light</span><span>The demo's panel home</span></figcaption>
-          <img data-theme-shot src="assets/captures/theme-jade-light.webp" width="1600" height="1000" loading="lazy" alt="The demo's panel home in the Jade theme: record counts with sparklines, revenue and hours charts, and the latest posts.">
+          <figcaption><span data-theme-name>Ledger, light</span><span>The demo's panel home</span></figcaption>
+          <img data-theme-shot src="assets/captures/theme-ledger-light.webp" width="1600" height="1000" loading="lazy" alt="The demo's panel home in the Ledger theme: record counts with sparklines, revenue and hours charts, and the latest posts.">
         </figure>
-<pre class="ld-code" aria-label="The brand declaration"><span><span class="t">Panel</span>::new(<span class="s">"admin"</span>).brand(<span class="t">Brand</span>::new(<span class="s">"Acme"</span>).theme(<span class="t">Theme</span>::<b data-theme-code>Jade</b>))</span></pre>
+<pre class="ld-code" aria-label="The brand declaration"><span><span class="t">Panel</span>::new(<span class="s">"admin"</span>).brand(<span class="t">Brand</span>::new(<span class="s">"Acme"</span>).theme(<span class="t">Theme</span>::<b data-theme-code>Ledger</b>))</span></pre>
       </div>
     </div>
   </div>
