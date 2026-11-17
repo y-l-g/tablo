@@ -12,6 +12,10 @@ const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const dark = isDark();
     toggle?.setAttribute("aria-label", dark ? "Switch to light pages" : "Switch to dark pages");
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#0d120e" : "#eceee2");
+    for (const img of document.querySelectorAll("img[data-dark-src]")) {
+      img.dataset.lightSrc ??= img.getAttribute("src");
+      img.setAttribute("src", dark ? img.dataset.darkSrc : img.dataset.lightSrc);
+    }
   };
   apply();
   systemDark.addEventListener("change", apply);

@@ -9,6 +9,7 @@
 // The demo must answer on `localhost`, not `127.0.0.1`: its cookies are `__Host-` cookies, which a
 // browser keeps over plain HTTP only there. Chrome comes from CHROME, else /usr/bin/google-chrome.
 // Run it against a fresh start: the demo reseeds on every start, and the audit shot edits records.
+// SCHEME=dark repeats the page shots in dark, into `-dark` files, against a fresh start again.
 
 import { createRequire } from "node:module";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -40,7 +41,11 @@ const browser = await chromium.launch({
   args: ["--lang=en-US"],
   env: { ...process.env, LANG: "en_US.UTF-8", LANGUAGE: "en_US" },
 });
+// SCHEME=dark takes the page shots in dark, as `-dark` files; the theme shots carry both schemes.
+const darkPass = process.env.SCHEME === "dark";
 const context = await browser.newContext({ viewport, deviceScaleFactor: 2, locale: "en-US", colorScheme: "light" });
+// The panels wear the scheme the visitor's `tablo_theme` cookie names, so the dark pass sets it.
+if (darkPass) await context.addCookies([{ name: "tablo_theme", value: "dark", url: base }]);
 await mkdir(out, { recursive: true });
 
 /** Encodes a PNG as WebP at `width` pixels through a canvas, so no image tool is needed. */
@@ -79,7 +84,7 @@ async function shoot(page, name, { width = 1600, clip } = {}) {
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(450);
   const png = await page.screenshot({ type: "png", clip });
-  const file = join(out, `${name}.webp`);
+  const file = join(out, `${name}${darkPass ? "-dark" : ""}.webp`);
   await writeFile(file, await webp(png, width));
   console.log("wrote", file);
 }
@@ -212,7 +217,7 @@ await shoot(page, "audit-log", { width: 1800, clip: await content(page, 640) });
 
 // The themes, on the panel home.
 await page.goto(`${base}/admin`);
-for (const theme of Object.keys(THEMES)) {
+if (!darkPass) for (const theme of Object.keys(THEMES)) {
   for (const dark of [false, true]) {
     await wear(page, theme, dark);
     await shoot(page, `theme-${theme}-${dark ? "dark" : "light"}`, { width: 1600 });

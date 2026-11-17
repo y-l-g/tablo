@@ -71,7 +71,7 @@
 <pre class="ld-code" aria-label="The post resource's declaration"><span><span class="k">impl</span> <span class="t">Resource</span> <span class="k">for</span> <span class="t">PostResource</span> {</span><span>    <span class="k">type</span> <span class="t">Model</span> = <span class="t">Post</span>;</span><span>    <span class="k">type</span> <span class="t">Form</span> = <span class="t">PostForm</span>;</span><span> </span><span>    <span class="k">fn</span> declare() -&gt; <span class="t">ResourceDef</span>&lt;<span class="t">Self</span>&gt; {</span><span>        <span class="k">let</span> col = <span class="t">Post</span>::columns();</span><span>        <span class="t">ResourceDef</span>::new()</span><span data-pin="create">            .policy(access::policy(<span class="t">Domain</span>::Blog))</span><span data-pin="widget">            .list_widget::&lt;<span class="t">PostStatusWidget</span>&gt;()</span><span>            .table(<span class="t">Table</span>::new((</span><span>                col.image.image(),</span><span>                col.title.text()</span><span data-pin="search">                    .searchable()</span><span data-pin="sort">                    .sortable(),</span><span data-pin="author">                <span class="t">RelationColumn</span>::of::&lt;<span class="t">AuthorResource</span>&gt;(</span><span data-pin="author">                    <span class="m">relation!</span>(<span class="t">Post</span>.author)),</span><span>                col.published_at.date().sortable(),</span><span>            ))</span><span data-pin="filters">            .filters((<span class="t">DateFilter</span>::new(</span><span data-pin="filters">                <span class="m">lens!</span>(<span class="t">Post</span>.published_at)).range(),)))</span><span data-pin="action">            .action::&lt;<span class="t">TogglePostPublish</span>&gt;()</span><span>    }</span><span>}</span></pre>
           <div class="pins-shot">
             <div class="shot">
-              <img src="assets/captures/posts.webp" width="1800" height="1213" alt="The demo's post list: a Create Post button, published and draft counts, a search box, column and filter menus, and a table of posts with image, title, author, status, tags and publishing date.">
+              <img src="assets/captures/posts.webp" data-dark-src="assets/captures/posts-dark.webp" width="1800" height="1213" alt="The demo's post list: a Create Post button, published and draft counts, a search box, column and filter menus, and a table of posts with image, title, author, status, tags and publishing date.">
               <span class="pin" data-pin="create" data-n="1" style="left:85.4%;top:9.78%;width:10.94%;height:4%"></span>
               <span class="pin" data-pin="widget" data-n="2" style="left:3.66%;top:18.78%;width:92.68%;height:17.35%"></span>
               <span class="pin" data-pin="search" data-n="3" style="left:5.26%;top:39.35%;width:21.95%;height:4%"></span>
@@ -177,7 +177,7 @@ struct PostForm { title: String, … }</code></td></tr>
         </div>
         <figure class="ld-capture">
           <figcaption><span>Two-factor setup</span><span>demo.tablo.y-l.fr/app/settings/two-factor</span></figcaption>
-          <img src="assets/captures/two-factor.webp" width="1100" height="733" loading="lazy" alt="The two-factor setup page: a QR code, the key spelled out, a field for the six-digit code, and Turn on.">
+          <img src="assets/captures/two-factor.webp" data-dark-src="assets/captures/two-factor-dark.webp" width="1100" height="733" loading="lazy" alt="The two-factor setup page: a QR code, the key spelled out, a field for the six-digit code, and Turn on.">
         </figure>
       </div>
     </div>
@@ -201,7 +201,7 @@ struct PostForm { title: String, … }</code></td></tr>
 <pre class="ld-code" aria-label="The post form"><span><span class="m">#[derive(tablo::RecordForm)]</span></span><span><span class="m">#[form(model = Post)]</span></span><span><span class="k">pub struct</span> <span class="t">PostForm</span> {</span><span>    <span class="k">pub</span> title: <span class="t">String</span>,</span><span>    <span class="k">pub</span> content: <span class="t">String</span>,</span><span>    <span class="m">#[form(relationship = AuthorResource)]</span></span><span>    <span class="k">pub</span> author_id: <span class="t">Option</span>&lt;<span class="t">u64</span>&gt;,</span><span>    <span class="m">#[form(relationship = TagResource)]</span></span><span>    <span class="k">pub</span> tags: <span class="t">Vec</span>&lt;<span class="t">u64</span>&gt;,</span><span>    <span class="m">#[form(file, optional)]</span></span><span>    <span class="k">pub</span> image: <span class="t">String</span>,</span><span>}</span></pre>
         <figure class="ld-capture crop">
           <figcaption><span>The same form, refusing an empty title</span><span>/admin/posts/16/edit</span></figcaption>
-          <img src="assets/captures/post-form.webp" width="1800" height="1213" loading="lazy" alt="The post edit form with a Title field marked in red and the message Title is required, a rich text editor, and author, category and tag pickers.">
+          <img src="assets/captures/post-form.webp" data-dark-src="assets/captures/post-form-dark.webp" width="1800" height="1213" loading="lazy" alt="The post edit form with a Title field marked in red and the message Title is required, a rich text editor, and author, category and tag pickers.">
         </figure>
       </div>
     </div>
@@ -222,7 +222,7 @@ struct PostForm { title: String, … }</code></td></tr>
       <div class="plate-art">
         <figure class="ld-capture">
           <figcaption><span>Three writes and a sign-in</span><span>/admin/audit-log</span></figcaption>
-          <img src="assets/captures/audit-log.webp" width="1800" height="862" loading="lazy" alt="The audit log: rows for a post's title change, a product's price change and a sign-in, each with the old value struck through beside the new one.">
+          <img src="assets/captures/audit-log.webp" data-dark-src="assets/captures/audit-log-dark.webp" width="1800" height="862" loading="lazy" alt="The audit log: rows for a post's title change, a product's price change and a sign-in, each with the old value struck through beside the new one.">
         </figure>
       </div>
     </div>
@@ -295,7 +295,7 @@ struct PostForm { title: String, … }</code></td></tr>
     <div class="ld-pad-sm"><h2 class="ld-h2" id="h-built">Open them. Sign in. Change anything.</h2></div>
     <div class="ld-cells ld-cells-3 works">
       <div class="ld-cell"><a class="work" href="https://demo.tablo.y-l.fr">
-        <div class="work-shot"><img src="assets/captures/demo-home.webp" width="1600" height="1000" loading="lazy" alt="The Tablo demo's landing page."></div>
+        <div class="work-shot"><img src="assets/captures/demo-home.webp" data-dark-src="assets/captures/demo-home-dark.webp" width="1600" height="1000" loading="lazy" alt="The Tablo demo's landing page."></div>
         <div class="work-body"><span class="ld-label"><span>Demo</span><span>4 roles, 3 panels</span></span><h3 class="ld-h3">A company's back office</h3><p class="ld-text">Shop, HR, projects and a blog. Sign in as the administrator, the shop or HR manager, or a viewer, and watch each role see its own part.</p><span class="work-go">demo.tablo.y-l.fr</span></div>
       </a></div>
       <div class="ld-cell"><a class="work" href="https://saas.tablo.y-l.fr">
