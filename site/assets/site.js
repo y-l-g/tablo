@@ -123,23 +123,3 @@ for (const table of document.querySelectorAll("[data-speed]")) {
     observer.disconnect();
   }, { threshold: 0.3 }).observe(table);
 }
-
-// ---- the gallery's filters ----
-for (const gallery of document.querySelectorAll("[data-gallery]")) {
-  const entries = [...gallery.querySelectorAll("[data-tags]")];
-  const buttons = [...document.querySelectorAll("[data-filter]")];
-  const count = document.querySelector("[data-count]");
-  const shown = () => {
-    const n = entries.filter((e) => !e.hidden && !e.hasAttribute("data-add")).length;
-    if (count) count.textContent = `${n} ${n === 1 ? "entry" : "entries"}`;
-  };
-  shown();
-  for (const b of buttons) {
-    b.addEventListener("click", () => {
-      const tag = b.dataset.filter;
-      for (const other of buttons) other.setAttribute("aria-pressed", String(other === b));
-      for (const e of entries) e.hidden = tag !== "all" && !e.dataset.tags.split(" ").includes(tag);
-      shown();
-    });
-  }
-}
