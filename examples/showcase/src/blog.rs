@@ -39,7 +39,13 @@ async fn blog_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                                 aria-current=(current.then_some("page"))
                                 class="flex items-center gap-2.5 font-semibold tracking-tight"
                             >
-                                <img src=(LOGO) alt="" class="size-7">
+                                <img
+                                    src=(LOGO)
+                                    alt=""
+                                    width="32"
+                                    height="32"
+                                    class="size-8"
+                                >
                                 "Tablo Blog"
                             </a>
                             if let Some(admin) = admin.url() {

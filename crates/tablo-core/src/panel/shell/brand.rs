@@ -410,19 +410,21 @@ impl Panel {
     /// The brand's mark at `size`: its logo, or without one its initial on the primary token, so
     /// a header keeps its mark.
     fn brand_mark<'a>(cx: &'a Cx, name: &str, logo: Option<Logos>, size: BrandSize) -> BoxView<'a> {
-        // A page logo keeps its own width at the page mark's height.
+        // A page logo keeps its own width at the page mark's height. Logos show at multiples of
+        // 16px, where one drawn on a 16px grid puts every edge on a whole pixel, and keep their
+        // own corners.
         let (width, height, logo_class, initial_class) = match size {
             BrandSize::Sidebar => (
-                Some("28"),
-                "28",
-                "size-7 shrink-0 rounded-md",
+                Some("32"),
+                "32",
+                "size-8 shrink-0",
                 "flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-sm \
                  font-semibold text-primary-foreground",
             ),
             BrandSize::Page => (
                 None,
-                "40",
-                "h-10 w-auto shrink-0",
+                "48",
+                "h-12 w-auto shrink-0",
                 "flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-lg \
                  font-semibold text-primary-foreground",
             ),

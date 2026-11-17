@@ -136,8 +136,11 @@
   font: 900 22px/1 var(--ld-display);
   letter-spacing: -0.035em;
   border-right: 1px solid var(--ld-rule);
+  white-space: nowrap;
 }
-.ld-brand svg { width: 26px; height: 26px; flex: none; }
+/* The mark is drawn on a 16px grid in fixed colours: shown at a multiple of 16, every edge lands
+   on a whole pixel, and it reads the same on the night ledger as on the day one. */
+.ld-brand img { width: 32px; height: 32px; flex: none; }
 .ld-brand small {
   font: 500 10px/1 var(--ld-mono);
   letter-spacing: 0.08em;
@@ -510,7 +513,6 @@
   .ld-cells-2 > *, .ld-cells-3 > *, .ld-cells-4 > * { border-left: 0 !important; }
   .ld-cells-2 > :nth-child(n + 2), .ld-cells-3 > :nth-child(n + 2), .ld-cells-4 > :nth-child(n + 2) { border-top: 1px solid var(--ld-rule); }
   .ld-brand { border-right: 0; padding-right: 6px; gap: 8px; font-size: 20px; }
-  .ld-brand svg { width: 22px; height: 22px; }
   .ld-nav a, .ld-nav button { padding: 0 9px; font-size: 10px; letter-spacing: 0; }
   .ld-cmd { font-size: 12px; }
   .ld-nav .ld-hide-sm { display: none; }

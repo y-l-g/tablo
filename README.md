@@ -1,3 +1,5 @@
+<img src="site/assets/mark.svg" width="64" height="64" alt="Tablo's mark: a three-by-three grid whose ink header row and red middle column draw a T">
+
 # Tablo
 
 **Admin toolkit for Rust**, server-rendered on **Topcoat** (UI and reactivity) and **Toasty**
