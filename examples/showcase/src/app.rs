@@ -455,7 +455,7 @@ pub const UPLOAD_URL_PREFIX: &str = "/uploads";
 
 /// Tablo's mark, inline, as the sidebar logo and the favicon: the same mark in the same colours as
 /// on Tablo's site, the demo and the SaaS template, in whichever theme the panel wears.
-pub(crate) const LOGO: &str = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%20shape-rendering='crispEdges'%3E%3Cpath%20fill='%23f7f8f1'%20d='M0%200h16v16H0z'/%3E%3Cpath%20fill='%23121912'%20d='M1%201h14v14H1z'/%3E%3Cpath%20fill='%23f7f8f1'%20d='M2%207h3v3H2zM11%207h3v3h-3zM2%2011h3v3H2zM11%2011h3v3h-3z'/%3E%3Cpath%20fill='%23d33c1c'%20d='M6%207h4v7H6z'/%3E%3C/svg%3E";
+pub(crate) const LOGO: &str = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Cpath%20fill='%23f7f8f1'%20d='M0%200h16v16H0z'/%3E%3Cpath%20fill='%23121912'%20d='M1%201h14v14H1z'/%3E%3Cpath%20fill='%23f7f8f1'%20d='M2%207h3v3H2zM11%207h3v3h-3zM2%2011h3v3H2zM11%2011h3v3h-3z'/%3E%3Cpath%20fill='%23d33c1c'%20d='M6%207h4v7H6z'/%3E%3C/svg%3E";
 
 /// The admin panel's resources and pages: what the router mounts, and what a test builds its
 /// handle from with [`Panel::handle`].
