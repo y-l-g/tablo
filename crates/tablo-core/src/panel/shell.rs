@@ -67,6 +67,7 @@ impl Panel {
                     sidebar_group_label((label))
                     sidebar_group_content(
                         sidebar_menu(
+                            attrs: attributes! { class="gap-1.5" },
                             for (index, item) in entries {
                                 let is_active = active == Some(index);
                                 let label = item.label.localize(cx);
@@ -226,6 +227,8 @@ impl Panel {
                 (crate::t!(cx, "tablo-shell-skip-to-content"))
             </a>
             sidebar_provider(
+                // A panel's sidebar is wider than the primitive's 16rem default.
+                attrs: attributes! { style="--sidebar-width:18rem" },
                 // No `sidebar_rail`: the header's `sidebar_trigger` is the one toggle.
                 sidebar(
                     open: $(sidebar_open.get()),
