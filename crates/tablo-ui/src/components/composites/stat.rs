@@ -7,18 +7,20 @@ use topcoat::{
 };
 
 const STAT: StaticClass = class!(
-    "flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground sm:p-5",
-    "shadow-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+    "relative flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card px-4 py-4",
+    "text-card-foreground shadow-card outline-none transition-colors sm:px-5",
+    "focus-visible:ring-2 focus-visible:ring-ring",
 );
 /// A linked tile answers the pointer, as the list rows it leads to do.
-const STAT_LINK: StaticClass = class!("hover:border-foreground/20 hover:bg-muted/40");
+const STAT_LINK: StaticClass = class!("hover:border-rule-strong hover:bg-mark/50");
+/// The label is a caption, its icon trimmed to the caption's size.
 const STAT_LABEL: StaticClass = class!(
-    "flex items-center gap-2 text-sm font-medium text-muted-foreground",
-    "[&>svg]:size-4 [&>svg]:shrink-0",
+    "tablo-caption flex items-center gap-2 text-muted-foreground",
+    "[&>svg]:size-3.5 [&>svg]:shrink-0",
 );
-const STAT_VALUE: StaticClass = class!(
-    "text-2xl leading-none font-semibold tracking-tight text-foreground tabular-nums sm:text-3xl"
-);
+/// The figure, in the display face.
+const STAT_VALUE: StaticClass =
+    class!("tablo-figure text-[1.875rem] leading-none text-foreground sm:text-[2.125rem]");
 const STAT_DETAIL: StaticClass =
     class!("flex items-center gap-1 text-sm [&>svg]:size-4 [&>svg]:shrink-0");
 const STAT_CHART: StaticClass = class!("-mx-1 h-8 w-[calc(100%+0.5rem)] overflow-visible");

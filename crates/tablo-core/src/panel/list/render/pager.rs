@@ -16,7 +16,7 @@ use crate::{
 
 /// The bar the pager renders in, under the rows.
 const BAR_CLASS: &str =
-    "flex flex-col items-center gap-3 border-t border-border px-4 py-3 sm:flex-row";
+    "flex flex-col items-center gap-3 border-t border-rule bg-head px-4 py-2.5 sm:flex-row sm:px-5";
 
 /// A Previous or Next link with nowhere to go.
 const DISABLED_CLASS: &str = "pointer-events-none opacity-50";

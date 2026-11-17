@@ -1,0 +1,131 @@
+/* The grammar every theme shares, keyed on the hooks Tablo's markup carries (`data-sidebar`,
+   `data-slot`, `data-section`, `data-page-title`, `popover`) rather than on utility classes. It
+   sits in `@layer tablo-skin`, declared after Tailwind's layers, so a rule here beats the utility
+   it restyles while an app's unlayered rule still beats it. Each theme's own skin follows in the
+   same layer, so it refines these. */
+@layer tablo-skin {
+  /* ── The frame ─────────────────────────────────────────────────────────────────────────── */
+
+  /* The sidebar's groups are headed by captions. */
+  [data-sidebar="group-label"] {
+    font-family: var(--tablo-caption-font);
+    font-size: var(--tablo-caption-size);
+    font-weight: var(--tablo-caption-weight);
+    letter-spacing: var(--tablo-caption-tracking);
+    text-transform: var(--tablo-caption-case);
+    color: color-mix(in oklab, var(--sidebar-foreground) 62%, transparent);
+  }
+
+  /* An entry's icon is muted, and takes the primary color on the page the reader is on. */
+  [data-sidebar="menu-button"] > svg {
+    color: color-mix(in oklab, var(--sidebar-foreground) 60%, transparent);
+    transition: color 120ms;
+  }
+  [data-sidebar="menu-button"]:hover > svg {
+    color: var(--sidebar-accent-foreground);
+  }
+  [data-sidebar="menu-button"][data-active="true"] > svg {
+    color: var(--sidebar-primary);
+  }
+
+  /* The notch: a bar in the primary color at the leading edge of the page the reader is on. */
+  [data-sidebar="menu-button"] {
+    position: relative;
+  }
+  [data-sidebar="menu-button"][data-active="true"]::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0;
+    top: 50%;
+    translate: 0 -50%;
+    width: var(--tablo-notch);
+    height: 1.125rem;
+    border-radius: 0 var(--tablo-notch) var(--tablo-notch) 0;
+    background: var(--sidebar-primary);
+  }
+
+  /* The topbar is ruled off from the page under it. */
+  [data-sidebar="inset"] > [data-sidebar="header"] {
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* ── The page ──────────────────────────────────────────────────────────────────────────── */
+
+  [data-page-title] {
+    font-family: var(--tablo-display), ui-sans-serif, system-ui, sans-serif;
+    font-weight: var(--tablo-heading-weight);
+    letter-spacing: var(--tablo-heading-tracking);
+    font-size: var(--tablo-title-size);
+    line-height: 1.15;
+  }
+
+  /* The masthead: the page's title ruled off from its content, the rule notched at its start like
+     the sidebar's current entry. A record's tabs take the rule's place under its title. */
+  [data-page-header]:not(:has(+ [data-record-tabs])) {
+    position: relative;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--rule-strong);
+    &::after {
+      content: "";
+      position: absolute;
+      inset-inline-start: 0;
+      bottom: -1px;
+      width: 2.5rem;
+      height: var(--tablo-notch);
+      translate: 0 calc(var(--tablo-notch) / 2 - 0.5px);
+      background: var(--primary);
+    }
+  }
+
+  /* A record's entry: its label a caption over the value. */
+  [data-entry-label] {
+    font-family: var(--tablo-caption-font);
+    font-size: var(--tablo-caption-size);
+    font-weight: var(--tablo-caption-weight);
+    letter-spacing: var(--tablo-caption-tracking);
+    text-transform: var(--tablo-caption-case);
+    color: var(--muted-foreground);
+  }
+
+  /* A section's heading band. */
+  [data-section]:not([data-section-aside], [data-subsection]) > [data-section-title]:not(:only-child) {
+    background: var(--head);
+  }
+
+  /* ── Floating surfaces ─────────────────────────────────────────────────────────────────── */
+
+  [popover]:not([data-sidebar]) {
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* ── Tables ────────────────────────────────────────────────────────────────────────────── */
+
+  /* A wide table scrolls sideways under a hairline, not a full scrollbar. */
+  [data-slot="table"] {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  /* A searchable select draws the chevron a native one does, so it reads as a choice rather than
+     a text box; the chevron takes the place of the search field's clear button. */
+  [data-options-combobox] {
+    & > input {
+      padding-inline-end: 2rem;
+    }
+    & > input::-webkit-search-cancel-button {
+      appearance: none;
+    }
+    &::after {
+      content: "";
+      pointer-events: none;
+      position: absolute;
+      top: 1.125rem;
+      inset-inline-end: 0.625rem;
+      width: 1rem;
+      height: 1rem;
+      translate: 0 -50%;
+      background: var(--muted-foreground);
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 15 5 5 5-5M7 9l5-5 5 5'/%3E%3C/svg%3E") center / contain no-repeat;
+    }
+  }
+}

@@ -165,6 +165,8 @@ impl Frame<'_> {
                 target: &target,
                 attrs: attributes! {
                     class=(button_variants(ButtonVariant::Outline, ButtonSize::Md))
+                    data-slot="button"
+                    data-tone="outline"
                 },
                 icon(data: tablo_ui::icons::LIST_FILTER)
                 (trigger_label)
@@ -189,9 +191,10 @@ impl Frame<'_> {
                 ))
             >
                 <div
-                    class="flex h-11 items-center justify-between border-b border-border px-4"
+                    class="flex h-11 items-center justify-between border-b border-rule bg-head px-4"
+                    data-slot="card-header"
                 >
-                    <p class="text-sm font-semibold">(label)</p>
+                    <p class="tablo-caption text-foreground">(label)</p>
                     if let Some(reset) = reset {
                         <a class=(QUIET_LINK_CLASS) (reset)>
                             (t!(cx, "tablo-list-reset-filters"))

@@ -249,7 +249,7 @@ spanning_blocks!(Section, Group, Grid, Tabs, Wizard);
 /// its tabs. Inside a section's card, or the dialog around a framed form, it draws no card of its
 /// own and its tabs sit flush with the fields around them.
 const TABS: StaticClass = class!(
-    "flex min-w-0 flex-col rounded-xl border border-border bg-card text-card-foreground shadow-xs",
+    "flex min-w-0 flex-col rounded-xl border border-border bg-card text-card-foreground shadow-card",
     "in-[[data-section],[data-pick-page]]:rounded-none in-[[data-section],[data-pick-page]]:border-0",
     "in-[[data-section],[data-pick-page]]:bg-transparent in-[[data-section],[data-pick-page]]:shadow-none",
 );

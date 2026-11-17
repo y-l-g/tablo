@@ -21,7 +21,7 @@ use super::{
 
 /// Renders a `Section`'s titled panel: a title row, ruled off from the body under it.
 const PANEL: StaticClass = class!(
-    "flex flex-col rounded-xl border border-border bg-card text-card-foreground shadow-xs",
+    "flex flex-col rounded-xl border border-border bg-card text-card-foreground shadow-card",
     "[&>[data-section-title]:not(:last-child)]:border-b [&>[data-section-title]]:border-border",
 );
 
@@ -267,7 +267,7 @@ fn panel<'a>(cx: &'a Cx, look: &Look, body: Option<BoxView<'a>>, errored: bool) 
         body => view! {
             <div class=(class!(PANEL, extra.clone())) data-section="">
                 card_header(
-                    attrs: attributes! { class="py-4" data-section-title="" },
+                    attrs: attributes! { data-section-title="" },
                     (heading)
                     if let Some(description) = description {
                         card_description((description))

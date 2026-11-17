@@ -469,7 +469,7 @@ impl Field {
                         role="listbox"
                         aria-label=(filter_label.clone())
                         hidden=""
-                        class="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-popover p-1 text-sm text-popover-foreground shadow-sm"
+                        class="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-popover p-1 text-sm text-popover-foreground shadow-lg"
                     ></ul>
                 </div>
             }

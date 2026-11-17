@@ -239,7 +239,7 @@ const CHROME_CELL_CLASS: &str = "w-px whitespace-nowrap";
 /// The toolbar row above the table: the search field, the bulk actions, the column picker and the
 /// filter menu. Its padding lines the search field up with the first column.
 const BAR_CLASS: StaticClass =
-    class!("flex flex-wrap items-center gap-2 border-b border-border px-4 py-3 sm:px-6");
+    class!("flex flex-wrap items-center gap-2 border-b border-rule px-4 py-3 sm:px-5");
 
 /// A row's View or Edit link: muted until the reader reaches for it.
 const ROW_ICON_CLASS: StaticClass = class!(
@@ -269,7 +269,7 @@ const SEARCH_ICON_CLASS: StaticClass = class!(
 /// unpositioned wrapper, so without it a label takes the page as its containing block and
 /// widens the page.
 pub(crate) const TABLE_CARD_CLASS: StaticClass = class!(
-    "relative overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm"
+    "relative overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-card"
 );
 
 /// A secondary link inside a bar ("Clear filters", "Clear search").

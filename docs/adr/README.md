@@ -9,7 +9,7 @@ record disagree, the code wins and the record is fixed. Missing numbers are reti
 | [0001](0001-typed-field-lenses.md) | Fields and columns bind through typed lenses, never string paths; a model's `columns()` hands each field over, and an error is keyed by its form |
 | [0002](0002-query-seam.md) | `ResourceDef::query` scopes rows per panel with a predicate; the framework owns tenancy on a typed column |
 | [0004](0004-action-auth.md) | Mutations are transactional and per-record, with a hook on each side of the commit |
-| [0007](0007-primitives-vs-composites.md) | `primitives/` is synced, `composites/` is owned; styling stays per app |
+| [0007](0007-primitives-vs-composites.md) | `primitives/` is synced, `composites/` is owned, components carrying Tablo's look included; styling stays per app |
 | [0008](0008-panel-declarative-resources.md) | The panel declares resources and owns the shell |
 | [0013](0013-panel-auth.md) | Authentication is part of the panel, behind one seam |
 | [0017](0017-media-uploads.md) | Uploads go through an app-level `Uploader` |

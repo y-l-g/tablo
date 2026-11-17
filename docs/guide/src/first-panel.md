@@ -104,7 +104,7 @@ changes:
 ```
 
 [Theme tokens](./panel-and-routing.md#theme-tokens) lists every token; each is declared under
-`:root` and again under `.dark`, in `crates/tablo-build/src/theme.css`.
+`:root` and again under `.dark`, in `crates/tablo-build/src/theme/`.
 
 `build.rs` runs the build:
 

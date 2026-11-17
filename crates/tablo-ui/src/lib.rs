@@ -7,7 +7,8 @@ pub mod icons;
 // The primitives under `components/primitives/` are copied verbatim from `topcoat-ui-registry`
 // (sync with `cargo xtask sync-topcoat-ui`); owned code lives in `components/composites/`.
 //
-// Only the primitives a custom page builds from are public API. The rest are `#[doc(hidden)]`:
+// The components that carry Tablo's look are Tablo's own, in `composites/`; of the primitives,
+// only the ones a custom page builds from are public API. The rest are `#[doc(hidden)]`:
 // `tablo-core` renders with them, but a registry change to them never moves Tablo's semver. The
 // sync's `PUBLIC_PRIMITIVES` list decides which is which.
 #[doc(hidden)]
@@ -44,37 +45,33 @@ pub use components::primitives::{
 };
 pub use components::{
     composites::{
+        alert::{AlertVariant, alert, alert_description, alert_title},
+        badge::{BadgeVariant, badge, badge_variants},
+        button::{ButtonSize, ButtonVariant, button, button_variants},
+        card::{card, card_content, card_description, card_footer, card_header, card_title},
+        controls::{checkbox, input, radio_group, radio_group_item, switch, textarea},
         empty_state::empty_state,
         error_state::error_state,
         page::{page, page_actions, page_content, page_description, page_header, page_title},
+        select::select,
         stat::stat,
+        table::{
+            table, table_body, table_caption, table_cell, table_footer, table_head, table_header,
+            table_row,
+        },
         toast::{
             toast, toast_close, toast_content, toast_description, toast_icon, toast_title, toaster,
         },
     },
     primitives::{
-        alert::{AlertVariant, alert, alert_description, alert_title},
-        badge::{BadgeVariant, badge, badge_variants},
-        button::{ButtonSize, ButtonVariant, button, button_variants},
-        card::{card, card_content, card_description, card_footer, card_header, card_title},
-        checkbox::checkbox,
         field::{
             FieldLegendVariant, FieldOrientation, field, field_content, field_description,
             field_error, field_group, field_label, field_legend, field_separator, field_set,
             field_title,
         },
-        input::input,
         label::label,
-        radio_group::{radio_group, radio_group_item},
-        select::select,
         separator::{SeparatorOrientation, separator},
         skeleton::skeleton,
-        switch::switch,
-        table::{
-            table, table_body, table_caption, table_cell, table_footer, table_head, table_header,
-            table_row,
-        },
-        textarea::textarea,
     },
 };
 

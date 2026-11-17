@@ -311,6 +311,8 @@ fn relation_section<'a>(
                                 tablo_ui::ButtonVariant::Outline,
                                 tablo_ui::ButtonSize::Sm,
                             ))
+                            data-slot="button"
+                            data-tone="outline"
                         >
                             icon(data: tablo_ui::icons::PLUS)
                             (create_label)

@@ -66,7 +66,12 @@ pub(super) fn render_import_page<'a>(
                 tablo_ui::page_title((title))
                 tablo_ui::page_description((description))
                 tablo_ui::page_actions(
-                    <a href=(template_url) class=(template_class)>
+                    <a
+                        href=(template_url)
+                        class=(template_class)
+                        data-slot="button"
+                        data-tone="outline"
+                    >
                         icon(data: tablo_ui::icons::DOWNLOAD)
                         (crate::t!(cx, "tablo-import-template"))
                     </a>
@@ -150,6 +155,8 @@ pub(super) fn render_import_page<'a>(
                         <a
                             (crate::navigation::runtime_link(cx, &cancel))
                             class=(outline)
+                            data-slot="button"
+                            data-tone="outline"
                         >
                             (crate::t!(cx, "tablo-cancel"))
                         </a>

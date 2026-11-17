@@ -302,12 +302,22 @@ fn list_header<'a>(
             tablo_ui::page_title((title))
             tablo_ui::page_actions(
                 (actions)
-                <a href=(export_url) class=(outline.clone())>
+                <a
+                    href=(export_url)
+                    class=(outline.clone())
+                    data-slot="button"
+                    data-tone="outline"
+                >
                     icon(data: tablo_ui::icons::DOWNLOAD)
                     (crate::t!(cx, "tablo-list-export"))
                 </a>
                 if let Some(url) = import_url {
-                    <a (crate::navigation::runtime_link(cx, &url)) class=(outline)>
+                    <a
+                        (crate::navigation::runtime_link(cx, &url))
+                        class=(outline)
+                        data-slot="button"
+                        data-tone="outline"
+                    >
                         icon(data: tablo_ui::icons::UPLOAD)
                         (crate::t!(cx, "tablo-list-import"))
                     </a>
@@ -320,6 +330,8 @@ fn list_header<'a>(
                             tablo_ui::ButtonVariant::Primary,
                             tablo_ui::ButtonSize::Md,
                         ))
+                        data-slot="button"
+                        data-tone="primary"
                     >
                         icon(data: tablo_ui::icons::PLUS)
                         (create_label)

@@ -373,11 +373,17 @@ pub async fn record_table<R: Resource>(
     Ok(view! {
         <section
             data-record-table=(slug)
-            class="relative overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs"
+            data-slot="card"
+            class="relative overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-card"
         >
-            <div class="flex items-start justify-between gap-4 px-5 pt-5 pb-3">
+            <div
+                class="flex items-start justify-between gap-4 border-b border-rule bg-head px-5 py-3.5"
+                data-slot="card-header"
+            >
                 <div class="flex min-w-0 flex-col gap-1">
-                    <h2 class="text-base font-semibold">(heading)</h2>
+                    <h2 class="tablo-heading text-[0.9375rem] leading-snug">
+                        (heading)
+                    </h2>
                     if let Some(description) = description {
                         <p class="text-sm text-muted-foreground">(description)</p>
                     }
@@ -385,7 +391,7 @@ pub async fn record_table<R: Resource>(
                 <a
                     (list)
                     data-record-table-list=""
-                    class="shrink-0 text-sm text-muted-foreground hover:text-foreground"
+                    class="shrink-0 text-sm font-medium text-primary underline-offset-4 hover:underline"
                 >
                     (view_all)
                 </a>

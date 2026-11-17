@@ -224,6 +224,8 @@ pub(super) fn buttons<'a>(cx: &'a Cx, next: &str) -> Option<BoxView<'a>> {
                             tablo_ui::ButtonVariant::Outline,
                             tablo_ui::ButtonSize::Md,
                         ))
+                        data-slot="button"
+                        data-tone="outline"
                     >
                         (label)
                     </a>
