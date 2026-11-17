@@ -380,7 +380,8 @@ tenant predicate. See [Data access](./data-access.md).
 ```
 
 - `brand` names the panel in the sidebar header, in the topbar on narrow screens, and above the
-  sign-in and sign-up cards, where the logo shows 40px tall. A brand without a logo shows its
+  sign-in and sign-up cards. The logo shows 32px square in the sidebar and 48px tall above the
+  cards, with its own corners, so a mark drawn on a 16px grid stays sharp. A brand without a logo shows its
   first letter. `dark_logo` replaces the logo while the page renders dark, so a wordmark stays
   legible on either background. `favicon` links the icon of every page the panel renders, sign-in included;
   without it the browser asks for `/favicon.ico`.
