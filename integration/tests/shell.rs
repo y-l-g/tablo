@@ -2,8 +2,8 @@
 
 use http::header::COOKIE;
 use tablo::{
-    Banner, Brand, Color, DeclarationErrorKind, Environment, Panel, Radius, ReadOnly, Resource,
-    ResourceDef, Table, TextColumn, lens,
+    Banner, Brand, Color, DeclarationErrorKind, Environment, Look, Panel, Radius, ReadOnly,
+    Resource, ResourceDef, SidebarFrame, Table, TextColumn, Theme, lens,
 };
 use topcoat::{
     context::Cx,
@@ -195,6 +195,102 @@ async fn the_brand_paints_the_themes_primary_tokens() {
         ),
         "{html}"
     );
+}
+
+/// The look a cookie names, as a visitor's pick would be stored.
+fn cookie_look(cx: &Cx) -> Look {
+    // The suite's router has no cookie layer, so the header is read as it came.
+    let header = topcoat::context::try_context::<http::request::Parts>(cx)
+        .and_then(|parts| parts.headers.get(COOKIE)?.to_str().ok().map(str::to_owned))
+        .unwrap_or_default();
+    let named = |name: &str| {
+        header.split(';').find_map(|part| {
+            let (key, value) = part.trim().split_once('=')?;
+            (key == name).then(|| value.to_owned())
+        })
+    };
+    let look = match named("look_theme").as_deref() {
+        Some("iris") => Look::default().theme(Theme::Iris),
+        Some("graphite") => Look::default().theme(Theme::Graphite),
+        _ => Look::default(),
+    };
+    match named("look_sidebar").as_deref() {
+        Some("inset") => look.sidebar(SidebarFrame::Inset),
+        _ => look,
+    }
+}
+
+/// The `data-variant` of the page's sidebar, the first `<aside>`.
+fn sidebar_variant(html: &str) -> &str {
+    let aside = &html[html.find("<aside").expect("the shell's sidebar")..];
+    let at = aside
+        .find(" data-variant=\"")
+        .expect("the sidebar's variant")
+        + " data-variant=\"".len();
+    &aside[at..at + aside[at..].find('"').unwrap()]
+}
+
+/// Names the theme and frame the page wears, as a picker would to mark them.
+struct Worn;
+
+impl Banner for Worn {
+    async fn render(cx: &Cx) -> topcoat::Result<Option<impl View>> {
+        let worn = format!("{:?}/{:?}", Theme::current(cx), SidebarFrame::current(cx));
+        Ok(Some(view! { <div data-test-worn=(worn)></div> }))
+    }
+}
+
+/// A brand's look decides the theme and the sidebar's frame request by request, over the brand's
+/// own; the brand's explicit frame stands until the look names one.
+#[tokio::test]
+async fn the_brand_look_picks_the_theme_and_frame_per_request() {
+    let router = books(
+        panel()
+            .brand(Brand::new("Acme").look(cookie_look))
+            .banner::<Worn>(),
+    )
+    .await;
+    for (cookie, theme, frame) in [
+        ("", None, "inset"),
+        ("look_theme=iris", Some("iris"), "floating"),
+        ("look_theme=graphite", Some("graphite"), "sidebar"),
+        ("look_theme=iris; look_sidebar=inset", Some("iris"), "inset"),
+        ("look_theme=sepia", None, "inset"),
+    ] {
+        let html = list_page(&router, cookie).await;
+        let tag = html_tag(&html);
+        match theme {
+            Some(theme) => assert!(
+                tag.contains(&format!("data-tablo-theme=\"{theme}\"")),
+                "{cookie}: {tag}"
+            ),
+            None => assert!(!tag.contains("data-tablo-theme"), "{cookie}: {tag}"),
+        }
+        assert_eq!(sidebar_variant(&html), frame, "{cookie}");
+    }
+    let html = list_page(&router, "look_theme=iris; look_sidebar=inset").await;
+    assert!(
+        html.contains("data-test-worn=\"Some(Iris)/Some(Inset)\""),
+        "the page reads what it wears: {html}"
+    );
+    let html = list_page(&books(panel().banner::<Worn>()).await, "").await;
+    assert!(
+        html.contains("data-test-worn=\"Some(Jade)/Some(Inset)\""),
+        "a panel without a brand wears the default theme: {html}"
+    );
+
+    let ruled = books(
+        panel().brand(
+            Brand::new("Acme")
+                .sidebar(SidebarFrame::Ruled)
+                .look(cookie_look),
+        ),
+    )
+    .await;
+    let html = list_page(&ruled, "look_theme=iris").await;
+    assert_eq!(sidebar_variant(&html), "sidebar");
+    let html = list_page(&ruled, "look_theme=iris; look_sidebar=inset").await;
+    assert_eq!(sidebar_variant(&html), "inset");
 }
 
 /// A color that could close the declaration and open another refuses the mount instead of

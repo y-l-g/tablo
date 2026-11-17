@@ -416,6 +416,22 @@ Brand::new("Acme")
     .sidebar(SidebarFrame::Floating)
 ```
 
+`Brand::look` lets each request wear another theme or frame, such as one a visitor picks. It takes
+a function that answers a [`Look`](https://y-l.fr/tablo/nightly/api/tablo/struct.Look.html) for
+every page the panel renders; the app stores the pick, usually in a cookie of its own, and reads it
+back there:
+
+```rust,ignore
+fn visitor_look(cx: &Cx) -> Look {
+    match cookies(cx).get("acme_theme").as_ref().map(|cookie| cookie.value()) {
+        Some("graphite") => Look::default().theme(Theme::Graphite),
+        _ => Look::default(),
+    }
+}
+
+Brand::new("Acme").look(visitor_look)
+```
+
 The themes are the set Tablo ships; there is no API to register another. An app that wants its own
 look redeclares tokens in `styles.css` over the theme closest to it.
 
