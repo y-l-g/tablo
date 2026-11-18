@@ -3,6 +3,11 @@
 
 use std::{any::TypeId, sync::Arc};
 
+use jiff::{SignedDuration, Timestamp};
+use toasty::{
+    Executor,
+    stmt::{List, Path, Query},
+};
 use topcoat::{
     Result,
     context::Cx,
@@ -262,6 +267,88 @@ impl Stat {
         stat.icon = item.icon;
         Ok(Some(stat))
     }
+
+    /// [`records`](Self::records), with a sparkline of how many of those records `created_at`
+    /// dates in each of the last `weeks` weeks, oldest first: the newest week ends now, and each
+    /// spans the seven days before the next.
+    ///
+    /// ```rust,no_run
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+    /// # struct Order { #[key] #[auto] id: uuid::Uuid, created_at: jiff::Timestamp }
+    /// # use tablo_core::Resource;
+    /// # async fn tile<OrderResource: Resource<Model = Order>>(
+    /// #     cx: &topcoat::context::Cx,
+    /// # ) -> topcoat::Result<Option<tablo_core::Stat>> {
+    /// use tablo_core::Stat;
+    ///
+    /// Stat::records_by_week::<OrderResource>(cx, Order::fields().created_at(), 12).await
+    /// # }
+    /// ```
+    ///
+    /// Each week is one count query over the same scoped query, so the tile reads no record
+    /// however many `R` holds.
+    ///
+    /// # Errors
+    ///
+    /// As [`records`](Self::records), and a declaration failure when `weeks` reach past the
+    /// earliest timestamp.
+    pub async fn records_by_week<R: Resource>(
+        cx: &Cx,
+        created_at: Path<R::Model, Timestamp>,
+        weeks: usize,
+    ) -> Result<Option<Self>> {
+        let Some(stat) = Self::records::<R>(cx).await? else {
+            return Ok(None);
+        };
+        let counts = weekly_counts(
+            || crate::scoped_query::<R>(cx),
+            created_at,
+            weeks,
+            Timestamp::now(),
+            &mut crate::db::db(cx)?,
+        )
+        .await?;
+        Ok(Some(stat.chart(counts)))
+    }
+}
+
+/// How many of the records `query` returns `created_at` dates in each of the `weeks` weeks before
+/// `now`, oldest first: one count query a week.
+async fn weekly_counts<M: toasty::schema::Model>(
+    query: impl Fn() -> Result<Query<List<M>>>,
+    created_at: Path<M, Timestamp>,
+    weeks: usize,
+    now: Timestamp,
+    ex: &mut dyn Executor,
+) -> Result<Vec<f64>> {
+    let mut counts = Vec::with_capacity(weeks);
+    for week in (0..weeks).rev() {
+        let (start, end) = (weeks_before(now, week + 1)?, weeks_before(now, week)?);
+        let count = crate::toasty_compat::count(
+            query()?
+                .filter(created_at.clone().ge(start))
+                .filter(created_at.clone().lt(end)),
+            &mut *ex,
+        )
+        .await
+        .map_err(crate::error::unavailable)?;
+        // A week's count is far below 2^53, so the float holds it exactly.
+        counts.push(count as f64);
+    }
+    Ok(counts)
+}
+
+/// The instant `weeks` weeks before `now`.
+fn weeks_before(now: Timestamp, weeks: usize) -> Result<Timestamp> {
+    i64::try_from(weeks)
+        .ok()
+        .and_then(|weeks| weeks.checked_mul(7 * 24))
+        .and_then(|hours| now.checked_sub(SignedDuration::from_hours(hours)).ok())
+        .ok_or_else(|| {
+            crate::error::declaration(format!(
+                "a sparkline {weeks} weeks long reaches past the earliest timestamp"
+            ))
+        })
 }
 
 /// `table` over `R`'s records, for a [`Widget`](crate::Widget)'s body: the rows under `R`'s list
