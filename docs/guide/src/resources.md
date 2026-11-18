@@ -92,8 +92,8 @@ A narrowing says which rows, and nothing else:
   at every loader. See [Tenancy](./policy-auth-tenancy.md#tenancy).
 - **Soft deletes.** Declare the column instead; see [Soft deletes](#soft-deletes).
 - **Relations.** The list, the export and the detail page load the relations their columns
-  declare: a `RelationColumn` or `CountColumn` declares its own, and a `ComputedColumn` declares
-  one with `include_unscoped`. `ResourceDef::include_unscoped` loads a relation with every row,
+  declare: a `RelationColumn` declares its own, and a `ComputedColumn` declares one with
+  `include_unscoped`. A `CountColumn` loads nothing and counts each row in the database. `ResourceDef::include_unscoped` loads a relation with every row,
   for one every loader reads, for example because the policy does.
 
 In your own code, load a resource's rows with

@@ -233,6 +233,14 @@ pub enum DeclarationErrorKind {
         /// The label source's type.
         source: &'static str,
     },
+    /// A `CountColumn` over a relation whose records' primary key spans several columns, which
+    /// its count query cannot match a row's related records by.
+    ///
+    /// Key the related model by one column, or count in a `ComputedColumn`.
+    CompositeKeyCount {
+        /// The column.
+        column: String,
+    },
     /// A lens with more than one step where a single field of the model is needed.
     ///
     /// Name one field of the model.

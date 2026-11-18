@@ -256,8 +256,9 @@ where
     }
 }
 
-/// The predicate selecting the target records `owner` is linked to through `via`, one of `P`'s
-/// `#[has_many(via = ..)]` fields: `pk IN (SELECT pk FROM <owner's via>)`.
+/// The predicate selecting the records `owner` holds through `via`, one of `P`'s `#[has_many]`
+/// fields, `via` ones included: `pk IN (SELECT pk FROM <owner's via>)`. It selects none when
+/// `C`'s primary key spans several columns.
 pub(crate) fn linked_to<P, C>(
     owner: &P,
     via: Path<P, toasty::stmt::List<C>>,

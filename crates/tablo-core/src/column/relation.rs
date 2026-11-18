@@ -1,6 +1,5 @@
-//! [`RelationColumn`] and [`CountColumn`]: columns over a relation field, which load the relation
-//! they read, and the [`RelationLens`] that names the field, built by
-//! [`relation!`](crate::relation!).
+//! [`RelationColumn`] and [`CountColumn`]: columns over a relation field, and the
+//! [`RelationLens`] that names the field, built by [`relation!`](crate::relation!).
 
 use std::sync::Arc;
 
@@ -11,18 +10,16 @@ use topcoat::{Result, context::Cx};
 use super::{Column, ColumnToggle, ColumnWidth, Includes, Related};
 use crate::{BoxFuture, DeclarationErrorKind, lens::Reads, schema::OptionSource};
 
+mod count;
 mod lens;
 mod restrict;
 
+pub use count::CountColumn;
 pub use lens::RelationLens;
 use restrict::{Restrict, restrict_many, restrict_one, shows};
 
 /// The text an unscoped relation column renders for a row whose relation was not loaded.
 const UNLOADED: &str = "(unloaded)";
-
-/// What a relation column reads off a row in the request's context, or `None` when the row's
-/// relation was not loaded.
-type Loaded<M, T> = Arc<dyn Fn(&Cx, &M) -> Option<T> + Send + Sync>;
 
 /// A label source's type name, and whether a context's panel can load from it.
 type LabelSource = (&'static str, fn(&Cx) -> bool);
@@ -301,104 +298,6 @@ impl<M> RelationColumn<M> {
     }
 }
 
-/// A column counting the records of a `Deferred` `has_many` field that a source `S` shows, which
-/// declares the field's include so every page that renders it loads the records.
-///
-/// ```rust
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
-/// # struct Post {
-/// #     #[key] #[auto] id: uuid::Uuid,
-/// #     #[has_many]
-/// #     comments: toasty::Deferred<Vec<Comment>>,
-/// # }
-/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
-/// # struct Comment {
-/// #     #[key] #[auto] id: uuid::Uuid,
-/// #     #[index]
-/// #     post_id: uuid::Uuid,
-/// #     #[belongs_to(key = post_id, references = id)]
-/// #     post: toasty::Deferred<Post>,
-/// # }
-/// # struct CommentResource;
-/// # impl tablo_core::extend::OptionSource for CommentResource {
-/// #     type Model = Comment;
-/// #     fn scoped_query(_cx: &topcoat::context::Cx)
-/// #         -> topcoat::Result<toasty::stmt::Query<toasty::stmt::List<Comment>>>
-/// #     {
-/// #         Ok(toasty::stmt::Query::all())
-/// #     }
-/// #     fn label(_cx: &topcoat::context::Cx, comment: &Comment) -> String {
-/// #         comment.id.to_string()
-/// #     }
-/// # }
-/// use tablo_core::{CountColumn, relation};
-///
-/// CountColumn::of::<CommentResource>(relation!(Post.comments));
-/// ```
-///
-/// The header and the column's name are the field's name, capitalized, until
-/// [`label`](Self::label) replaces both.
-///
-/// The count is how many of the loaded records `S` shows the user, which [`RelationColumn`]
-/// decides the same way: a page loads every related record of every row it counts.
-/// [`unscoped`](Self::unscoped) counts every record the include loads.
-#[derive_where(Clone, Debug)]
-pub struct CountColumn<M> {
-    relation: Declared<M>,
-    #[derive_where(skip(Debug))]
-    count: Loaded<M, usize>,
-}
-
-impl<M> CountColumn<M>
-where
-    M: toasty::schema::Model + Send + Sync + 'static,
-{
-    /// Declare a column counting the records `relation` loads that `S` shows.
-    pub fn of<S>(relation: RelationLens<M, Deferred<Vec<S::Model>>>) -> Self
-    where
-        S: OptionSource,
-    {
-        Self {
-            relation: Declared::of(&relation, ColumnWidth::Auto)
-                .scoped::<S>(restrict_many::<M, S>(relation.read))
-                .fieldless(),
-            count: count(relation.read, shows::<S>),
-        }
-    }
-
-    /// Declare a column counting every record `relation` loads, under no resource's query or
-    /// policy: for a related model no resource administers. A count shows no field of the
-    /// records.
-    pub fn unscoped<T>(relation: RelationLens<M, Deferred<Vec<T>>>) -> Self
-    where
-        T: toasty::schema::Model + 'static,
-    {
-        Self {
-            relation: Declared::of(&relation, ColumnWidth::Auto).fieldless(),
-            count: count(relation.read, |_, _| true),
-        }
-    }
-}
-
-impl<M> CountColumn<M> {
-    /// The row's count, or `None` when its relation was not loaded.
-    fn loaded_text(&self, cx: &Cx, row: &M) -> Option<String> {
-        (self.count)(cx, row).map(|count| count.to_string())
-    }
-}
-
-/// How many records of the list `read` reads off a row `shown` accepts, or `None` when it was not
-/// loaded.
-fn count<M: 'static, T: 'static>(
-    read: fn(&M) -> &Deferred<Vec<T>>,
-    shown: fn(&Cx, &T) -> bool,
-) -> Loaded<M, usize> {
-    Arc::new(move |cx, row| {
-        let records = read(row);
-        (!records.is_unloaded()).then(|| records.get().iter().filter(|r| shown(cx, r)).count())
-    })
-}
-
 /// What both relation-field columns declare: the name and label, the include and the width.
 #[derive_where(Clone, Debug)]
 struct Declared<M> {
@@ -452,8 +351,23 @@ impl<M> Declared<M> {
     fn scoped<S: OptionSource>(self, restrict: Restrict<M>) -> Self {
         Self {
             source: Some((std::any::type_name::<S>(), S::available)),
-            restrict: Some(restrict),
             related: Related::Source(std::any::TypeId::of::<S>()),
+            ..self.restricted(restrict)
+        }
+    }
+
+    /// Run `restrict` once a page's rows load, before any cell renders.
+    pub(super) fn restricted(self, restrict: Restrict<M>) -> Self {
+        Self {
+            restrict: Some(restrict),
+            ..self
+        }
+    }
+
+    /// Load nothing with the rows: the column queries what it shows itself.
+    pub(super) fn without_include(self) -> Self {
+        Self {
+            includes: Includes::new(),
             ..self
         }
     }
@@ -485,9 +399,10 @@ impl<M> Declared<M> {
         self.label = Some(label);
     }
 
-    /// The text of a row's loaded relation. A scoped column renders empty when its row holds no
-    /// record, which is how a required related record the source hides reads. An unscoped one
-    /// renders the unloaded marker, since a loader skipped the include it declares.
+    /// The text of a row's loaded relation. A column that restricts renders empty when it has
+    /// nothing for its row, which is how a required related record the source hides reads, and a
+    /// count its loader did not run. An unscoped one renders the unloaded marker, since a loader
+    /// skipped the include it declares.
     fn text(&self, loaded: Option<String>) -> String {
         if self.restrict.is_some() {
             return loaded.unwrap_or_default();

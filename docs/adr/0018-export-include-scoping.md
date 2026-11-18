@@ -3,15 +3,19 @@
 There is no `Relation` trait. A column declares the relations its projection reads as typed
 Toasty includes (`Column::includes`), and the list, the export and the detail page load exactly
 what their columns declare; the detail page's `Detail` holds the same `Column` types a `Table`
-lists. `RelationColumn` and `CountColumn` take a `relation!` lens, which pairs a relation field's
-include with its reader, so the include they declare is the relation they read; a
+lists. `RelationColumn` takes a `relation!` lens, which pairs a relation field's include with its
+reader, so the include it declares is the relation it reads; a
 `ComputedColumn` declares what its closure reads with `include`. The sealed `ToOneRelation` trait
 tells a required `Deferred` field from a nullable one and names the related model: it names no
 relation and links no column to a resource, so it is not the `Relation` trait rejected below.
 
+`CountColumn` declares no include: once the rows load, its `Column::restrict` counts each row's
+related records with one count query through `R`'s scoped query, filtered to the row's records,
+and records the counts for the request. The page loads none of the records it counts.
+
 A relation column names the resource `R` whose rules govern the related records:
-`RelationColumn::of::<R>`, `new::<R>`, `list::<R>` and `CountColumn::of::<R>`. The include still
-loads the relation, and the loader that applied it then runs `Column::restrict`: one query through
+`RelationColumn::of::<R>`, `new::<R>`, `list::<R>` and `CountColumn::of::<R>`. A
+`RelationColumn`'s include still loads the relation, and the loader that applied it then runs `Column::restrict`: one query through
 `R`'s scoped query (its tenancy, its trash and `ResourceDef::query`), keyed by the loaded records,
 which records for the request whether `R` shows each record. `R`'s `View` policy plays no part:
 it answers whether the user may open a record's pages, never whether a row shows. A cell renders only the records recorded as
@@ -37,5 +41,9 @@ A related table on a detail page is the related resource's own table, run throug
 - Dropping the hidden records from the loaded rows: the parent's policy, its title and its row
   actions then read a relation the column rewrote, so a policy over a nullable relation allowed a
   record it would refuse, and a required one read as unloaded and panicked.
+- A `CountColumn` counting the included list: every page loaded every related record of its
+  rows, then sent their keys back through `R`'s scoped query, to show a number.
+- One grouped count per page for `CountColumn`: Toasty 0.11 builds no `GROUP BY`, so a count
+  takes one query per row, bounded by the page size.
 - A relation column over a bare relation path: a path loads the relation but cannot read it
   off the row, so the column would need a reader naming the field a second time.

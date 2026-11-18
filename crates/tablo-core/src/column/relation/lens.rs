@@ -32,6 +32,8 @@ pub struct RelationLens<M, R> {
     field: Result<String, DeclarationErrorKind>,
     /// The relation field, and the foreign keys of a `belongs_to`: what showing it reads.
     reads: Vec<String>,
+    /// The relation field's index on `M`, or `None` when the path names no single field.
+    pub(super) index: Option<usize>,
     #[derive_where(skip(Debug))]
     pub(super) read: fn(&M) -> &R,
 }
@@ -58,6 +60,7 @@ where
         };
         Self {
             includes: Includes::new().with(path),
+            index: info.as_ref().ok().map(|f| f.index),
             field: info.map(|f| f.name),
             reads,
             read,
