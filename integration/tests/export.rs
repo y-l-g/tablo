@@ -7,7 +7,10 @@ use tablo::{
     lens, testing::find_href_with,
 };
 use toasty::Db;
-use topcoat::{context::Cx, router::Router};
+use topcoat::{
+    context::Cx,
+    router::{Body, Router},
+};
 use uuid::Uuid;
 
 use crate::common::{
@@ -194,6 +197,31 @@ async fn an_export_streams_every_row_once() {
 
     let bom = export(&router, "/admin/items/-/export?bom=1").await;
     assert_eq!(bom.strip_prefix('\u{FEFF}'), Some(csv.as_str()));
+}
+
+/// A browser's export arrives gzipped and whole: the compression layer polls the streamed body
+/// once more after its last row, which must read as the end rather than fail the download.
+#[tokio::test]
+async fn a_compressed_export_arrives_whole() {
+    use std::io::Read;
+    let total = 500 + 7;
+    let router = panel_router::<ItemResource>(items(total, |i| format!("item-{i:05}")).await);
+    let request = http::Request::builder()
+        .uri("/admin/items/-/export")
+        .header(http::header::ACCEPT_ENCODING, "gzip")
+        .body(Body::empty())
+        .expect("request builds");
+    let response = router.handle(request).await;
+    assert!(response.status().is_success());
+    assert_eq!(response.headers()[http::header::CONTENT_ENCODING], "gzip");
+    let gzipped = body_bytes(response).await;
+    let mut csv = String::new();
+    flate2::read::GzDecoder::new(gzipped.as_slice())
+        .read_to_string(&mut csv)
+        .expect("the export is one whole gzip stream");
+    let mut lines = csv.lines();
+    assert_eq!(lines.next(), Some("Name"));
+    assert_eq!(lines.count(), total);
 }
 
 /// An empty table downloads the header, not a 0-byte body.

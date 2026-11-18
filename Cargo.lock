@@ -3885,6 +3885,7 @@ name = "tablo-integration"
 version = "0.11.1"
 dependencies = [
  "bigdecimal",
+ "flate2",
  "form_urlencoded",
  "futures-util",
  "http",
