@@ -303,7 +303,7 @@ pub fn paris_panel() -> Panel {
 // ANCHOR_END: panel-time-zone
 
 // ANCHOR: panel-geist
-pub const GEIST: Font = fontsource_font!(GEIST, host: Asset);
+pub const GEIST: Font = fontsource_font!(GEIST, weight: [400, 500, 600, 700], style: Normal, host: Asset);
 // ANCHOR_END: panel-geist
 
 // ANCHOR: panel-assets-body

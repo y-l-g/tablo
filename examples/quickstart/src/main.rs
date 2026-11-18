@@ -7,7 +7,7 @@ use topcoat::{
     router::{Router, RouterBuilder, RouterBuilderDiscoverExt},
 };
 
-const GEIST: Font = fontsource_font!(GEIST, host: Asset);
+const GEIST: Font = fontsource_font!(GEIST, weight: [400, 500, 600, 700], style: Normal, host: Asset);
 
 #[derive(Debug, Clone, toasty::Model, tablo::PanelModel, tablo::ModelForm)]
 pub struct Book {
