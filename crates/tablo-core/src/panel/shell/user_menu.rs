@@ -31,6 +31,9 @@ pub(super) fn account_items(cx: &Cx) -> Vec<NavigationItem> {
     });
     profile.into_iter().chain(two_factor).collect()
 }
+/// The text tokens of a floating menu that sits in the sidebar.
+const POPOVER_TEXT_CLASS: &str = "[--foreground:var(--popover-foreground)] [--muted-foreground:color-mix(in_oklab,var(--popover-foreground)_70%,transparent)]";
+
 /// The DOM id of the user menu's panel.
 const USER_MENU: &str = "user-menu";
 
@@ -130,7 +133,7 @@ impl Panel {
                             id: USER_MENU,
                             side: FloatingSide::Top,
                             align: FloatingAlign::Start,
-                            attrs: attributes! { class="min-w-56" },
+                            attrs: attributes! { class=(format!("min-w-56 {POPOVER_TEXT_CLASS}")) },
                             dropdown_menu_label(
                                 <span class="grid leading-tight">
                                     <span class="truncate font-medium text-foreground">
@@ -200,7 +203,7 @@ impl Panel {
                             id: THEME_MENU,
                             side: FloatingSide::Top,
                             align: FloatingAlign::Start,
-                            attrs: attributes! { class="min-w-40" },
+                            attrs: attributes! { class=(format!("min-w-40 {POPOVER_TEXT_CLASS}")) },
                             (themes)
                             (languages)
                         )
@@ -315,7 +318,7 @@ impl Panel {
                     dropdown_menu_content(
                         id: TENANT_MENU,
                         align: FloatingAlign::Start,
-                        attrs: attributes! { class="min-w-56" },
+                        attrs: attributes! { class=(format!("min-w-56 {POPOVER_TEXT_CLASS}")) },
                         dropdown_menu_label((t!(cx, "tablo-shell-tenants")))
                         for choice in choices {
                             (choice)
