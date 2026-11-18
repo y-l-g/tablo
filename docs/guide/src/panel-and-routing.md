@@ -300,7 +300,9 @@ adds it to the page's grid, which the default `render` shows under the header:
 
 - **Stats.** `stats(cx, …)` lays out a row of `Stat` tiles. `Stat::records::<R>(cx)` counts what
   `R`'s list would show the caller, through `scoped_query`, and links to it; it is `None` when the
-  caller may not open that list, so the row has no tile for it.
+  caller may not open that list, so the row has no tile for it. `Stat::records_by_week::<R>(cx,
+  created_at, weeks)` adds a sparkline of the records created each week, one count query a week,
+  so a dashboard never loads the table to draw it.
 - **Charts.** `chart(cx, …)` draws a `Chart`, a line or bar chart over shared labels with a
   `Series` of values per thing it measures, as SVG the server writes: it reads without
   JavaScript, and a table of its values stands in for it to a screen reader. A chart over a

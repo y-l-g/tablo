@@ -17,3 +17,37 @@ fn a_widget_alone_on_its_row_fills_it() {
     );
     assert_eq!(filled(2, &[]), []);
 }
+
+#[derive(Debug, Clone, toasty::Model)]
+struct Order {
+    #[key]
+    #[auto]
+    id: uuid::Uuid,
+    created_at: Timestamp,
+}
+
+/// Each week counts the records created in the seven days before the next week starts, oldest
+/// first; a record older than the first week or newer than now falls in none.
+#[tokio::test]
+async fn weekly_counts_bucket_records_by_the_week_they_were_created_in() {
+    let mut db = crate::test_support::memory_db(toasty::models!(Order)).await;
+    let now = Timestamp::now();
+    for days in [-1, 1, 2, 8, 30] {
+        toasty::create!(Order {
+            created_at: now - SignedDuration::from_hours(24 * days),
+        })
+        .exec(&mut db)
+        .await
+        .unwrap();
+    }
+    let counts = weekly_counts(
+        || Ok(Query::all()),
+        Order::fields().created_at(),
+        3,
+        now,
+        &mut db,
+    )
+    .await
+    .unwrap();
+    assert_eq!(counts, [0.0, 1.0, 2.0]);
+}
