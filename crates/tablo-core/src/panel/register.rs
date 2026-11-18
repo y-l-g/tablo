@@ -303,6 +303,7 @@ impl<R: Resource> Registration for ResourceRegistration<R> {
                 .iter()
                 .any(|relation| relation.links().is_some()),
             columns: mounted.table.has_toggleable_columns(),
+            export: mounted.table.exports(),
         };
         let toggles = routes.columns;
         register_routes::<R>(registry, &url, routes);
@@ -404,6 +405,8 @@ struct OptionalRoutes {
     links: bool,
     /// The column picker's: a toggleable column on the list.
     columns: bool,
+    /// The CSV export: see [`Table::without_export`](crate::Table::without_export).
+    export: bool,
 }
 
 /// Registers a resource's routes under its list `url`.
@@ -486,11 +489,10 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, routes: Opti
             relation_action_options::<R>,
         );
     }
-    registry.route(
-        Method::GET,
-        &list_route(url, EXPORT_ROUTE_SEGMENT),
-        resource_export::<R>,
-    );
+    if routes.export {
+        let export = list_route(url, EXPORT_ROUTE_SEGMENT);
+        registry.route(Method::GET, &export, resource_export::<R>);
+    }
     if routes.create {
         let create_url = list_route(url, CREATE_ROUTE_SEGMENT);
         registry.page(Method::GET, &create_url, resource_create::<R>);

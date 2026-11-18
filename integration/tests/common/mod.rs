@@ -24,6 +24,11 @@ pub fn control<'h>(html: &'h str, name: &str) -> &'h str {
     &html[start..at + html[at..].find('>').unwrap()]
 }
 
+/// [`ReadOnly`](tablo::ReadOnly) that also allows the CSV export.
+pub fn read_and_export<M>(_cx: &topcoat::context::Cx, ability: tablo::Ability<'_, M>) -> bool {
+    ability.is_read() || matches!(ability, tablo::Ability::Export)
+}
+
 pub fn panel() -> Panel {
     Panel::new("admin").auth(Auth::disabled())
 }

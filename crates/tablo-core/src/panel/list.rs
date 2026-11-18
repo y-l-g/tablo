@@ -281,7 +281,7 @@ pub(crate) fn table_error_view<'a>(
     .boxed()
 }
 
-/// Renders the list page header titled `plural_label`, with the header `actions`, the CSV export
+/// Renders the list page header titled `plural_label`, with the header `actions`, a CSV export
 /// link to `export_url`, an Import link to `import_url` and a Create link to `create_url`.
 fn list_header<'a>(
     cx: &'a Cx,
@@ -290,27 +290,30 @@ fn list_header<'a>(
     actions: ActionBar,
     create_url: Option<String>,
     import_url: Option<String>,
-    export_url: String,
+    export_url: Option<String>,
 ) -> BoxView<'a> {
     let actions = actions.render(cx);
     let title = plural_label.clone();
     let create_label = crate::t!(cx, "tablo-form-create-title", label = label);
     let outline =
         tablo_ui::button_variants(tablo_ui::ButtonVariant::Outline, tablo_ui::ButtonSize::Md);
+    let export_class = outline.clone();
     view! {
         tablo_ui::page_header(
             tablo_ui::page_title((title))
             tablo_ui::page_actions(
                 (actions)
-                <a
-                    href=(export_url)
-                    class=(outline.clone())
-                    data-slot="button"
-                    data-tone="outline"
-                >
-                    icon(data: tablo_ui::icons::DOWNLOAD)
-                    (crate::t!(cx, "tablo-list-export"))
-                </a>
+                if let Some(url) = export_url {
+                    <a
+                        href=(url)
+                        class=(export_class)
+                        data-slot="button"
+                        data-tone="outline"
+                    >
+                        icon(data: tablo_ui::icons::DOWNLOAD)
+                        (crate::t!(cx, "tablo-list-export"))
+                    </a>
+                }
                 if let Some(url) = import_url {
                     <a
                         (crate::navigation::runtime_link(cx, &url))
@@ -389,7 +392,9 @@ pub(crate) fn resource_list<R: Resource>(cx: &Cx, _body: Body) -> BoxView<'_> {
         let creates = resource.pages.create && resource.can_create(cx);
         let create_url = creates.then(|| create_page_url(&resource.url));
         let import_url = (creates && resource.imports).then(|| import_url(&resource.url));
-        let export_url = state.first_page(&export_url(&resource.url));
+        let export_url = resource
+            .can(cx, Ability::Export)
+            .then(|| state.first_page(&export_url(&resource.url)));
         let header = list_header(
             cx,
             &resource.plural_label,

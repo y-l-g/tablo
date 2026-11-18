@@ -71,7 +71,7 @@ impl Resource for ChildResource {
         ResourceDef::new()
             .policy_fn(|cx, ability| match ability {
                 Ability::ViewAny => !has_header(cx, "x-deny-children"),
-                Ability::View(_record) => true,
+                Ability::View(_) | Ability::Export => true,
                 Ability::Create => !has_header(cx, "x-no-create"),
                 Ability::Update(_record) => true,
                 Ability::DeleteAny => true,

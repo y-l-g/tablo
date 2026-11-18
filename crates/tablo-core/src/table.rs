@@ -119,6 +119,10 @@ pub enum ActionLayout {
 /// than a truncated file when more match. It writes each column's formatted value, a date column's
 /// stored value, and escapes a cell a spreadsheet would read as a formula; `?bom=1` prefixes the
 /// file with a byte-order mark for Excel.
+///
+/// The policy is asked [`Export`](crate::Ability::Export) with `ViewAny`: refused, the list
+/// shows no Export button and the route answers 403. [`without_export`](Self::without_export)
+/// takes the button and the route away for every user.
 #[derive_where(Clone)]
 pub struct Table<M> {
     columns: Vec<BoxColumn<M>>,
@@ -149,6 +153,8 @@ pub struct Table<M> {
     hide_filter_menu: bool,
     /// Whether the filter menu applies its controls only on its Apply button.
     deferred_filters: bool,
+    /// Whether the list serves its CSV export.
+    exports: bool,
 }
 
 impl<M> std::fmt::Debug for Table<M> {
@@ -177,6 +183,7 @@ impl<M> std::fmt::Debug for Table<M> {
             .field("hide_search", &self.hide_search)
             .field("hide_filter_menu", &self.hide_filter_menu)
             .field("deferred_filters", &self.deferred_filters)
+            .field("exports", &self.exports)
             .finish()
     }
 }
@@ -209,6 +216,7 @@ impl<M> Table<M> {
             hide_search: false,
             hide_filter_menu: false,
             deferred_filters: false,
+            exports: true,
         }
     }
 
@@ -487,6 +495,18 @@ impl<M> Table<M> {
     pub fn deferred_filters(mut self) -> Self {
         self.deferred_filters = true;
         self
+    }
+
+    /// Serve no CSV export: the list shows no Export button and `{list}/-/export` answers 404,
+    /// whatever the policy answers [`Export`](crate::Ability::Export).
+    pub fn without_export(mut self) -> Self {
+        self.exports = false;
+        self
+    }
+
+    /// Whether the list serves its CSV export.
+    pub(crate) fn exports(&self) -> bool {
+        self.exports
     }
 
     /// Whether the filter menu applies its controls only on its Apply button.

@@ -81,6 +81,7 @@ impl<M> Pair<M> {
 pub struct Abilities<M> {
     view_any: Option<RequestCheck>,
     view: Option<RecordCheck<M>>,
+    export: Option<RequestCheck>,
     create: Option<RequestCheck>,
     update: Option<RecordCheck<M>>,
     delete: Pair<M>,
@@ -97,6 +98,7 @@ impl<M> Default for Abilities<M> {
         Self {
             view_any: None,
             view: None,
+            export: None,
             create: None,
             update: None,
             delete: Pair::default(),
@@ -115,9 +117,9 @@ impl<M> Abilities<M> {
     }
 
     /// Who may see the resource at all: [`ViewAny`](Ability::ViewAny), which opens the list
-    /// with every row of the resource's query, the sidebar entry, the export, related tables,
-    /// relationship options and header actions. Refused until declared, whether or not
-    /// [`view`](Self::view) is.
+    /// with every row of the resource's query, the sidebar entry, the export with
+    /// [`export`](Self::export), related tables, relationship options and header actions.
+    /// Refused until declared, whether or not [`view`](Self::view) is.
     #[must_use]
     pub fn view_any(mut self, check: impl Fn(&Cx) -> bool + Send + Sync + 'static) -> Self {
         self.view_any = Some(Box::new(check));
@@ -125,11 +127,19 @@ impl<M> Abilities<M> {
     }
 
     /// Who may see a record: [`View`](Ability::View), asked by its detail page, its edit form,
-    /// each write to it, the export and relationship options. The list shows a row without it,
-    /// and asks it only to offer the row's actions.
+    /// each write to it and relationship options. The list and the export hold a row without it;
+    /// the list asks it only to offer the row's actions.
     #[must_use]
     pub fn view(mut self, check: impl Fn(&Cx, &M) -> bool + Send + Sync + 'static) -> Self {
         self.view = Some(Box::new(check));
+        self
+    }
+
+    /// Who may download the list as CSV: [`Export`](Ability::Export), asked together with
+    /// [`view_any`](Self::view_any). Refused until declared.
+    #[must_use]
+    pub fn export(mut self, check: impl Fn(&Cx) -> bool + Send + Sync + 'static) -> Self {
+        self.export = Some(Box::new(check));
         self
     }
 
@@ -236,6 +246,7 @@ impl<M> std::fmt::Debug for Abilities<M> {
         let declared = [
             ("view_any", self.view_any.is_some()),
             ("view", self.view.is_some()),
+            ("export", self.export.is_some()),
             ("create", self.create.is_some()),
             ("update", self.update.is_some()),
             ("delete_any", self.delete.any.is_some()),
@@ -279,6 +290,7 @@ impl<M: 'static> Policy<M> for Abilities<M> {
         match ability {
             Ability::ViewAny => self.view_any.as_ref().is_some_and(|check| check(cx)),
             Ability::View(record) => self.view.as_ref().is_some_and(|check| check(cx, record)),
+            Ability::Export => self.export.as_ref().is_some_and(|check| check(cx)),
             Ability::Create => self.create.as_ref().is_some_and(|check| check(cx)),
             Ability::Update(record) => self.update.as_ref().is_some_and(|check| check(cx, record)),
             Ability::DeleteAny => self.delete.any_allows(cx),

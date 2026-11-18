@@ -64,10 +64,10 @@ checks its own rule. `before_commit`'s `Err` rolls the write back:
 
 ### Building a policy
 
-`Allow`, `Deny`, `ReadOnly` (`ViewAny` and `View`) and `when(predicate)` are policies, and each
-combines with another through `and` and `or`. `when` allows every ability while a predicate on the
-request holds, which suits a rule about the user or the tenant that several resources share. The
-rule reads the app's own user type, `Staff` here (see [Your own user table](#your-own-user-table)):
+`Allow`, `Deny`, `ReadOnly` (`ViewAny` and `View`, no `Export`) and `when(predicate)` are
+policies, and each combines with another through `and` and `or`. `when` allows every ability while
+a predicate on the request holds, which suits a rule about the user or the tenant that several
+resources share. The rule reads the app's own user type, `Staff` here (see [Your own user table](#your-own-user-table)):
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-editors-only}}

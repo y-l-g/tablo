@@ -48,6 +48,12 @@ pub enum Ability<'a, M> {
     /// policy cannot run in the database, so the rows a user must not see belong out of
     /// [`ResourceDef::query`](crate::ResourceDef::query).
     ViewAny,
+    /// Download the list as CSV, asked together with [`ViewAny`](Self::ViewAny): asked by the
+    /// export route, answered 403 when refused, and the list's Export button, hidden when
+    /// refused. The file holds every row the list's search and filters match, up to
+    /// [`Limits::export_rows`](crate::Limits::export_rows), so a role that may page through
+    /// the list need not take it whole. [`ReadOnly`] refuses it.
+    Export,
     /// Open one record: asked by the detail page, the edit page and POST, deletes, record pages
     /// and each global search result, which leaves out a record it refuses. Every write asks it
     /// of the records it loads, and a list row it refuses shows without its actions or checkbox.
@@ -117,6 +123,7 @@ impl<'a, M> Ability<'a, M> {
             | Self::ForceDelete(record)
             | Self::Run { record, .. } => Some(record),
             Self::ViewAny
+            | Self::Export
             | Self::Create
             | Self::DeleteAny
             | Self::RestoreAny
@@ -126,14 +133,15 @@ impl<'a, M> Ability<'a, M> {
         }
     }
 
-    /// Whether the ability only reads.
+    /// Whether the ability reads in the panel: [`ViewAny`](Self::ViewAny) or
+    /// [`View`](Self::View). [`Export`](Self::Export), which takes the rows out of it, is not one.
     pub fn is_read(self) -> bool {
         matches!(self, Self::ViewAny | Self::View(_))
     }
 
     /// The record the ability writes: an update, a delete, a restore, a force delete or a
     /// record action's run on it. `None` for a read and for an ability over no existing record:
-    /// `Create`, the `_any` abilities and `RunHeader`.
+    /// `Export`, `Create`, the `_any` abilities and `RunHeader`.
     ///
     /// A policy refusing every write to some records reads it, and so also refuses the record
     /// actions and soft-delete writes a resource gains later. A header action writes no record
@@ -158,6 +166,7 @@ impl<'a, M> Ability<'a, M> {
             | Self::ForceDelete(record)
             | Self::Run { record, .. } => Some(record),
             Self::ViewAny
+            | Self::Export
             | Self::View(_)
             | Self::Create
             | Self::DeleteAny
@@ -244,7 +253,8 @@ impl<M> Policy<M> for Deny {
     }
 }
 
-/// Allows listing and viewing, and no write: no create, update, delete or custom action.
+/// Allows listing and viewing, and nothing else: no export, and no create, update, delete or
+/// custom action.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ReadOnly;
 

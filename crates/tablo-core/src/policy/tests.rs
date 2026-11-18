@@ -7,12 +7,13 @@ struct Post {
     locked: bool,
 }
 
-const ABILITIES: usize = 12;
+const ABILITIES: usize = 13;
 
 /// Every ability over `post`, in declaration order.
 fn abilities(post: &Post) -> [Ability<'_, Post>; ABILITIES] {
     [
         Ability::ViewAny,
+        Ability::Export,
         Ability::View(post),
         Ability::Create,
         Ability::Update(post),
@@ -43,7 +44,7 @@ fn the_building_blocks_answer_per_ability() {
     assert_eq!(
         answers(&ReadOnly, &cx, &post),
         [
-            true, true, false, false, false, false, false, false, false, false, false, false
+            true, false, true, false, false, false, false, false, false, false, false, false, false
         ]
     );
 }
@@ -60,7 +61,7 @@ fn a_closure_matches_on_the_ability_and_reads_the_record() {
     assert_eq!(
         answers(&unlocked, &cx, &Post { locked: true }),
         [
-            true, true, true, false, true, false, true, true, true, true, true, false
+            true, true, true, true, false, true, false, true, true, true, true, true, false
         ]
     );
     assert_eq!(
@@ -83,7 +84,7 @@ fn combinators_compose_policies() {
     assert_eq!(
         answers(&ReadOnly.or(create_only), &cx, &post),
         [
-            true, true, true, false, false, false, false, false, false, false, false, false
+            true, false, true, true, false, false, false, false, false, false, false, false, false
         ]
     );
 }
@@ -216,6 +217,49 @@ async fn a_force_delete_needs_the_delete() {
     assert!(can::<KeptNotes>(&cx, Ability::Restore(&note)));
 }
 
+struct UnlistedNotes;
+impl Resource for UnlistedNotes {
+    type Model = Note;
+    type Form = crate::NoForm<Note>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(|_cx: &Cx, ability: Ability<'_, Note>| matches!(ability, Ability::Export))
+            .tenancy(crate::Tenancy::none())
+            .table(note_table())
+    }
+}
+
+struct UnexportedNotes;
+impl Resource for UnexportedNotes {
+    type Model = Note;
+    type Form = crate::NoForm<Note>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .policy(Allow)
+            .tenancy(crate::Tenancy::none())
+            .table(note_table().without_export())
+    }
+}
+
+/// An export reads the list, so it needs `ViewAny` too, and a table without an export refuses
+/// it whatever the policy answers.
+#[tokio::test]
+async fn an_export_needs_the_list_and_the_tables_export() {
+    let db = tableless_db(toasty::models!(Note)).await;
+    let cx = crate::Panel::new("admin")
+        .resource::<KeptNotes>()
+        .resource::<UnlistedNotes>()
+        .resource::<UnexportedNotes>()
+        .handle(&db)
+        .expect("panel builds")
+        .context();
+    assert!(can::<KeptNotes>(&cx, Ability::Export));
+    assert!(!can::<UnlistedNotes>(&cx, Ability::Export));
+    assert!(!can::<UnexportedNotes>(&cx, Ability::Export));
+}
+
 #[test]
 fn written_record_names_the_record_of_every_write() {
     let post = Post { locked: false };
@@ -223,7 +267,7 @@ fn written_record_names_the_record_of_every_write() {
     assert_eq!(
         written,
         [
-            false, false, false, true, false, true, false, true, false, true, false, true
+            false, false, false, false, true, false, true, false, true, false, true, false, true
         ]
     );
     assert!(
@@ -248,9 +292,13 @@ fn abilities_deny_what_they_do_not_declare() {
     assert_eq!(
         answers(&read_and_create, &cx, &post),
         [
-            false, true, true, false, false, false, false, false, false, false, false, false
+            false, false, true, true, false, false, false, false, false, false, false, false, false
         ]
     );
+    let exporting = Abilities::<Post>::new()
+        .view_any(|_cx| true)
+        .export(|_cx| true);
+    assert!(exporting.allows(&cx, Ability::Export));
 }
 
 #[test]
@@ -267,13 +315,13 @@ fn a_record_check_allows_the_ability_at_all_and_an_any_check_narrows_it() {
     assert_eq!(
         answers(&policy, &cx, &Post { locked: false }),
         [
-            false, true, false, true, true, true, true, false, true, true, false, false
+            false, false, true, false, true, true, true, true, false, true, true, false, false
         ]
     );
     assert_eq!(
         answers(&policy, &cx, &Post { locked: true }),
         [
-            false, false, false, false, true, false, true, false, true, false, false, false
+            false, false, false, false, false, true, false, true, false, true, false, false, false
         ]
     );
 }

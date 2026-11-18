@@ -4,13 +4,15 @@
 
 use tablo::{
     Ability, ComputedColumn, Limits, NoForm, ReadOnly, Resource, ResourceDef, Table, TextColumn,
-    lens,
+    lens, testing::find_href_with,
 };
 use toasty::Db;
 use topcoat::{context::Cx, router::Router};
 use uuid::Uuid;
 
-use crate::common::{body_bytes, body_string, get, mount, panel, panel_router, test_db};
+use crate::common::{
+    body_bytes, body_string, get, mount, panel, panel_router, read_and_export, test_db,
+};
 
 /// The row cap the capped panel sets.
 const MAX_EXPORT_ROWS: usize = 20;
@@ -39,14 +41,44 @@ impl Resource for ItemResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("items")
+            .policy(read_and_export)
+            .table(Table::new(TextColumn::new(lens!(Item.name))))
+    }
+}
+
+/// Every item, under a policy that lists and views them and refuses the export.
+struct ReadOnlyItemResource;
+
+impl Resource for ReadOnlyItemResource {
+    type Model = Item;
+    type Form = NoForm<Item>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("items")
             .policy(ReadOnly)
             .table(Table::new(TextColumn::new(lens!(Item.name))))
     }
 }
 
+/// Every item, on a table without an export.
+struct UnexportedItemResource;
+
+impl Resource for UnexportedItemResource {
+    type Model = Item;
+    type Form = NoForm<Item>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("items")
+            .policy(read_and_export)
+            .table(Table::new(TextColumn::new(lens!(Item.name))).without_export())
+    }
+}
+
 fn not_denied(_cx: &Cx, ability: Ability<'_, Item>) -> bool {
     match ability {
-        Ability::ViewAny => true,
+        Ability::ViewAny | Ability::Export => true,
         Ability::View(item) => !item.name.starts_with("denied"),
         _ => false,
     }
@@ -87,6 +119,39 @@ async fn export(router: &Router, uri: &str) -> String {
         response.status()
     );
     body_string(response).await
+}
+
+/// The list offers the export exactly where the route serves it: a policy refusing `Export`
+/// hides the button and answers 403, and a table without an export serves neither, whatever the
+/// policy answers.
+#[tokio::test]
+async fn an_export_is_offered_and_served_only_where_allowed() {
+    use http::StatusCode;
+    let routers = [
+        (
+            panel_router::<ItemResource>(items(1, |_| "a".into()).await),
+            StatusCode::OK,
+        ),
+        (
+            panel_router::<ReadOnlyItemResource>(items(1, |_| "a".into()).await),
+            StatusCode::FORBIDDEN,
+        ),
+        (
+            panel_router::<UnexportedItemResource>(items(1, |_| "a".into()).await),
+            StatusCode::NOT_FOUND,
+        ),
+    ];
+    for (router, status) in routers {
+        let list = body_string(get(&router, "/admin/items").await).await;
+        assert_eq!(
+            find_href_with(&list, "/-/export").is_some(),
+            status == StatusCode::OK,
+            "{status}: {list}"
+        );
+        let response = get(&router, "/admin/items/-/export").await;
+        assert_eq!(response.status(), status);
+        assert!(status == StatusCode::OK || !body_string(response).await.contains("Name"));
+    }
 }
 
 /// The export holds every row the list shows, the ones the policy refuses `View` included.
@@ -199,7 +264,7 @@ impl<const INCLUDES: bool> Resource for VolumeResource<INCLUDES> {
         };
         ResourceDef::new()
             .slug(if INCLUDES { "included" } else { "bare" })
-            .policy(ReadOnly)
+            .policy(read_and_export)
             .table(Table::new(column))
     }
 }
