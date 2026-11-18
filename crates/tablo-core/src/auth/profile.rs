@@ -226,7 +226,7 @@ impl<E: ProfileEditor> DynProfileEditor for E {
             }
             tx.commit().await.map_err(crate::error::unavailable)?;
             let email_pending =
-                try_context::<Requested>(cx).is_some_and(|requested| requested.mail(cx));
+                try_context::<Requested>(cx).is_some_and(|requested| requested.send(cx));
             Ok(Outcome::Saved { email_pending })
         })
     }

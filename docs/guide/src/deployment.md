@@ -68,8 +68,10 @@ and the other subcommands. A new database has no user to sign in with: seed the 
   tablo::settled(&router).await;
   ```
 
-  A crash still loses that mail, and a mail server that is down fails it: a `Transport` that
-  queues mail in the database and sends it from a worker covers both.
+  A crash still loses that mail, and a mail server that is down fails it. An
+  [`AuthMailDelivery`](https://y-l.fr/tablo/nightly/api/tablo/trait.AuthMailDelivery.html)
+  installed with `AuthMail::delivery` covers both: it writes each letter to the app's queue in the
+  transaction that records the letter's token, and a worker sends it.
 - Terminate HTTPS in front of the binary: the panel's cookies are `Secure`, so without it every
   form POST fails its CSRF check.
 - Load the router's cookie `Key` from a secret holding at least 64 random bytes (decode a hex or

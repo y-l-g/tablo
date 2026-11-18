@@ -6,7 +6,11 @@ use std::time::Duration;
 use jiff::Timestamp;
 use topcoat::{context::Cx, session::Token};
 
-use super::{infrastructure_failure, session::token_key};
+use super::{
+    infrastructure_failure,
+    mail::{AuthLetter, AuthMail},
+    session::token_key,
+};
 use crate::{
     auth::realm::{current_realm, panel_prefix},
     error::TabloError,
@@ -315,18 +319,27 @@ pub(super) async fn waited_to_retry(attempt: &mut u32, error: &topcoat::Error) -
     true
 }
 
-/// [`issue`] in a transaction of its own, which [`run_serializable!`] runs again on a conflict: a
-/// link mailed after the response has no visitor left to try again.
-pub(super) async fn issue_alone(
+/// Issues a token as [`issue`] does and writes the letter `write` builds around it, in a
+/// transaction of its own that [`run_serializable!`] runs again on a conflict: a link mailed after
+/// the response has no visitor left to try again. The letter goes to `mail`'s delivery inside
+/// that transaction, or through the router's `Mailer` once it commits.
+pub(super) async fn issue_mailed(
     cx: &Cx,
+    mail: &AuthMail,
     purpose: TokenPurpose,
     user_id: &str,
     email: Option<String>,
     lifetime: Duration,
-) -> topcoat::Result<Token> {
-    run_serializable!(cx, |tx| async {
-        issue(cx, tx, purpose, user_id, email.clone(), lifetime).await
-    })
+    write: impl Fn(&Token) -> topcoat::Result<AuthLetter> + Send + Sync,
+) -> topcoat::Result<()> {
+    let pending = run_serializable!(cx, |tx| async {
+        let token = issue(cx, &mut *tx, purpose, user_id, email.clone(), lifetime).await?;
+        mail.hand(cx, tx, write(&token)?).await
+    })?;
+    if let Some(letter) = pending {
+        super::mail::send(cx, letter).await?;
+    }
+    Ok(())
 }
 
 /// A random wait under 20ms doubled per failed `attempt`: transactions that aborted each other

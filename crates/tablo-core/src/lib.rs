@@ -142,7 +142,7 @@ pub use auth::{
     external::ExternalAuth,
     hook::{AuthEvent, AuthEventKind, AuthHook},
     impersonation::Impersonation,
-    mail::AuthMail,
+    mail::{AuthLetter, AuthLetterKind, AuthMail, AuthMailDelivery},
     oidc::{IdentityLinker, Oidc, OidcProvider, ProviderIdentity},
     panel_user::{Authenticator, PanelUser},
     password::PasswordSignUp,

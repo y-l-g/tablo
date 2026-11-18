@@ -27,7 +27,7 @@ use crate::{
         hook::{AuthEvent, AuthEventKind},
         infrastructure_failure,
         login::{NEXT_FIELD, login_url, next_from_query, safe_next},
-        mail::private,
+        mail::{AuthLetterKind, private},
         panel_root,
         realm::{current_realm, hosted, panel_prefix},
         registration::with_next,
@@ -145,12 +145,19 @@ async fn alert(cx: &Cx, user: &dyn PanelUser) {
     let cx = &crate::i18n::addressed_to(cx, user.locale().as_ref());
     let sent = async {
         let brand = hosted(cx)?.brand_name(cx);
-        let message = mail.compose(
+        let letter = mail.letter(
+            AuthLetterKind::TwoFactorAlert,
             address,
             crate::t!(cx, "tablo-two-factor-alert-subject", brand = brand.clone()),
             crate::t!(cx, "tablo-two-factor-alert-body", brand = brand),
+            None,
         )?;
-        topcoat::mail::send(cx, message).await
+        // No token goes with it: the delivery writes through the database alone.
+        let mut db = crate::db::db(cx)?;
+        match mail.hand(cx, &mut db, letter).await? {
+            Some(letter) => crate::auth::mail::send(cx, letter).await,
+            None => Ok(()),
+        }
     };
     if let Err(error) = sent.await {
         tracing::error!(error = %error, "two-factor alert not sent");
