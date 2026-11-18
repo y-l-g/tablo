@@ -1,5 +1,6 @@
 //! Acting as another user: off until the app gives a rule, asked again on every request, ended by
-//! Stop or its lifetime, kept away from the target's credentials, and written to the audit log.
+//! Stop or its lifetime, read-only unless the app says otherwise, kept away from the target's
+//! credentials, and written to the audit log.
 
 use std::{
     sync::{Arc, Mutex},
@@ -7,13 +8,16 @@ use std::{
 };
 
 use tablo::{
-    Allow, Auth, AuthEvent, AuthEventKind, AuthHook, Impersonate, Impersonation, NoForm, Page,
-    PageDef, Panel, Resource, ResourceDef, Table, TextColumn,
+    Allow, Auth, AuthEvent, AuthEventKind, AuthHook, HeaderAction, Impersonate, Impersonation,
+    NoForm, Notification, Outcome, Page, PageDef, Panel, Resource, ResourceDef, Table, TextColumn,
+    WriteError,
     audit::{AuditEntry, PanelAuditExt},
     auth::{self, AdminUser, AuthSession, IMPERSONATE_FIELD, create_admin},
     lens,
+    notification::StoredNotification,
     testing::{
-        find_href_with, form_body, impersonate_buttons, impersonation_banner, mount_with_handle,
+        action_label, bell, find_href_with, form_body, impersonate_buttons, impersonation_banner,
+        mount_with_handle,
     },
 };
 use toasty::Db;
@@ -70,12 +74,13 @@ impl Resource for Memos {
     }
 }
 
-/// Every user, each with the button that acts as them: a staff page of the app's own.
+/// Every user, each with the button that acts as them, under the page's header actions: a staff
+/// page of the app's own.
 struct StaffPage;
 
 impl Page for StaffPage {
     fn declare() -> PageDef {
-        PageDef::new().slug("staff")
+        PageDef::new().slug("staff").header_action::<AddMemo>()
     }
 
     async fn render(cx: &Cx) -> topcoat::Result<impl View> {
@@ -87,12 +92,37 @@ impl Page for StaffPage {
             .map(|user| auth::impersonate_button(cx, user))
             .collect();
         Ok(view! {
+            (tablo::header_action_buttons::<Self>(cx))
             for button in buttons {
                 (button)
             }
         })
     }
 }
+
+/// Adds a memo, from the staff page's header.
+struct AddMemo;
+
+impl HeaderAction for AddMemo {
+    type Input = ();
+    const NAME: &'static str = "add-memo";
+
+    async fn run(
+        _cx: &Cx,
+        (): (),
+        ex: &mut dyn toasty::Executor,
+    ) -> Result<Outcome, WriteError<()>> {
+        toasty::create!(Memo {
+            title: "From the header".to_owned(),
+        })
+        .exec(ex)
+        .await
+        .map_err(|error| WriteError::Failed(error.into()))?;
+        Ok(Outcome::done())
+    }
+}
+
+const ADD_MEMO: &str = "/admin/staff/-/actions/add-memo";
 
 /// Support staff may act as anyone; nobody else may act as anyone.
 fn support_only() -> Impersonation<AdminUser> {
@@ -115,7 +145,14 @@ impl Fixture {
     }
 
     async fn with(auth: Auth, customize: impl FnOnce(Panel) -> Panel) -> Self {
-        let mut db = test_db(toasty::models!(AdminUser, AuthSession, AuditEntry, Memo)).await;
+        let mut db = test_db(toasty::models!(
+            AdminUser,
+            AuthSession,
+            AuditEntry,
+            Memo,
+            StoredNotification
+        ))
+        .await;
         let support = create_admin(&mut db, "support@example.com", "pw-support", "Sam Support")
             .await
             .expect("seed support");
@@ -349,13 +386,114 @@ async fn acting_as_another_ends_when_the_target_or_the_clock_says_so() {
     assert!(banner(&client).await.is_none(), "the lifetime ran out");
 }
 
+async fn memo_titles(db: &Db) -> Vec<String> {
+    let mut titles: Vec<String> = Memo::all()
+        .exec(&mut db.clone())
+        .await
+        .expect("query memos")
+        .into_iter()
+        .map(|memo| memo.title)
+        .collect();
+    titles.sort();
+    titles
+}
+
+/// Acting as someone reads the panel as they do and writes nothing: no write route answers, the
+/// buttons are gone, and the target's notifications stay as they were. Stop restores the writes.
+#[tokio::test]
+async fn acting_as_another_writes_nothing() {
+    let app = Fixture::with(Auth::password().impersonation(support_only()), |panel| {
+        panel.notifications()
+    })
+    .await;
+    let memo = toasty::create!(Memo {
+        title: "Draft".to_owned(),
+    })
+    .exec(&mut app.db.clone())
+    .await
+    .expect("seed a memo");
+    let sent = app
+        .handle
+        .notifications()
+        .send(&app.bob.id.to_string(), Notification::info("For Bob"))
+        .await
+        .expect("notify bob")
+        .id
+        .to_string();
+    let client = app.as_user(&app.support).await;
+    let staff_page = body_string(client.get("/admin/staff").await).await;
+    assert!(
+        action_label(&staff_page, ADD_MEMO).is_some(),
+        "support runs the header action as themselves"
+    );
+    client.submit("/admin/impersonate", &act_as(&app.bob)).await;
+    let memos = client.resource::<Memos>();
+
+    let list = memos.list().await;
+    assert_eq!(list.status(), 200, "the actor reads the list");
+    let rows = list.rows();
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].actions.view.is_some(), "the actor opens the record");
+    assert_eq!(rows[0].actions.edit, None);
+    assert_eq!(rows[0].actions.delete_action, None);
+    assert_eq!(memos.create_page().await.status(), 403);
+    assert_eq!(
+        memos
+            .create()
+            .set_key("title", "New")
+            .submit()
+            .await
+            .status(),
+        403
+    );
+    assert_eq!(
+        memos
+            .edit(&memo)
+            .set_key("title", "Edited")
+            .submit()
+            .await
+            .status(),
+        403
+    );
+    assert_eq!(memos.delete(&memo).submit().await.status(), 403);
+
+    let staff_page = body_string(client.get("/admin/staff").await).await;
+    assert_eq!(action_label(&staff_page, ADD_MEMO), None);
+    assert_eq!(client.submit(ADD_MEMO, "").await.status(), 403);
+    assert_eq!(memo_titles(&app.db).await, ["Draft"]);
+
+    for (path, args) in [
+        (
+            "/_topcoat/runtime/procedures/tablo-notifications/mark",
+            format!(r#"["{sent}", true]"#),
+        ),
+        (
+            "/_topcoat/runtime/procedures/tablo-notifications/clear",
+            "[]".to_owned(),
+        ),
+    ] {
+        assert_eq!(
+            client.call_procedure(path, &args).await.status(),
+            403,
+            "{path}"
+        );
+    }
+    let shown = bell(&staff_page).expect("the actor reads bob's bell");
+    assert_eq!(shown.unread, 1);
+
+    client.submit("/admin/impersonate/stop", "").await;
+    assert_eq!(client.submit(ADD_MEMO, "").await.status(), 303);
+    assert_eq!(memo_titles(&app.db).await, ["Draft", "From the header"]);
+}
+
 /// Starting and stopping are written to the audit log for the actor, and every write made
-/// meanwhile names the actor too.
+/// meanwhile, under an impersonation that lets the actor write, names the actor too.
 #[tokio::test]
 async fn the_audit_log_names_the_actor() {
-    let app = Fixture::with(Auth::password().impersonation(support_only()), |panel| {
-        panel.audit_log(|log| log.policy(Allow))
-    })
+    let app = Fixture::with(
+        Auth::password().impersonation(support_only().writable()),
+        |panel| panel.audit_log(|log| log.policy(Allow)),
+    )
     .await;
     let client = app.as_user(&app.support).await;
     client.submit("/admin/impersonate", &act_as(&app.bob)).await;

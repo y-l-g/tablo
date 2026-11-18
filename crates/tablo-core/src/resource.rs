@@ -504,7 +504,9 @@ impl<R: Resource> Mounted<R> {
 /// It is the policy's answer and what the ability rests on: [`Run`](crate::Ability::Run) also
 /// takes a record the action's [`can_run`](crate::ActionDef::can_run) admits, and a force delete
 /// the delete it implies. [`RunHeader`](crate::Ability::RunHeader) is the policy's answer alone:
-/// a header action's `can_run` may be what asks it.
+/// a header action's `can_run` may be what asks it. While someone acts as another user under an
+/// [`Impersonation`](crate::Impersonation) that is not
+/// [`writable`](crate::Impersonation::writable), only the reads are allowed.
 pub fn can<R: Resource>(cx: &Cx, ability: crate::Ability<'_, R::Model>) -> bool {
     mounted::<R>(cx).is_some_and(|resource| resource.can(cx, ability))
 }

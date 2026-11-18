@@ -223,12 +223,18 @@ impl SignedIn {
     }
 
     /// `cx` with the user signed in, its words in the user's [`locale`](PanelUser::locale) when
-    /// the panel offers a match and the visitor picked none from the shell's language menu.
+    /// the panel offers a match and the visitor picked none from the shell's language menu, and
+    /// its writes refused while an actor acts as the user under a read-only impersonation.
     pub(crate) fn sign_into(self, cx: &Cx) -> Cx {
-        if crate::i18n::chose_locale(cx) {
+        let cx = if self.refuses_writes() {
+            cx.with(crate::policy::WritesRefused)
+        } else {
+            cx.clone()
+        };
+        if crate::i18n::chose_locale(&cx) {
             return cx.with(self);
         }
-        crate::i18n::addressed_to(cx, self.user.locale().as_ref()).with(self)
+        crate::i18n::addressed_to(&cx, self.user.locale().as_ref()).with(self)
     }
 
     /// The tenant the user acts for on a request to their panel: the one the test claims, else the

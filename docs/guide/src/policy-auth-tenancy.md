@@ -467,9 +467,19 @@ the actor could not already; `Impersonation::across_tenants` lifts that for a pl
 An actor who owes a step, such as a factor the panel now requires, is themselves again until they
 take it. The profile, two-factor, tenant settings, tenant
 registration and email-verification pages answer 403 meanwhile, so the actor never changes the
-target's credentials. A panel with the [audit log](resources.md#the-audit-log) records the start
-and the stop, an end the lifetime or the rule brings included, in the same transaction as the
-session's change, and names the actor on every write made in between.
+target's credentials.
+
+Acting as someone is read-only. Every resource answers as if the panel mounted it `ReadOnly`, so
+its Create, Edit, Delete and action buttons are gone and their routes answer 403. No header action
+runs, on a resource or a page, and the notification bell offers nothing to mark or remove.
+`tablo::can` gives the same answers, so a page of your own that asks it before offering a write
+needs nothing more. A route of your own outside the panel's resources and pages asks
+`auth::impersonator`. `Impersonation::writable` lets the actor write as the target, as far as the
+target's policies allow; the credential pages stay closed either way.
+
+A panel with the [audit log](resources.md#the-audit-log) records the start and the stop, an end
+the lifetime or the rule brings included, in the same transaction as the session's change. Under a
+writable impersonation it also names the actor on every write made in between.
 
 The session row stores the target in two nullable columns, `impersonating` and
 `impersonating_until`: an existing `auth_sessions` table gains them by `ALTER TABLE`.

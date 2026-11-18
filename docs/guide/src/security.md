@@ -73,8 +73,8 @@ What Tablo does by default, and what your deployment must provide for those defa
   sign-in throttle:
   [`Auth::oidc`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.oidc).
 - Acting as another user is off until the app gives a rule, which every request asks again. It
-  lasts an hour by default, never nests, keeps the actor off the target's credential pages, and
-  the audit log names the actor:
+  lasts an hour by default, never nests, writes nothing unless the app makes it writable, keeps
+  the actor off the target's credential pages, and the audit log names the actor:
   [`Auth::impersonation`](https://y-l.fr/tablo/nightly/api/tablo/struct.Auth.html#method.impersonation).
 
 ## Several panels, one user type
