@@ -11,7 +11,7 @@ description = "The audit log for Tablo panels, built on Tablo's public API, re-e
 links = "tablo-audit"
 
 [dependencies]
-tablo-core = { path = "../tablo-core", version = "0.10.0", default-features = false }
+tablo-core = { path = "../tablo-core", version = "0.11.0", default-features = false }
 jiff.workspace = true
 serde.workspace = true
 # `serde` is for `toasty::Json`, the column an entry keeps its changes in.

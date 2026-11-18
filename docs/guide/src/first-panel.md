@@ -11,7 +11,7 @@ names `topcoat` and `toasty` directly for their macros, at the versions Tablo us
 
 ```toml
 [dependencies]
-tablo = { version = "0.10.0", features = ["sqlite"] }
+tablo = { version = "0.11.0", features = ["sqlite"] }
 {{#include ../../../examples/quickstart/Cargo.toml:upstream}}
 ```
 
@@ -88,7 +88,7 @@ changes a theme token, builds its own stylesheet instead, with `tablo-build` und
 
 ```toml
 [build-dependencies]
-tablo-build = "0.10.0"
+tablo-build = "0.11.0"
 ```
 
 The app owns `styles.css` at its package root. The build imports Tailwind and Tablo's default
