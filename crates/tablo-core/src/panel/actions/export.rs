@@ -185,7 +185,9 @@ pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<
                 http::header::CONTENT_DISPOSITION,
                 format!("attachment; filename=\"{}\"", filename),
             )
-            .body(Body::new(body))?;
+            // Fused: a compression layer polls once more after the last frame, and the channel
+            // panics when polled past its end.
+            .body(Body::new(http_body_util::BodyExt::fuse(body)))?;
         Ok(res)
     })
 }

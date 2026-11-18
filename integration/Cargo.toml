@@ -38,6 +38,8 @@ mysql = ["tablo/mysql"]
 turso = ["tablo/turso"]
 
 [dev-dependencies]
+# Decodes the gzip a compressed response carries.
+flate2 = "1"
 form_urlencoded = "1.2"
 # The socket the live-bell suite opens to the served router.
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }

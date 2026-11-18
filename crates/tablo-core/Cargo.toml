@@ -40,7 +40,8 @@ hkdf = "0.13"
 # RFC 6238 one-time codes are HMAC-SHA1.
 hmac = "0.13"
 http = "1"
-http-body-util = { version = "0.1", features = ["channel"] }
+# 0.1.4 adds `BodyExt::fuse`, which the CSV export streams through.
+http-body-util = { version = "0.1.4", features = ["channel"] }
 jiff = { workspace = true, features = ["serde"] }
 password-hash = { version = "0.6", features = ["getrandom"] }
 percent-encoding.workspace = true
