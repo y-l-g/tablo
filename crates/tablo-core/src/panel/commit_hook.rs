@@ -9,7 +9,7 @@ use topcoat::{Result, context::Cx};
 use super::{Panel, state::current};
 use crate::{
     BoxFuture, PanelModel, Text,
-    resource::{Change, Resource, require_mounted},
+    resource::{Acted, Change, Resource, require_mounted},
 };
 
 /// Work every write of a panel does inside its transaction, whichever of the panel's resources
@@ -107,10 +107,12 @@ impl ChangedRecord {
     /// spells it in an export, in the request's locale, then its foreign keys and
     /// [`TenantId`](crate::TenantId) fields, which the table leaves out, spelled as the database
     /// stores them: a field marked `#[columns(skip)]`, such as a password hash, never appears. A
-    /// create names each field it filled, an update's `after` record each field whose spelling
-    /// changed, and a delete's or a force delete's records each field they held. The other
-    /// records name none: a restore, an action, an attach and a detach write what the model's
-    /// columns do not say, and an update's `before` record leaves the change to its `after`.
+    /// create names each field it filled, an update's `after` record and an action's
+    /// [`Acted::after`](crate::Acted::after) each field whose spelling changed, and a delete's or
+    /// a force delete's records, and an action's `before` for a row the run removed, each field
+    /// they held. The other records name none: a restore, an attach and a detach write what the
+    /// model's columns do not say, and an update's or an action's `before` record leaves the
+    /// change to its `after`. An action that writes only other tables names none either.
     pub fn fields(&self) -> &[ChangedField] {
         &self.fields
     }
@@ -228,6 +230,26 @@ fn changed_records<R: Resource>(
         },
         Change::Delete(records) => Change::Delete(held(records)),
         Change::ForceDelete(records) => Change::ForceDelete(held(records)),
+        // As an update: the record the run left names the fields it changed. A record the run
+        // removed names the fields it held, as a delete's does.
+        Change::Action { name, records } => Change::Action {
+            name,
+            records: records
+                .iter()
+                .map(|acted| Acted {
+                    before: named(
+                        &acted.before,
+                        match &acted.after {
+                            Some(_) => Vec::new(),
+                            None => changed_fields(cx, Some(&acted.before), None),
+                        },
+                    ),
+                    after: acted.after.as_ref().map(|after| {
+                        named(after, changed_fields(cx, Some(&acted.before), Some(after)))
+                    }),
+                })
+                .collect(),
+        },
         other => other.map(|record| named(record, Vec::new())),
     }
 }

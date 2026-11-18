@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use topcoat::context::Cx;
 
-use super::{ActionEntry, ErasedInput, InputSpec, Places};
+use super::{ActionEntry, ErasedInput, InputSpec, Places, Reports};
 use crate::{
     BoxFuture, Color,
     policy::Ability,
@@ -26,7 +26,7 @@ impl<R: Resource> ActionEntry<R> {
             input: InputSpec::none(),
             run: restore_erased::<R>,
             success: Arc::new(|count| text!("tablo-action-restored", count = count)),
-            change: Change::Restore,
+            change: Reports::Snapshot(Change::Restore),
             failure: "tablo-failed-restore",
             confirm: false,
             trashed: Trashed::Only,
@@ -59,7 +59,7 @@ impl<R: Resource> ActionEntry<R> {
             input: InputSpec::none(),
             run: force_delete_erased::<R>,
             success: Arc::new(|count| text!("tablo-action-force-deleted", count = count)),
-            change: Change::ForceDelete,
+            change: Reports::Snapshot(Change::ForceDelete),
             failure: "tablo-failed-force-delete",
             confirm: true,
             trashed: Trashed::Only,
@@ -107,7 +107,7 @@ impl<R: Resource> ActionEntry<R> {
                 delete_erased::<R>
             },
             success: Arc::new(|count| text!("tablo-action-deleted", count = count)),
-            change: Change::Delete,
+            change: Reports::Snapshot(Change::Delete),
             failure: if bulk {
                 "tablo-failed-bulk-delete"
             } else {

@@ -54,9 +54,9 @@ The policy sees the row as stored, never what the submission writes over it. Who
 field at all is [field access](./resources.md#field-access): its `edit` rule disables the control
 and keeps the stored value. A rule about the values a write stores, such as who may set a post to
 published, belongs in `Resource::before_commit`, which receives the `Change` inside the write's
-transaction: a `Change::Create` with the new row, a `Change::Update` with `before` and `after`. A
-custom action's `Change::Action` carries only the rows before it ran, so an action that publishes
-checks its own rule. `before_commit`'s `Err` rolls the write back:
+transaction: a `Change::Create` with the new row, a `Change::Update` with `before` and `after`,
+and a custom action's `Change::Action` with each row's `before` and `after`, so the same rule
+covers an action that publishes. `before_commit`'s `Err` rolls the write back:
 
 ```rust
 {{#include ../../../examples/guide/src/policy_tenancy.rs:policy-stored-value}}

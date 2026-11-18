@@ -28,11 +28,12 @@ mod write_error;
 
 pub use action::{Action, ActionDef, Places, filter_keys};
 pub(crate) use action::{
-    ActionEntry, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS, parse_validated,
+    ActionEntry, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS, Reports,
+    parse_validated,
 };
 pub(crate) use check::{ResourceCheck, ServesTenants, check_inputs, check_resource};
-pub use commit::Change;
-pub(crate) use commit::{acted, run_after_commit};
+pub(crate) use commit::run_after_commit;
+pub use commit::{Acted, Change};
 pub use def::{PublicLink, ResourceDef};
 pub use field_access::FieldAccess;
 pub(crate) use field_access::{FieldMask, FieldRule};
@@ -398,6 +399,13 @@ impl<R: Resource> Mounted<R> {
         trashed: Trashed,
     ) -> Result<Query<List<R::Model>>> {
         self.narrowed(cx, trashed, |_| true)
+    }
+
+    /// Every row the request's tenant holds, trashed records included, with the relations
+    /// [`include_unscoped`](ResourceDef::include_unscoped) names: where a write may leave a row,
+    /// since a [`query`](ResourceDef::query) narrowing may rightly hide what it wrote.
+    pub(crate) fn tenant_query(&self, cx: &Cx) -> Result<Query<List<R::Model>>> {
+        self.narrowed(cx, Trashed::With, |_| false)
     }
 
     /// The rows a unique index over the fields `index` names covers, of the ones the request

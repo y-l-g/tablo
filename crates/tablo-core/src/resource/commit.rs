@@ -36,8 +36,12 @@ pub enum Change<M> {
     Restore(Vec<M>),
     /// A force delete removed these trashed rows for good, as they stood before it.
     ForceDelete(Vec<M>),
-    /// The custom [`Action`] `name` ran on these rows, as the handler loaded them before it ran.
-    Action { name: &'static str, records: Vec<M> },
+    /// The custom [`Action`] `name` ran on these rows: each as the handler loaded it before the
+    /// run, and as the run left it, reloaded inside the transaction.
+    Action {
+        name: &'static str,
+        records: Vec<Acted<M>>,
+    },
     /// The [`HeaderAction`](crate::HeaderAction) `name` ran, on no record: its audit can record
     /// who ran it, through the context, and which action.
     HeaderAction { name: &'static str },
@@ -65,22 +69,41 @@ pub enum Change<M> {
     Export { rows: u64 },
 }
 
+/// One row a custom [`Action`] ran on, as [`Change::Action`] reports it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Acted<M> {
+    /// The row as the handler loaded and authorized it, before the run.
+    pub before: M,
+    /// The row as the run left it, reloaded by its key under the resource's tenant filter alone:
+    /// a [`query`](crate::ResourceDef::query) narrowing or the trash does not hide it, so an
+    /// action that archives or trashes the row still reports it. `None` when the run deleted
+    /// the row or moved it out of the request's tenant.
+    pub after: Option<M>,
+}
+
+impl<M> Acted<M> {
+    /// The row as the run left it, or as it stood before a run that removed it.
+    pub fn record(&self) -> &M {
+        self.after.as_ref().unwrap_or(&self.before)
+    }
+}
+
 impl<M> Change<M> {
-    /// The rows of this resource the change names: the created row and the updated row as the
-    /// write left them, the deleted, restored or force-deleted rows and the rows an action ran on
-    /// as they stood before it, the owner of an attach or a detach, and none for a header action
-    /// or an export.
-    pub fn records(&self) -> &[M] {
+    /// The rows of this resource the change names: the created row, the updated row and each
+    /// row an action ran on as the write left it ([`Acted::record`]), the deleted, restored or
+    /// force-deleted rows as they stood before it, the owner of an attach or a detach, and none
+    /// for a header action or an export.
+    pub fn records(&self) -> Vec<&M> {
         match self {
             Self::Create(record)
             | Self::Update { after: record, .. }
             | Self::Attach { owner: record, .. }
-            | Self::Detach { owner: record, .. } => std::slice::from_ref(record),
-            Self::Delete(records)
-            | Self::Restore(records)
-            | Self::ForceDelete(records)
-            | Self::Action { records, .. } => records,
-            Self::HeaderAction { .. } | Self::Export { .. } => &[],
+            | Self::Detach { owner: record, .. } => vec![record],
+            Self::Delete(records) | Self::Restore(records) | Self::ForceDelete(records) => {
+                records.iter().collect()
+            }
+            Self::Action { records, .. } => records.iter().map(Acted::record).collect(),
+            Self::HeaderAction { .. } | Self::Export { .. } => Vec::new(),
         }
     }
 
@@ -97,7 +120,13 @@ impl<M> Change<M> {
             Self::ForceDelete(records) => Change::ForceDelete(records.iter().map(f).collect()),
             Self::Action { name, records } => Change::Action {
                 name,
-                records: records.iter().map(f).collect(),
+                records: records
+                    .iter()
+                    .map(|acted| Acted {
+                        before: f(&acted.before),
+                        after: acted.after.as_ref().map(&f),
+                    })
+                    .collect(),
             },
             Self::HeaderAction { name } => Change::HeaderAction { name },
             Self::Export { rows } => Change::Export { rows: *rows },
@@ -182,14 +211,6 @@ impl<M> Change<M> {
     /// ```
     pub fn is_header_action<A: HeaderAction>(&self) -> bool {
         matches!(self, Self::HeaderAction { name } if *name == A::NAME)
-    }
-}
-
-/// The change a run of the custom action `A` made to `records`.
-pub(crate) fn acted<R: Resource, A: Action<R>>(records: Vec<R::Model>) -> Change<R::Model> {
-    Change::Action {
-        name: A::NAME,
-        records,
     }
 }
 
