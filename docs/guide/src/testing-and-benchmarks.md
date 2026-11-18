@@ -13,7 +13,7 @@ enable it for tests only:
 
 ```toml
 [dev-dependencies]
-tablo = { version = "0.10.0", features = ["sqlite", "testing"] }
+tablo = { version = "0.11.0", features = ["sqlite", "testing"] }
 ```
 
 ```rust
