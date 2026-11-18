@@ -11,6 +11,18 @@ struct Shelf {
     name: String,
     #[has_many]
     books: Deferred<Vec<Book>>,
+    #[has_many]
+    slots: Deferred<Vec<Slot>>,
+}
+
+/// A place on a shelf, keyed by the shelf and its position.
+#[derive(Debug, Clone, toasty::Model)]
+#[key(shelf_id, position)]
+struct Slot {
+    shelf_id: uuid::Uuid,
+    position: i64,
+    #[belongs_to(key = shelf_id, references = id)]
+    shelf: Deferred<Shelf>,
 }
 
 #[derive(Debug, Clone, toasty::Model)]
@@ -19,6 +31,10 @@ struct Reader {
     #[auto]
     id: uuid::Uuid,
     name: String,
+    #[has_many(pair = borrower)]
+    books: Deferred<Vec<Book>>,
+    #[has_many(via = books.shelf)]
+    shelves: Deferred<Vec<Shelf>>,
 }
 
 #[derive(Debug, Clone, toasty::Model, crate::PanelModel)]
@@ -61,7 +77,7 @@ where
 }
 
 async fn library() -> Db {
-    let mut db = memory_db(toasty::models!(Shelf, Reader, Book)).await;
+    let mut db = memory_db(toasty::models!(Shelf, Slot, Reader, Book)).await;
     let shelf = toasty::create!(Shelf {
         name: "Sci-fi".to_string()
     })
@@ -108,10 +124,6 @@ fn a_relation_column_names_its_field_and_declares_its_include() {
     assert_eq!(Column::<Shelf>::name(&count), "books");
     assert_eq!(Column::<Shelf>::label(&count), "Books");
     assert_eq!(count.column_width(), ColumnWidth::Auto);
-    assert_eq!(
-        count.includes().into_vec(),
-        Includes::new().with(Shelf::fields().books()).into_vec()
-    );
 }
 
 /// The shelves a book is shelved on, labelled by name with a prefix the test can tell apart.
@@ -145,6 +157,19 @@ async fn a_relation_column_of_a_source_shows_its_label() {
     assert_eq!(Column::<Book>::name(&column), "shelf");
     let books = load(&cx, &Detail::new(column.clone()), &mut db).await;
     assert_eq!(column.text(&cx, &books[0]), "Shelf Sci-fi");
+}
+
+/// A count's query matches a row's records by their single-column key, so a table refuses a count
+/// over records keyed by several columns, which would read 0.
+#[test]
+fn a_count_over_a_composite_key_is_misdeclared() {
+    let table = crate::Table::new(CountColumn::unscoped(relation!(Shelf.slots)));
+    assert_eq!(
+        table.declaration_errors(),
+        [DeclarationErrorKind::CompositeKeyCount {
+            column: "slots".to_string()
+        }]
+    );
 }
 
 /// A label renames the column, so one table shows two values of one relation.
@@ -203,6 +228,26 @@ async fn the_page_loads_the_relations_its_relation_columns_read() {
     );
 }
 
+/// A count column counts in the database: the page loads none of the records it counts, and a
+/// many-to-many relation counts each linked record once.
+#[tokio::test]
+async fn a_count_column_loads_none_of_the_records_it_counts() {
+    let cx = crate::test_support::cx();
+    let mut db = library().await;
+
+    let count = CountColumn::of::<Titles>(relation!(Shelf.books));
+    let shelves = load(&cx, &Detail::new(count.clone()), &mut db).await;
+    assert_eq!(count.text(&cx, &shelves[0]), "1");
+    assert!(shelves[0].books.is_unloaded());
+
+    // Ada borrowed two books, both on the one shelf.
+    let shelves = CountColumn::unscoped(relation!(Reader.shelves));
+    let books = CountColumn::unscoped(relation!(Reader.books));
+    let readers = load(&cx, &Detail::new((shelves.clone(), books.clone())), &mut db).await;
+    assert_eq!(shelves.text(&cx, &readers[0]), "1");
+    assert_eq!(books.text(&cx, &readers[0]), "2");
+}
+
 /// A column over a source drops the related records the source's query leaves out ("Solaris" and
 /// "Ubik"), whatever the relation's shape.
 #[tokio::test]
@@ -230,7 +275,7 @@ async fn a_scoped_column_shows_only_what_its_source_shows() {
     // A record another request checked, or none checked, shows nothing either.
     let elsewhere = crate::test_support::cx();
     assert_eq!(titles.text(&elsewhere, &shelves[0]), "");
-    assert_eq!(count.text(&elsewhere, &shelves[0]), "0");
+    assert_eq!(count.text(&elsewhere, &shelves[0]), "");
 }
 
 /// Books, labelled by their title: the query leaves "Solaris" and "Ubik" out.

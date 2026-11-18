@@ -144,6 +144,11 @@ impl fmt::Display for DeclarationErrorKind {
                 "column '{column}' labels its records by `{source}`, which this panel does not \
                  register: declare it with `Panel::resource`"
             ),
+            Self::CompositeKeyCount { column } => write!(
+                f,
+                "column '{column}' counts records whose primary key spans several columns, which \
+                 its count query cannot match: key the related model by one column"
+            ),
             Self::TraversalLens { steps } => write!(
                 f,
                 "a lens here names one field of its model, not a {steps}-step path"

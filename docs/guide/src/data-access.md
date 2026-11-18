@@ -44,8 +44,9 @@ the same query:
 ```
 
 Reading a relation that was not included panics in `get()`; check `is_unloaded()` first where a
-missing include is possible. A table or detail column shows a relation with `RelationColumn` or
-`CountColumn`, which declare their include: see [Tables](./tables.md#columns).
+missing include is possible. A table or detail column shows a relation with `RelationColumn`, which declares its
+include, or counts one with `CountColumn`, which queries the count: see
+[Tables](./tables.md#columns).
 
 ## A resource's table on your own page
 

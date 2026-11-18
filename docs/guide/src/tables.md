@@ -91,8 +91,8 @@ it searches and sorts.
 
 A relation column over `R` shows only the related records `R` shows the user, as a relationship
 choice over `R` offers them, so a list never leaks another tenant's author or a comment the user
-cannot view ([`RelationColumn`](https://y-l.fr/tablo/nightly/api/tablo/struct.RelationColumn.html)). A `CountColumn` counts the
-loaded list, so it loads every related record of the page's rows.
+cannot view ([`RelationColumn`](https://y-l.fr/tablo/nightly/api/tablo/struct.RelationColumn.html)). A `CountColumn` counts in the
+database, one count query per row, and loads none of the records it counts.
 
 - **Widths.** The table lays out automatically, a column as wide as its content;
   `.width(..)` takes a [`ColumnWidth`](https://y-l.fr/tablo/nightly/api/tablo/enum.ColumnWidth.html) to wrap a long value or fix a
