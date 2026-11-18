@@ -83,6 +83,8 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Tenant registrar | The trait that creates a tenant, with the signed-in panel user a member of it, from the tenant registration page's input. | Team creator, TenantProvider |
 | Tenant editor | The trait that lets an admitted member edit the tenant the request acts for on the tenant settings page. | Team settings, TenantProvider |
 | Auth mail | The sender and base URL a panel's auth mails its links from, set by `Auth::mail`. | Mailer, Notifier |
+| Auth letter | One mail a panel's auth sends, carrying a link or a code, as the `AuthLetter` an app can queue and rebuild into the same mail. | Notification, Message, Envelope |
+| Auth mail delivery | The trait that takes each auth letter inside the transaction recording its token, so a durable queue sends it in place of the router's `Mailer`, set by `AuthMail::delivery`. | Outbox, Mail driver, Transport |
 | Auth token | A single-use secret a mailed link, a mailed code or a pending sign-in carries, stored as an `AuthToken` row holding its hash. | Nonce, Signed URL, Reset token |
 | Provider sign-in | Signing in through an OpenID Connect provider such as Google, from a button on the login page, set by `Auth::oidc`. | Social login, SSO, OAuth login |
 | Provider identity | Who a provider says signed in, once the panel checked its ID token: the issuer and subject that name the account there, its email and name. | Social account, OAuth profile, Claims |

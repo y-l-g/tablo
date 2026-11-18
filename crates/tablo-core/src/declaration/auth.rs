@@ -140,7 +140,8 @@ pub enum AuthMailFault {
     BaseUrl(String),
     /// The router registers no `Mailer` to send the mail through.
     ///
-    /// Add one with `.with(Mailer::new(..))` before `.panel(..)`.
+    /// Add one with `.with(Mailer::new(..))` before `.panel(..)`, or hand the mail to
+    /// [`AuthMail::delivery`](crate::AuthMail::delivery).
     MissingMail,
 }
 

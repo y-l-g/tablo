@@ -14,7 +14,6 @@ use topcoat::{
         error::see_other,
         response::{IntoResponse, Response},
     },
-    session::Token,
     view::{ViewExt, attributes, view},
 };
 
@@ -23,7 +22,9 @@ use super::{
     hook::{AuthEvent, AuthEventKind},
     infrastructure_failure,
     login::login_url,
-    mail::{TOKEN_FIELD, after_response, private, token_from_query},
+    mail::{
+        AuthLetter, AuthLetterKind, TOKEN_FIELD, after_response, private, send, token_from_query,
+    },
     page::{AuthPage, render},
     panel_root,
     session::{Activity, credential_panels, end_credentials, resolve, start_once},
@@ -112,6 +113,9 @@ pub async fn request_email_change(
     if !current_realm(cx).is_some_and(|panel| panel.auth.verification().is_some()) {
         return Ok(EmailChange::Immediate);
     }
+    let mail = current_realm(cx)
+        .and_then(|panel| panel.auth.auth_mail())
+        .ok_or_else(topcoat::router::error::not_found)?;
     let user_id = user.user_id();
     let confirm = token::issue(
         cx,
@@ -122,113 +126,98 @@ pub async fn request_email_change(
         VERIFICATION_LIFETIME,
     )
     .await?;
-    let old = user.email().map(str::to_string);
-    // The cancel link carries the address it restores; an account without one has none to keep.
-    let cancel = match &old {
-        Some(old) => Some(
-            token::issue(
-                cx,
-                ex,
-                TokenPurpose::EmailChangeCancel,
-                &user_id,
-                Some(old.clone()),
-                CANCEL_LIFETIME,
-            )
-            .await?,
+    let brand = hosted(cx)?.brand_name(cx);
+    let mut letters = vec![mail.letter(
+        AuthLetterKind::EmailChange,
+        email,
+        crate::t!(cx, "tablo-email-change-mail-subject", brand = brand.clone()),
+        crate::t!(
+            cx,
+            "tablo-email-change-mail-body",
+            new = email,
+            brand = brand.clone(),
+            link = mail.link(&confirm_url(cx), &confirm)
         ),
-        None => None,
-    };
-    let request = Request {
-        old,
-        new: email.to_string(),
-        confirm,
-        cancel,
-    };
+        Some(VERIFICATION_LIFETIME),
+    )?];
+    // The cancel link carries the address it restores; an account without one has none to keep.
+    if let Some(old) = user.email() {
+        let cancel = token::issue(
+            cx,
+            &mut *ex,
+            TokenPurpose::EmailChangeCancel,
+            &user_id,
+            Some(old.to_string()),
+            CANCEL_LIFETIME,
+        )
+        .await?;
+        letters.push(mail.letter(
+            AuthLetterKind::EmailChangeCancel,
+            old,
+            crate::t!(
+                cx,
+                "tablo-email-change-notice-subject",
+                brand = brand.clone()
+            ),
+            crate::t!(
+                cx,
+                "tablo-email-change-notice-body",
+                brand = brand,
+                new = email,
+                old = old,
+                link = mail.link(&cancel_url(cx), &cancel)
+            ),
+            Some(CANCEL_LIFETIME),
+        )?);
+    }
+    let mut pending = Vec::new();
+    for letter in letters {
+        pending.extend(mail.hand(cx, &mut *ex, letter).await?);
+    }
     match try_context::<Requested>(cx) {
-        // Mailed once the save commits: a rolled-back save mails nothing.
-        Some(requested) => requested.push(request),
-        None => mail(cx, request),
+        // Sent once the save commits: a rolled-back save sends nothing.
+        Some(requested) => requested.push(pending),
+        None => send_after_response(cx, pending),
     }
     Ok(EmailChange::Pending)
 }
 
-/// One recorded change: the addresses, and the tokens of its two links.
-struct Request {
-    old: Option<String>,
-    new: String,
-    confirm: Token,
-    cancel: Option<Token>,
-}
-
-/// The changes a request recorded, which its handler mails once it commits.
+/// The letters a request's email change left to send through the `Mailer`, which its handler
+/// sends once the save commits. A change handed to a delivery leaves none.
 #[derive(Clone, Default)]
-pub(super) struct Requested(Arc<Mutex<Vec<Request>>>);
+pub(super) struct Requested(Arc<Mutex<Option<Vec<AuthLetter>>>>);
 
 impl Requested {
-    fn push(&self, request: Request) {
+    fn push(&self, letters: Vec<AuthLetter>) {
         self.0
             .lock()
             .unwrap_or_else(|poison| poison.into_inner())
-            .push(request);
+            .get_or_insert_default()
+            .extend(letters);
     }
 
-    /// Mails every recorded change, and answers whether there was one.
-    pub(super) fn mail(&self, cx: &Cx) -> bool {
-        let requests =
-            std::mem::take(&mut *self.0.lock().unwrap_or_else(|poison| poison.into_inner()));
-        let any = !requests.is_empty();
-        for request in requests {
-            mail(cx, request);
-        }
+    /// Sends the letters the request left after the response, and answers whether it recorded a
+    /// change.
+    pub(super) fn send(&self, cx: &Cx) -> bool {
+        let letters = self
+            .0
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .take();
+        let any = letters.is_some();
+        send_after_response(cx, letters.unwrap_or_default());
         any
     }
 }
 
-/// Mails `request`'s two links after the response.
-fn mail(cx: &Cx, request: Request) {
-    after_response(cx, "email change links", move |cx, panel| async move {
-        let mail = panel
-            .auth
-            .auth_mail()
-            .ok_or_else(topcoat::router::error::not_found)?;
-        let brand = hosted(&cx)?.brand_name(&cx);
-        let confirm = mail.link(&confirm_url(&cx), &request.confirm);
-        let new = &request.new;
-        let message = mail.compose(
-            new,
-            crate::t!(
-                &cx,
-                "tablo-email-change-mail-subject",
-                brand = brand.clone()
-            ),
-            crate::t!(
-                &cx,
-                "tablo-email-change-mail-body",
-                new = new,
-                brand = brand.clone(),
-                link = confirm
-            ),
-        )?;
-        topcoat::mail::send(&cx, message).await?;
-        if let (Some(old), Some(cancel)) = (&request.old, &request.cancel) {
-            let cancel = mail.link(&cancel_url(&cx), cancel);
-            let message = mail.compose(
-                old,
-                crate::t!(
-                    &cx,
-                    "tablo-email-change-notice-subject",
-                    brand = brand.clone()
-                ),
-                crate::t!(
-                    &cx,
-                    "tablo-email-change-notice-body",
-                    brand = brand.clone(),
-                    new = new,
-                    old = old,
-                    link = cancel
-                ),
-            )?;
-            topcoat::mail::send(&cx, message).await?;
+/// Sends `letters` through the router's `Mailer` after the response.
+fn send_after_response(cx: &Cx, letters: Vec<AuthLetter>) {
+    if letters.is_empty() {
+        return;
+    }
+    after_response(cx, "email change links", move |cx, _| async move {
+        for letter in letters {
+            send(&cx, letter).await?;
         }
         Ok(())
     });

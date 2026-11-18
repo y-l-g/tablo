@@ -7,7 +7,8 @@ use topcoat::{context::Cx, router::error::too_many_requests};
 
 use super::{TwoFactor, binding, cipher, key};
 use crate::auth::{
-    PanelUser,
+    PanelUser, infrastructure_failure,
+    mail::AuthLetterKind,
     realm::{current_realm, hosted, panel_prefix},
     token::{self, TokenPurpose},
 };
@@ -84,19 +85,9 @@ pub(super) async fn send(
         return Ok(Sent::Throttled);
     }
     let code = code();
-    let mut db = crate::db::db(cx)?;
-    token::record(
-        cx,
-        &mut db,
-        TokenPurpose::TwoFactorEmailCode,
-        &user_id,
-        None,
-        CODE_LIFETIME,
-        stored(cx, &user_id, &code)?,
-    )
-    .await?;
     let brand = hosted(cx)?.brand_name(cx);
-    let message = mail.compose(
+    let letter = mail.letter(
+        AuthLetterKind::TwoFactorCode,
         address,
         crate::t!(cx, "tablo-two-factor-mail-subject", brand = brand.clone()),
         crate::t!(
@@ -105,10 +96,27 @@ pub(super) async fn send(
             brand = brand,
             code = code.clone()
         ),
+        Some(CODE_LIFETIME),
     )?;
+    let mut db = crate::db::db(cx)?;
+    let mut tx = db.transaction().await.map_err(infrastructure_failure)?;
+    token::record(
+        cx,
+        &mut tx,
+        TokenPurpose::TwoFactorEmailCode,
+        &user_id,
+        None,
+        CODE_LIFETIME,
+        stored(cx, &user_id, &code)?,
+    )
+    .await?;
+    let pending = mail.hand(cx, &mut tx, letter).await?;
+    tx.commit().await.map_err(infrastructure_failure)?;
     // The code is recorded: a mail server that fails leaves the page up, and its button to send
     // another, rather than a 500 after the password verified.
-    if let Err(error) = topcoat::mail::send(cx, message).await {
+    if let Some(letter) = pending
+        && let Err(error) = crate::auth::mail::send(cx, letter).await
+    {
         tracing::error!(error = %error, "two-factor code not sent");
     }
     Ok(Sent::Mailed)

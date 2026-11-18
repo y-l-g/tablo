@@ -1,14 +1,20 @@
 //! The mail auth sends: the [`AuthMail`] configuration every mailed link shares, the links it
-//! builds, and the headers a page carrying a token answers with.
+//! builds, where its letters go, and the headers a page carrying a token answers with.
 
-use std::{future::Future, sync::Arc};
+mod delivery;
 
+use std::{future::Future, sync::Arc, time::Duration};
+
+use jiff::Timestamp;
 use topcoat::{
     context::Cx,
-    mail::{Mail, Mailbox},
+    mail::Mailbox,
     router::{request::uri, response::Response},
 };
 
+use self::delivery::DynDelivery;
+pub(super) use self::delivery::send;
+pub use self::delivery::{AuthLetter, AuthLetterKind, AuthMailDelivery};
 use crate::auth::realm::{Realm, current_realm};
 
 /// Where a panel's auth mail comes from and where its links point, installed with
@@ -32,12 +38,15 @@ use crate::auth::realm::{Realm, current_realm};
 ///
 /// The base URL is configuration, not the request's `Host` header, which the client chooses: a
 /// link built from it could point a victim's email at another host. Mounting refuses a base URL
-/// that is not an absolute `http` or `https` URL, or that carries a query or fragment, and a
-/// router without a [`Mailer`](topcoat::mail::Mailer), which the app adds with
-/// `.with(Mailer::new(..))` before mounting the panel.
+/// that is not an absolute `http` or `https` URL, or that carries a query or fragment.
+///
+/// The mail goes out through the router's [`Mailer`](topcoat::mail::Mailer), which the app adds
+/// with `.with(Mailer::new(..))` before mounting the panel and without which mounting refuses the
+/// panel, or through the [`delivery`](Self::delivery) the app installs.
 pub struct AuthMail {
     from: Mailbox,
     base_url: String,
+    delivery: Option<Arc<dyn DynDelivery>>,
 }
 
 impl AuthMail {
@@ -49,7 +58,22 @@ impl AuthMail {
         Self {
             from,
             base_url: base_url.into().trim_end_matches('/').to_string(),
+            delivery: None,
         }
+    }
+
+    /// Hands each letter to `delivery` inside the transaction that records its token, in place of
+    /// sending it through the router's `Mailer` once that commits: see [`AuthMailDelivery`].
+    /// Mounting then needs no `Mailer`.
+    #[must_use]
+    pub fn delivery(mut self, delivery: impl AuthMailDelivery) -> Self {
+        self.delivery = Some(Arc::new(delivery));
+        self
+    }
+
+    /// Whether the letters go through the router's `Mailer`.
+    fn sends_through_mailer(&self) -> bool {
+        self.delivery.is_none()
     }
 
     /// Whether the base URL is an absolute `http` or `https` URL without a query or fragment.
@@ -73,19 +97,40 @@ impl AuthMail {
         format!("{}{path}?{query}", self.base_url)
     }
 
-    /// A mail from this sender to `address`, titled `subject`, reading `text`.
-    pub(super) fn compose(
+    /// A letter of `kind` from this sender to `address`, titled `subject`, reading `text`, whose
+    /// link or code works for `lifetime` from now.
+    pub(super) fn letter(
         &self,
+        kind: AuthLetterKind,
         address: &str,
         subject: String,
         text: String,
-    ) -> topcoat::Result<Mail> {
-        Ok(Mail::builder()
-            .from(self.from.clone())
-            .to([Mailbox::new(address)?])
-            .subject(subject)
-            .text(text)
-            .build()?)
+        lifetime: Option<Duration>,
+    ) -> topcoat::Result<AuthLetter> {
+        let expires_at = lifetime
+            .map(|lifetime| {
+                Timestamp::try_from(std::time::SystemTime::now() + lifetime)
+                    .map_err(topcoat::Error::from)
+            })
+            .transpose()?;
+        AuthLetter::new(kind, &self.from, address, subject, text, expires_at)
+    }
+
+    /// Hands `letter` to the installed delivery through `ex`, the transaction recording its token,
+    /// and answers `None`; without one, answers the letter, to [`send`] once `ex` commits.
+    pub(super) async fn hand(
+        &self,
+        cx: &Cx,
+        ex: &mut dyn toasty::Executor,
+        letter: AuthLetter,
+    ) -> topcoat::Result<Option<AuthLetter>> {
+        match &self.delivery {
+            Some(delivery) => {
+                delivery.deliver(cx, ex, letter).await?;
+                Ok(None)
+            }
+            None => Ok(Some(letter)),
+        }
     }
 }
 
@@ -94,6 +139,7 @@ impl std::fmt::Debug for AuthMail {
         f.debug_struct("AuthMail")
             .field("from", &self.from.address())
             .field("base_url", &self.base_url)
+            .field("delivery", &self.delivery.is_some())
             .finish()
     }
 }
@@ -166,7 +212,7 @@ pub(super) fn declaration_errors(
     if !mail.base_url_is_absolute() {
         faults.push(AuthMailFault::BaseUrl(mail.base_url().to_string()));
     }
-    if !has_mail {
+    if !has_mail && mail.sends_through_mailer() {
         faults.push(AuthMailFault::MissingMail);
     }
     faults

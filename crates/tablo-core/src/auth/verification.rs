@@ -25,7 +25,7 @@ use self::pages::notice;
 use super::{
     LoginThrottle, PanelUser, infrastructure_failure,
     login::login_url,
-    mail::{after_response, private, token_from_query},
+    mail::{AuthLetterKind, after_response, private, token_from_query},
     panel_root, resolved,
     session::{Activity, resolve},
     token::{self, TokenPurpose, run_serializable},
@@ -275,29 +275,31 @@ async fn mail_link(cx: &Cx, panel: &Realm, user_id: &str, email: &str) -> topcoa
         .auth
         .auth_mail()
         .ok_or_else(topcoat::router::error::not_found)?;
-    let token = token::issue_alone(
+    let brand = hosted(cx)?.brand_name(cx);
+    token::issue_mailed(
         cx,
+        mail,
         TokenPurpose::EmailVerification,
         user_id,
         Some(email.to_string()),
         VERIFICATION_LIFETIME,
+        |token| {
+            mail.letter(
+                AuthLetterKind::EmailVerification,
+                email,
+                crate::t!(cx, "tablo-verify-mail-subject", brand = brand.clone()),
+                crate::t!(
+                    cx,
+                    "tablo-verify-mail-body",
+                    email = email,
+                    brand = brand.clone(),
+                    link = mail.link(&confirm_url(cx), token)
+                ),
+                Some(VERIFICATION_LIFETIME),
+            )
+        },
     )
-    .await?;
-    let link = mail.link(&confirm_url(cx), &token);
-    let brand = hosted(cx)?.brand_name(cx);
-    let message = mail.compose(
-        email,
-        crate::t!(cx, "tablo-verify-mail-subject", brand = brand.clone()),
-        crate::t!(
-            cx,
-            "tablo-verify-mail-body",
-            email = email,
-            brand = brand,
-            link = link
-        ),
-    )?;
-    topcoat::mail::send(cx, message).await?;
-    Ok(())
+    .await
 }
 
 /// `GET {prefix}/verify-email` — the page asking a signed-in user to verify their address, or

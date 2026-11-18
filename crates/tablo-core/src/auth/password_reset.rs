@@ -17,7 +17,7 @@ use super::{
     hook::{AuthEvent, AuthEventKind},
     infrastructure_failure,
     login::login_url,
-    mail::{TOKEN_FIELD, after_response, token_from_query},
+    mail::{AuthLetterKind, TOKEN_FIELD, after_response, token_from_query},
     registration::new_password_errors,
     session::{credential_panels, end_credentials},
     token::{self, REVOCATION, TokenPurpose, run_serializable},
@@ -360,30 +360,32 @@ async fn mail_link(cx: &Cx, panel: &Realm, recipient: &Recipient) -> topcoat::Re
         .auth
         .auth_mail()
         .ok_or_else(topcoat::router::error::not_found)?;
-    let token = token::issue_alone(
+    let brand = hosted(cx)?.brand_name(cx);
+    let minutes = RESET_LIFETIME.as_secs() / 60;
+    token::issue_mailed(
         cx,
+        mail,
         TokenPurpose::PasswordReset,
         user_id,
         None,
         RESET_LIFETIME,
+        |token| {
+            mail.letter(
+                AuthLetterKind::PasswordReset,
+                address,
+                crate::t!(cx, "tablo-reset-mail-subject", brand = brand.clone()),
+                crate::t!(
+                    cx,
+                    "tablo-reset-mail-body",
+                    brand = brand.clone(),
+                    minutes = minutes,
+                    link = mail.link(&reset_url(cx), token)
+                ),
+                Some(RESET_LIFETIME),
+            )
+        },
     )
-    .await?;
-    let link = mail.link(&reset_url(cx), &token);
-    let brand = hosted(cx)?.brand_name(cx);
-    let minutes = RESET_LIFETIME.as_secs() / 60;
-    let message = mail.compose(
-        address,
-        crate::t!(cx, "tablo-reset-mail-subject", brand = brand.clone()),
-        crate::t!(
-            cx,
-            "tablo-reset-mail-body",
-            brand = brand,
-            minutes = minutes,
-            link = link
-        ),
-    )?;
-    topcoat::mail::send(cx, message).await?;
-    Ok(())
+    .await
 }
 
 /// The live reset token `encoded` names on the request's panel.

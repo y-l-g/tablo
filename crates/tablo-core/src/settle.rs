@@ -16,7 +16,8 @@ use topcoat::{
 };
 
 /// Waits until the work the router's panels run after their responses has finished: the auth
-/// mail every request so far left behind is sent, or its failure logged.
+/// mail every request so far left behind is sent or handed to its delivery, or its failure
+/// logged.
 ///
 /// A panel sends its auth mail once the response has left, so that how long a request takes
 /// tells no one whether an account exists. That work runs beside the server, which stops
