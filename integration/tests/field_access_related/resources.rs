@@ -68,7 +68,7 @@ impl Resource for CardResource {
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
             .slug("cards")
-            .policy(ReadOnly)
+            .policy(crate::common::read_and_export)
             .tenancy(Tenancy::column(Card::fields().tenant_id()))
             .table(Table::new((
                 TextColumn::new(lens!(Card.code)),

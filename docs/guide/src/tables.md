@@ -338,9 +338,17 @@ list groups by nothing until the reader picks a grouping.
 ## Export
 
 The list header links **Export CSV**, which downloads the list as the reader sees it: the current
-search, filters and sort, only the rows the policy lets them view, and at most 10,000 rows by default
+search, filters and sort over every row of the resource's query, and at most 10,000 rows by default
 ([`Limits::export_rows`](https://y-l.fr/tablo/nightly/api/tablo/struct.Limits.html)), never a
 truncated file. [`Table`](https://y-l.fr/tablo/nightly/api/tablo/struct.Table.html#export) has the export's rules.
+
+Paging through a list and taking it whole are separate rights: the policy is asked `Export` on top
+of `ViewAny`, and refused, the button is hidden and the route answers 403. `ReadOnly` refuses it. A
+table that no one should export drops the button and the route:
+
+```rust,ignore
+Table::new(columns).without_export()
+```
 
 ## Import
 

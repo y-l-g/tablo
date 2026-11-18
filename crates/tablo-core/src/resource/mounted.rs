@@ -335,15 +335,17 @@ impl<R: Resource> Mounted<R> {
 
     /// Whether the request may do `ability`: what its button and its route both ask.
     ///
-    /// The policy allows it, and what the ability rests on holds too. A force delete is a delete,
-    /// so the policy must also allow the delete: a policy that keeps a record from the trash
-    /// keeps it whole. Running an action the resource declares takes a record the action takes,
-    /// live or trashed, that its own `can_run` admits.
+    /// The policy allows it, and what the ability rests on holds too. An export reads the list,
+    /// so the policy must also allow `ViewAny`, and the table must not opt out of it. A force
+    /// delete is a delete, so the policy must also allow the delete: a policy that keeps a record
+    /// from the trash keeps it whole. Running an action the resource declares takes a record the
+    /// action takes, live or trashed, that its own `can_run` admits.
     ///
     /// A header action's `can_run` stays its route's to ask: a page's action asks a resource's
     /// policy for `RunHeader` from its `can_run`, which would ask itself here.
     pub(crate) fn can(&self, cx: &Cx, ability: Ability<'_, R::Model>) -> bool {
         let rests = match ability {
+            Ability::Export => self.table.exports() && self.policy.allows(cx, Ability::ViewAny),
             Ability::ForceDeleteAny => self.policy.allows(cx, Ability::DeleteAny),
             Ability::ForceDelete(record) => self.policy.allows(cx, Ability::Delete(record)),
             Ability::Run { action, record } => self.actions.find(action).is_none_or(|entry| {

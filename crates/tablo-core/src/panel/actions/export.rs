@@ -59,7 +59,7 @@ fn export_wants_bom(cx: &Cx) -> bool {
 pub(crate) fn resource_export<R: Resource>(cx: &Cx, _body: Body) -> RouteFuture<'_> {
     Box::pin(async move {
         let resource = gate::<R>(cx)?;
-        if !resource.can(cx, Ability::ViewAny) {
+        if !resource.can(cx, Ability::Export) {
             return Err(forbidden().into());
         }
         let state = TableState::from_cx(cx);

@@ -304,7 +304,7 @@ impl Resource for DeclaredDeliveryResource {
 
     fn declare() -> ResourceDef<Self> {
         ResourceDef::new()
-            .policy(tablo::ReadOnly)
+            .policy(crate::common::read_and_export)
             .table(Table::new((
                 TextColumn::new(lens!(Delivery.address)),
                 EmbeddedColumn::new(lens!(Delivery.stage)),
@@ -548,7 +548,7 @@ impl Resource for BookmarkResource {
     type Form = NoForm<Bookmark>;
 
     fn declare() -> ResourceDef<Self> {
-        ResourceDef::new().policy(tablo::ReadOnly)
+        ResourceDef::new().policy(crate::common::read_and_export)
     }
 }
 

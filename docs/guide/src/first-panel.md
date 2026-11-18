@@ -63,8 +63,8 @@ cargo run
 
 ## What the example leaves out
 
-- **Writes.** `ReadOnly` allows only listing and viewing, so the create link is hidden, the create
-  and edit pages answer 403, and rows show no Edit or Delete action.
+- **Writes.** `ReadOnly` allows only listing and viewing, so the create and export links are
+  hidden, the create and edit pages answer 403, and rows show no Edit or Delete action.
   [Policy, auth, tenancy](./policy-auth-tenancy.md) opens them.
 - **Styling.** The example registers no asset bundle, so pages render unstyled and without the
   shell's scripts, but every page and form works. The router's `.assets(..)` and the panel's
