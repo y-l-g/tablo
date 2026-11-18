@@ -37,7 +37,8 @@ use crate::{
 };
 
 /// The theme's sans font.
-const GEIST: Font = fontsource_font!(GEIST, host: Asset);
+const GEIST: Font =
+    fontsource_font!(GEIST, weight: [400, 500, 600, 700], style: Normal, host: Asset);
 
 /// Admin resource for `User`.
 pub struct UserResource;

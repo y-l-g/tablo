@@ -13,6 +13,9 @@ mod vendored;
 
 pub use asset_hooks::{ASSET_FILES, ASSET_HOOKS, AssetHook, assets_dir, verify_asset_hooks};
 use topcoat_ui::{Component, Dependency, Registry};
+// The registry is read off disk through `cargo metadata`, never in code: naming it keeps the
+// dependency the sync finds from reading as unused.
+use topcoat_ui_registry as _;
 pub use vendored::{PUBLIC_PRIMITIVES, VENDORED_PRIMITIVES};
 
 fn vendored_components(registry: &Registry) -> anyhow::Result<Vec<Component<'_>>> {

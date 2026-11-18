@@ -526,6 +526,10 @@ panel the Tailwind stylesheet and the font the shell links:
 {{#include ../../../examples/guide/src/panel_routing.rs:panel-assets-body}}
 ```
 
+The shell preloads every face the font declares, so name the weights its stylesheet uses: 400 to 700
+upright. Left out, `fontsource_font!` takes every weight in both styles, eighteen files for Geist,
+before the first paint. An italic the font lacks is slanted by the browser.
+
 `shell_assets` also makes the shell load Topcoat's runtime, which drives the live tables, the
 confirmation dialogs and the variant choice, and `tablo-ui`'s scripts: searchable selects, repeater rows, and the
 sidebar toggle and the theme choice. The stylesheet is Tablo's prebuilt one, or the app's own from

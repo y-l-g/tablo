@@ -161,8 +161,7 @@ async function refreshDependent(wrap, parentValue) {
   // offers no option rather than the server's "keep typing" row.
   if (overflow && !filter) html = '';
   const current = select.value;
-  const placeholder = select.querySelector('option[value=""]');
-  const placeholderHtml = placeholder ? placeholder.outerHTML : '<option value="">-- Select --</option>';
+  const placeholderHtml = placeholderOf(select);
   select.innerHTML = `${placeholderHtml}${html}`;
   const kept = current !== '' && optionFor(select, current) !== null;
   select.value = kept ? current : '';
@@ -177,6 +176,14 @@ async function refreshDependent(wrap, parentValue) {
   if (!kept && current !== '') {
     select.dispatchEvent(new Event('change', { bubbles: true }));
   }
+}
+
+// The placeholder option `select` holds, as HTML to keep across a swap of its
+// options. The server renders it in the page's language; a select it renders
+// without one gains none here.
+function placeholderOf(select) {
+  const placeholder = select.querySelector('option[value=""]');
+  return placeholder ? placeholder.outerHTML : '';
 }
 
 // Refresh every choice in `control`'s form that depends on it.
@@ -213,8 +220,7 @@ async function serverSearch(filter, wrap, select, field, needle) {
       serverControllers.delete(filter);
     }
   }
-  const placeholder = select.querySelector('option[value=""]');
-  const placeholderHtml = placeholder ? placeholder.outerHTML : '<option value="">-- Select --</option>';
+  const placeholderHtml = placeholderOf(select);
   // Preserve the current selection across swaps: the server answers the
   // needle and never echoes the current record, so re-attach it when absent.
   // Its label is only in the option the swap is about to drop: the
