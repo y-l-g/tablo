@@ -320,9 +320,7 @@ jobs:
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo install cargo-semver-checks --version 0.51.0 --locked
-      # `tablo-audit` is excluded until its first release: it has no crates.io baseline yet, so the
-      # check has nothing to compare against. Drop the exclusion once it is published.
-      - run: cargo semver-checks --workspace --exclude tablo-audit --default-features
+      - run: cargo semver-checks --workspace --default-features
 
   # Configure every released crate on crates.io to trust y-l-g/tablo,
   # workflow ci.yml, with no environment. All CI checks must pass before this

@@ -51,8 +51,6 @@ toolchains. Run `check --all` before merging.
 The `semver` job in `ci.yml` runs on a release PR and on the push that merges it. It checks that the
 version being released covers the public API changes since the last release, with the default
 features. release-plz takes the bump from the commits, so a breaking commit needs its `!` marker.
-`tablo-audit` is excluded from that job until its first release, since crates.io has no baseline
-for it; remove the `--exclude tablo-audit` once it is published.
 
 - `topcoat fmt` reflows `view!` markup differently across CLI releases, so only the pinned
   `topcoat-cli` agrees with CI. When it is missing or another version, `cargo xtask fmt` fails
