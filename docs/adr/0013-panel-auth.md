@@ -78,6 +78,11 @@ is the explicit opt-out.
   change of credentials, address or second factor, an impersonation. An event that grants or
   changes something commits with what the hooks write or not at all; a refused attempt, a sign-out
   and a stop stand when a hook fails, which is logged.
+- Acting as another user is read-only unless `Impersonation::writable` says otherwise: the
+  session's `sign_into` marks the request, every resource's policy answer keeps the reads alone,
+  every header action's check refuses, and the bell's procedures answer 403. The rule sits where
+  every button and route already ask, so a write the app adds later is refused without a guard of
+  its own; `can` answers the same, for the app's own pages.
 - Every mailed link and pending sign-in is one `AuthToken` row: the token's hash, its purpose, the
   account, the issuing panel and the expiry. One `AuthMail` names the sender and the configured
   base URL every link starts with.
@@ -154,6 +159,11 @@ is the explicit opt-out.
   one the trail misses, and a trail that is down would turn a wrong password into an outage page
   that tells it apart from a right one. A sign-in event at the password, before the second factor:
   no session exists yet, and the trail would name a sign-in that a wrong code then stops.
+- Writes allowed while acting as another user, each action refusing them itself: every app
+  repeated the check in each action, and one it missed let support write as a customer. Refusing
+  every non-`GET` request at the gate: a list's search, sort and page re-run as `POST`s, so it
+  would refuse reads too, and leave the buttons showing. A per-action exception in place of the
+  panel-wide switch: no app needs one yet.
 - A table per mailed link, and a sender and base URL per feature: each feature repeated the
   hashing, expiry and revocation, and an app repeated its sender. An address method on each
   seam: every seam that mails asks the same question of the same user type.

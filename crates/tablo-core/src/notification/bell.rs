@@ -18,7 +18,7 @@ use topcoat::{
     Result,
     context::Cx,
     icon::icon,
-    router::error::{not_found, unauthorized},
+    router::error::{forbidden, not_found, unauthorized},
     runtime::{Event, Signal, connected, procedure, shard, signal},
     view::{BoxView, EmitToken, View, ViewExt, attributes, emit, live, view},
 };
@@ -294,6 +294,7 @@ async fn list_view(
         .boxed());
     }
     let now = Timestamp::now();
+    let writes = !crate::policy::writes_refused(cx);
     let mut items = Vec::with_capacity(rows.len());
     for row in rows {
         items.push(item_view(cx, row, now).await?);
@@ -304,7 +305,7 @@ async fn list_view(
                 (t!(cx, "tablo-notifications-unread", count = unread))
             </span>
             <div class="flex gap-1">
-                if unread > 0 {
+                if writes && unread > 0 {
                     button(
                         variant: ButtonVariant::Ghost,
                         size: ButtonSize::Sm,
@@ -319,19 +320,21 @@ async fn list_view(
                         (t!(cx, "tablo-notifications-read-all"))
                     )
                 }
-                button(
-                    variant: ButtonVariant::Ghost,
-                    size: ButtonSize::Sm,
-                    attrs: attributes! {
-                        type="button"
-                        data-notifications="clear"
-                        @click=$(async |_e: Event| {
-                            clear_notifications().await;
-                        })
-                    },
-                    icon(data: icons::TRASH)
-                    (t!(cx, "tablo-notifications-clear"))
-                )
+                if writes {
+                    button(
+                        variant: ButtonVariant::Ghost,
+                        size: ButtonSize::Sm,
+                        attrs: attributes! {
+                            type="button"
+                            data-notifications="clear"
+                            @click=$(async |_e: Event| {
+                                clear_notifications().await;
+                            })
+                        },
+                        icon(data: icons::TRASH)
+                        (t!(cx, "tablo-notifications-clear"))
+                    )
+                }
             </div>
         </div>
         <ul class="flex flex-col gap-2" data-notifications="list">
@@ -385,6 +388,7 @@ async fn item_view(cx: &Cx, row: StoredNotification, now: Timestamp) -> Result<B
     let toggle_icon = if read { icons::MAIL } else { icons::CHECK };
     let toggle_id = id.clone();
     let remove_id = id.clone();
+    let writes = !crate::policy::writes_refused(cx);
     Ok(view! {
         <li
             id=(format!("tablo-notification-{id}"))
@@ -421,36 +425,38 @@ async fn item_view(cx: &Cx, row: StoredNotification, now: Timestamp) -> Result<B
                     </div>
                 }
             </div>
-            <div class="flex shrink-0 flex-col gap-1">
-                button(
-                    variant: ButtonVariant::Ghost,
-                    size: ButtonSize::Icon,
-                    attrs: attributes! {
-                        type="button"
-                        class="size-7"
-                        aria-label=(toggle_label.clone())
-                        title=(toggle_label)
-                        @click=$(async |_e: Event| {
-                            mark_notification(toggle_id, !read).await;
-                        })
-                    },
-                    icon(data: toggle_icon)
-                )
-                button(
-                    variant: ButtonVariant::Ghost,
-                    size: ButtonSize::Icon,
-                    attrs: attributes! {
-                        type="button"
-                        class="size-7"
-                        aria-label=(remove_label.clone())
-                        title=(remove_label)
-                        @click=$(async |_e: Event| {
-                            remove_notification(remove_id).await;
-                        })
-                    },
-                    icon(data: icons::X)
-                )
-            </div>
+            if writes {
+                <div class="flex shrink-0 flex-col gap-1">
+                    button(
+                        variant: ButtonVariant::Ghost,
+                        size: ButtonSize::Icon,
+                        attrs: attributes! {
+                            type="button"
+                            class="size-7"
+                            aria-label=(toggle_label.clone())
+                            title=(toggle_label)
+                            @click=$(async |_e: Event| {
+                                mark_notification(toggle_id, !read).await;
+                            })
+                        },
+                        icon(data: toggle_icon)
+                    )
+                    button(
+                        variant: ButtonVariant::Ghost,
+                        size: ButtonSize::Icon,
+                        attrs: attributes! {
+                            type="button"
+                            class="size-7"
+                            aria-label=(remove_label.clone())
+                            title=(remove_label)
+                            @click=$(async |_e: Event| {
+                                remove_notification(remove_id).await;
+                            })
+                        },
+                        icon(data: icons::X)
+                    )
+                </div>
+            }
         </li>
     }
     .boxed())
@@ -472,10 +478,14 @@ pub(crate) fn ago(cx: &Cx, then: Timestamp, now: Timestamp) -> String {
     }
 }
 
-/// The signed-in user's inbox for a procedure, answering 401 without one and 404 where the
-/// request's panel shows no bell.
+/// The signed-in user's inbox for a procedure, answering 401 without one, 403 while someone acts
+/// as the user without writing, and 404 where the request's panel shows no bell.
 fn procedure_inbox(cx: &Cx) -> Result<Inbox> {
     crate::auth::guard(cx)?;
+    // Someone acting as the user reads their notifications, and changes none.
+    if crate::policy::writes_refused(cx) {
+        return Err(forbidden().into());
+    }
     let inbox = Inbox::of(cx).ok_or_else(unauthorized)?;
     current_realm(cx)
         .filter(|realm| realm.notifications)

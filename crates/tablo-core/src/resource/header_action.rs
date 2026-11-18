@@ -53,7 +53,9 @@ use crate::{
 /// - the route, `{url}/-/actions/{NAME}` under the list or page URL, and its CSRF check;
 /// - who may run it: on a resource, the policy's [`Ability::ViewAny`] and [`Ability::RunHeader`]
 ///   with the action's `NAME`; on a page, [`PageDef::access`](crate::PageDef::access); on either,
-///   then [`HeaderActionDef::can_run`]. A refusal answers 403 and renders no button;
+///   then [`HeaderActionDef::can_run`]. None runs while someone acts as another user, unless the
+///   [`Impersonation`](crate::Impersonation) is [`writable`](crate::Impersonation::writable). A
+///   refusal answers 403 and renders no button;
 /// - the transaction: `run` writes through its executor, and an error rolls everything back;
 /// - on a resource, the hooks, with [`Change::HeaderAction`](crate::Change::HeaderAction):
 ///   [`Resource::before_commit`](crate::Resource::before_commit) in the transaction after `run`,
@@ -229,7 +231,7 @@ impl HeaderActions {
         self.entries.push(HeaderEntry {
             name: A::NAME,
             label: Arc::new(move || label.clone()),
-            can_run: def.can_run.unwrap_or_else(|| Arc::new(|_| true)),
+            can_run: refused_while_writes_are(def.can_run),
             input: InputSpec::of::<A::Input>(parse_header_input::<A>),
             run: run_header_erased::<A>,
             success: Arc::new(move || success.clone()),
@@ -281,6 +283,15 @@ pub(crate) struct HeaderEntry {
     pub(crate) icon: Arc<dyn Fn() -> Option<IconData> + Send + Sync>,
     /// The colour its button is tinted in.
     pub(crate) color: Color,
+}
+
+/// The action's own check, refusing every request whose writes the panel refuses: one made while
+/// someone acts as another user. Every route and button asks the entry's check, so no caller can
+/// leave it out.
+fn refused_while_writes_are(can_run: Option<def::RequestCheck>) -> def::RequestCheck {
+    Arc::new(move |cx| {
+        !crate::policy::writes_refused(cx) && can_run.as_ref().is_none_or(|can_run| can_run(cx))
+    })
 }
 
 /// [`FormInput::parse`], then [`HeaderAction::validate_input`], behind a function pointer.

@@ -53,6 +53,7 @@ pub struct Impersonation<U> {
     allows: Arc<Rule<U>>,
     lifetime: Duration,
     across_tenants: bool,
+    writable: bool,
 }
 
 /// The longest an [`Impersonation`] lasts, whatever its [`lifetime`](Impersonation::lifetime).
@@ -74,6 +75,7 @@ impl<U: PanelUser> Impersonation<U> {
             allows: Arc::new(allows),
             lifetime: Duration::from_hours(1),
             across_tenants: false,
+            writable: false,
         }
     }
 
@@ -94,6 +96,24 @@ impl<U: PanelUser> Impersonation<U> {
         self.across_tenants = true;
         self
     }
+
+    /// Let the actor write as the target: create, edit and delete records, run actions and header
+    /// actions, and clear the target's notifications, as far as the policies allow the target.
+    ///
+    /// Off by default: acting as someone reads the panel as they read it, and writes nothing. Every
+    /// resource answers as if mounted [`ReadOnly`](crate::ReadOnly), so its buttons are gone and
+    /// its write routes answer 403, [`can`](crate::can) included; no header action runs, on a
+    /// resource or a page; and the notification bell offers nothing to mark or remove. A route
+    /// of the app's own, outside the panel's resources and pages, asks
+    /// [`impersonator`](crate::auth::impersonator) itself.
+    ///
+    /// Writable or not, the actor never reaches the target's credentials: see
+    /// [`Auth::impersonation`].
+    #[must_use]
+    pub fn writable(mut self) -> Self {
+        self.writable = true;
+        self
+    }
 }
 
 impl<U: PanelUser> Auth<U> {
@@ -107,6 +127,9 @@ impl<U: PanelUser> Auth<U> {
     /// - Every page then reads the target as the signed-in user, tenant included, under a banner
     ///   naming them with a Stop button, which posts to `{prefix}/impersonate/stop` and restores
     ///   the actor. So does the end of the lifetime, or the rule refusing again.
+    /// - The actor writes nothing meanwhile: every resource answers as
+    ///   [`ReadOnly`](crate::ReadOnly) does and no header action runs, unless
+    ///   [`Impersonation::writable`] says otherwise.
     /// - The profile, two-factor, tenant settings, tenant registration and email-verification pages
     ///   answer 403 while it lasts, and an email-change link ignores the session: the actor never
     ///   changes the target's credentials.
@@ -131,6 +154,7 @@ impl<U: PanelUser> Auth<U> {
             }),
             lifetime: impersonation.lifetime,
             across_tenants: impersonation.across_tenants,
+            writable: impersonation.writable,
         });
         self
     }
@@ -144,6 +168,7 @@ pub(crate) struct ImpersonationConfig {
     allows: Arc<Allows>,
     lifetime: Duration,
     across_tenants: bool,
+    writable: bool,
 }
 
 impl std::fmt::Debug for ImpersonationConfig {
@@ -151,6 +176,7 @@ impl std::fmt::Debug for ImpersonationConfig {
         f.debug_struct("Impersonation")
             .field("lifetime", &self.lifetime)
             .field("across_tenants", &self.across_tenants)
+            .field("writable", &self.writable)
             .finish_non_exhaustive()
     }
 }
@@ -186,6 +212,19 @@ impl AuthConfig {
     /// The impersonation rule, or `None` when no user may act as another.
     pub(crate) fn impersonation(&self) -> Option<&ImpersonationConfig> {
         self.authenticator().and(self.impersonation.as_ref())
+    }
+}
+
+impl SignedIn {
+    /// Whether the panel refuses this request's writes: an actor acts as the user, under an
+    /// impersonation that is not [`writable`](Impersonation::writable).
+    pub(super) fn refuses_writes(&self) -> bool {
+        self.impersonator.is_some()
+            && !self
+                .realm
+                .auth
+                .impersonation()
+                .is_some_and(|config| config.writable)
     }
 }
 

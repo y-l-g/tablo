@@ -264,6 +264,18 @@ impl<M> Policy<M> for ReadOnly {
     }
 }
 
+/// Marks a request that writes nothing through the panel, whatever a policy allows: one made while
+/// a user acts as another under an [`Impersonation`](crate::Impersonation) that is not
+/// [`writable`](crate::Impersonation::writable). Every resource then answers as [`ReadOnly`] does,
+/// and no header action runs.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct WritesRefused;
+
+/// Whether the request writes nothing through the panel: see [`WritesRefused`].
+pub(crate) fn writes_refused(cx: &Cx) -> bool {
+    topcoat::context::try_context::<WritesRefused>(cx).is_some()
+}
+
 /// Allows every ability while `predicate` holds for the request.
 ///
 /// ```rust

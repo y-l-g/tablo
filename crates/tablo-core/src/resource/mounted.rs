@@ -357,9 +357,10 @@ impl<R: Resource> Mounted<R> {
     }
 
     /// Whether the policy alone allows `ability`, whatever the record's state: what tells a
-    /// record the user may not act on from one the action refuses for now.
+    /// record the user may not act on from one the action refuses for now. A request whose
+    /// writes the panel refuses, made while someone acts as another user, has the reads alone.
     pub(crate) fn policy_allows(&self, cx: &Cx, ability: Ability<'_, R::Model>) -> bool {
-        self.policy.allows(cx, ability)
+        (ability.is_read() || !crate::policy::writes_refused(cx)) && self.policy.allows(cx, ability)
     }
 }
 
