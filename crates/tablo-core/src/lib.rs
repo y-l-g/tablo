@@ -195,7 +195,7 @@ pub use panel::{
 };
 pub use policy::{Abilities, Ability, Allow, And, Deny, Or, Policy, ReadOnly, When, when};
 pub use resource::{
-    Action, ActionDef, Change, FieldAccess, ForeignKey, GlobalSearch, HeaderAction,
+    Acted, Action, ActionDef, Change, FieldAccess, ForeignKey, GlobalSearch, HeaderAction,
     HeaderActionDef, HeaderActions, Places, PublicLink, RecordPage, RecordPageDef, Relation,
     Resource, ResourceDef, ResourcePage, Trashed, WriteError, can, filter_keys, scoped_query,
     scoped_query_in, write_create, write_delete, write_force_delete, write_restore, write_update,

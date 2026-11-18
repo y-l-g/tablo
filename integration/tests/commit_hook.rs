@@ -97,7 +97,7 @@ impl CommitHook for Audit {
             Change::Export { rows } => &format!("export {rows}"),
             _ => "other",
         };
-        let first = change.change().records().first();
+        let first = change.change().records().first().copied();
         let fields = change
             .change()
             .records()

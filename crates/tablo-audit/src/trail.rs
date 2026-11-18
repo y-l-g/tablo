@@ -115,7 +115,15 @@ fn events(cx: &Cx, change: &PanelChange) -> Vec<AuditEvent> {
         Change::Delete(records) => each("delete", records),
         Change::Restore(records) => each("restore", records),
         Change::ForceDelete(records) => each("force_delete", records),
-        Change::Action { name, records } => each(&format!("action:{name}"), records),
+        // A run that changed no field the log reads still records who ran it.
+        Change::Action { name, .. } => {
+            let event = format!("action:{name}");
+            let records = change.change().records();
+            records
+                .into_iter()
+                .map(|record| on(&event, record))
+                .collect()
+        }
         Change::HeaderAction { name } => {
             vec![AuditEvent::new(format!("header_action:{name}")).resource(change.slug())]
         }

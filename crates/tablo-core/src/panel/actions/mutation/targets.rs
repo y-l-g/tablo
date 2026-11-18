@@ -15,8 +15,9 @@ use super::{
 };
 use crate::{
     notification::{Notification, set_notification},
-    resource::{ActionEntry, Mounted, Resource, Trashed},
+    resource::{Acted, ActionEntry, Mounted, Resource, Trashed},
     table::TableState,
+    toasty_compat::pk::{pk_set_filter, pk_text},
 };
 
 /// Loads the records `ids` names through the tenant-scoped query inside the transaction, 404ing
@@ -59,6 +60,34 @@ pub(super) async fn load_targets<R: Resource>(
         return Err(not_found().into());
     }
     Ok(rows)
+}
+
+/// Each of `before` beside the row an action's run left, reloaded by its key inside the
+/// transaction under the tenant filter alone, so a row the run archived out of the resource's
+/// query still reads as the run left it.
+pub(super) async fn reload<R: Resource>(
+    cx: &Cx,
+    resource: &Mounted<R>,
+    before: Vec<R::Model>,
+    tx: &mut toasty::Transaction<'_>,
+) -> Result<Vec<Acted<R::Model>>, topcoat::Error> {
+    let keys: Vec<&R::Model> = before.iter().collect();
+    let mut after: std::collections::HashMap<String, R::Model> = resource
+        .tenant_query(cx)?
+        .filter(pk_set_filter(&keys))
+        .exec(tx)
+        .await
+        .map_err(crate::error::unavailable)?
+        .into_iter()
+        .map(|row| (pk_text(&row), row))
+        .collect();
+    Ok(before
+        .into_iter()
+        .map(|before| {
+            let after = after.remove(&pk_text(&before));
+            Acted { before, after }
+        })
+        .collect())
 }
 
 /// The records a select-all-matching POST names: the resource's list query narrowed by the search

@@ -90,12 +90,13 @@ pub fn unfeatured_only(_cx: &Cx, ability: Ability<'_, Post>) -> bool {
 /// Refuses a write that publishes a post unless an editor makes it. Called from
 /// `PostResource::before_commit`, it sees what the write stores, which the policy does not.
 pub async fn only_editors_publish(cx: &Cx, change: &tablo::Change<Post>) -> Result<()> {
+    let published = |post: &Post| matches!(post.status, PostStatus::Published);
     let publishes = match change {
-        tablo::Change::Create(post) => matches!(post.status, PostStatus::Published),
-        tablo::Change::Update { before, after } => {
-            !matches!(before.status, PostStatus::Published)
-                && matches!(after.status, PostStatus::Published)
-        }
+        tablo::Change::Create(post) => published(post),
+        tablo::Change::Update { before, after } => !published(before) && published(after),
+        tablo::Change::Action { records, .. } => records
+            .iter()
+            .any(|acted| !published(&acted.before) && acted.after.as_ref().is_some_and(published)),
         _ => false,
     };
     if publishes && !editors_only(cx) {

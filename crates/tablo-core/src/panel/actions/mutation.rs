@@ -26,7 +26,7 @@ use topcoat::{
     view::BoxView,
 };
 
-use self::targets::{load_matching, load_targets, matching_query, refuse};
+use self::targets::{load_matching, load_targets, matching_query, refuse, reload};
 use super::super::{
     forms::{FormChrome, parse_form_body, render_form_page, truthy},
     gate::{gate, landing_url},
@@ -39,8 +39,8 @@ use crate::{
     panel::url::action_options_url,
     policy::Ability,
     resource::{
-        ActionEntry, ErasedInput, HeaderEntry, InputSpec, Mounted, Places, RESERVED_KEYS, Resource,
-        WriteError,
+        ActionEntry, Change, ErasedInput, HeaderEntry, InputSpec, Mounted, Places, RESERVED_KEYS,
+        Reports, Resource, WriteError,
     },
     table::bulk_key,
     topcoat_compat::async_page,
@@ -397,14 +397,21 @@ async fn mutate<'a, R: Resource>(
         }
         Err(WriteError::Failed(error)) => Err(error),
     };
-    // A delete's hook names what was removed: the pre-delete snapshot.
-    let written = written.map(|outcome| (rows, outcome));
+    let written = match (written, action.change) {
+        // A delete's hook names what was removed: the pre-delete snapshot.
+        (Ok(outcome), Reports::Snapshot(change)) => Ok((change(rows), outcome)),
+        (Ok(outcome), Reports::Acted) => reload(cx, resource, rows, &mut tx).await.map(|records| {
+            let name = action.name;
+            (Change::Action { name, records }, outcome)
+        }),
+        (Err(error), _) => Err(error),
+    };
     commit_write(
         cx,
         resource,
         tx,
         written,
-        action.change,
+        |change| change,
         note,
         action.failure,
     )

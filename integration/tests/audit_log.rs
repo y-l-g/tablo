@@ -2,13 +2,14 @@
 //! transaction, and the log lists to its reader only what the reader may read.
 
 use tablo::{
-    Ability, Allow, DeclarationErrorKind, FieldAccess, Resource, ResourceDef, Table, TenantId,
-    TextColumn,
+    Ability, Action, Allow, DeclarationErrorKind, FieldAccess, Outcome, Resource, ResourceDef,
+    Table, TenantId, TextColumn, WriteError,
     audit::{AuditChange, AuditEntry, AuditLog, PanelAuditExt},
-    lens,
+    filter_keys, lens,
     testing::mount_with_handle,
 };
 use toasty::Db;
+use topcoat::context::Cx;
 use uuid::Uuid;
 
 use crate::common::{TestClient, mount, panel, post_fields, refusal, test_db};
@@ -75,8 +76,122 @@ impl Resource for VaultResource {
     }
 }
 
+#[derive(Debug, toasty::Model, tablo::PanelModel, Clone)]
+struct Ledger {
+    #[key]
+    #[auto]
+    id: Uuid,
+    title: String,
+    state: String,
+}
+
+/// A resource whose query hides the archived ledgers, and whose actions write through the model.
+struct LedgerResource;
+
+impl Resource for LedgerResource {
+    type Model = Ledger;
+    type Form = tablo::NoForm<Ledger>;
+
+    fn declare() -> ResourceDef<Self> {
+        ResourceDef::new()
+            .slug("ledgers")
+            .policy(Allow)
+            .query(Ledger::fields().state().ne("archived"))
+            .table(Table::new((
+                TextColumn::new(lens!(Ledger.title)),
+                TextColumn::new(lens!(Ledger.state)),
+            )))
+            .action::<Retitle>()
+            .action::<Archive>()
+            .action::<Touch>()
+            .action::<Purge>()
+    }
+}
+
+/// Sets the title.
+struct Retitle;
+
+impl Action<LedgerResource> for Retitle {
+    type Input = ();
+    const NAME: &'static str = "retitle";
+
+    async fn run(
+        _: &Cx,
+        ledgers: &[Ledger],
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<Outcome, WriteError<()>> {
+        Ledger::filter(filter_keys(ledgers))
+            .update()
+            .title("Settled".to_owned())
+            .exec(ex)
+            .await?;
+        Ok(Outcome::done())
+    }
+}
+
+/// Moves the ledger out of the resource's query.
+struct Archive;
+
+impl Action<LedgerResource> for Archive {
+    type Input = ();
+    const NAME: &'static str = "archive";
+
+    async fn run(
+        _: &Cx,
+        ledgers: &[Ledger],
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<Outcome, WriteError<()>> {
+        Ledger::filter(filter_keys(ledgers))
+            .update()
+            .state("archived".to_owned())
+            .exec(ex)
+            .await?;
+        Ok(Outcome::done())
+    }
+}
+
+/// Writes nothing.
+struct Touch;
+
+impl Action<LedgerResource> for Touch {
+    type Input = ();
+    const NAME: &'static str = "touch";
+
+    async fn run(
+        _: &Cx,
+        _: &[Ledger],
+        _: (),
+        _: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<Outcome, WriteError<()>> {
+        Ok(Outcome::done())
+    }
+}
+
+/// Removes the row.
+struct Purge;
+
+impl Action<LedgerResource> for Purge {
+    type Input = ();
+    const NAME: &'static str = "purge";
+
+    async fn run(
+        _: &Cx,
+        ledgers: &[Ledger],
+        _: (),
+        ex: &mut dyn toasty::Executor,
+    ) -> topcoat::Result<Outcome, WriteError<()>> {
+        Ledger::filter(filter_keys(ledgers))
+            .delete()
+            .exec(ex)
+            .await?;
+        Ok(Outcome::done())
+    }
+}
+
 async fn db() -> Db {
-    test_db(toasty::models!(Memo, Vault, AuditEntry)).await
+    test_db(toasty::models!(Memo, Vault, Ledger, AuditEntry)).await
 }
 
 async fn entries(db: &Db) -> Vec<AuditEntry> {
@@ -217,6 +332,134 @@ async fn each_write_stores_an_entry_with_the_fields_it_changed() {
                 && after.is_none()),
         "a delete keeps what the record held"
     );
+}
+
+/// Each change of an entry, as `(field, before, after)`.
+fn diff(entry: &AuditEntry) -> Vec<(&str, Option<&str>, Option<&str>)> {
+    entry
+        .changes
+        .0
+        .iter()
+        .map(|change| {
+            (
+                change.field.as_str(),
+                change.before.as_deref(),
+                change.after.as_deref(),
+            )
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn an_action_stores_the_fields_its_run_changed() {
+    let db = db().await;
+    let router = mount(
+        db.clone(),
+        panel()
+            .resource::<LedgerResource>()
+            .audit_log(|log| log.policy(Allow)),
+    )
+    .expect("panel builds");
+    let ledger = {
+        let mut db = db.clone();
+        toasty::create!(Ledger {
+            title: "Open".to_owned(),
+            state: "live".to_owned(),
+        })
+        .exec(&mut db)
+        .await
+        .expect("seed a ledger")
+    };
+    for action in ["retitle", "touch", "archive"] {
+        let response = post_fields(
+            &router,
+            &format!("/admin/ledgers/{}/-/actions/{action}", ledger.id),
+            &[("confirm", "1")],
+        )
+        .await;
+        assert_eq!(response.status(), 303, "{action} runs");
+    }
+
+    let entries = entries(&db).await;
+    let events: Vec<&str> = entries.iter().map(|entry| entry.event.as_str()).collect();
+    assert_eq!(
+        events,
+        ["action:retitle", "action:touch", "action:archive"],
+        "a run that changed no field still records who ran it"
+    );
+    assert!(
+        entries
+            .iter()
+            .all(|entry| entry.record == Some(ledger.id.to_string())),
+        "each entry names the ledger: {entries:?}"
+    );
+    assert_eq!(
+        diff(&entries[0]),
+        [("title", Some("Open"), Some("Settled"))]
+    );
+    assert_eq!(diff(&entries[1]), []);
+    assert_eq!(
+        diff(&entries[2]),
+        [("state", Some("live"), Some("archived"))],
+        "a run that takes the row out of the resource's query reads as an update, not a removal"
+    );
+}
+
+#[tokio::test]
+async fn an_action_that_removes_its_rows_stores_what_they_held() {
+    let db = db().await;
+    let router = mount(
+        db.clone(),
+        panel()
+            .resource::<LedgerResource>()
+            .audit_log(|log| log.policy(Allow)),
+    )
+    .expect("panel builds");
+    let mut ids = Vec::new();
+    for title in ["First", "Second"] {
+        let mut db = db.clone();
+        let ledger = toasty::create!(Ledger {
+            title: title.to_owned(),
+            state: "live".to_owned(),
+        })
+        .exec(&mut db)
+        .await
+        .expect("seed a ledger");
+        ids.push(ledger.id.to_string());
+    }
+
+    let response = post_fields(
+        &router,
+        "/admin/ledgers/-/actions/purge",
+        &[("ids", &ids.join(",")), ("confirm", "1")],
+    )
+    .await;
+    assert_eq!(response.status(), 303, "the bulk purge runs");
+
+    let mut entries = entries(&db).await;
+    entries.sort_by(|a, b| a.record.cmp(&b.record));
+    let mut expected = ids.clone();
+    expected.sort();
+    assert_eq!(
+        entries
+            .iter()
+            .map(|entry| entry.record.clone().unwrap_or_default())
+            .collect::<Vec<_>>(),
+        expected,
+        "one entry per purged ledger"
+    );
+    for entry in &entries {
+        assert_eq!(entry.event, "action:purge");
+        let title = if Some(&ids[0]) == entry.record.as_ref() {
+            "First"
+        } else {
+            "Second"
+        };
+        assert!(
+            diff(entry).contains(&("title", Some(title), None)),
+            "a removed row keeps what it held: {entry:?}"
+        );
+    }
 }
 
 #[tokio::test]

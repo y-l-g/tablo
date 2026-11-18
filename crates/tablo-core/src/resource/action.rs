@@ -90,9 +90,9 @@ pub(crate) const RESERVED_KEYS: [&str; 4] = [crate::csrf::FIELD_NAME, "confirm",
 /// - the refusal: a row refused `Run`, by the policy or by [`ActionDef::can_run`], answers 403, and
 ///   a bulk selection runs the records that pass and reports the refused count as skipped. A
 ///   selection that passes on none writes nothing and answers with an error notification;
-/// - the hooks, with [`Change::Action`](super::Change::Action): [`Resource::before_commit`] in the
-///   transaction after `run`, then [`Resource::after_commit`] once it commits; and the success
-///   notification.
+/// - the hooks, with [`Change::Action`](super::Change::Action), each record as loaded before `run`
+///   and as reloaded after it: [`Resource::before_commit`] in the transaction after `run`, then
+///   [`Resource::after_commit`] once it commits; and the success notification.
 ///
 /// An action that asks for an [`Input`](Self::Input) asks for it first: its button opens the
 /// input's form in a dialog over the page, whose submit runs the action with the parsed value. The
@@ -328,7 +328,7 @@ impl<R: Resource> Actions<R> {
             input: InputSpec::of::<A::Input>(parse_input_erased::<R, A>),
             run: run_erased::<R, A>,
             success,
-            change: super::acted::<R, A>,
+            change: Reports::Acted,
             failure: "tablo-failed-run",
             confirm: def.confirm,
             trashed: super::Trashed::Without,
@@ -364,6 +364,17 @@ impl<R: Resource> Actions<R> {
     }
 }
 
+/// How a mutation reports its run to the hooks.
+#[derive_where(Clone, Copy)]
+pub(crate) enum Reports<M> {
+    /// The records as the handler loaded them, before the run: a delete names what it removed,
+    /// a restore what it brought back.
+    Snapshot(fn(Vec<M>) -> super::Change<M>),
+    /// [`Change::Action`](super::Change::Action) under the entry's name, each record reloaded
+    /// after the run.
+    Acted,
+}
+
 /// One mutation of a record or a selection with its type erased: a declared action, or the
 /// built-in delete. The panel runs every one through the same pipeline.
 #[derive_where(Clone)]
@@ -385,7 +396,7 @@ pub(crate) struct ActionEntry<R: Resource> {
     pub(crate) run: RunAction<R>,
     pub(crate) success: def::CountFn,
     /// What a run on the records changed, for the hooks.
-    pub(crate) change: fn(Vec<R::Model>) -> super::Change<R::Model>,
+    pub(crate) change: Reports<R::Model>,
     /// The message the failure toast's title reads.
     pub(crate) failure: &'static str,
     pub(crate) confirm: bool,

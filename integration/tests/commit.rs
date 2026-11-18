@@ -41,7 +41,7 @@ async fn audit(
         Change::Delete(_) => ("delete", None),
         _ => ("other", None),
     };
-    let first = change.records().first();
+    let first = change.records().first().copied();
     toasty::create!(Audit {
         hook: hook.to_string(),
         change: kind.to_string(),
