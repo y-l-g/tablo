@@ -31,10 +31,7 @@ pub(super) fn account_items(cx: &Cx) -> Vec<NavigationItem> {
     });
     profile.into_iter().chain(two_factor).collect()
 }
-/// The text tokens of a floating menu that sits in the sidebar. The sidebar rebinds
-/// `--foreground` and `--muted-foreground` to its own light text, which a menu on a light
-/// `--popover` surface would then inherit and render unreadable; the menu takes its text from
-/// the popover tokens instead.
+/// The text tokens of a floating menu that sits in the sidebar.
 const POPOVER_TEXT_CLASS: &str = "[--foreground:var(--popover-foreground)] [--muted-foreground:color-mix(in_oklab,var(--popover-foreground)_70%,transparent)]";
 
 /// The DOM id of the user menu's panel.
