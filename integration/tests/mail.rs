@@ -50,6 +50,7 @@ struct QueuedLetter {
     #[key]
     #[auto]
     id: Uuid,
+    #[column(type = text)]
     json: String,
 }
 

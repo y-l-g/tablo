@@ -157,6 +157,7 @@ pub enum AuthLetterKind {
 ///     #[key]
 ///     #[auto]
 ///     id: u64,
+///     #[column(type = text)]
 ///     sealed: String,
 /// }
 ///
