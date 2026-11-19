@@ -1,0 +1,30 @@
+[package]
+name = "tablo-jobs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "A durable job queue for Tablo apps, in the app's database, with queued auth mail, re-exported as `tablo::jobs`."
+
+[dependencies]
+tablo-core = { path = "../tablo-core", version = "0.11.1", default-features = false }
+aes-gcm.workspace = true
+data-encoding.workspace = true
+getrandom.workspace = true
+hkdf.workspace = true
+jiff.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+toasty.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+topcoat = { workspace = true, features = ["cookie", "mail"] }
+tracing.workspace = true
+uuid = { workspace = true, features = ["v7"] }
+
+[dev-dependencies]
+toasty = { workspace = true, features = ["sqlite"] }
+
+[lints]
+workspace = true

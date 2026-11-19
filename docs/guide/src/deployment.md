@@ -71,12 +71,23 @@ and the other subcommands. A new database has no user to sign in with: seed the 
   A crash still loses that mail, and a mail server that is down fails it. An
   [`AuthMailDelivery`](https://y-l.fr/tablo/nightly/api/tablo/trait.AuthMailDelivery.html)
   installed with `AuthMail::delivery` covers both: it writes each letter to the app's queue in the
-  transaction that records the letter's token, and a worker sends it.
+  transaction that records the letter's token, and a worker sends it. The `jobs` feature ships
+  one, [`AuthMailQueue`](https://y-l.fr/tablo/nightly/api/tablo_jobs/struct.AuthMailQueue.html),
+  on the durable queue `tablo::jobs` keeps in the app's database:
+
+  ```rust,ignore
+  let queue = tablo::jobs::AuthMailQueue::new(&cookie_key);
+  let mail = AuthMail::new(from, "https://app.example.com").delivery(queue.clone());
+  // In the worker, beside the server or in a process of its own:
+  let worker = tablo::jobs::Worker::new(&panel)?
+      .auth_mail(&queue)
+      .context(move |cx| cx.with(Mailer::new(transport.clone())));
+  ```
 - Terminate HTTPS in front of the binary: the panel's cookies are `Secure`, so without it every
   form POST fails its CSRF check.
 - Load the router's cookie `Key` from a secret holding at least 64 random bytes (decode a hex or
   base64 secret first: its text has fewer bits than its length), never from
-  `Key::generate()` and never committed: it seals two-factor secrets, so a key that changes on
+  `Key::generate()` and never committed: it seals two-factor secrets and queued auth mail, so a key that changes on
   restart, or differs between replicas, leaves every enrolled account unable to sign in, and a
   key that leaks lets its holder read them.
 - Give panels of different trust their own origins: bind each to its host with `Panel::host`, and

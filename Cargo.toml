@@ -6,6 +6,7 @@ members = [
     "crates/tablo-audit",
     "crates/tablo-build",
     "crates/tablo-core",
+    "crates/tablo-jobs",
     "crates/tablo-macros",
     "crates/tablo-test",
     "crates/tablo-ui",
@@ -44,6 +45,12 @@ jiff = "0.2"
 percent-encoding = "2"
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.11"
+aes-gcm = { version = "0.11", default-features = false, features = ["aes", "alloc"] }
+data-encoding = "2"
+getrandom = "0.4"
+hkdf = "0.13"
+serde_json = "1"
+tracing = "0.1"
 # The decimal types a typed field binds and a money column spells, behind the `tablo-core`
 # features named as Toasty's.
 rust_decimal = { version = "1.41", default-features = false, features = ["std"] }

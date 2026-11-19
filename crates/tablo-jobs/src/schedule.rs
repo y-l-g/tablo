@@ -1,0 +1,87 @@
+//! Recurring jobs. A [`JobSchedule`] row holds when each next falls due, and its version check
+//! lets one of however many workers enqueue each run.
+
+use std::{sync::Arc, time::Duration};
+
+use jiff::{SignedDuration, Timestamp};
+use toasty::Db;
+
+use crate::{Job, JobSchedule, enqueue, job::BoxFuture};
+
+type Enqueuer = Arc<
+    dyn for<'a> Fn(&'a mut dyn toasty::Executor) -> BoxFuture<'a, topcoat::Result<()>>
+        + Send
+        + Sync,
+>;
+
+/// A job a worker enqueues every so often, from [`Worker::every`](crate::Worker::every).
+#[derive(Clone)]
+pub(crate) struct Schedule {
+    kind: &'static str,
+    every: SignedDuration,
+    enqueue: Enqueuer,
+}
+
+impl Schedule {
+    pub(crate) fn new<J: Job + Clone>(every: Duration, job: J) -> Self {
+        Self {
+            kind: J::KIND,
+            // Past `SignedDuration::MAX`, some 292 billion years, is never.
+            every: SignedDuration::try_from(every).unwrap_or(SignedDuration::MAX),
+            enqueue: Arc::new(move |ex| {
+                let job = job.clone();
+                // Keyed by kind, so a run still waiting absorbs the next.
+                Box::pin(async move { enqueue(&job).dedupe(J::KIND).exec(ex).await })
+            }),
+        }
+    }
+
+    pub(crate) fn kind(&self) -> &'static str {
+        self.kind
+    }
+
+    /// Enqueues the run when one is due and no other worker took it first. A schedule seen for
+    /// the first time falls due one interval later.
+    pub(crate) async fn tick(&self, db: &Db) -> topcoat::Result<()> {
+        let mut db = db.clone();
+        let now = Timestamp::now();
+        let next = now.saturating_add(self.every)?;
+        let Some(mut row) = JobSchedule::filter_by_kind(self.kind)
+            .first()
+            .exec(&mut db)
+            .await?
+        else {
+            // A plain insert, not an upsert MySQL refuses. A worker that loses the race to create
+            // the row fails it, and finds the winner's row.
+            let created = JobSchedule::create()
+                .kind(self.kind)
+                .next_run_at(next)
+                .exec(&mut db)
+                .await;
+            if let Err(error) = created {
+                let taken = JobSchedule::filter_by_kind(self.kind)
+                    .first()
+                    .exec(&mut db)
+                    .await?
+                    .is_some();
+                if !taken {
+                    return Err(error.into());
+                }
+            }
+            return Ok(());
+        };
+        if row.next_run_at > now {
+            return Ok(());
+        }
+        let mut tx = db.transaction().await?;
+        match row.update().next_run_at(next).exec(&mut tx).await {
+            Ok(()) => {}
+            // Another worker took this run.
+            Err(error) if crate::worker::lost_race(&error) => return Ok(()),
+            Err(error) => return Err(error.into()),
+        }
+        (self.enqueue)(&mut tx).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+}

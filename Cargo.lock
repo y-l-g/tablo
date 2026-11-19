@@ -3791,6 +3791,7 @@ version = "0.11.1"
 dependencies = [
  "tablo-audit",
  "tablo-core",
+ "tablo-jobs",
  "tablo-test",
  "tablo-ui",
  "toasty",
@@ -3892,11 +3893,32 @@ dependencies = [
  "http-body-util",
  "jiff",
  "rust_decimal",
+ "serde",
  "serde_json",
  "tablo",
  "toasty",
  "tokio",
  "tokio-tungstenite 0.30.0",
+ "topcoat",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "tablo-jobs"
+version = "0.11.1"
+dependencies = [
+ "aes-gcm 0.11.1",
+ "data-encoding",
+ "getrandom 0.4.3",
+ "hkdf 0.13.0",
+ "jiff",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tablo-core",
+ "toasty",
+ "tokio",
  "topcoat",
  "tracing",
  "uuid",

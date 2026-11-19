@@ -54,6 +54,7 @@ changelog_include = [
     "tablo-audit",
     "tablo-build",
     "tablo-core",
+    "tablo-jobs",
     "tablo-macros",
     "tablo-test",
     "tablo-ui",
@@ -73,6 +74,12 @@ changelog_update = false
 
 [[package]]
 name = "tablo-core"
+release = true
+version_group = "tablo"
+changelog_update = false
+
+[[package]]
+name = "tablo-jobs"
 release = true
 version_group = "tablo"
 changelog_update = false

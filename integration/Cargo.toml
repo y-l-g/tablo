@@ -49,14 +49,16 @@ jiff.workspace = true
 # The decimal features are on here so that the workspace build, and so CI, compiles them.
 bigdecimal.workspace = true
 rust_decimal.workspace = true
-tablo = { path = "../crates/tablo", features = ["testing", "rust_decimal", "bigdecimal", "audit"] }
-serde_json = "1"
+tablo = { path = "../crates/tablo", features = ["testing", "rust_decimal", "bigdecimal", "audit", "jobs"] }
+# A test job's payload.
+serde.workspace = true
+serde_json.workspace = true
 toasty = { workspace = true, features = ["sqlite"] }
 tokio = { workspace = true, features = ["net", "sync", "time"] }
 tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect"] }
 topcoat = { workspace = true, features = ["mail", "serve", "l10n"] }
 # A test records what the mount logs.
-tracing = "0.1"
+tracing.workspace = true
 uuid.workspace = true
 
 [lints]

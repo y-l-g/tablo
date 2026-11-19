@@ -26,6 +26,7 @@ mod notifications;
 mod oidc;
 mod password_reset;
 mod profile;
+mod queued_mail;
 mod registration;
 mod session;
 mod stream_pool;

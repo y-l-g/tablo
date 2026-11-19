@@ -23,6 +23,8 @@ turso = ["toasty/turso"]
 testing = ["dep:tablo-test"]
 # `tablo::audit`: the audit log, built on the public API in a crate of its own (ADR-0040).
 audit = ["dep:tablo-audit"]
+# `tablo::jobs`: the durable job queue and the queued auth mail, in a crate of its own (ADR-0041).
+jobs = ["dep:tablo-jobs"]
 default = ["rich-text", "two-factor"]
 # The rich text field and column, and `tablo::rich_text`; off, `ammonia` and its HTML parser leave
 # the build.
@@ -38,6 +40,7 @@ bigdecimal = ["tablo-core/bigdecimal"]
 [dependencies]
 tablo-audit = { path = "../tablo-audit", version = "0.11.1", optional = true }
 tablo-core = { path = "../tablo-core", version = "0.11.1", default-features = false }
+tablo-jobs = { path = "../tablo-jobs", version = "0.11.1", optional = true }
 tablo-test = { path = "../tablo-test", version = "0.11.1", optional = true }
 tablo-ui = { path = "../tablo-ui", version = "0.11.1" }
 toasty.workspace = true
