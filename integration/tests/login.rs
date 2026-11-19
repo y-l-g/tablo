@@ -155,6 +155,34 @@ async fn a_throttle_in_the_database_counts_across_replicas() {
     );
 }
 
+/// `Auth::throttles_in_database` moves a throttle set after it into the database: two replicas
+/// share the sign-in limit.
+#[tokio::test]
+async fn throttles_in_the_database_count_every_throttle_there() {
+    const CLIENT: [u8; 4] = [198, 51, 100, 8];
+    let mut db = test_db(toasty::models!(AdminUser, AuthSession, AuthThrottle)).await;
+    create_admin(&mut db, "ada@example.com", "opensesame", "Ada")
+        .await
+        .expect("seed ada");
+    let replica = || {
+        let auth = Auth::password()
+            .throttles_in_database()
+            .throttle(LoginThrottle::new(2, std::time::Duration::from_mins(5)));
+        mount(db.clone(), Panel::new("admin").auth(auth)).expect("panel builds")
+    };
+    let (one, two) = (replica(), replica());
+
+    sign_in_from(&one, CLIENT, "wrong").await;
+    sign_in_from(&two, CLIENT, "wrong").await;
+    assert_eq!(
+        sign_in_from(&one, CLIENT, "opensesame").await,
+        http::StatusCode::FORBIDDEN,
+        "the third attempt is refused, counted across both replicas"
+    );
+    let rows = AuthThrottle::all().exec(&mut db).await.unwrap();
+    assert_eq!(rows.len(), 1, "the sign-in count is a row");
+}
+
 /// Mounting refuses a throttle in the database without the model that holds its counts.
 #[tokio::test]
 async fn a_throttle_in_the_database_needs_its_model() {
@@ -162,6 +190,19 @@ async fn a_throttle_in_the_database_needs_its_model() {
     let mounted = mount(
         db_with_ada().await,
         Panel::new("admin").auth(Auth::password().throttle(throttle)),
+    );
+    assert!(refusal(mounted).iter().any(|error| matches!(
+        &error.kind,
+        DeclarationErrorKind::MissingAuthModels { models } if models.contains(&"AuthThrottle")
+    )));
+}
+
+/// `Auth::throttles_in_database` needs the model too, for the default throttles it moves.
+#[tokio::test]
+async fn throttles_in_the_database_need_their_model() {
+    let mounted = mount(
+        db_with_ada().await,
+        Panel::new("admin").auth(Auth::password().throttles_in_database()),
     );
     assert!(refusal(mounted).iter().any(|error| matches!(
         &error.kind,
