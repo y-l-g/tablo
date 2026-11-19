@@ -86,7 +86,7 @@ pub(crate) fn header_bar(
     let buttons = actions
         .entries()
         .iter()
-        .filter(|action| allowed(action) && (action.can_run)(cx))
+        .filter(|action| action.placed && allowed(action) && (action.can_run)(cx))
         .map(|action| ActionButton {
             label: (action.label)().localize(cx),
             url: bulk_action_url(url.trim_end_matches('/'), action.name),

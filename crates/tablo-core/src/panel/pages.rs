@@ -178,8 +178,10 @@ pub fn header_action_buttons<P: Page>(cx: &Cx) -> BoxView<'_> {
     }
 }
 
-/// The button of `P`'s header action `A`, posting `input` instead of asking for it, to place in the
-/// page's content: a plan card's Subscribe, carrying the plan and the interval it offers.
+/// The button of `P`'s action `A`, posting `input` instead of asking for it, to place in the page's
+/// content: a plan card's Subscribe, carrying the plan and the interval it offers. `P` declares `A`
+/// with [`PageDef::action`](crate::PageDef::action), which keeps it out of the header, or with
+/// [`PageDef::header_action`](crate::PageDef::header_action).
 ///
 /// ```rust
 /// # use tablo_core::{FormInput, HeaderAction, Page, PageDef};
@@ -201,7 +203,7 @@ pub fn header_action_buttons<P: Page>(cx: &Cx) -> BoxView<'_> {
 ///
 /// impl Page for PlansPage {
 ///     fn declare() -> PageDef {
-///         PageDef::new().header_action::<Subscribe>()
+///         PageDef::new().action::<Subscribe>()
 ///     }
 ///
 ///     async fn render(cx: &Cx) -> Result<impl View> {
@@ -219,8 +221,8 @@ pub fn header_action_buttons<P: Page>(cx: &Cx) -> BoxView<'_> {
 ///
 /// The POST runs as the header bar's would: `input` is parsed and checked again, and a refused one
 /// lands on the action's input page. `A` confirms first when it sets
-/// [`confirm`](crate::HeaderActionDef::confirm). It renders nothing where
-/// [`header_action_buttons`] renders no button for `A`, when `P` does not declare `A`, and when
+/// [`confirm`](crate::HeaderActionDef::confirm). It renders nothing to a request the page or `A`'s
+/// [`can_run`](crate::HeaderActionDef::can_run) refuses, when `P` does not declare `A`, and when
 /// `input` holds a repeater's rows, which no hidden field carries.
 pub fn header_action_button<'a, P: Page, A: HeaderAction>(
     cx: &'a Cx,

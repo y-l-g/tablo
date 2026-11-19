@@ -210,7 +210,18 @@ impl HeaderActions {
     /// let _actions = HeaderActions::new().add::<ClearCache>();
     /// ```
     #[must_use]
-    pub fn add<A: HeaderAction>(mut self) -> Self {
+    pub fn add<A: HeaderAction>(self) -> Self {
+        self.push::<A>(true)
+    }
+
+    /// Appends the action `A`, routed as [`add`](Self::add) routes it, but left out of the header
+    /// bar: the page places its button itself.
+    pub(crate) fn add_unplaced<A: HeaderAction>(self) -> Self {
+        self.push::<A>(false)
+    }
+
+    /// Appends the action `A`, in the header bar when `placed`.
+    fn push<A: HeaderAction>(mut self, placed: bool) -> Self {
         const {
             assert!(
                 crate::declaration::segment_fault(A::NAME).is_none(),
@@ -239,6 +250,7 @@ impl HeaderActions {
             prompt: Arc::new(move || confirmation.clone()),
             icon: Arc::new(move || icon.clone()),
             color: def.color,
+            placed,
         });
         self
     }
@@ -283,6 +295,8 @@ pub(crate) struct HeaderEntry {
     pub(crate) icon: Arc<dyn Fn() -> Option<IconData> + Send + Sync>,
     /// The colour its button is tinted in.
     pub(crate) color: Color,
+    /// Whether the header bar shows its button; one that is not is placed by the page.
+    pub(crate) placed: bool,
 }
 
 /// The action's own check, refusing every request whose writes the panel refuses: one made while
