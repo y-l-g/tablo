@@ -33,3 +33,4 @@ tablo-audit-two-factor-enabled = Double authentification activée
 tablo-audit-two-factor-disabled = Double authentification désactivée
 tablo-audit-recovery-codes-replaced = Codes de récupération remplacés
 tablo-audit-login = Identifiant saisi
+tablo-audit-deleted-user = Utilisateur supprimé

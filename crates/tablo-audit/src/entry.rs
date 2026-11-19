@@ -11,7 +11,8 @@ use uuid::Uuid;
 ///
 /// A panel with [`audit_trail`](crate::PanelAuditExt::audit_trail) writes one per record of each
 /// write, inside the write's transaction, and [`AuditEvent::record`] writes the app's own.
-/// Nothing updates or deletes one but [`prune`](crate::prune).
+/// Nothing updates or deletes one but [`prune`](crate::prune),
+/// [`forget_actor`](crate::forget_actor) and [`forget_tenant`](crate::forget_tenant).
 #[derive(Debug, Clone, toasty::Model)]
 #[index(panel, created_at)]
 pub struct AuditEntry {
