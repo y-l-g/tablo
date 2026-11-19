@@ -7,7 +7,10 @@ use tablo_core::{
 use toasty::Executor;
 use topcoat::{Result, context::Cx};
 
-use crate::AuditEvent;
+use crate::{
+    AuditEvent,
+    impersonation::{IMPERSONATE, STOP_IMPERSONATING, TARGET_FIELD, UNTIL_FIELD},
+};
 
 /// The trail [`audit_trail`](crate::PanelAuditExt::audit_trail) registers.
 pub(crate) struct Trail;
@@ -33,8 +36,8 @@ impl CommitHook for Trail {
 impl AuthHook for Trail {
     async fn on_event(cx: &Cx, event: &AuthEvent<'_>, ex: &mut dyn Executor) -> Result<()> {
         let name = match event.kind() {
-            AuthEventKind::Impersonate { .. } => "impersonate",
-            AuthEventKind::StopImpersonating => "stop_impersonating",
+            AuthEventKind::Impersonate { .. } => IMPERSONATE,
+            AuthEventKind::StopImpersonating => STOP_IMPERSONATING,
             AuthEventKind::SignIn => "sign_in",
             AuthEventKind::SignInFailed { .. } => "sign_in_failed",
             AuthEventKind::SecondFactorFailed => "second_factor_failed",
@@ -51,7 +54,7 @@ impl AuthHook for Trail {
         let mut entry = AuditEvent::new(name);
         if let Some(target) = event.target_id() {
             entry = entry.key(target, None).change(
-                "user",
+                TARGET_FIELD,
                 tablo_core::t!(cx, "tablo-audit-target"),
                 None,
                 Some(event.target_name().unwrap_or(target).to_owned()),
@@ -62,7 +65,7 @@ impl AuthHook for Trail {
             // the latest.
             AuthEventKind::Impersonate { until } => {
                 entry = entry.change(
-                    "until",
+                    UNTIL_FIELD,
                     tablo_core::t!(cx, "tablo-audit-until"),
                     None,
                     Some(until.to_string()),

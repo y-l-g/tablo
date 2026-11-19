@@ -11,7 +11,7 @@ use tablo::{
     Allow, Auth, AuthEvent, AuthEventKind, AuthHook, HeaderAction, Impersonate, Impersonation,
     NoForm, Notification, Outcome, Page, PageDef, Panel, Resource, ResourceDef, Table, TextColumn,
     WriteError,
-    audit::{AuditEntry, PanelAuditExt},
+    audit::{AuditEntry, ImpersonationEvent, PanelAuditExt, impersonations},
     auth::{self, AdminUser, AuthSession, IMPERSONATE_FIELD, create_admin},
     lens,
     notification::StoredNotification,
@@ -571,13 +571,29 @@ async fn signing_out_while_acting_as_another_is_audited_as_a_stop() {
     // The one who signs out is the actor, not the user they acted as.
     assert_eq!(entries[2].record, Some(app.support.id.to_string()));
 
-    let until = entries[0]
-        .changes
-        .iter()
-        .find(|change| change.field == "until")
-        .and_then(|change| change.after.as_deref())
-        .expect("the start names its end");
-    let until: jiff::Timestamp = until.parse().expect("a timestamp");
+    let bob = app.bob.id.to_string();
+    let Some(ImpersonationEvent::Started {
+        user_id,
+        user_name,
+        until: Some(until),
+    }) = entries[0].impersonation()
+    else {
+        panic!("the start names whom and its end: {:?}", entries[0]);
+    };
+    assert_eq!(
+        (user_id, user_name.as_deref()),
+        (bob.clone(), Some("Bob Builder"))
+    );
+    assert!(matches!(
+        entries[1].impersonation(),
+        Some(ImpersonationEvent::Stopped { user_id, .. }) if user_id == bob
+    ));
+    assert_eq!(entries[2].impersonation(), None);
+    let filed = AuditEntry::filter(impersonations())
+        .exec(&mut app.db.clone())
+        .await
+        .expect("query entries");
+    assert_eq!(filed.len(), 2, "the start and the stop");
     // The default lifetime is an hour.
     let hour = jiff::SignedDuration::from_hours(1);
     assert!(until >= before.saturating_add(hour).unwrap(), "{until}");
