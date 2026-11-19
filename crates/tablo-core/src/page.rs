@@ -264,6 +264,53 @@ impl PageDef {
         self
     }
 
+    /// Adds the [`HeaderAction`] `A`, served at `{url}/-/actions/{NAME}` as a
+    /// [`header_action`](Self::header_action) is, but placed nowhere: the page or one of its
+    /// widgets shows its button with [`header_action_button`](crate::header_action_button), such
+    /// as a plan card's Subscribe that posts the plan it offers. It runs for whoever may open the
+    /// page, under its own [`can_run`](crate::HeaderActionDef::can_run).
+    ///
+    /// ```rust
+    /// # use tablo_core::{FormInput, HeaderAction, Page, PageDef, Widget, WidgetDef};
+    /// # use topcoat::{Result, context::Cx, view::{View, view}};
+    /// # #[derive(FormInput)]
+    /// # struct Plan { name: String }
+    /// # struct Subscribe;
+    /// # impl HeaderAction for Subscribe {
+    /// #     type Input = Plan;
+    /// #     const NAME: &'static str = "subscribe";
+    /// #     async fn run(_: &Cx, _: Plan, _: &mut dyn toasty::Executor) -> Result<tablo_core::Outcome, tablo_core::WriteError<Plan>> { Ok(tablo_core::Outcome::done()) }
+    /// # }
+    /// struct PlansPage;
+    ///
+    /// impl Page for PlansPage {
+    ///     fn declare() -> PageDef {
+    ///         PageDef::new().action::<Subscribe>().widget::<ProCard>()
+    ///     }
+    /// }
+    ///
+    /// struct ProCard;
+    ///
+    /// impl Widget for ProCard {
+    ///     fn declare() -> WidgetDef {
+    ///         WidgetDef::new()
+    ///     }
+    ///
+    ///     async fn render(cx: &Cx) -> Result<impl View> {
+    ///         let plan = Plan { name: "pro".into() };
+    ///         Ok(view! {
+    ///             <p>"Pro"</p>
+    ///             (tablo_core::header_action_button::<PlansPage, Subscribe>(cx, &plan))
+    ///         })
+    ///     }
+    /// }
+    /// ```
+    #[must_use]
+    pub fn action<A: HeaderAction>(mut self) -> Self {
+        self.header_actions = self.header_actions.add_unplaced::<A>();
+        self
+    }
+
     /// Adds the [`Widget`] `W` after the ones already declared, to the grid the default
     /// [`render`](Page::render) shows under the header; a page that renders itself places
     /// [`widgets`](crate::widgets).

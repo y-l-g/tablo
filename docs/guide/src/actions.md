@@ -127,6 +127,11 @@ page that [writes its own](./panel-and-routing.md#rendering-a-page) places them 
 {{#include ../../../examples/guide/src/actions.rs:page-header-actions}}
 ```
 
+An action whose button belongs in the page's content, such as a plan card's Subscribe that posts
+the plan it offers, is declared with `PageDef::action::<A>()` instead: the page serves its route
+and leaves it out of the header, and the page or one of its widgets places its button with
+`header_action_button::<Page, A>(cx, &input)`.
+
 **A page has no policy**: its header actions run for whoever may open it. An action that writes a
 resource's records asks that resource's policy in its own `can_run`, as `PublishDrafts` does, so
 it runs for the same users from the list and from the page.
