@@ -29,6 +29,7 @@ pub(crate) mod tenant_profile;
 pub(crate) mod tenant_registration;
 pub(crate) mod throttle;
 mod token;
+#[cfg(feature = "two-factor")]
 pub(crate) mod two_factor;
 pub(crate) mod verification;
 
@@ -46,6 +47,13 @@ use topcoat::{
 };
 
 use self::realm::realms;
+#[cfg(feature = "two-factor")]
+pub use self::two_factor::{AuthFactor, FactorKind};
+// What the crate root exports, under the paths this module's own code names.
+#[cfg(feature = "two-factor")]
+pub(crate) use self::two_factor::{
+    TwoFactor, offered as two_factor_offered, settings_url as two_factor_url,
+};
 pub use self::{
     account::normalize_email,
     columns::ColumnPreference,
@@ -61,10 +69,8 @@ pub use self::{
     },
     throttle::AuthThrottle,
     token::{AuthToken, TokenPurpose},
-    two_factor::{AuthFactor, FactorKind},
     verification::VERIFICATION_LIFETIME,
 };
-// What the crate root exports, under the paths this module's own code names.
 pub(crate) use self::{
     account::{PasswordAccount, PasswordAuth},
     columns::{load_choice, save_choice},
@@ -90,7 +96,6 @@ pub(crate) use self::{
         TenantRegistration, offered as tenant_registration_offered, register_tenant_url,
     },
     throttle::LoginThrottle,
-    two_factor::{TwoFactor, offered as two_factor_offered, settings_url as two_factor_url},
     verification::EmailVerification,
 };
 use crate::{
@@ -112,6 +117,7 @@ pub(crate) trait DynAuthenticator: Send + Sync {
         id: &'a str,
     ) -> BoxFuture<'a, topcoat::Result<Option<Arc<dyn PanelUser>>>>;
     /// Whether `password` is `user`'s; a user of another type has none.
+    #[cfg(feature = "two-factor")]
     fn confirm_password<'a>(
         &'a self,
         cx: &'a Cx,
@@ -158,6 +164,7 @@ impl<A: Authenticator> DynAuthenticator for A {
         })
     }
 
+    #[cfg(feature = "two-factor")]
     fn confirm_password<'a>(
         &'a self,
         cx: &'a Cx,

@@ -13,7 +13,8 @@ impl std::fmt::Debug for AuthConfig {
         if self.is_disabled() {
             f.write_str("Auth::disabled")
         } else {
-            f.debug_struct("Auth")
+            let mut debug = f.debug_struct("Auth");
+            debug
                 .field("throttle", &self.throttle)
                 .field("account_throttle", &self.account_throttle)
                 .field("registration", &self.registrar.is_some())
@@ -22,12 +23,13 @@ impl std::fmt::Debug for AuthConfig {
                 .field("email_verification", &self.verification)
                 .field("tenant_registration", &self.tenant_registration)
                 .field("tenant_profile", &self.tenant_editor.is_some())
-                .field("two_factor", &self.two_factor)
                 .field("impersonation", &self.impersonation)
                 .field("oidc", &self.oidc)
                 .field("mail", &self.mail)
-                .field("sessions", &self.sessions)
-                .finish_non_exhaustive()
+                .field("sessions", &self.sessions);
+            #[cfg(feature = "two-factor")]
+            debug.field("two_factor", &self.two_factor);
+            debug.finish_non_exhaustive()
         }
     }
 }

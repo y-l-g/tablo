@@ -227,6 +227,7 @@ pub(super) async fn admit(
         tracing::error!(error = %error, "expired-token sweep failed");
     }
     // An account with a second factor gets a challenge, not yet a session.
+    #[cfg(feature = "two-factor")]
     if panel.auth.two_factor_config().is_some() {
         match super::two_factor::enrolled(cx, user).await {
             Ok(Some(kind)) => {

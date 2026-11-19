@@ -3,10 +3,12 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
+#[cfg(feature = "two-factor")]
+use super::TwoFactor;
 use super::{
     AdminUser, AuthMail, Authenticator, DynAuthenticator, EmailVerification, LoginThrottle,
     PanelUser, PasswordAuth, PasswordReset, ProfileEditor, Registrar, TenantEditor,
-    TenantRegistration, TwoFactor,
+    TenantRegistration,
     external::{DynExternal, ExternalAuth, ExternalUsers},
     profile::DynProfileEditor,
     registration::DynRegistrar,
@@ -360,6 +362,7 @@ impl<U: PanelUser> Auth<U> {
     ///   the users its rule names.
     /// - Mounting refuses two-factor sign-in on `Auth::disabled()`, a router without a cookie
     ///   `Key`, and codes by email without `Auth::mail`.
+    #[cfg(feature = "two-factor")]
     #[must_use]
     pub fn two_factor(mut self, two_factor: TwoFactor) -> Self {
         self.config.two_factor = Some(two_factor);
@@ -408,6 +411,7 @@ pub(crate) struct AuthConfig {
     pub(super) verification: Option<EmailVerification<()>>,
     pub(super) tenant_registration: Option<TenantRegistration<()>>,
     pub(super) tenant_editor: Option<Box<dyn DynTenantEditor>>,
+    #[cfg(feature = "two-factor")]
     pub(super) two_factor: Option<TwoFactor>,
     pub(super) impersonation: Option<super::impersonation::ImpersonationConfig>,
     pub(super) oidc: Option<super::oidc::Oidc<()>>,
@@ -434,6 +438,7 @@ impl AuthConfig {
             verification: None,
             tenant_registration: None,
             tenant_editor: None,
+            #[cfg(feature = "two-factor")]
             two_factor: None,
             impersonation: None,
             oidc: None,
@@ -495,10 +500,13 @@ impl AuthConfig {
         let verification = self
             .verification()
             .map(|verification| &verification.throttle);
+        #[cfg(feature = "two-factor")]
         let two_factor = self
             .two_factor_config()
             .into_iter()
             .flat_map(|two_factor| [&two_factor.throttle, &two_factor.mail_throttle]);
+        #[cfg(not(feature = "two-factor"))]
+        let two_factor = std::iter::empty();
         [
             &self.throttle,
             &self.account_throttle,
@@ -536,11 +544,6 @@ impl AuthConfig {
             .and(self.tenant_editor.as_deref())
     }
 
-    /// The two-factor sign-in, or `None` when the panel asks for one factor.
-    pub(crate) fn two_factor_config(&self) -> Option<&TwoFactor> {
-        self.authenticator.as_ref().and(self.two_factor.as_ref())
-    }
-
     /// The provider sign-in, or `None` when the panel offers none.
     pub(crate) fn oidc(&self) -> Option<&super::oidc::Oidc<()>> {
         self.authenticator.as_ref().and(self.oidc.as_ref())
@@ -556,10 +559,7 @@ impl AuthConfig {
         [
             self.reset.is_some().then_some("password_reset"),
             self.verification.is_some().then_some("email_verification"),
-            self.two_factor
-                .as_ref()
-                .is_some_and(|two_factor| two_factor.mails())
-                .then_some("two_factor"),
+            self.two_factor_mails().then_some("two_factor"),
         ]
         .into_iter()
         .flatten()
@@ -569,8 +569,9 @@ impl AuthConfig {
     /// Whether the panel issues [`AuthToken`](super::AuthToken)s, so the model must be registered:
     /// it mails links, or challenges a second factor.
     pub(crate) fn issues_tokens(&self) -> bool {
-        self.authenticator.is_some() && (!self.mailing().is_empty() || self.two_factor.is_some())
+        self.authenticator.is_some() && (!self.mailing().is_empty() || self.two_factor_declared())
     }
 }
 
 mod debug;
+mod two_factor;

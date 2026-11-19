@@ -136,6 +136,8 @@ mod widget;
 /// The future a type-erased, dyn-compatible method returns.
 pub(crate) type BoxFuture<'a, T> = std::pin::Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+#[cfg(feature = "two-factor")]
+pub use auth::two_factor::TwoFactor;
 pub use auth::{
     account::{PasswordAccount, PasswordAuth},
     config::Auth,
@@ -153,7 +155,6 @@ pub use auth::{
     tenant_profile::TenantEditor,
     tenant_registration::{TenantRegistrar, TenantRegistration},
     throttle::LoginThrottle,
-    two_factor::TwoFactor,
     verification::{EmailVerification, EmailVerifier},
 };
 pub use chart::{Chart, Series, chart};

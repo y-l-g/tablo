@@ -154,7 +154,10 @@ is the explicit opt-out.
   `Registrar`.
 - Auth in a crate of its own, or behind a Cargo feature: it reads the panel's CSRF, database,
   catalog and form modules, so their items would turn `#[doc(hidden)] pub`, as ADR-0024 says of
-  the declaration model; and auth is on by default, so a feature would rarely be off.
+  the declaration model; and auth is on by default, so a feature would rarely be off. Two-factor
+  sign-in is the exception, behind the default `two-factor` feature: it is opt-in, a panel on
+  `Auth::external` cannot use it, and it alone needs AES-GCM, QR codes and SHA-1. Provider
+  sign-in stays in: its HTTP client is already in every build through Topcoat's icon fetcher.
 - A sign-out or a refused sign-in that fails with its hook: a session that cannot end is worse than
   one the trail misses, and a trail that is down would turn a wrong password into an outage page
   that tells it apart from a right one. A sign-in event at the password, before the second factor:

@@ -124,6 +124,7 @@ impl AuthPage {
     pub(crate) fn name(self) -> &'static str {
         match self {
             Self::Profile => "profile",
+            #[cfg(feature = "two-factor")]
             Self::TwoFactor => "two-factor",
             Self::TenantProfile => "tenant settings",
         }
@@ -133,6 +134,7 @@ impl AuthPage {
     fn defaults(self) -> (&'static str, &'static str, topcoat::icon::IconData) {
         match self {
             Self::Profile => ("profile", "tablo-shell-profile", tablo_ui::icons::USER),
+            #[cfg(feature = "two-factor")]
             Self::TwoFactor => (
                 "two-factor",
                 "tablo-shell-two-factor",
@@ -150,6 +152,7 @@ impl AuthPage {
     fn offered(self, cx: &Cx) -> bool {
         match self {
             Self::Profile => crate::auth::profile_offered(cx),
+            #[cfg(feature = "two-factor")]
             Self::TwoFactor => crate::auth::two_factor_offered(cx),
             Self::TenantProfile => crate::auth::tenant_profile_offered(cx),
         }
@@ -167,7 +170,8 @@ impl Registry {
             .iter()
             .filter(|(page, _)| match page {
                 AuthPage::Profile => auth.profile_editor().is_none(),
-                AuthPage::TwoFactor => auth.two_factor_config().is_none(),
+                #[cfg(feature = "two-factor")]
+                AuthPage::TwoFactor => !auth.asks_two_factor(),
                 AuthPage::TenantProfile => auth.tenant_editor().is_none(),
             })
             .map(|(page, _)| {
@@ -200,7 +204,7 @@ impl Registry {
             (mounted.access_declared, "an access check"),
             // Auth renders the two-factor page as no form it shares with the others.
             (
-                page == AuthPage::TwoFactor && !mounted.header_actions.is_empty(),
+                two_factor_page(page) && !mounted.header_actions.is_empty(),
                 "header actions",
             ),
         ];
@@ -232,6 +236,7 @@ impl Registry {
             match page {
                 AuthPage::Profile => self.mount_actions::<ProfileSettings>(&url, mounted),
                 AuthPage::TenantProfile => self.mount_actions::<TenantSettings>(&url, mounted),
+                #[cfg(feature = "two-factor")]
                 AuthPage::TwoFactor => {}
             }
         }
@@ -274,4 +279,17 @@ fn area_root(cx: &Cx, _body: Body) -> RouteFuture<'_> {
             .ok_or_else(topcoat::router::error::not_found)?;
         Err(redirect(target).into())
     })
+}
+
+/// Whether `page` is the two-factor settings page.
+fn two_factor_page(page: AuthPage) -> bool {
+    #[cfg(feature = "two-factor")]
+    {
+        page == AuthPage::TwoFactor
+    }
+    #[cfg(not(feature = "two-factor"))]
+    {
+        let _ = page;
+        false
+    }
 }

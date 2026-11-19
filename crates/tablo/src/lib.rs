@@ -16,7 +16,10 @@
 //! features (`sqlite`, `postgresql`, `mysql`, `turso`) turn on Toasty's driver of the same
 //! name, and the toolkit itself enables none. The `rust_decimal` and `bigdecimal` features make
 //! those crates' decimal types typed values and numeric amounts, and turn on Toasty's feature of
-//! the same name.
+//! the same name. Two features are on by default: `rich-text`, the rich text field and column, and
+//! `two-factor`, [`Auth::two_factor`] and its `AuthFactor` model. A panel that never asks for a
+//! second factor, such as one on [`Auth::external`], turns `two-factor` off and drops its cipher,
+//! QR code and one-time code crates.
 //!
 //! A minimal app is one model, the record form [`ModelForm`](derive@ModelForm)
 //! derives from it, one [`Resource`], and the [`Panel`] that serves it — the

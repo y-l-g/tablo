@@ -337,7 +337,8 @@ fn check_with(
         Some(&root),
         &[],
     )?;
-    // The build without the default features, its tests included: an app may drop `rich-text`.
+    // The build without the default features, its tests included: an app may drop `rich-text` and
+    // `two-factor`.
     run.run(
         "cargo",
         &[

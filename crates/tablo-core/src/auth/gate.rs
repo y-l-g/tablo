@@ -16,6 +16,8 @@ use topcoat::{
     view::{BoxView, ViewExt, attributes, view},
 };
 
+#[cfg(feature = "two-factor")]
+use super::two_factor;
 use super::{
     PanelUser, SignedIn, email_change,
     login::{login_url, logout_url},
@@ -25,7 +27,7 @@ use super::{
     realm::{Realm, host, hosted, realms},
     registration::{offered, register_url},
     session::{Activity, resolve},
-    tenant_registration, two_factor, unauthenticated_error, verification,
+    tenant_registration, unauthenticated_error, verification,
 };
 use crate::naming::route_path;
 
@@ -99,8 +101,11 @@ impl Layer for PanelGate {
             let email_change = verifies
                 && (path == email_change::confirm_url(&cx)
                     || path == email_change::cancel_url(&cx));
+            #[cfg(feature = "two-factor")]
             let challenge = self.realm.auth.two_factor_config().is_some()
                 && path == two_factor::challenge_url(&cx);
+            #[cfg(not(feature = "two-factor"))]
+            let challenge = false;
             // A panel behind external auth serves its login path on GET alone.
             let login = path == login_url(&cx)
                 && (self.realm.auth.external().is_none()
@@ -203,6 +208,7 @@ enum Step {
     /// Prove they read the address they store.
     VerifyEmail,
     /// Set up the authenticator app the panel requires.
+    #[cfg(feature = "two-factor")]
     SetUpTwoFactor,
     /// Create a tenant to act for.
     RegisterTenant,
@@ -213,6 +219,7 @@ impl Step {
     fn url(self, cx: &Cx) -> String {
         match self {
             Self::VerifyEmail => verification::notice_url(cx),
+            #[cfg(feature = "two-factor")]
             Self::SetUpTwoFactor => two_factor::settings_url(cx),
             Self::RegisterTenant => tenant_registration::register_tenant_url(cx),
         }
@@ -230,27 +237,34 @@ impl Step {
 
 /// The step `signed` owes `panel`, if any: an unverified address first, then a required
 /// authenticator, since registering a tenant is reaching the panel.
-async fn owed_step(cx: &Cx, panel: &Realm, signed: &SignedIn) -> topcoat::Result<Option<Step>> {
+async fn owed_step(
+    #[cfg_attr(not(feature = "two-factor"), expect(unused_variables))] cx: &Cx,
+    panel: &Realm,
+    signed: &SignedIn,
+) -> topcoat::Result<Option<Step>> {
     let user = signed.user.as_ref();
-    Ok(if verification::pending(panel, user) {
-        Some(Step::VerifyEmail)
-    } else if two_factor::setup_pending(cx, panel, user).await? {
-        Some(Step::SetUpTwoFactor)
-    } else {
-        tenant_registration::pending(panel, user).then_some(Step::RegisterTenant)
-    })
+    if verification::pending(panel, user) {
+        return Ok(Some(Step::VerifyEmail));
+    }
+    #[cfg(feature = "two-factor")]
+    if two_factor::setup_pending(cx, panel, user).await? {
+        return Ok(Some(Step::SetUpTwoFactor));
+    }
+    Ok(tenant_registration::pending(panel, user).then_some(Step::RegisterTenant))
 }
 
 /// Whether `user` owes `panel` a step: what ends their acting as another user, so the step is
 /// not put off while they do.
 pub(super) async fn owes_step(
-    cx: &Cx,
+    #[cfg_attr(not(feature = "two-factor"), expect(unused_variables))] cx: &Cx,
     panel: &Realm,
     user: &dyn PanelUser,
 ) -> topcoat::Result<bool> {
-    Ok(verification::pending(panel, user)
-        || two_factor::setup_pending(cx, panel, user).await?
-        || tenant_registration::pending(panel, user))
+    #[cfg(feature = "two-factor")]
+    if two_factor::setup_pending(cx, panel, user).await? {
+        return Ok(true);
+    }
+    Ok(verification::pending(panel, user) || tenant_registration::pending(panel, user))
 }
 
 /// Whether `signed` may reach any endpoint: they have panel access and owe no step.

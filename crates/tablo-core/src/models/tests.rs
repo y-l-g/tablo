@@ -1,9 +1,11 @@
 use jiff::Timestamp;
 
 use super::erase_user;
+#[cfg(feature = "two-factor")]
+use crate::auth::{AuthFactor, FactorKind};
 use crate::{
     Notification,
-    auth::{AuthFactor, AuthSession, AuthToken, ColumnPreference, FactorKind, TokenPurpose},
+    auth::{AuthSession, AuthToken, ColumnPreference, TokenPurpose},
     notification::StoredNotification,
     test_support::memory_db,
     toasty_compat::model::AppSchema,
@@ -11,9 +13,10 @@ use crate::{
 
 /// The shipped models `erase_user` deletes a user's rows from: each has a `user_id` column, and
 /// [`seed`] and [`rows`] cover each.
-const USER_ROWS: [&str; 5] = [
+const USER_ROWS: &[&str] = &[
     "AuthSession",
     "AuthToken",
+    #[cfg(feature = "two-factor")]
     "AuthFactor",
     "ColumnPreference",
     "StoredNotification",
@@ -51,6 +54,7 @@ async fn seed(db: &mut toasty::Db, user: &str) {
     .exec(&mut *db)
     .await
     .expect("the token is stored");
+    #[cfg(feature = "two-factor")]
     toasty::create!(AuthFactor {
         user_id: user,
         panel: "/admin",
@@ -89,9 +93,10 @@ async fn seed(db: &mut toasty::Db, user: &str) {
 }
 
 /// How many rows each table of [`USER_ROWS`] holds for `user`, in its order.
-async fn rows(db: &mut toasty::Db, user: &str) -> [usize; 5] {
+async fn rows(db: &mut toasty::Db, user: &str) -> Vec<usize> {
     let id = || user.to_owned();
-    [
+    #[cfg_attr(not(feature = "two-factor"), expect(unused_mut))]
+    let mut rows = vec![
         AuthSession::filter(AuthSession::fields().user_id().eq(id()))
             .exec(&mut *db)
             .await
@@ -101,11 +106,6 @@ async fn rows(db: &mut toasty::Db, user: &str) -> [usize; 5] {
             .exec(&mut *db)
             .await
             .expect("the tokens read")
-            .len(),
-        AuthFactor::filter(AuthFactor::fields().user_id().eq(id()))
-            .exec(&mut *db)
-            .await
-            .expect("the factors read")
             .len(),
         ColumnPreference::filter(ColumnPreference::fields().user_id().eq(id()))
             .exec(&mut *db)
@@ -117,7 +117,17 @@ async fn rows(db: &mut toasty::Db, user: &str) -> [usize; 5] {
             .await
             .expect("the notifications read")
             .len(),
-    ]
+    ];
+    #[cfg(feature = "two-factor")]
+    rows.insert(
+        2,
+        AuthFactor::filter(AuthFactor::fields().user_id().eq(id()))
+            .exec(&mut *db)
+            .await
+            .expect("the factors read")
+            .len(),
+    );
+    rows
 }
 
 #[tokio::test]
@@ -128,8 +138,8 @@ async fn erasing_a_user_deletes_their_rows_and_no_one_elses() {
 
     erase_user(&mut db, "ada").await.expect("the erasure runs");
 
-    assert_eq!(rows(&mut db, "ada").await, [0; 5]);
-    assert_eq!(rows(&mut db, "bob").await, [1; 5]);
+    assert_eq!(rows(&mut db, "ada").await, vec![0; USER_ROWS.len()]);
+    assert_eq!(rows(&mut db, "bob").await, vec![1; USER_ROWS.len()]);
 }
 
 /// An app registers only the models its panel reads: erasure skips the rest.
