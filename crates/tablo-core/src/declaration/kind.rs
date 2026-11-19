@@ -46,6 +46,12 @@ pub enum DeclarationErrorKind {
         /// The refused value.
         value: String,
     },
+    /// A [`LoginThrottle`](crate::LoginThrottle) that allows no attempt, or counts over a window
+    /// of no time: either refuses every sign-in.
+    ThrottleAllowsNone {
+        /// The builder call that set it: `Auth::throttle`.
+        builder: &'static str,
+    },
     /// `Auth::external` beside a feature that needs Tablo to own the account's credentials.
     ///
     /// Drop the feature: the host app signs its users in, and keeps their credentials.

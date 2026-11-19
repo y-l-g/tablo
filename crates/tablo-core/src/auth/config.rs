@@ -496,28 +496,45 @@ impl AuthConfig {
     /// Whether any of the panel's throttles counts in the database, which then needs
     /// [`AuthThrottle`](super::AuthThrottle).
     pub(crate) fn throttles_in_database(&self) -> bool {
-        let reset = self.reset().map(|reset| &reset.throttle);
+        self.throttles()
+            .any(|(_, throttle)| throttle.counts_in_database())
+    }
+
+    /// The panel's throttles whose limit allows no sign-in, each refused by the mount.
+    pub(crate) fn throttle_declaration_errors(&self) -> Vec<crate::DeclarationErrorKind> {
+        self.throttles()
+            .filter(|(_, throttle)| throttle.allows_none())
+            .map(|(builder, _)| crate::DeclarationErrorKind::ThrottleAllowsNone { builder })
+            .collect()
+    }
+
+    /// Every throttle the panel declares, with the builder call that sets it.
+    fn throttles(&self) -> impl Iterator<Item = (&'static str, &LoginThrottle)> {
+        let reset = self
+            .reset()
+            .map(|reset| ("PasswordReset::throttle", &reset.throttle));
         let verification = self
             .verification()
-            .map(|verification| &verification.throttle);
+            .map(|verification| ("EmailVerification::throttle", &verification.throttle));
         #[cfg(feature = "two-factor")]
-        let two_factor = self
-            .two_factor_config()
-            .into_iter()
-            .flat_map(|two_factor| [&two_factor.throttle, &two_factor.mail_throttle]);
+        let two_factor = self.two_factor_config().into_iter().flat_map(|two_factor| {
+            [
+                ("TwoFactor::throttle", &two_factor.throttle),
+                ("TwoFactor::mail_throttle", &two_factor.mail_throttle),
+            ]
+        });
         #[cfg(not(feature = "two-factor"))]
         let two_factor = std::iter::empty();
         [
-            &self.throttle,
-            &self.account_throttle,
-            &self.sign_up_throttle,
-            &self.profile_throttle,
+            ("Auth::throttle", &self.throttle),
+            ("Auth::account_throttle", &self.account_throttle),
+            ("Auth::sign_up_throttle", &self.sign_up_throttle),
+            ("Auth::profile_throttle", &self.profile_throttle),
         ]
         .into_iter()
         .chain(reset)
         .chain(verification)
         .chain(two_factor)
-        .any(LoginThrottle::counts_in_database)
     }
 
     /// The password reset, or `None` without a forgot-password page.

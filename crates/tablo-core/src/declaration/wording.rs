@@ -55,6 +55,11 @@ impl fmt::Display for DeclarationErrorKind {
                 "the brand color `{value}` is no CSS color: spell it `#4f46e5` or \
                  `oklch(0.55 0.2 260)`",
             ),
+            Self::ThrottleAllowsNone { builder } => write!(
+                f,
+                "the throttle `{builder}` sets refuses every sign-in: allow at least one attempt \
+                 over a window longer than zero",
+            ),
             Self::ExternalAuthFeature { feature } => write!(
                 f,
                 "`Auth::external` leaves credentials to the host app: drop `{feature}`",
