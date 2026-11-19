@@ -69,7 +69,7 @@ async fn forged_posts_answer_403_and_change_nothing() {
         .next()
         .expect("a seeded author");
 
-    let field = Uuid::new_v4().to_string();
+    let field = tablo::csrf::mask(&Uuid::new_v4().to_string());
     let cookie = Uuid::new_v4().to_string();
     let before = post_count(&db).await;
 
@@ -314,6 +314,7 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
         .unwrap()
         .expect("t1 comment");
     let csrf = Uuid::new_v4().to_string();
+    let masked = tablo::csrf::mask(&csrf);
     let foreign = client.tenant(t2).csrf(&csrf);
     let author_id = t1_post.author_id.to_string();
 
@@ -342,7 +343,7 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
             form_body(&[
                 ("ids", &t1_post.id.to_string()),
                 ("confirm", "1"),
-                ("csrf_token", &csrf),
+                ("csrf_token", &masked),
             ]),
         )
         .await;
@@ -357,7 +358,7 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
             form_body(&[
                 ("matching", &format!("q={}", t1_post.title)),
                 ("confirm", "1"),
-                ("csrf_token", &csrf),
+                ("csrf_token", &masked),
             ]),
         )
         .await;
@@ -373,7 +374,7 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
             form_body(&[
                 ("title", "Hijacked"),
                 ("author_id", &author_id),
-                ("csrf_token", &csrf),
+                ("csrf_token", &masked),
             ]),
         )
         .await;
@@ -387,7 +388,7 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
     let resp = foreign
         .post_form(
             &format!("/admin/posts/{}/delete", t1_post.id),
-            form_body(&[("confirm", "1"), ("csrf_token", &csrf)]),
+            form_body(&[("confirm", "1"), ("csrf_token", &masked)]),
         )
         .await;
     assert_eq!(
@@ -423,15 +424,15 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
     for (path, body) in [
         (
             format!("{relation}/-/actions/attach"),
-            form_body(&[("record", &post_key), ("csrf_token", &csrf)]),
+            form_body(&[("record", &post_key), ("csrf_token", &masked)]),
         ),
         (
             format!("{relation}/-/actions/detach"),
-            form_body(&[("ids", &post_key), ("csrf_token", &csrf)]),
+            form_body(&[("ids", &post_key), ("csrf_token", &masked)]),
         ),
         (
             format!("{relation}/{post_key}/-/actions/detach"),
-            form_body(&[("csrf_token", &csrf)]),
+            form_body(&[("csrf_token", &masked)]),
         ),
     ] {
         let resp = foreign.post_form(&path, body).await;
@@ -462,7 +463,7 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
             form_body(&[
                 ("body", "Hijacked"),
                 ("post_id", &post_id),
-                ("csrf_token", &csrf),
+                ("csrf_token", &masked),
             ]),
         )
         .await;
@@ -476,7 +477,7 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
     let resp = foreign
         .post_form(
             &format!("/admin/comments/{}/delete", t1_comment.id),
-            form_body(&[("confirm", "1"), ("csrf_token", &csrf)]),
+            form_body(&[("confirm", "1"), ("csrf_token", &masked)]),
         )
         .await;
     assert_eq!(
@@ -507,7 +508,7 @@ async fn cross_tenant_requests_404_and_touch_nothing() {
         .csrf(&csrf)
         .post_form(
             &format!("/admin/comments/{}/delete", t1_comment.id),
-            form_body(&[("confirm", "1"), ("csrf_token", &csrf)]),
+            form_body(&[("confirm", "1"), ("csrf_token", &masked)]),
         )
         .await;
     assert_eq!(
@@ -771,7 +772,8 @@ async fn header_actions_stay_in_their_tenant_and_policy() {
         .await
         .expect("make the t1 post a draft");
     let csrf = Uuid::new_v4().to_string();
-    let confirmed = form_body(&[("confirm", "1"), ("csrf_token", &csrf)]);
+    let masked = tablo::csrf::mask(&csrf);
+    let confirmed = form_body(&[("confirm", "1"), ("csrf_token", &masked)]);
 
     let resp = client
         .tenant(t2)
@@ -796,7 +798,7 @@ async fn header_actions_stay_in_their_tenant_and_policy() {
     let resp = blocked
         .post_form(
             "/admin/-/actions/feature-tagged",
-            form_body(&[("tag", "draft"), ("csrf_token", &csrf)]),
+            form_body(&[("tag", "draft"), ("csrf_token", &masked)]),
         )
         .await;
     assert_eq!(
@@ -810,7 +812,7 @@ async fn header_actions_stay_in_their_tenant_and_policy() {
         .csrf(&csrf)
         .post_form(
             "/admin/-/actions/feature-tagged",
-            form_body(&[("tag", "nothing-carries-this"), ("csrf_token", &csrf)]),
+            form_body(&[("tag", "nothing-carries-this"), ("csrf_token", &masked)]),
         )
         .await;
     assert_eq!(

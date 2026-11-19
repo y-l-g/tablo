@@ -130,11 +130,13 @@ async fn password_auth_signs_in_an_email_in_any_case() {
     let router = router(db.clone(), Auth::password());
 
     let csrf = new_csrf();
+
+    let masked = tablo::csrf::mask(&csrf);
     let login = post_form(
         &router,
         "/admin/login",
         &[(tablo::csrf::COOKIE_NAME, csrf.clone())],
-        format!("email=+aDA%40example.COM&password=secret+password&csrf_token={csrf}"),
+        format!("email=+aDA%40example.COM&password=secret+password&csrf_token={masked}"),
     )
     .await;
 

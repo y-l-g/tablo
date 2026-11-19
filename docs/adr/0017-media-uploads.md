@@ -37,11 +37,12 @@ implements `Uploader`. `Panel::serve_dir` serves an app directory with headers t
 origin. A served directory outside the panel prefix is public: the auth gate covers only that
 prefix and the runtime (ADR-0013).
 
-The `uploads_dir` directory answers only at a URL the panel signed, with an expiry one to two hours
-out: wherever the panel links or shows a stored path it checked the user may see, it signs it,
+The `uploads_dir` directory answers only at a URL the panel signed, with an expiry two hours out:
+wherever the panel links or shows a stored path it checked the user may see, it signs it,
 and an app page signs with `url::file`. A leaked link opens the file until it expires, to anyone.
 The signature authorizes a path, not a record: a column over a value users type signs any path they
-name, and the random file names are what keep paths unguessable.
+name, and the random file names are what keep paths unguessable. Each signature covers a nonce drawn
+for it, so no two renders hold the same URL.
 Rejected for the file list: storing the paths joined in one `String`, which every reader splits
 again; a related table of files per record, which each app's media library already is; a file
 field inside a repeater's item, which reads a submission's files per row for what a list of paths
@@ -55,4 +56,7 @@ Rejected: a route under the prefix per record and field that loads the record th
 query and checks `View` on each request. A stored path renders in columns, relation tables and app
 pages that know no owning record, and every `Uploader` would have to stream its bytes back; a
 signature needs neither. Rejected too: binding the signature to the browser's CSRF cookie, which a
-page streamed before the cookie is set cannot read.
+page streamed before the cookie is set cannot read; and an expiry rounded to the hour with no nonce,
+which kept a file's URL the same so the browser cached it, but left the same signature in every
+compressed page beside the search the URL chooses, where an observer of the encrypted traffic
+guesses it from response sizes (BREACH) and opens the file without a session.

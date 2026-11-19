@@ -42,6 +42,7 @@ async fn delete_and_bulk_delete_require_view() {
     .unwrap();
     let router = mount(db, panel_for::<ViewDeniedResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
+    let field = crate::csrf::mask(&token);
     let post = |uri: String, body: String| {
         router.handle(
             http::Request::builder()
@@ -62,7 +63,7 @@ async fn delete_and_bulk_delete_require_view() {
     // Single delete: view-denied is 403 despite `Delete` allowed.
     let single = post(
         format!("/admin/dummies/{}/delete", row.id),
-        format!("confirm=1&csrf_token={token}"),
+        format!("confirm=1&csrf_token={field}"),
     )
     .await;
     assert_eq!(
@@ -74,7 +75,7 @@ async fn delete_and_bulk_delete_require_view() {
     // Bulk delete: same rule, per row.
     let bulk = post(
         "/admin/dummies/-/bulk-delete".to_string(),
-        format!("ids={}&confirm=1&csrf_token={token}", row.id),
+        format!("ids={}&confirm=1&csrf_token={field}", row.id),
     )
     .await;
     assert_eq!(
@@ -115,6 +116,7 @@ async fn delete_and_bulk_delete_require_delete_any() {
     .unwrap();
     let router = mount(db.clone(), panel_for::<RowOnlyResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
+    let field = crate::csrf::mask(&token);
     let post = |uri: String, body: String| {
         router.handle(
             http::Request::builder()
@@ -134,13 +136,13 @@ async fn delete_and_bulk_delete_require_delete_any() {
     };
     let single = post(
         format!("/admin/dummies/{}/delete", row.id),
-        format!("confirm=1&csrf_token={token}"),
+        format!("confirm=1&csrf_token={field}"),
     )
     .await;
     assert_eq!(single.status(), http::StatusCode::FORBIDDEN);
     let bulk = post(
         "/admin/dummies/-/bulk-delete".to_string(),
-        format!("ids={}&confirm=1&csrf_token={token}", row.id),
+        format!("ids={}&confirm=1&csrf_token={field}", row.id),
     )
     .await;
     assert_eq!(bulk.status(), http::StatusCode::FORBIDDEN);
@@ -200,6 +202,7 @@ async fn delete_resolves_the_primary_key_only() {
     .unwrap();
     let router = mount(db, panel_for::<KeyedResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
+    let field = crate::csrf::mask(&token);
     let post = |uri: String, body: String| {
         router.handle(
             http::Request::builder()
@@ -220,7 +223,7 @@ async fn delete_resolves_the_primary_key_only() {
     // Single delete with the name 404s — it is not the primary key.
     let name_single = post(
         "/admin/dummies/Ada/delete".to_string(),
-        format!("confirm=1&csrf_token={token}"),
+        format!("confirm=1&csrf_token={field}"),
     )
     .await;
     assert_eq!(
@@ -232,7 +235,7 @@ async fn delete_resolves_the_primary_key_only() {
     // Single delete with the primary key succeeds.
     let record_single = post(
         format!("/admin/dummies/{}/delete", row.id),
-        format!("confirm=1&csrf_token={token}"),
+        format!("confirm=1&csrf_token={field}"),
     )
     .await;
     assert!(
@@ -243,7 +246,7 @@ async fn delete_resolves_the_primary_key_only() {
     // Bulk with the name 404s.
     let name_bulk = post(
         "/admin/dummies/-/bulk-delete".to_string(),
-        format!("ids=Ada&confirm=1&csrf_token={token}"),
+        format!("ids=Ada&confirm=1&csrf_token={field}"),
     )
     .await;
     assert_eq!(
@@ -255,7 +258,7 @@ async fn delete_resolves_the_primary_key_only() {
     // Bulk with the primary key succeeds.
     let record_bulk = post(
         "/admin/dummies/-/bulk-delete".to_string(),
-        format!("ids={}&confirm=1&csrf_token={token}", row.id),
+        format!("ids={}&confirm=1&csrf_token={field}", row.id),
     )
     .await;
     assert!(

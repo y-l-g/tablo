@@ -1,12 +1,13 @@
 //! The CSRF check on the auth forms: a forged sign-in, sign-up, reset, profile save, link
-//! request, tenant registration, tenant save or sign-out answers 403 before it changes anything.
+//! request, tenant registration, tenant save or sign-out answers 403 before it changes anything,
+//! and a page renders the token masked.
 
 use showcase::models::{DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD};
 use uuid::Uuid;
 
 use crate::common::{
-    TestClient, demo_client, form_body, full_db, routers::router_for_tests as router,
-    session_cookie_value,
+    TestClient, body_string, demo_client, form_body, full_db, input_value,
+    routers::router_for_tests as router, session_cookie_value,
 };
 
 /// A forged login POST is refused before any credential work and mints no
@@ -21,7 +22,7 @@ use crate::common::{
 async fn forged_login_answers_403_and_sets_no_session() {
     let db = full_db().await;
     let router = router(db.clone());
-    let field = Uuid::new_v4().to_string();
+    let field = tablo::csrf::mask(&Uuid::new_v4().to_string());
     let cookie = Uuid::new_v4().to_string();
 
     for (submitted, label) in [
@@ -57,7 +58,7 @@ async fn forged_login_answers_403_and_sets_no_session() {
 async fn forged_sign_up_answers_403_and_creates_no_account() {
     let db = full_db().await;
     let router = router(db.clone());
-    let field = Uuid::new_v4().to_string();
+    let field = tablo::csrf::mask(&Uuid::new_v4().to_string());
     let cookie = Uuid::new_v4().to_string();
     let email = "forged@example.com";
 
@@ -100,7 +101,7 @@ async fn forged_sign_up_answers_403_and_creates_no_account() {
 async fn forged_password_resets_answer_403_and_change_nothing() {
     let db = full_db().await;
     let router = router(db.clone());
-    let field = Uuid::new_v4().to_string();
+    let field = tablo::csrf::mask(&Uuid::new_v4().to_string());
     let cookie = Uuid::new_v4().to_string();
 
     for (submitted, label) in [
@@ -145,7 +146,7 @@ async fn forged_profile_save_answers_403_and_changes_nothing() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let field = Uuid::new_v4().to_string();
+    let field = tablo::csrf::mask(&Uuid::new_v4().to_string());
     let cookie = Uuid::new_v4().to_string();
 
     for (submitted, label) in [
@@ -184,7 +185,7 @@ async fn forged_verification_request_answers_403_and_mails_nothing() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let field = Uuid::new_v4().to_string();
+    let field = tablo::csrf::mask(&Uuid::new_v4().to_string());
     let cookie = Uuid::new_v4().to_string();
 
     for (submitted, label) in [
@@ -211,7 +212,7 @@ async fn forged_tenant_registration_answers_403_and_creates_nothing() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let field = Uuid::new_v4().to_string();
+    let field = tablo::csrf::mask(&Uuid::new_v4().to_string());
     let cookie = Uuid::new_v4().to_string();
     let workspaces = || async {
         showcase::models::Workspace::all()
@@ -249,7 +250,7 @@ async fn forged_tenant_save_answers_403_and_changes_nothing() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let field = Uuid::new_v4().to_string();
+    let field = tablo::csrf::mask(&Uuid::new_v4().to_string());
     let cookie = Uuid::new_v4().to_string();
 
     for (submitted, label) in [
@@ -281,7 +282,7 @@ async fn forged_two_factor_setup_answers_403_and_stores_nothing() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let field = Uuid::new_v4().to_string();
+    let field = tablo::csrf::mask(&Uuid::new_v4().to_string());
     let cookie = Uuid::new_v4().to_string();
 
     for (submitted, label) in [
@@ -316,7 +317,7 @@ async fn forged_logout_answers_403_and_keeps_the_session() {
     let db = full_db().await;
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
-    let field = Uuid::new_v4().to_string();
+    let field = tablo::csrf::mask(&Uuid::new_v4().to_string());
     let cookie = Uuid::new_v4().to_string();
 
     for (submitted, label) in [
@@ -343,4 +344,23 @@ async fn forged_logout_answers_403_and_keeps_the_session() {
         200,
         "a forged logout must leave the session usable"
     );
+}
+
+/// A page never renders the cookie's token itself, and two loads of it carry different fields,
+/// so a compressed page holds no fixed token an observer could guess from response sizes. The
+/// regression it catches is a form that embeds the cookie's value rather than a masked one.
+#[tokio::test]
+async fn a_page_renders_the_token_masked_afresh() {
+    let db = full_db().await;
+    let router = router(db.clone());
+    let cookie = Uuid::new_v4().to_string();
+    let client = demo_client(&router, &db).await.csrf(&cookie);
+
+    let mut fields = Vec::new();
+    for _ in 0..2 {
+        let html = body_string(client.get("/admin/posts?search=a").await).await;
+        assert!(!html.contains(&cookie), "the page leaks the raw token");
+        fields.push(input_value(&html, "csrf_token").expect("the list carries a form"));
+    }
+    assert_ne!(fields[0], fields[1], "each load masks the token afresh");
 }

@@ -398,7 +398,7 @@ async fn revoked_panel_access_can_still_log_out() {
             (session_cookie("admin").as_str(), session.clone()),
             (tablo::csrf::COOKIE_NAME, logout_csrf.clone()),
         ],
-        format!("csrf_token={logout_csrf}"),
+        format!("csrf_token={}", tablo::csrf::mask(&logout_csrf)),
     )
     .await;
     assert_eq!(
@@ -504,7 +504,10 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
                         tablo::csrf::COOKIE_NAME
                     ),
                 )
-                .body(Body::from(format!("csrf_token={logout_csrf}")))
+                .body(Body::from(format!(
+                    "csrf_token={}",
+                    tablo::csrf::mask(&logout_csrf)
+                )))
                 .unwrap(),
         )
         .await;
@@ -521,6 +524,7 @@ async fn custom_authenticator_completes_a_full_login_round_trip() {
 /// `POST /admin/tenant` with a fresh CSRF pair.
 async fn switch_tenant(router: &Router, session: &str, tenant: Uuid) -> Response<Body> {
     let csrf = Uuid::new_v4().to_string();
+    let masked = tablo::csrf::mask(&csrf);
     post_form(
         router,
         "/admin/tenant",
@@ -528,7 +532,7 @@ async fn switch_tenant(router: &Router, session: &str, tenant: Uuid) -> Response
             (session_cookie("admin").as_str(), session.to_string()),
             (tablo::csrf::COOKIE_NAME, csrf.clone()),
         ],
-        format!("tenant={tenant}&csrf_token={csrf}"),
+        format!("tenant={tenant}&csrf_token={masked}"),
     )
     .await
 }
