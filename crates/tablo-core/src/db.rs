@@ -6,7 +6,10 @@ use std::{
     sync::{Mutex, PoisonError},
 };
 
-use toasty::{Db, Transaction};
+use toasty::{
+    Db, Transaction,
+    stmt::{IntoStatement, List},
+};
 use topcoat::context::{Cx, CxId, context};
 
 /// Returns the pooled [`Db`] registered on the router.
@@ -25,20 +28,58 @@ pub fn db(cx: &Cx) -> topcoat::Result<Db> {
     Ok(context::<Db>(cx).clone())
 }
 
-/// How many rows `query` holds, counted on the pooled [`Db`].
+/// How many rows `query` holds, counted on the pooled [`Db`]: a model's query, such as
+/// `Post::filter(..)`, or a [`Query`](toasty::stmt::Query) such as
+/// [`list_query`](crate::list_query)'s.
 ///
 /// Reads 0 where Toasty answers no value: a count over a filter Toasty can tell matches nothing,
 /// such as [`list_query`](crate::list_query) narrowed to one status on a list whose tab shows
 /// another, which `Query::count` fails to read.
+///
+/// A record fn or a hook counts through the `ex` it received, with [`count_in`].
 ///
 /// # Errors
 ///
 /// As [`db`], and the database failing the count.
 pub async fn count<M: toasty::schema::Model>(
     cx: &Cx,
-    query: toasty::stmt::Query<toasty::stmt::List<M>>,
+    query: impl IntoStatement<Returning = List<M>>,
 ) -> topcoat::Result<u64> {
-    crate::toasty_compat::count(query, &mut db(cx)?)
+    count_in(&mut db(cx)?, query).await
+}
+
+/// How many rows `query` holds, counted through `ex`: inside the transaction a record fn or a
+/// hook received, so the count sees the rows the write has made so far and a limit check holds
+/// against concurrent writes the isolation level orders. Reads 0 where Toasty answers no value, as
+/// [`count`] does.
+///
+/// ```rust,no_run
+/// # use tablo_core::{NoForm, Resource, WriteError, db};
+/// # use topcoat::context::Cx;
+/// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+/// # struct Project { #[key] #[auto] id: uuid::Uuid, team_id: String }
+/// # struct ProjectResource;
+/// # impl Resource for ProjectResource { type Model = Project; type Form = NoForm<Project>; }
+/// # async fn check(cx: &Cx, team: String, ex: &mut dyn toasty::Executor) -> topcoat::Result<bool> {
+/// let projects = db::count_in(ex, Project::filter(Project::fields().team_id().eq(team))).await?;
+/// Ok(projects < 10)
+/// # }
+/// ```
+///
+/// # Errors
+///
+/// The database failing the count, and a declaration failure for a statement that writes, such as
+/// an insert, which has no rows to count.
+pub async fn count_in<M: toasty::schema::Model>(
+    ex: &mut dyn toasty::Executor,
+    query: impl IntoStatement<Returning = List<M>>,
+) -> topcoat::Result<u64> {
+    let Some(query) = query.into_statement().into_query() else {
+        return Err(crate::error::declaration(
+            "db::count counts the rows a query reads, not a statement that writes",
+        ));
+    };
+    crate::toasty_compat::count(query, ex)
         .await
         .map_err(crate::error::unavailable)
 }
