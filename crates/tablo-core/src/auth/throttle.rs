@@ -46,7 +46,9 @@ const MAX_TRACKED: usize = 10_000;
 /// spelled several ways that the authenticator's lookup treats as one, as MySQL's default
 /// collation does with accents: a per-IP limit at the proxy covers those. Counts live in the
 /// process and per panel, so each replica and each panel counts its own attempts, and a restart
-/// clears them; [`in_database`](Self::in_database) keeps them where every replica reads them.
+/// clears them; [`in_database`](Self::in_database) keeps them where every replica reads them, and
+/// [`Auth::throttles_in_database`](crate::Auth::throttles_in_database) does so for every throttle a
+/// panel declares.
 ///
 /// ```rust
 /// use std::time::Duration;
@@ -107,8 +109,14 @@ impl LoginThrottle {
     /// ```
     #[must_use]
     pub fn in_database(mut self) -> Self {
-        self.in_database = true;
+        self.count_in_database();
         self
+    }
+
+    /// [`in_database`](Self::in_database) in place, for
+    /// [`Auth::throttles_in_database`](crate::Auth::throttles_in_database).
+    pub(super) fn count_in_database(&mut self) {
+        self.in_database = true;
     }
 
     fn with(limit: Option<Limit>) -> Self {

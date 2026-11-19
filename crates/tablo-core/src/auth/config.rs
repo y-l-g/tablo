@@ -32,6 +32,8 @@ use super::{
 /// compile.
 pub struct Auth<U = AdminUser> {
     pub(super) config: AuthConfig,
+    /// Whether every throttle counts in the database, set by [`Auth::throttles_in_database`].
+    throttles_in_database: bool,
     user: PhantomData<fn() -> U>,
 }
 
@@ -80,6 +82,7 @@ impl<U: PanelUser> Auth<U> {
     fn new(config: AuthConfig) -> Self {
         Self {
             config,
+            throttles_in_database: false,
             user: PhantomData,
         }
     }
@@ -102,6 +105,28 @@ impl<U: PanelUser> Auth<U> {
     #[must_use]
     pub fn account_throttle(mut self, throttle: LoginThrottle) -> Self {
         self.config.account_throttle = throttle;
+        self
+    }
+
+    /// Keeps the counts of every throttle the panel declares in the database, as
+    /// [`LoginThrottle::in_database`] keeps one's: the defaults and the ones set before or after
+    /// this call, on sign-in, sign-up, the profile, password reset, email verification and
+    /// two-factor sign-in alike. A deployment of several replicas turns it on, so that each limit
+    /// holds across them rather than once per process.
+    ///
+    /// ```rust
+    /// use std::time::Duration;
+    ///
+    /// use tablo_core::{Auth, LoginThrottle};
+    ///
+    /// let auth = Auth::password()
+    ///     .throttles_in_database()
+    ///     .account_throttle(LoginThrottle::new(50, Duration::from_hours(1)));
+    /// # let _ = auth;
+    /// ```
+    #[must_use]
+    pub fn throttles_in_database(mut self) -> Self {
+        self.throttles_in_database = true;
         self
     }
 
@@ -385,7 +410,10 @@ impl<U: PanelUser> Auth<U> {
     }
 
     /// The declaration, its user type checked.
-    pub(crate) fn into_config(self) -> AuthConfig {
+    pub(crate) fn into_config(mut self) -> AuthConfig {
+        if self.throttles_in_database {
+            self.config.count_throttles_in_database();
+        }
         self.config
     }
 }
@@ -493,50 +521,6 @@ impl AuthConfig {
         &self.profile_throttle
     }
 
-    /// Whether any of the panel's throttles counts in the database, which then needs
-    /// [`AuthThrottle`](super::AuthThrottle).
-    pub(crate) fn throttles_in_database(&self) -> bool {
-        self.throttles()
-            .any(|(_, throttle)| throttle.counts_in_database())
-    }
-
-    /// The panel's throttles whose limit allows no sign-in, each refused by the mount.
-    pub(crate) fn throttle_declaration_errors(&self) -> Vec<crate::DeclarationErrorKind> {
-        self.throttles()
-            .filter(|(_, throttle)| throttle.allows_none())
-            .map(|(builder, _)| crate::DeclarationErrorKind::ThrottleAllowsNone { builder })
-            .collect()
-    }
-
-    /// Every throttle the panel declares, with the builder call that sets it.
-    fn throttles(&self) -> impl Iterator<Item = (&'static str, &LoginThrottle)> {
-        let reset = self
-            .reset()
-            .map(|reset| ("PasswordReset::throttle", &reset.throttle));
-        let verification = self
-            .verification()
-            .map(|verification| ("EmailVerification::throttle", &verification.throttle));
-        #[cfg(feature = "two-factor")]
-        let two_factor = self.two_factor_config().into_iter().flat_map(|two_factor| {
-            [
-                ("TwoFactor::throttle", &two_factor.throttle),
-                ("TwoFactor::mail_throttle", &two_factor.mail_throttle),
-            ]
-        });
-        #[cfg(not(feature = "two-factor"))]
-        let two_factor = std::iter::empty();
-        [
-            ("Auth::throttle", &self.throttle),
-            ("Auth::account_throttle", &self.account_throttle),
-            ("Auth::sign_up_throttle", &self.sign_up_throttle),
-            ("Auth::profile_throttle", &self.profile_throttle),
-        ]
-        .into_iter()
-        .chain(reset)
-        .chain(verification)
-        .chain(two_factor)
-    }
-
     /// The password reset, or `None` without a forgot-password page.
     pub(crate) fn reset(&self) -> Option<&PasswordReset<()>> {
         self.authenticator.as_ref().and(self.reset.as_ref())
@@ -591,4 +575,5 @@ impl AuthConfig {
 }
 
 mod debug;
+mod throttles;
 mod two_factor;
