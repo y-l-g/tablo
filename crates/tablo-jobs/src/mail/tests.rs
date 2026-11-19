@@ -86,31 +86,6 @@ impl Harness {
 }
 
 #[tokio::test]
-async fn a_queued_letter_is_stored_sealed_and_sent_by_the_worker() {
-    let key = Key::generate();
-    let harness = harness(&key, &key).await;
-    let live = Timestamp::now()
-        .checked_add(jiff::SignedDuration::from_hours(1))
-        .expect("in range");
-
-    harness.deliver(letter(Some(live))).await;
-    let job = harness.job().await;
-    assert!(!job.payload.contains("secret-token"));
-    assert!(!job.payload.contains("ada@example.com"));
-    assert!(
-        harness.sent.sent().is_empty(),
-        "nothing goes out before the worker runs"
-    );
-
-    harness.worker.drain().await.expect("drain");
-
-    let sent = harness.sent.sent();
-    assert_eq!(sent.len(), 1);
-    assert_eq!(sent[0].message_id(), "<letter@example.com>");
-    assert_eq!(harness.job().await.state, JobState::Succeeded);
-}
-
-#[tokio::test]
 async fn an_expired_letter_is_dropped_unsent() {
     let key = Key::generate();
     let harness = harness(&key, &key).await;

@@ -3,34 +3,35 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use jiff::{SignedDuration, Timestamp};
 use serde::{Deserialize, Serialize};
 use tablo_core::PanelHandle;
 use toasty::Db;
-use tokio::{sync::watch, task::JoinSet};
+use tokio::{
+    sync::watch,
+    task::{JoinError, JoinSet},
+};
 use topcoat::context::Cx;
 use tracing::Instrument;
 
 use crate::{
     AuthMailQueue, Job, JobState, QueuedJob,
-    job::{Run, run_of},
+    job::{Kind, kind_of},
     mail::SendAuthMail,
     schedule::Schedule,
 };
 
-/// How long a run may take before it counts as failed.
-const RUN_TIMEOUT: Duration = Duration::from_mins(2);
-/// A lock outlives the timeout, so no live run is taken over.
-const LOCK: SignedDuration = SignedDuration::from_mins(3);
+/// How long a lock outlives its kind's timeout, so no live run is taken over.
+const LOCK_MARGIN: Duration = Duration::from_mins(1);
 /// How many jobs one worker runs at once.
 const BATCH: usize = 16;
-/// How long an idle worker waits before it asks again.
+/// How long a worker waits before it asks again, when no run of its own ends first.
 const IDLE: Duration = Duration::from_secs(1);
-/// How many idle polls pass between two sweeps for lapsed locks and due schedules.
-const SWEEP_EVERY: u32 = 15;
+/// How often a worker sweeps for lapsed locks and due schedules, however busy it is.
+const SWEEP: Duration = Duration::from_secs(15);
 const BACKOFF_BASE_SECONDS: i64 = 30;
 const BACKOFF_CAP_SECONDS: i64 = 60 * 60;
 /// How long a succeeded job stays by default.
@@ -67,13 +68,14 @@ const PRUNE_EVERY: Duration = Duration::from_hours(24);
 /// # }
 /// ```
 ///
-/// - Delivery is at least once. A worker that stops mid-run leaves the job's lock to lapse, three
-///   minutes after its claim, and the next worker runs it again.
-/// - A run that fails, or outlasts two minutes, waits from 30 seconds, doubling up to an hour, with
-///   up to a quarter more drawn from the job's id. A job out of attempts turns
+/// - Delivery is at least once. A worker that stops mid-run leaves the job's lock to lapse, a
+///   minute past its kind's [`TIMEOUT`](Job::TIMEOUT), and the job runs again after its backoff.
+/// - A run that fails, or outlasts its [`TIMEOUT`](Job::TIMEOUT), waits from 30 seconds, doubling
+///   up to an hour, with up to a quarter more drawn from the job's id. A job out of attempts turns
 ///   [`Dead`](JobState::Dead) and stays until someone queues it again.
-/// - A job of a kind the worker does not [`register`](Self::register) fails like any other, so a
-///   worker built from an older release spends its attempts rather than drops it.
+/// - A worker claims only the kinds it [`register`](Self::register)s, so workers may split the
+///   kinds between them. A job of a kind no worker registers, such as one a newer release queued,
+///   waits for a worker that does.
 /// - Any number of workers share one queue. A claim is a version-checked update, so each job runs
 ///   once per claim, and the running job of a [`lane`](Job::lane) holds the lane in a unique
 ///   column, so the database refuses a second.
@@ -88,7 +90,7 @@ pub struct Worker {
 struct Inner {
     db: Db,
     panel: PanelHandle,
-    runs: HashMap<&'static str, Run>,
+    kinds: HashMap<&'static str, Kind>,
     schedules: Vec<Schedule>,
     context: Arc<dyn Fn(Cx) -> Cx + Send + Sync>,
     mail: Option<AuthMailQueue>,
@@ -107,7 +109,7 @@ impl Worker {
             inner: Arc::new(Inner {
                 db,
                 panel: panel.clone(),
-                runs: HashMap::new(),
+                kinds: HashMap::new(),
                 schedules: Vec::new(),
                 context: Arc::new(|cx| cx),
                 mail: None,
@@ -123,13 +125,13 @@ impl Worker {
     /// Runs the jobs of kind `J`. Registering a kind again changes nothing.
     #[must_use]
     pub fn register<J: Job>(mut self) -> Self {
-        self.inner_mut().runs.insert(J::KIND, run_of::<J>());
+        self.inner_mut().kinds.insert(J::KIND, kind_of::<J>());
         self
     }
 
     /// Registers `J` and enqueues `job` every `every`, the first run one interval after any
     /// worker first sees the schedule. However many workers run, each period enqueues once, and
-    /// a run still waiting absorbs the next. Scheduling a kind again replaces its schedule.
+    /// a run that has not started absorbs the next. Scheduling a kind again replaces its schedule.
     #[must_use]
     pub fn every<J: Job + Clone>(mut self, every: Duration, job: J) -> Self {
         let inner = self.inner_mut();
@@ -170,25 +172,37 @@ impl Worker {
     }
 
     /// Polls for due jobs until `shutdown` holds `true` or its sender drops, then lets the runs
-    /// in hand finish.
+    /// in hand finish. A slot a run frees takes the next due job at once, and the sweep keeps its
+    /// pace under any load.
     pub async fn run(self, mut shutdown: watch::Receiver<bool>) {
-        let mut idle = SWEEP_EVERY;
+        let mut runs = JoinSet::new();
+        let mut swept: Option<Instant> = None;
         while !*shutdown.borrow() {
-            if idle >= SWEEP_EVERY {
-                idle = 0;
+            if swept.is_none_or(|at| at.elapsed() >= SWEEP) {
+                swept = Some(Instant::now());
                 self.sweep().await;
             }
-            match self.drain_once().await {
-                Ok(0) => idle += 1,
-                Ok(_) => continue,
-                Err(error) => {
-                    tracing::error!(error = %format!("{error:#}"), "claiming jobs failed");
+            let free = BATCH - runs.len();
+            if free > 0 {
+                match self.claim(free).await {
+                    Ok(claimed) => {
+                        for job in claimed {
+                            self.spawn(&mut runs, job);
+                        }
+                    }
+                    Err(error) => {
+                        tracing::error!(error = %format!("{error:#}"), "claiming jobs failed");
+                    }
                 }
             }
             tokio::select! {
                 () = tokio::time::sleep(IDLE) => {}
-                changed = shutdown.changed() => if changed.is_err() { return },
+                Some(run) = runs.join_next(), if !runs.is_empty() => ended(run),
+                changed = shutdown.changed() => if changed.is_err() { break },
             }
+        }
+        while let Some(run) = runs.join_next().await {
+            ended(run);
         }
     }
 
@@ -210,26 +224,27 @@ impl Worker {
     ///
     /// When the driver fails to claim jobs. A job's own failure is recorded on its row instead.
     pub async fn drain_once(&self) -> topcoat::Result<usize> {
-        let claimed = self.claim().await?;
+        let claimed = self.claim(BATCH).await?;
         let count = claimed.len();
         let mut runs = JoinSet::new();
         for job in claimed {
-            let worker = self.clone();
-            let span = tracing::info_span!(
-                "job",
-                kind = %job.kind,
-                id = %job.id,
-                attempt = job.attempts
-            );
-            runs.spawn(async move { worker.execute(job).await }.instrument(span));
+            self.spawn(&mut runs, job);
         }
         while let Some(run) = runs.join_next().await {
-            if let Err(error) = run {
-                // A panicking job keeps its lock until it lapses, then runs again.
-                tracing::error!(%error, "a job's task ended abnormally");
-            }
+            ended(run);
         }
         Ok(count)
+    }
+
+    fn spawn(&self, runs: &mut JoinSet<()>, job: QueuedJob) {
+        let worker = self.clone();
+        let span = tracing::info_span!(
+            "job",
+            kind = %job.kind,
+            id = %job.id,
+            attempt = job.attempts
+        );
+        runs.spawn(async move { worker.execute(job).await }.instrument(span));
     }
 
     /// Requeues lapsed locks and enqueues due schedules. A failure waits for the next sweep.
@@ -248,44 +263,57 @@ impl Worker {
         }
     }
 
-    /// Up to a batch of due jobs, each now held by this worker.
-    async fn claim(&self) -> topcoat::Result<Vec<QueuedJob>> {
+    /// Up to `limit` due jobs of the registered kinds, each now held by this worker.
+    async fn claim(&self, limit: usize) -> topcoat::Result<Vec<QueuedJob>> {
         let mut db = self.inner.db.clone();
         let now = Timestamp::now();
         let fields = QueuedJob::fields();
-        let due = QueuedJob::filter(
-            fields
-                .state()
-                .eq(JobState::Queued)
-                .and(fields.run_at().le(now)),
-        )
-        .order_by(fields.run_at().asc())
-        .limit(BATCH)
-        .exec(&mut db)
-        .await?;
-        if due.is_empty() {
-            return Ok(Vec::new());
-        }
-        // Saves an update bound to fail for each held-back job. Exclusion itself is the unique
-        // `running_lane`: this read is stale once another worker claims.
+        // Leaves out the jobs of busy lanes, so they do not fill the batch and hold back the rest.
+        // Exclusion itself is the unique `running_lane`: this read is stale once another worker
+        // claims.
         let mut busy: HashSet<String> = QueuedJob::filter(fields.state().eq(JobState::Running))
             .exec(&mut db)
             .await?
             .into_iter()
             .filter_map(|job| job.running_lane)
             .collect();
-        let locked_until = now.checked_add(LOCK)?;
+        let kinds: Vec<String> = self.inner.kinds.keys().map(ToString::to_string).collect();
+        let mut due = fields
+            .state()
+            .eq(JobState::Queued)
+            .and(fields.run_at().le(now))
+            .and(fields.kind().in_list(kinds));
+        if !busy.is_empty() {
+            let lanes: Vec<Option<String>> = busy.iter().cloned().map(Some).collect();
+            due = due.and(
+                fields
+                    .lane()
+                    .is_none()
+                    .or(fields.lane().in_list(lanes).not()),
+            );
+        }
+        let due = QueuedJob::filter(due)
+            .order_by(fields.run_at().asc())
+            .limit(limit)
+            .exec(&mut db)
+            .await?;
         let mut claimed = Vec::with_capacity(due.len());
         for mut job in due {
             if job.lane.as_ref().is_some_and(|lane| busy.contains(lane)) {
                 continue;
             }
+            let Some(kind) = self.inner.kinds.get(job.kind.as_str()) else {
+                continue;
+            };
+            let locked_until = now.checked_add(SignedDuration::try_from(
+                kind.timeout.saturating_add(LOCK_MARGIN),
+            )?)?;
             let free_key = job.id.to_string();
             let attempts = job.attempts + 1;
             let lane = job.lane.clone();
             // Lost to the version check when another worker claimed this job, and to the unique
             // `running_lane` when another worker claimed a job of its lane.
-            let won = job
+            let update = job
                 .update()
                 .state(JobState::Running)
                 .running_lane(lane.clone())
@@ -293,11 +321,19 @@ impl Worker {
                 .locked_until(Some(locked_until))
                 .dedupe_key(free_key)
                 .exec(&mut db)
-                .await
-                .is_ok();
-            if won {
-                busy.extend(lane);
-                claimed.push(job);
+                .await;
+            match update {
+                Ok(()) => {
+                    busy.extend(lane);
+                    claimed.push(job);
+                }
+                Err(error) if lost_race(&error) => {}
+                // The jobs claimed so far still run; the rest wait for the next claim.
+                Err(error) if !claimed.is_empty() => {
+                    tracing::error!(%error, "claiming a job failed");
+                    break;
+                }
+                Err(error) => return Err(error.into()),
             }
         }
         Ok(claimed)
@@ -305,22 +341,19 @@ impl Worker {
 
     /// Runs `job` and records how it ended.
     async fn execute(&self, job: QueuedJob) {
-        let outcome = match self.inner.runs.get(job.kind.as_str()) {
-            None => Err(topcoat::Error::msg(format!(
-                "no job of kind `{}` is registered",
-                job.kind
-            ))),
-            Some(run) => {
-                let cx = self.run_context();
-                tokio::time::timeout(RUN_TIMEOUT, run(&job.payload, &cx))
-                    .await
-                    .unwrap_or_else(|_| {
-                        Err(topcoat::Error::msg(format!(
-                            "timed out after {RUN_TIMEOUT:?}"
-                        )))
-                    })
-            }
+        // A claim takes only registered kinds.
+        let Some(kind) = self.inner.kinds.get(job.kind.as_str()) else {
+            return;
         };
+        let cx = self.run_context();
+        let outcome = tokio::time::timeout(kind.timeout, (kind.run)(&job.payload, &cx))
+            .await
+            .unwrap_or_else(|_| {
+                Err(topcoat::Error::msg(format!(
+                    "timed out after {:?}",
+                    kind.timeout
+                )))
+            });
         if let Err(error) = self.record(job, outcome).await {
             // The lock lapses and the job runs again, which an idempotent job survives.
             tracing::error!(error = %format!("{error:#}"), "recording a job's outcome failed");
@@ -391,25 +424,54 @@ impl Worker {
         )
         .exec(&mut db)
         .await?;
+        let now = Timestamp::now();
         for mut job in lapsed {
             tracing::warn!(kind = %job.kind, id = %job.id, "a job's lock lapsed");
-            let state = if job.attempts >= job.max_attempts {
-                JobState::Dead
+            let message = Some("the worker running it stopped".to_string());
+            // Spent like a failed run: dead when out of attempts, else retried after its backoff.
+            let update = if job.attempts >= job.max_attempts {
+                job.update()
+                    .state(JobState::Dead)
+                    .running_lane(None)
+                    .locked_until(None)
+                    .finished_at(Some(now))
+                    .last_error(message)
+                    .exec(&mut db)
+                    .await
             } else {
-                JobState::Queued
+                let run_at = now.checked_add(backoff(job.attempts, job.id))?;
+                job.update()
+                    .state(JobState::Queued)
+                    .running_lane(None)
+                    .locked_until(None)
+                    .run_at(run_at)
+                    .last_error(message)
+                    .exec(&mut db)
+                    .await
             };
-            // A lost race means another worker recovered it first.
-            let _ = job
-                .update()
-                .state(state)
-                .running_lane(None)
-                .locked_until(None)
-                .last_error(Some("the worker running it stopped".to_string()))
-                .exec(&mut db)
-                .await;
+            match update {
+                Ok(()) => {}
+                // Another worker recovered it first.
+                Err(error) if lost_race(&error) => {}
+                Err(error) => return Err(error.into()),
+            }
         }
         Ok(())
     }
+}
+
+/// Reports a run's task that ended abnormally.
+fn ended(run: Result<(), JoinError>) {
+    if let Err(error) = run {
+        // A panicking job keeps its lock until it lapses, then runs again.
+        tracing::error!(%error, "a job's task ended abnormally");
+    }
+}
+
+/// Whether `error` is a write another worker won: the version check or a unique index refused
+/// it. A lost connection is the driver failing instead.
+pub(crate) fn lost_race(error: &toasty::Error) -> bool {
+    !(error.is_connection_lost() || error.is_connection_pool() || error.is_transaction_timeout())
 }
 
 /// How long the run after `attempt` waits: doubling from 30 seconds to an hour, with up to a

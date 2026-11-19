@@ -113,13 +113,15 @@ async fn a_queued_reset_letter_is_sealed_and_sent_by_the_worker() {
         .unwrap()
         .unwrap();
     assert_eq!(job.state, JobState::Succeeded);
+    let sent_token = token(&link(&mail[0]));
+    assert!(!job.payload.contains(&sent_token), "the token is sealed");
 
     let password = "a brand new password";
     let response = TestClient::new(&router)
         .submit(
             "/admin/reset-password",
             &form_body(&[
-                ("token", &token(&link(&mail[0]))),
+                ("token", &sent_token),
                 ("password", password),
                 ("password_confirmation", password),
             ]),
@@ -190,4 +192,37 @@ async fn a_dedupe_key_and_a_schedule_hold_on_this_backend() {
         .await
         .unwrap();
     assert!(schedule.is_some(), "the worker created the schedule's row");
+}
+
+/// An enqueue inside a transaction whose snapshot predates a committed job of the same key adds
+/// nothing and fails nothing. Only a server database runs two transactions at once.
+#[tokio::test]
+async fn a_dedupe_key_absorbs_a_job_committed_after_the_snapshot() {
+    let url = std::env::var("TABLO_TEST_DATABASE_URL").unwrap_or_default();
+    if !(url.starts_with("mysql") || url.starts_with("postgres")) {
+        return;
+    }
+    let db = test_db(toasty::models!(
+        Note,
+        AdminUser,
+        AuthSession,
+        AuthToken,
+        QueuedJob,
+        JobSchedule
+    ))
+    .await;
+    let mut first = db.clone();
+    let mut tx = first.transaction().await.unwrap();
+    QueuedJob::all().exec(&mut tx).await.unwrap();
+
+    enqueue(&Tick)
+        .dedupe("race")
+        .exec(&mut db.clone())
+        .await
+        .unwrap();
+    enqueue(&Tick).dedupe("race").exec(&mut tx).await.unwrap();
+    tx.commit().await.unwrap();
+
+    let jobs = QueuedJob::all().exec(&mut db.clone()).await.unwrap();
+    assert_eq!(jobs.len(), 1);
 }

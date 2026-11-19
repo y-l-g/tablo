@@ -30,8 +30,9 @@ pub struct QueuedJob {
     #[unique]
     #[columns(skip)]
     pub running_lane: Option<String>,
-    /// While the job waits, a second enqueue with the same key adds nothing. A claim frees it,
-    /// so work arriving during a run queues behind that run.
+    /// The kind and the [`dedupe`](crate::Enqueue::dedupe) key, or the id. While the job waits
+    /// for its first run, a second enqueue with the same key adds nothing. A claim sets it to the
+    /// id, so work arriving during a run, or during the backoff after one, queues behind it.
     #[unique]
     #[columns(skip)]
     pub dedupe_key: String,

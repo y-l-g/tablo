@@ -74,9 +74,11 @@ impl Schedule {
             return Ok(());
         }
         let mut tx = db.transaction().await?;
-        if row.update().next_run_at(next).exec(&mut tx).await.is_err() {
+        match row.update().next_run_at(next).exec(&mut tx).await {
+            Ok(()) => {}
             // Another worker took this run.
-            return Ok(());
+            Err(error) if crate::worker::lost_race(&error) => return Ok(()),
+            Err(error) => return Err(error.into()),
         }
         (self.enqueue)(&mut tx).await?;
         tx.commit().await?;

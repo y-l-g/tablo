@@ -49,9 +49,10 @@ impl<J: Job> Enqueue<'_, J> {
         self
     }
 
-    /// While a job with `key` waits, adds nothing: a burst of ten enqueues makes one run. Once a
-    /// worker claims that job, the key is free again, so work arriving during the run queues
-    /// behind it.
+    /// While a job of this kind with `key` waits for its first run, adds nothing: a burst of ten
+    /// enqueues makes one run. A claim frees the key for good, so work arriving during the run,
+    /// or while a failed run waits for its retry, queues a job of its own. Keys of different
+    /// kinds never meet.
     pub fn dedupe(mut self, key: impl Into<String>) -> Self {
         self.dedupe_key = Some(key.into());
         self
@@ -81,7 +82,11 @@ impl<J: Job> Enqueue<'_, J> {
                 .run_at(run_at)
                 .created_at(now)
         };
-        let Some(key) = self.dedupe_key.clone() else {
+        let Some(key) = self
+            .dedupe_key
+            .as_ref()
+            .map(|key| format!("{}:{key}", J::KIND))
+        else {
             // A fresh key meets no other: a plain insert, on every driver.
             create(id.to_string()).exec(ex).await?;
             return Ok(());
@@ -110,15 +115,22 @@ impl<J: Job> Enqueue<'_, J> {
                 }
                 match create(key.clone()).exec(ex).await {
                     Ok(_) => Ok(()),
-                    // A racing enqueue wrote the key first. MySQL rolls back the statement, not
-                    // the transaction, so the look-up still runs.
-                    Err(_) if waiting(ex, &key).await? => Ok(()),
+                    // A racing enqueue committed the key first. MySQL rolls back the statement,
+                    // not the transaction, so the caller's write goes on.
+                    Err(error) if held(&error) => Ok(()),
                     Err(error) => Err(error.into()),
                 }
             }
             Err(error) => Err(error.into()),
         }
     }
+}
+
+/// Whether `error` is MySQL refusing a second row under a dedupe key. A look-up cannot tell: in
+/// a transaction it reads a snapshot that may predate the row holding the key.
+fn held(error: &toasty::Error) -> bool {
+    let message = error.to_string();
+    message.contains("1062") && message.contains("_by_dedupe_key")
 }
 
 /// Whether a job holding `key` waits in the queue.

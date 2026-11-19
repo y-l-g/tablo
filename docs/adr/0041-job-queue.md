@@ -18,6 +18,10 @@ derived from the cookie key.
   holds a lane while one of its jobs runs. Toasty has no `SELECT … FOR UPDATE SKIP LOCKED`, and
   the two checks need none.
 - Delivery is at least once. A lapsed lock reruns the job, so a job is idempotent.
+- A worker claims only the kinds it registers, so workers may split the kinds between them, and a
+  kind a newer release queues waits for a worker that knows it instead of spending its attempts.
+- Toasty's MySQL driver has no targeted upsert, so a dedupe key there is a look-up then an insert,
+  and the unique index refusing the insert counts as the key held.
 - The tables are `tablo_jobs` and `tablo_job_schedules`, so the app's own tables keep their names.
 
 What the queue does not do: priorities, a cron syntax, a list page for the queue, or a job that

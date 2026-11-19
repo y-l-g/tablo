@@ -1,6 +1,6 @@
 //! What a job is, and the type-erased run a worker keeps for each kind.
 
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use serde::{Serialize, de::DeserializeOwned};
 use topcoat::context::Cx;
@@ -36,12 +36,18 @@ use topcoat::context::Cx;
 /// - It reads the world as it is when it runs, not as it was at enqueue: the payload names rows, it
 ///   does not copy them.
 /// - The payload lives in the database and its backups in clear: it carries no secret.
+/// - A run past [`TIMEOUT`](Self::TIMEOUT) is dropped at its next `.await`. A run that blocks its
+///   thread instead outlives its lock, and another worker starts it again beside it: blocking work
+///   goes through `tokio::task::spawn_blocking`.
 pub trait Job: Serialize + DeserializeOwned + Send + Sync + 'static {
-    /// What the queue calls this kind. A queued job of a kind no worker registers fails, so a
-    /// rename keeps the old name until the queue holds none.
+    /// What the queue calls this kind. A queued job of a kind no worker registers waits, so a
+    /// rename keeps the old name registered until the queue holds none.
     const KIND: &'static str;
     /// How many runs it gets before it turns [`Dead`](crate::JobState::Dead).
     const MAX_ATTEMPTS: u32 = 8;
+    /// How long a run may take before it counts as failed. The claim locks the job a minute
+    /// longer, so no other worker takes over a live run.
+    const TIMEOUT: Duration = Duration::from_mins(2);
 
     /// The lane it runs in: of the jobs sharing a lane, one runs at a time across every worker.
     /// `None`, the default, runs beside anything.
@@ -62,9 +68,19 @@ pub(crate) type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 pub(crate) type Run =
     Arc<dyn for<'a> Fn(&'a str, &'a Cx) -> BoxFuture<'a, topcoat::Result<()>> + Send + Sync>;
 
-/// `J`'s run.
-pub(crate) fn run_of<J: Job>() -> Run {
-    Arc::new(|payload, cx| {
-        Box::pin(async move { serde_json::from_str::<J>(payload)?.run(cx).await })
-    })
+/// What a worker keeps of a registered kind.
+#[derive(Clone)]
+pub(crate) struct Kind {
+    pub(crate) run: Run,
+    pub(crate) timeout: Duration,
+}
+
+/// `J`'s run and timeout.
+pub(crate) fn kind_of<J: Job>() -> Kind {
+    Kind {
+        run: Arc::new(|payload, cx| {
+            Box::pin(async move { serde_json::from_str::<J>(payload)?.run(cx).await })
+        }),
+        timeout: J::TIMEOUT,
+    }
 }
