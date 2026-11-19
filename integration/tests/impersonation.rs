@@ -11,7 +11,7 @@ use tablo::{
     Allow, Auth, AuthEvent, AuthEventKind, AuthHook, HeaderAction, Impersonate, Impersonation,
     NoForm, Notification, Outcome, Page, PageDef, Panel, Resource, ResourceDef, Table, TextColumn,
     WriteError,
-    audit::{AuditEntry, ImpersonationEvent, PanelAuditExt, impersonations},
+    audit::{AuditEntry, ImpersonationEvent, PanelAuditExt, forget_actor, impersonations},
     auth::{self, AdminUser, AuthSession, IMPERSONATE_FIELD, create_admin},
     lens,
     notification::StoredNotification,
@@ -601,6 +601,36 @@ async fn signing_out_while_acting_as_another_is_audited_as_a_stop() {
         until <= jiff::Timestamp::now().saturating_add(hour).unwrap(),
         "{until}"
     );
+}
+
+/// Forgetting an account keeps the entries it took part in, as the actor or as the user acted as,
+/// but no longer its name or its id as the actor.
+#[tokio::test]
+async fn forgetting_an_account_keeps_its_entries_without_its_name() {
+    let app = Fixture::with(Auth::password().impersonation(support_only()), |panel| {
+        panel.audit_log(|log| log.policy(Allow))
+    })
+    .await;
+    let client = app.as_user(&app.support).await;
+    client.submit("/admin/impersonate", &act_as(&app.bob)).await;
+    client.submit("/admin/impersonate/stop", "").await;
+    let before = AuditEntry::all().exec(&mut app.db.clone()).await.unwrap();
+
+    let cx = app.handle.context();
+    let mut db = app.db.clone();
+    for user in [&app.support, &app.bob] {
+        forget_actor(&cx, &mut db, &user.id.to_string())
+            .await
+            .expect("forget the account");
+    }
+
+    let after = AuditEntry::all().exec(&mut db).await.unwrap();
+    assert_eq!(after.len(), before.len(), "every entry stays");
+    assert!(after.iter().all(|entry| entry.actor_id.is_none()));
+    let dump = format!("{after:?}");
+    for leaked in ["Sam Support", "Bob Builder"] {
+        assert!(!dump.contains(leaked), "{leaked} in {dump}");
+    }
 }
 
 /// On a panel that acts for tenants, the actor acts only as a user of their own tenants, unless

@@ -334,7 +334,9 @@ Mounting refuses an `AuditLog` on a panel without `audit_trail()`, where it woul
 Values are stored as the writer read them, in their language and time zone, so an entry is a
 snapshot rather than data to compute on. A delete stores every field the record held, so data an
 app erases on request also lives in the log until it is pruned; mark such a field
-`#[columns(skip)]`, or prune on the schedule the app's retention rules set.
+`#[columns(skip)]`, or prune on the schedule the app's retention rules set. Erasing an account,
+`audit::forget_actor` keeps its entries without its name, and erasing a tenant,
+`audit::forget_tenant` deletes the tenant's entries but its impersonations.
 `AuditEntry::impersonation()` reads a start or a stop back typed, and `audit::impersonations()`
 filters a resource of `AuditEntry` to them.
 

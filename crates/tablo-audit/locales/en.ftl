@@ -36,3 +36,4 @@ tablo-audit-two-factor-enabled = Turned two-factor sign-in on
 tablo-audit-two-factor-disabled = Turned two-factor sign-in off
 tablo-audit-recovery-codes-replaced = Replaced their recovery codes
 tablo-audit-login = Login typed
+tablo-audit-deleted-user = Deleted user

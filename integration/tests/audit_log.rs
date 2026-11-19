@@ -646,3 +646,45 @@ async fn the_mount_refuses_a_log_on_a_panel_without_its_trail() {
         "{errors:?}"
     );
 }
+
+/// Forgetting a tenant deletes its entries but the impersonation ones, and leaves another
+/// tenant's.
+#[tokio::test]
+async fn forgetting_a_tenant_keeps_only_its_impersonations() {
+    let db = db().await;
+    let (gone, kept) = (
+        TenantId::new(Uuid::from_u128(1)),
+        TenantId::new(Uuid::from_u128(2)),
+    );
+    seed(&db, "/app", Some(gone), vec![]).await;
+    seed(&db, "/app", Some(kept), vec![]).await;
+    let mut started = db.clone();
+    toasty::create!(AuditEntry {
+        panel: "/app".to_owned(),
+        tenant: Some(gone),
+        actor_id: Some("staff".to_owned()),
+        actor: "Staff".to_owned(),
+        event: "impersonate".to_owned(),
+        resource: None,
+        record: Some("customer".to_owned()),
+        url: None,
+        changes: toasty::Json(vec![]),
+        created_at: jiff::Timestamp::now(),
+    })
+    .exec(&mut started)
+    .await
+    .expect("seed an impersonation");
+
+    tablo::audit::forget_tenant(&mut db.clone(), gone)
+        .await
+        .expect("forget the tenant");
+
+    let left: Vec<_> = entries(&db)
+        .await
+        .into_iter()
+        .map(|entry| (entry.tenant, entry.impersonation().is_some()))
+        .collect();
+    assert_eq!(left.len(), 2, "{left:?}");
+    assert!(left.contains(&(Some(gone), true)));
+    assert!(left.contains(&(Some(kept), false)));
+}

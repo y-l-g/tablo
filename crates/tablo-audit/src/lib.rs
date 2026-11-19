@@ -26,8 +26,8 @@ mod trail;
 
 use std::time::Duration;
 
-use tablo_core::{Panel, PanelHandle, ResourceDef};
-use topcoat::l10n::locale;
+use tablo_core::{Panel, PanelHandle, ResourceDef, TenantId};
+use topcoat::{context::Cx, l10n::locale};
 
 pub use self::{
     entry::{AuditChange, AuditEntry, AuditEvent},
@@ -96,8 +96,8 @@ impl PanelAuditExt for Panel {
     }
 }
 
-/// Deletes the [`AuditEntry`] rows of `panel` older than `age`. Nothing else deletes them; a job
-/// calls it on the schedule the app keeps its audit trail for.
+/// Deletes the [`AuditEntry`] rows of `panel` older than `age`. Nothing else deletes them but
+/// [`forget_tenant`]; a job calls it on the schedule the app keeps its audit trail for.
 ///
 /// # Errors
 ///
@@ -113,6 +113,79 @@ pub async fn prune(panel: &PanelHandle, age: Duration) -> topcoat::Result<()> {
     )
     .delete()
     .exec(&mut tablo_core::db::db(&panel.context())?)
+    .await?;
+    Ok(())
+}
+
+/// Keeps what the user `user_id` did, but no longer who did it, for an account being erased: each
+/// entry they acted in names a deleted user, the `tablo-audit-deleted-user` message, in their
+/// place, and each auth entry done to their account, a sign-in or an impersonation of them, no
+/// longer holds their name. The entries' events, records and fields stay, as does the account's
+/// id, which names no one once the account is gone. A refused sign-in names no account and keeps
+/// the login it typed until [`prune`] deletes it. Run it through the transaction that deletes
+/// the account.
+///
+/// # Errors
+///
+/// The driver's failure when the rows cannot be read or written.
+pub async fn forget_actor(
+    cx: &Cx,
+    ex: &mut dyn toasty::Executor,
+    user_id: &str,
+) -> topcoat::Result<()> {
+    let deleted = tablo_core::t!(cx, "tablo-audit-deleted-user");
+    let fields = AuditEntry::fields();
+    AuditEntry::filter(fields.actor_id().eq(Some(user_id.to_owned())))
+        .update()
+        .actor_id(None::<String>)
+        .actor(deleted.clone())
+        .exec(&mut *ex)
+        .await?;
+    let done_to = AuditEntry::filter(
+        fields
+            .record()
+            .eq(Some(user_id.to_owned()))
+            .and(fields.resource().is_none()),
+    )
+    .exec(&mut *ex)
+    .await?;
+    for mut entry in done_to {
+        let mut changes = entry.changes.0.clone();
+        let mut scrubbed = false;
+        for change in &mut changes {
+            if change.field == impersonation::TARGET_FIELD {
+                change.after = Some(deleted.clone());
+                scrubbed = true;
+            }
+        }
+        if scrubbed {
+            entry
+                .update()
+                .changes(toasty::Json(changes))
+                .exec(&mut *ex)
+                .await?;
+        }
+    }
+    Ok(())
+}
+
+/// Deletes the entries filed under `tenant`, for a tenant being erased, but those recording an
+/// [impersonation](impersonations): a start is filed under the actor's tenant, and stays as the
+/// record of who reached which account until [`prune`] deletes it. Entries of panels that act for
+/// no tenant name none, and stay.
+///
+/// # Errors
+///
+/// The driver's failure when the rows cannot be deleted.
+pub async fn forget_tenant(ex: &mut dyn toasty::Executor, tenant: TenantId) -> topcoat::Result<()> {
+    AuditEntry::filter(
+        AuditEntry::fields()
+            .tenant()
+            .eq(Some(tenant))
+            .and(impersonations().not()),
+    )
+    .delete()
+    .exec(ex)
     .await?;
     Ok(())
 }
