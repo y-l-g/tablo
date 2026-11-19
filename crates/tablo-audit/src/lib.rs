@@ -20,6 +20,7 @@
 //! [`models!`](tablo_core::models!), as `tablo::models!(Post, tablo::audit::AuditEntry)`.
 
 mod entry;
+mod impersonation;
 mod log;
 mod trail;
 
@@ -30,6 +31,7 @@ use topcoat::l10n::locale;
 
 pub use self::{
     entry::{AuditChange, AuditEntry, AuditEvent},
+    impersonation::{ImpersonationEvent, impersonations},
     log::AuditLog,
 };
 

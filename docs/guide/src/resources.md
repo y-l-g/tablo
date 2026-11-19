@@ -335,6 +335,8 @@ Values are stored as the writer read them, in their language and time zone, so a
 snapshot rather than data to compute on. A delete stores every field the record held, so data an
 app erases on request also lives in the log until it is pruned; mark such a field
 `#[columns(skip)]`, or prune on the schedule the app's retention rules set.
+`AuditEntry::impersonation()` reads a start or a stop back typed, and `audit::impersonations()`
+filters a resource of `AuditEntry` to them.
 
 A CSV export stores an entry too, with how many rows it handed over, before the first byte
 leaves: an export whose entry cannot be stored is refused. The entry says the file was asked for,
