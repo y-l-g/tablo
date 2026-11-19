@@ -23,6 +23,17 @@ pub fn confirms_first(html: &str, action: &str) -> Option<bool> {
         .map(|(_, attrs, _)| attr_value(&attrs, "type").as_deref() == Some("button"))
 }
 
+/// The route the choice posting `field` fetches its options from, as the page names it for the
+/// browser: `{list}/-/options` on a record form, `{url}/-/actions/{name}/options` on an action's
+/// input. `None` when the choice fetches nothing: its options fit and it depends on no field, or
+/// no option search serves the page.
+pub fn options_url(html: &str, field: &str) -> Option<String> {
+    open_tags(html)
+        .into_iter()
+        .find(|(_, attrs, _)| attr_value(attrs, "data-options-field").as_deref() == Some(field))
+        .and_then(|(_, attrs, _)| attr_value(&attrs, "data-options-url"))
+}
+
 /// The button posting to `url`, a custom action's route, on a row or a record page, as its
 /// element. A row's button posts itself; a record page's button sits in the form posting to `url`.
 fn posting_button(html: &str, url: &str) -> Option<Element> {

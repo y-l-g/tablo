@@ -431,12 +431,14 @@ impl Field {
         let parent_value = dependent
             .as_ref()
             .map(|_| parent.unwrap_or("").trim().to_string());
-        let options_field = (overflow_searchable || dependent.is_some()).then(|| name.clone());
-        let options_server = overflow_searchable.then_some("true");
-        let options_url = options_field
-            .as_ref()
-            .and(placement.options)
+        // Only a form an option search serves fetches: elsewhere the choice keeps the options it
+        // rendered.
+        let options_url = placement
+            .options
+            .filter(|_| overflow_searchable || dependent.is_some())
             .map(str::to_string);
+        let options_field = options_url.as_ref().map(|_| name.clone());
+        let options_server = (overflow_searchable && options_url.is_some()).then_some("true");
         let overflow_hint = crate::t!(cx, "tablo-field-too-many-options");
         // A searchable dependent choice may overflow after its parent changes, so it always
         // renders the hint, hidden until then.

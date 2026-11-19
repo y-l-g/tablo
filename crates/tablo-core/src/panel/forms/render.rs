@@ -18,7 +18,10 @@ use super::{
 pub(super) use crate::form::VERSION_FIELD;
 use crate::{
     form::{FieldErrors, FormValues},
-    panel::record_nav::{RecordNavLink, record_navigation, render_record_navigation},
+    panel::{
+        record_nav::{RecordNavLink, record_navigation, render_record_navigation},
+        url::options_url,
+    },
     resource::{Mounted, Places, PublicLink, Resource},
     schema::{FormMask, Schema},
     t,
@@ -57,8 +60,8 @@ pub(crate) struct FormChrome<'a> {
     cancel: String,
     /// Hidden `(name, value)` controls the submit carries besides the schema's.
     hidden: Vec<(String, String)>,
-    /// Where a searchable choice fetches its options: an action's input route, or `None` for the
-    /// resource's own.
+    /// Where a searchable or dependent choice fetches its options: the resource's option search,
+    /// an action's input route, or `None` on a page no option search serves.
     options: Option<String>,
     /// Whether the form edits a stored record.
     editing: bool,
@@ -100,7 +103,7 @@ impl<'a> FormChrome<'a> {
             actions: ActionBar::default(),
             cancel: resource.url.clone(),
             hidden: Vec::new(),
-            options: None,
+            options: Some(options_url(&resource.url)),
             editing: false,
             another: !picking,
             seed: seed_pairs(cx, resource),
@@ -138,7 +141,7 @@ impl<'a> FormChrome<'a> {
             },
             cancel: resource.url.clone(),
             hidden,
-            options: None,
+            options: Some(options_url(&resource.url)),
             editing: true,
             another: false,
             seed: Vec::new(),

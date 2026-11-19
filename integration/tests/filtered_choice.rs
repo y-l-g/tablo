@@ -175,17 +175,17 @@ async fn a_filtered_choice_offers_and_accepts_only_the_rows_it_selects() {
     assert_eq!(count(&mut db).await, 4);
 }
 
-/// A dependent choice's filter narrows the parent value's rows: the options endpoint and the
-/// submission both drop the archived subcategory.
+/// A dependent choice's filter narrows the parent value's rows: the options route the form names
+/// and the submission both drop the archived subcategory.
 #[tokio::test]
 async fn a_dependent_choice_applies_its_filter_to_the_parent_values_rows() {
     let shelf = shelf().await;
+    let html = body_string(get(&shelf.router, "/admin/listings/-/create").await).await;
+    let route = tablo::testing::options_url(&html, "subcategory_id").expect("the form names it");
+    assert_eq!(route, "/admin/listings/-/options");
     let response = get(
         &shelf.router,
-        &format!(
-            "/admin/listings/-/options?field=subcategory_id&parent={}",
-            shelf.books
-        ),
+        &format!("{route}?field=subcategory_id&parent={}", shelf.books),
     )
     .await;
     assert_eq!(response.status(), 200);
@@ -212,4 +212,32 @@ async fn a_dependent_choice_applies_its_filter_to_the_parent_values_rows() {
     );
     let mut db = shelf.db.clone();
     assert!(Listing::all().exec(&mut db).await.unwrap().is_empty());
+}
+
+/// The edit form names the same options route as the create form: the browser never derives it
+/// from the page's own URL.
+#[tokio::test]
+async fn the_edit_form_names_the_resources_options_route() {
+    let shelf = shelf().await;
+    let mut db = shelf.db.clone();
+    let listing = toasty::create!(Listing {
+        category_id: shelf.books,
+        subcategory_id: shelf.novels,
+    })
+    .exec(&mut db)
+    .await
+    .unwrap();
+    let html = body_string(
+        get(
+            &shelf.router,
+            &format!("/admin/listings/{}/edit", listing.id),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(
+        tablo::testing::options_url(&html, "subcategory_id").as_deref(),
+        Some("/admin/listings/-/options"),
+        "{html}"
+    );
 }

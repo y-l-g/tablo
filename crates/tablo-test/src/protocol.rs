@@ -26,7 +26,7 @@ pub use bell::{Bell, BellNotification, bell};
 pub use choice_create::{CreateOptionLink, Picked, create_option_links, picked, posts_picking};
 pub use controls::{
     DisabledAction, action_badge, action_label, action_tooltip, confirms_first, disabled_actions,
-    selects_matching,
+    options_url, selects_matching,
 };
 pub use detail::{DetailEntry, RecordNavLink, detail_entries, record_navigation};
 pub use dom::{

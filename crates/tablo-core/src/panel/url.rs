@@ -381,6 +381,11 @@ pub(crate) fn picking(cx: &Cx) -> bool {
         })
 }
 
+/// The record form's option search: `{list_path}/-/options`.
+pub(crate) fn options_url(list_path: &str) -> String {
+    list_route(list_path, OPTIONS_ROUTE_SEGMENT)
+}
+
 /// The list page's export link: `{list_path}/-/export`.
 pub(crate) fn export_url(list_path: &str) -> String {
     list_route(list_path, EXPORT_ROUTE_SEGMENT)

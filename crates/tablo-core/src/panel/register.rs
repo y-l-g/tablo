@@ -33,9 +33,9 @@ use crate::{
     panel::url::{
         ACTION_ROUTE_PARAM, ACTIONS_ROUTE_SEGMENT, BULK_DELETE_ROUTE_SEGMENT,
         COLUMNS_ROUTE_SEGMENT, CREATE_ROUTE_SEGMENT, DASH_ROUTE_SEGMENT, DELETE_ROUTE_SEGMENT,
-        EDIT_ROUTE_SEGMENT, EXPORT_ROUTE_SEGMENT, OPTIONS_ROUTE_SEGMENT, PICKED_ROUTE_SEGMENT,
-        RECORD_ROUTE_PARAM, RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM, RELATIONS_ROUTE_SEGMENT,
-        import_template_url, import_url, list_route,
+        EDIT_ROUTE_SEGMENT, EXPORT_ROUTE_SEGMENT, PICKED_ROUTE_SEGMENT, RECORD_ROUTE_PARAM,
+        RELATED_ROUTE_PARAM, RELATION_ROUTE_PARAM, RELATIONS_ROUTE_SEGMENT, import_template_url,
+        import_url, list_route, options_url,
     },
     resource::{
         Mounted, Mounts, Places, Resource, ResourceCheck, ResourceDef, check_record_pages,
@@ -517,11 +517,7 @@ fn register_routes<R: Resource>(registry: &mut Registry, url: &str, routes: Opti
         let edit_url = format!("{url}/{RECORD_ROUTE_PARAM}/{EDIT_ROUTE_SEGMENT}");
         registry.page(Method::GET, &edit_url, resource_edit::<R>);
         registry.page(Method::POST, &edit_url, resource_edit_post::<R>);
-        registry.route(
-            Method::GET,
-            &list_route(url, OPTIONS_ROUTE_SEGMENT),
-            resource_options::<R>,
-        );
+        registry.route(Method::GET, &options_url(url), resource_options::<R>);
     }
 }
 
