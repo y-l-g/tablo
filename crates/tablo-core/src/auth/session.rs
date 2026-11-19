@@ -277,7 +277,9 @@ pub(super) async fn replace_sessions(
 /// does, and returns the token its session cookie carries. No credential is checked.
 ///
 /// `tablo::testing`'s `TestClient::sign_in` is the caller: it lets a test act as a signed-in user
-/// without a password hash.
+/// without a password hash. The `testing` feature, which only `tablo-test` turns on, compiles it:
+/// a production build carries no way to open a session without a credential.
+#[cfg(feature = "testing")]
 #[doc(hidden)]
 pub async fn mint_session(
     ex: &mut dyn toasty::Executor,
