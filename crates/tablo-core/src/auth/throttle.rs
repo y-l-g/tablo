@@ -78,13 +78,10 @@ struct Count {
 impl LoginThrottle {
     /// Allows `attempts` sign-in attempts per login in each `window`.
     ///
-    /// # Panics
-    ///
-    /// When `attempts` is `0` or `window` is zero: neither allows a sign-in.
+    /// The panel refuses to mount when `attempts` is `0` or `window` is zero: neither allows a
+    /// sign-in.
     #[must_use]
     pub fn new(attempts: u32, window: Duration) -> Self {
-        assert!(attempts > 0, "a login throttle allows at least one attempt");
-        assert!(!window.is_zero(), "a login throttle's window is not zero");
         Self::with(Some(Limit { attempts, window }))
     }
 
@@ -126,6 +123,12 @@ impl LoginThrottle {
     /// Whether the throttle counts in the database, which then needs [`AuthThrottle`].
     pub(crate) fn counts_in_database(&self) -> bool {
         self.limit.is_some() && self.in_database
+    }
+
+    /// Whether the limit allows no sign-in at all: no attempt, or a window of no time.
+    pub(crate) fn allows_none(&self) -> bool {
+        self.limit
+            .is_some_and(|limit| limit.attempts == 0 || limit.window.is_zero())
     }
 
     /// Counts an attempt for `login` from `client`, or answers `false` when the pair is past its

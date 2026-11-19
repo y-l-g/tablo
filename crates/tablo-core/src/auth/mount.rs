@@ -65,6 +65,7 @@ pub(crate) fn declaration_errors(
         .chain(two_factor_errors(auth, services))
         .chain(super::mail::declaration_errors(auth, services.mail))
         .chain(super::external::declaration_errors(auth))
+        .chain(auth.throttle_declaration_errors())
         .chain(super::oidc::declaration_errors(auth, services.cookie_key))
         .collect()
 }

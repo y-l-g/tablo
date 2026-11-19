@@ -169,6 +169,25 @@ async fn a_throttle_in_the_database_needs_its_model() {
     )));
 }
 
+/// Mounting refuses a throttle whose limit allows no sign-in, naming the builder call that set it.
+#[tokio::test]
+async fn a_throttle_that_allows_no_sign_in_is_refused() {
+    use std::time::Duration;
+
+    let auth = Auth::password()
+        .throttle(LoginThrottle::new(0, Duration::from_mins(1)))
+        .account_throttle(LoginThrottle::new(5, Duration::ZERO))
+        .sign_up_throttle(LoginThrottle::new(5, Duration::from_mins(1)));
+    let refused: Vec<_> = refusal(mount(db_with_ada().await, Panel::new("admin").auth(auth)))
+        .into_iter()
+        .filter_map(|error| match error.kind {
+            DeclarationErrorKind::ThrottleAllowsNone { builder } => Some(builder),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(refused, ["Auth::throttle", "Auth::account_throttle"]);
+}
+
 /// A login body past the credential cap answers 413 and starts no session; a normal one signs in.
 #[tokio::test]
 async fn an_oversized_login_post_is_refused() {
