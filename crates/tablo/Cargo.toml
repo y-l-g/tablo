@@ -23,10 +23,13 @@ turso = ["toasty/turso"]
 testing = ["dep:tablo-test"]
 # `tablo::audit`: the audit log, built on the public API in a crate of its own (ADR-0040).
 audit = ["dep:tablo-audit"]
-default = ["rich-text"]
+default = ["rich-text", "two-factor"]
 # The rich text field and column, and `tablo::rich_text`; off, `ammonia` and its HTML parser leave
 # the build.
 rich-text = ["tablo-core/rich-text"]
+# `Auth::two_factor` and the `AuthFactor` model; off, the authenticator app's cipher, QR code and
+# one-time code dependencies leave the build.
+two-factor = ["tablo-core/two-factor"]
 # `rust_decimal::Decimal` and `bigdecimal::BigDecimal` columns: a text field binds them and a
 # numeric or money column spells them exactly. Each turns on Toasty's feature of the same name.
 rust_decimal = ["tablo-core/rust_decimal"]

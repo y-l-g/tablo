@@ -162,6 +162,7 @@ pub(crate) enum AuthPage {
     /// [`Auth::profile`](crate::Auth::profile)'s page.
     Profile,
     /// [`Auth::two_factor`](crate::Auth::two_factor)'s settings page.
+    #[cfg(feature = "two-factor")]
     TwoFactor,
     /// [`Auth::tenant_profile`](crate::Auth::tenant_profile)'s page.
     TenantProfile,
@@ -233,6 +234,7 @@ impl AreaGroup {
 
     /// Moves the two-factor settings page [`Auth::two_factor`](crate::Auth::two_factor) installs
     /// into the group, at `{prefix}/{area}/two-factor`. The user menu's entry follows it there.
+    #[cfg(feature = "two-factor")]
     #[must_use]
     pub fn two_factor(self) -> Self {
         self.two_factor_with(|def| def)
@@ -242,6 +244,7 @@ impl AreaGroup {
     /// does, with `customize` adjusting its def as [`profile_with`](Self::profile_with) reads it,
     /// but for header actions, which mounting refuses: the page renders no form header to hold
     /// them.
+    #[cfg(feature = "two-factor")]
     #[must_use]
     pub fn two_factor_with(
         self,
@@ -297,6 +300,7 @@ pub(super) fn settings_paths(
     for (page, url) in placed {
         let path = match page {
             AuthPage::Profile => &mut paths.profile,
+            #[cfg(feature = "two-factor")]
             AuthPage::TwoFactor => &mut paths.two_factor,
             AuthPage::TenantProfile => &mut paths.tenant_profile,
         };

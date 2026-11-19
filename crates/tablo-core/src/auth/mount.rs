@@ -5,6 +5,8 @@ use std::any::TypeId;
 
 use topcoat::router::{BodyLimit, PageFn, RouteFn, RouteHandlerFn, RouterBuilder};
 
+#[cfg(feature = "two-factor")]
+use super::two_factor::{challenge_page, challenge_post, settings_page, settings_post};
 use super::{
     AdminUser, AuthConfig, Realm, email_change,
     external::external_login,
@@ -14,7 +16,6 @@ use super::{
     registration::{register_page, register_post},
     tenant_profile::{tenant_profile_page, tenant_profile_post},
     tenant_registration::{register_tenant_page, register_tenant_post},
-    two_factor::{challenge_page, challenge_post, settings_page, settings_post},
     verification::{confirm_page, notice_page, notice_post},
 };
 use crate::{DeclarationErrorKind, naming::route_path, toasty_compat::model::AppSchema};
@@ -61,10 +62,7 @@ pub(crate) fn declaration_errors(
         .chain(super::verification::declaration_errors(auth))
         .chain(super::tenant_registration::declaration_errors(auth))
         .chain(super::tenant_profile::declaration_errors(auth))
-        .chain(super::two_factor::declaration_errors(
-            auth,
-            services.cookie_key,
-        ))
+        .chain(two_factor_errors(auth, services))
         .chain(super::mail::declaration_errors(auth, services.mail))
         .chain(super::external::declaration_errors(auth))
         .chain(super::oidc::declaration_errors(auth, services.cookie_key))
@@ -94,6 +92,7 @@ fn missing_models(
         (shipped_user && !registered("AdminUser")).then_some("AdminUser"),
         (toggles && !registered("ColumnPreference")).then_some("ColumnPreference"),
         (auth.issues_tokens() && !registered("AuthToken")).then_some("AuthToken"),
+        #[cfg(feature = "two-factor")]
         (auth.two_factor.is_some() && !registered("AuthFactor")).then_some("AuthFactor"),
         (auth.throttles_in_database() && !registered("AuthThrottle")).then_some("AuthThrottle"),
         (notifications && !registered("StoredNotification")).then_some("StoredNotification"),
@@ -213,6 +212,7 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
             ))
             .page(PageFn::new(http::Method::POST, path, tenant_profile_post));
     }
+    #[cfg(feature = "two-factor")]
     if auth.two_factor_config().is_some() {
         let challenge = route_path(&format!("{prefix}/two-factor-challenge"));
         // The settings page renders in the panel's shell, under the panel's own form cap.
@@ -287,4 +287,19 @@ pub(crate) fn routes(mut builder: RouterBuilder, realm: &Realm) -> RouterBuilder
         }
     }
     builder
+}
+
+/// The mistakes in the panel's two-factor sign-in; none without the `two-factor` feature.
+fn two_factor_errors(
+    #[cfg_attr(not(feature = "two-factor"), expect(unused_variables))] auth: &AuthConfig,
+    #[cfg_attr(not(feature = "two-factor"), expect(unused_variables))] services: Services,
+) -> Vec<DeclarationErrorKind> {
+    #[cfg(feature = "two-factor")]
+    {
+        super::two_factor::declaration_errors(auth, services.cookie_key)
+    }
+    #[cfg(not(feature = "two-factor"))]
+    {
+        Vec::new()
+    }
 }

@@ -1,15 +1,17 @@
 //! The models Tablo ships, for auth and the bell: [`models!`](crate::models!), which registers
 //! them beside the app's, and [`erase_user`], which deletes a user's rows from them.
 
+#[cfg(feature = "two-factor")]
+use crate::auth::AuthFactor;
 use crate::{
-    auth::{AdminUser, AuthFactor, AuthSession, AuthThrottle, AuthToken, ColumnPreference},
+    auth::{AdminUser, AuthSession, AuthThrottle, AuthToken, ColumnPreference},
     notification::StoredNotification,
     toasty_compat::model::AppSchema,
 };
 
 /// Register every model Tablo ships in `models`: [`AdminUser`], [`AuthSession`],
-/// [`ColumnPreference`], [`AuthToken`], [`AuthFactor`], [`AuthThrottle`] and
-/// [`StoredNotification`].
+/// [`ColumnPreference`], [`AuthToken`], [`AuthThrottle`] and [`StoredNotification`], and
+/// `AuthFactor` with the `two-factor` feature.
 ///
 /// [`models!`](crate::models!) calls it; call it directly when the app builds its
 /// [`ModelSet`](toasty::schema::ModelSet) by hand. A model the panel never reads costs an empty
@@ -23,6 +25,7 @@ pub fn register_models(models: &mut toasty::schema::ModelSet) {
     <AuthSession as toasty::schema::Model>::register(models);
     <ColumnPreference as toasty::schema::Model>::register(models);
     <AuthToken as toasty::schema::Model>::register(models);
+    #[cfg(feature = "two-factor")]
     <AuthFactor as toasty::schema::Model>::register(models);
     <AuthThrottle as toasty::schema::Model>::register(models);
     <StoredNotification as toasty::schema::Model>::register(models);
@@ -74,6 +77,7 @@ pub async fn erase_user(ex: &mut dyn toasty::Executor, user_id: &str) -> toasty:
             .exec(&mut *ex)
             .await?;
     }
+    #[cfg(feature = "two-factor")]
     if schema.registers("AuthFactor") {
         AuthFactor::filter(AuthFactor::fields().user_id().eq(id.clone()))
             .delete()

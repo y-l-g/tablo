@@ -238,7 +238,8 @@ jobs:
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo clippy --workspace --all-targets --locked
-      # The build without the default features, tests included: an app may drop `rich-text`.
+      # The build without the default features, tests included: an app may drop `rich-text` and
+      # `two-factor`.
       - run: cargo clippy -p tablo-core -p tablo --no-default-features --all-targets --locked
 
   docs:

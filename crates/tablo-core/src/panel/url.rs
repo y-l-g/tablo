@@ -118,8 +118,8 @@ pub fn auth(cx: &Cx, page: AuthPage) -> Option<String> {
         AuthPage::VerifyEmail => under(auth.verification().is_some(), "verify-email"),
         AuthPage::Profile => auth.profile_editor().map(|_| realm.pages.profile.clone()),
         AuthPage::TwoFactor => auth
-            .two_factor_config()
-            .map(|_| realm.pages.two_factor.clone()),
+            .asks_two_factor()
+            .then(|| realm.pages.two_factor.clone()),
         AuthPage::TenantProfile => auth
             .tenant_editor()
             .map(|_| realm.pages.tenant_profile.clone()),

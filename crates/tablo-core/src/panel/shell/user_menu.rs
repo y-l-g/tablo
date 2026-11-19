@@ -22,6 +22,7 @@ pub(super) fn account_items(cx: &Cx) -> Vec<NavigationItem> {
         NavigationItem::at(t!(cx, "tablo-shell-profile"), crate::auth::profile_url(cx))
             .icon(tablo_ui::icons::USER)
     });
+    #[cfg(feature = "two-factor")]
     let two_factor = crate::auth::two_factor_offered(cx).then(|| {
         NavigationItem::at(
             t!(cx, "tablo-shell-two-factor"),
@@ -29,6 +30,8 @@ pub(super) fn account_items(cx: &Cx) -> Vec<NavigationItem> {
         )
         .icon(tablo_ui::icons::CIRCLE_CHECK)
     });
+    #[cfg(not(feature = "two-factor"))]
+    let two_factor = None;
     profile.into_iter().chain(two_factor).collect()
 }
 /// The text tokens of a floating menu that sits in the sidebar.
