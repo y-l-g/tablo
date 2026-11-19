@@ -301,6 +301,27 @@ fn abilities_deny_what_they_do_not_declare() {
     assert!(exporting.allows(&cx, Ability::Export));
 }
 
+/// `read` answers the list and each record from one request check, and nothing else.
+#[test]
+fn read_allows_the_list_and_each_record_from_one_check() {
+    let post = Post { locked: true };
+    let staff = || Cx::default().with(Staff);
+    let policy =
+        Abilities::<Post>::new().read(|cx| topcoat::context::try_context::<Staff>(cx).is_some());
+    let reads = [
+        true, false, true, false, false, false, false, false, false, false, false, false, false,
+    ];
+    assert_eq!(answers(&policy, &staff(), &post), reads);
+    assert_eq!(answers(&policy, &Cx::default(), &post), [false; ABILITIES]);
+
+    let narrowed = policy.view(|_cx, post| !post.locked);
+    assert!(narrowed.allows(&staff(), Ability::ViewAny));
+    assert!(!narrowed.allows(&staff(), Ability::View(&post)));
+}
+
+/// A marker a test request carries.
+struct Staff;
+
 #[test]
 fn a_record_check_allows_the_ability_at_all_and_an_any_check_narrows_it() {
     let cx = Cx::default();

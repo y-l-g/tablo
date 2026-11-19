@@ -126,6 +126,30 @@ impl<M> Abilities<M> {
         self
     }
 
+    /// Who may read the resource: [`view_any`](Self::view_any) and [`view`](Self::view) both
+    /// answered by `check`, which reads the request alone, for a resource whose readers see every
+    /// record its query returns. A [`view`](Self::view) declared after it narrows the records.
+    ///
+    /// ```rust
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+    /// # struct Invoice { #[key] #[auto] id: uuid::Uuid }
+    /// # use tablo_core::Abilities;
+    /// # use topcoat::context::Cx;
+    /// # fn is_staff(_cx: &Cx) -> bool { true }
+    /// let policy = Abilities::<Invoice>::new().read(is_staff).export(is_staff);
+    /// # let _ = policy;
+    /// ```
+    #[must_use]
+    pub fn read(self, check: impl Fn(&Cx) -> bool + Send + Sync + 'static) -> Self
+    where
+        M: 'static,
+    {
+        let check = std::sync::Arc::new(check);
+        let record = std::sync::Arc::clone(&check);
+        self.view_any(move |cx| check(cx))
+            .view(move |cx, _: &M| record(cx))
+    }
+
     /// Who may see a record: [`View`](Ability::View), asked by its detail page, its edit form,
     /// each write to it and relationship options. The list and the export hold a row without it;
     /// the list asks it only to offer the row's actions.
