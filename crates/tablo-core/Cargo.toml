@@ -89,6 +89,9 @@ rich-text = ["dep:ammonia"]
 # Toasty's feature of the same name, which stores them.
 rust_decimal = ["dep:rust_decimal", "toasty/rust_decimal"]
 bigdecimal = ["dep:bigdecimal", "toasty/bigdecimal"]
+# `auth::mint_session`, which records a session without checking a credential. `tablo-test` turns
+# it on for `TestClient::sign_in`; an app's own build never needs it.
+testing = []
 
 [dev-dependencies]
 # The catalog guard reads each message's variables off the parsed catalog.

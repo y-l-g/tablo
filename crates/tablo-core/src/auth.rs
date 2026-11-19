@@ -47,6 +47,8 @@ use topcoat::{
 };
 
 use self::realm::realms;
+#[cfg(feature = "testing")]
+pub use self::session::mint_session;
 #[cfg(feature = "two-factor")]
 pub use self::two_factor::{AuthFactor, FactorKind};
 // What the crate root exports, under the paths this module's own code names.
@@ -64,8 +66,8 @@ pub use self::{
     password_reset::RESET_LIFETIME,
     registration::{MIN_PASSWORD_CHARS, new_password_errors},
     session::{
-        AuthSession, SESSION_COOKIE_PREFIX, SESSION_LIFETIME, mint_session,
-        revoke_sessions_for_user, session_cookie,
+        AuthSession, SESSION_COOKIE_PREFIX, SESSION_LIFETIME, revoke_sessions_for_user,
+        session_cookie,
     },
     throttle::AuthThrottle,
     token::{AuthToken, TokenPurpose},
