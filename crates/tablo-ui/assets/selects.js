@@ -16,11 +16,10 @@
 //   (case-insensitive); the placeholder option always stays.
 // * Overflowed relationship sets: the wrapper carries
 //   `data-options-server="true"` + `data-options-field="<name>"`. Typing
-//   debounces (200ms, abort in-flight) a `GET
-//   {parent_list_url}/-/options?field=&q=` fetch that replaces the `<select>`
-//   (or `GET {data-options-url}?field=&q=` when the wrapper names the route,
-//   as an action's input does: `{url}/-/actions/{name}/options`)
-//   options with server markup, preserving the current selection and the
+//   debounces (200ms, abort in-flight) a `GET {data-options-url}?field=&q=`
+//   fetch (`{list}/-/options` on a record form,
+//   `{url}/-/actions/{name}/options` on an action's input) that replaces the
+//   `<select>` options with server markup, preserving the current selection and the
 //   placeholder; the list re-renders from the replaced options. The hint
 //   ("Too many options — type to search") is server-rendered and stays
 //   visible.
@@ -29,7 +28,7 @@
 // * Dependent choices: the wrapper carries `data-options-parent="<name>"`, the
 //   field whose value narrows the options, and `data-options-parent-value`.
 //   A `change` of that field in the same form fetches `GET
-//   {parent_list_url}/-/options?field=&parent=` and replaces the options, keeping
+//   {data-options-url}?field=&parent=` and replaces the options, keeping
 //   the current choice only when the answer offers it; a blank parent offers
 //   none, with no fetch. A choice the answer drops announces its own `change`,
 //   so a choice depending on it, or a condition watching it, follows. A search
@@ -57,17 +56,11 @@
 const serverTimers = new WeakMap();
 const serverControllers = new WeakMap();
 
-// The options route of the choice in `wrap`: the one the server names, an
-// action's input route, or else the resource's own, derived from the page.
+// The options route of the choice in `wrap`, which the server names on every
+// choice that fetches: the resource's option search or an action's input
+// route.
 function optionsBase(wrap) {
-  const named = wrap.getAttribute('data-options-url');
-  if (named) return named;
-  const path = window.location.pathname.replace(/\/$/, '');
-  // /admin/posts/-/create -> /admin/posts ; /admin/posts/<id>/edit -> /admin/posts
-  const base = path
-    .replace(/\/-\/create$/, '')
-    .replace(/\/[^\/]+\/edit$/, '');
-  return `${base}/-/options`;
+  return wrap.getAttribute('data-options-url');
 }
 
 function escapeAttr(s) {
@@ -113,7 +106,7 @@ const dependentControllers = new WeakMap();
 async function refreshDependent(wrap, parentValue) {
   const select = wrap.querySelector('select');
   const field = wrap.getAttribute('data-options-field');
-  if (!select || !field) return;
+  if (!select || !field || !optionsBase(wrap)) return;
   wrap.setAttribute('data-options-parent-value', parentValue);
   const prev = dependentControllers.get(wrap);
   if (prev) prev.abort();
@@ -542,7 +535,7 @@ function install() {
     const needle = parts.filter.value.trim();
     const field = parts.wrap.getAttribute('data-options-field');
     const server = parts.wrap.getAttribute('data-options-server') === 'true';
-    if (server && field) {
+    if (server && field && optionsBase(parts.wrap)) {
       messageRow(parts, wording(parts.wrap, 'searching'));
       parts.wrap.dataset.optionsSearching = 'true';
       const prevTimer = serverTimers.get(parts.filter);

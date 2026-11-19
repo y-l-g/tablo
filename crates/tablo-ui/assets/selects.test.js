@@ -98,7 +98,11 @@ function searchableField({ server = null } = {}) {
   const combo = {};
   const wrap = {};
   const wrapAttrs = server
-    ? { 'data-options-server': 'true', 'data-options-field': server }
+    ? {
+        'data-options-server': 'true',
+        'data-options-field': server,
+        'data-options-url': '/admin/books/-/options',
+      }
     : {};
   const filterAttrs = {};
   const filter = {
@@ -537,7 +541,6 @@ test('Escape closes a list showing a status line, and the search landing keeps i
     search = callback;
     return 0;
   };
-  global.window = { location: { pathname: '/admin/books/-/create' } };
   global.fetch = async () => ({ ok: false, headers: { get: () => null }, text: async () => '' });
   try {
     load(document);
@@ -550,7 +553,6 @@ test('Escape closes a list showing a status line, and the search landing keeps i
   } finally {
     global.setTimeout = realSetTimeout;
     delete global.fetch;
-    delete global.window;
   }
 });
 
@@ -693,6 +695,7 @@ function dependentWorld({ parentValue, current }) {
   const attrs = {
     'data-options-parent': 'country_id',
     'data-options-field': 'city_id',
+    'data-options-url': '/admin/addresses/-/options',
     'data-options-parent-value': 'fr',
   };
   const wrap = {
@@ -737,7 +740,6 @@ test('a blank parent clears its dependent choice without a fetch', async () => {
 });
 
 test('a parent value fetches the options it offers, keeping a choice among them', async () => {
-  global.window = { location: { pathname: '/admin/addresses/-/create' } };
   const urls = [];
   global.fetch = async (url) => {
     urls.push(url);
@@ -762,13 +764,11 @@ test('a parent value fetches the options it offers, keeping a choice among them'
     assert.equal(dropped.select.events.length, 1, 'the dropped choice announces its change');
   } finally {
     delete global.fetch;
-    delete global.window;
   }
 });
 
 // Fire the parent's change with `fetch` answering `answer`.
 async function refreshWith(answer) {
-  global.window = { location: { pathname: '/admin/addresses/-/create' } };
   global.fetch = answer;
   try {
     const world = dependentWorld({ parentValue: 'fr', current: 'paris' });
@@ -778,7 +778,6 @@ async function refreshWith(answer) {
     return world;
   } finally {
     delete global.fetch;
-    delete global.window;
   }
 }
 
@@ -806,22 +805,21 @@ test('a failed fetch offers nothing rather than the old parent value\'s options'
   }
 });
 
-test('a choice whose wrapper names its options route fetches from it, not the page\'s', async () => {
-  global.window = { location: { pathname: '/admin/addresses' } };
+test('a choice the server names no options route for fetches nothing', async () => {
   const urls = [];
   global.fetch = async (url) => {
     urls.push(url);
     return { ok: true, headers: { get: () => null }, text: async () => '' };
   };
   try {
-    const world = dependentWorld({ parentValue: 'fr', current: '' });
-    world.attrs['data-options-url'] = '/admin/addresses/-/actions/move/options';
+    const world = dependentWorld({ parentValue: 'fr', current: 'paris' });
+    delete world.attrs['data-options-url'];
     const document = standInDocument([]);
     load(document);
     await changeParent(document, world.parent);
-    assert.deepEqual(urls, ['/admin/addresses/-/actions/move/options?field=city_id&parent=fr']);
+    assert.deepEqual(urls, []);
+    assert.equal(world.select.value, 'paris', 'the rendered options stay');
   } finally {
     delete global.fetch;
-    delete global.window;
   }
 });

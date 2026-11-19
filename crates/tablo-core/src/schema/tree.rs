@@ -43,7 +43,8 @@ pub struct Source<'a> {
     /// The prefix of the form's DOM ids and of its signals' keys; empty for a form alone on its
     /// page.
     scope: String,
-    /// Where a searchable choice fetches its options, when not the resource's own route.
+    /// Where a searchable or dependent choice fetches its options; `None` where no route serves
+    /// them.
     options: Option<String>,
     /// Whether the form edits a stored record.
     editing: bool,
@@ -133,7 +134,7 @@ impl<'a> Source<'a> {
         self
     }
 
-    /// Fetches a searchable choice's options from `url` rather than the resource's own route.
+    /// Fetches a searchable or dependent choice's options from `url`.
     pub(crate) fn options_at(mut self, url: impl Into<String>) -> Self {
         self.options = Some(url.into());
         self
@@ -198,7 +199,7 @@ impl<'a> Source<'a> {
         self.errors
     }
 
-    /// Where a searchable choice fetches its options, when not the resource's own route.
+    /// Where a searchable or dependent choice fetches its options.
     pub(crate) fn options(&self) -> Option<&str> {
         self.options.as_deref()
     }

@@ -8,8 +8,8 @@ pub(crate) struct Placement<'p> {
     /// The prefix of the form's DOM ids, so several forms on one page never share one; empty
     /// for a form alone on its page.
     pub(crate) scope: &'p str,
-    /// The URL a searchable choice fetches its options from; `None` for the resource's own
-    /// `{list}/-/options`, which the browser derives from the page's URL.
+    /// The URL a searchable or dependent choice fetches its options from; `None` where no option
+    /// search serves the form, and the choice then offers only the options it rendered.
     pub(crate) options: Option<&'p str>,
     /// Whether the form edits a stored record, where `disabled_on_edit` disables a control.
     pub(crate) editing: bool,
