@@ -22,7 +22,7 @@ async fn media_count(db: &toasty::Db) -> usize {
 
 /// POST one multipart upload as the page's form does, returning the response.
 ///
-/// `csrf` is the token to embed; the matching cookie goes on the client. `None`
+/// `csrf` is the cookie's token, embedded masked as a form carries it. `None`
 /// posts no token at all, which is the forged-request case.
 async fn post_upload(
     client: &TestClient<'_>,
@@ -40,6 +40,7 @@ async fn post_upload(
     // caller-chosen `Content-Type`, which the kind assertions need.
     let token = csrf
         .map(|token| {
+            let token = tablo::csrf::mask(token);
             format!(
                 "--{boundary}\r\nContent-Disposition: form-data; name=\"csrf_token\"\r\n\r\n{token}\r\n"
             )

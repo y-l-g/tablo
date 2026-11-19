@@ -157,6 +157,8 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
     .expect("panel builds");
 
     let csrf = uuid::Uuid::new_v4().to_string();
+
+    let masked = tablo::csrf::mask(&csrf);
     let resp = router
         .handle(
             http::Request::builder()
@@ -170,7 +172,7 @@ async fn a_bad_typed_submission_re_renders_inline_and_writes_nothing() {
                     http::header::COOKIE,
                     format!("{}={csrf}", tablo::csrf::COOKIE_NAME),
                 )
-                .body(Body::from(format!("word_count=lots&csrf_token={csrf}")))
+                .body(Body::from(format!("word_count=lots&csrf_token={masked}")))
                 .unwrap(),
         )
         .await;

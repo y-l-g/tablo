@@ -221,10 +221,12 @@ async fn a_driver_login_failure_does_not_echo_driver_text() {
     );
 
     let token = Uuid::new_v4().to_string();
+
+    let field = crate::csrf::mask(&token);
     let cx = login_cx(db, &token);
     let (status, rendered) = post_login(
         &cx,
-        format!("email=ada@example.com&password=opensesame&csrf_token={token}"),
+        format!("email=ada@example.com&password=opensesame&csrf_token={field}"),
     )
     .await;
 
@@ -264,10 +266,12 @@ async fn a_rejected_password_still_renders_the_generic_error() {
     .expect("seed admin");
 
     let token = Uuid::new_v4().to_string();
+
+    let field = crate::csrf::mask(&token);
     let cx = login_cx(db, &token);
     let (status, rendered) = post_login(
         &cx,
-        format!("email=ada@example.com&password=wrong&csrf_token={token}"),
+        format!("email=ada@example.com&password=wrong&csrf_token={field}"),
     )
     .await;
 
@@ -322,9 +326,10 @@ async fn a_login_past_its_limit_is_refused_before_the_authenticator() {
     let auth = Auth::custom(counting.clone())
         .throttle(LoginThrottle::new(2, std::time::Duration::from_secs(60)));
     let token = Uuid::new_v4().to_string();
+    let field = crate::csrf::mask(&token);
     let cx = login_cx_with(schema_less_db().await, &token, auth);
     let attempt =
-        |password: &str| format!("email=ada@example.com&password={password}&csrf_token={token}");
+        |password: &str| format!("email=ada@example.com&password={password}&csrf_token={field}");
     for _ in 0..2 {
         let (status, _) = post_login(&cx, attempt("wrong")).await;
         assert_eq!(status, http::StatusCode::FORBIDDEN);

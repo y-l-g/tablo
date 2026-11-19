@@ -95,6 +95,8 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
     drop(raw);
 
     let token = uuid::Uuid::new_v4().to_string();
+
+    let field = crate::csrf::mask(&token);
     let parts = http::Request::builder()
         .method(http::Method::POST)
         .uri("/admin/dummies/-/create")
@@ -115,7 +117,7 @@ async fn a_driver_create_failure_does_not_echo_driver_text() {
 
     let error = resource_create_post::<WritingResource>(
         &cx,
-        Body::from(format!("name=Ada&csrf_token={token}")),
+        Body::from(format!("name=Ada&csrf_token={field}")),
     )
     .first()
     .await
@@ -234,6 +236,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
         ))
         .build();
     let token = uuid::Uuid::new_v4().to_string();
+    let field = crate::csrf::mask(&token);
     let response = router
         .handle(
             http::Request::builder()
@@ -247,7 +250,7 @@ async fn a_driver_update_failure_does_not_echo_driver_text() {
                     http::header::COOKIE,
                     format!("{}={token}", crate::csrf::COOKIE_NAME),
                 )
-                .body(Body::from(format!("name=Ada&csrf_token={token}")))
+                .body(Body::from(format!("name=Ada&csrf_token={field}")))
                 .unwrap(),
         )
         .await;

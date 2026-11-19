@@ -126,7 +126,7 @@ async fn edit_rejects_forged_post_before_probing_the_record() {
     let router = router(db.clone());
     let client = demo_client(&router, &db).await;
     let fake_id = uuid::Uuid::new_v4().to_string();
-    let csrf = uuid::Uuid::new_v4().to_string();
+    let csrf = tablo::csrf::mask(&uuid::Uuid::new_v4().to_string());
     let cookie_mismatch = uuid::Uuid::new_v4().to_string();
     for (body, label) in [
         (format!("name=x&csrf_token={csrf}"), "mismatched token"),

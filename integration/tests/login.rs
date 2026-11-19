@@ -34,6 +34,7 @@ fn password_panel(db: Db) -> Router {
 /// A login POST to `{prefix}/login` with `body`, carrying the CSRF pair.
 fn login_request(prefix: &str, body: &str) -> http::Request<Body> {
     let csrf = Uuid::new_v4().to_string();
+    let masked = tablo::csrf::mask(&csrf);
     http::Request::builder()
         .method(http::Method::POST)
         .uri(format!("{prefix}/login"))
@@ -45,7 +46,7 @@ fn login_request(prefix: &str, body: &str) -> http::Request<Body> {
             http::header::COOKIE,
             format!("{}={csrf}", tablo::csrf::COOKIE_NAME),
         )
-        .body(Body::from(format!("{body}&csrf_token={csrf}")))
+        .body(Body::from(format!("{body}&csrf_token={masked}")))
         .unwrap()
 }
 
@@ -663,6 +664,7 @@ async fn signing_out_of_a_panel_leaves_the_others_session() {
     let router = two_panels(TrailingSlash::default()).await;
     let (admin, portal) = signed_in_on_both(&router).await;
     let csrf = Uuid::new_v4().to_string();
+    let masked = tablo::csrf::mask(&csrf);
 
     let logout = router
         .handle(
@@ -675,7 +677,7 @@ async fn signing_out_of_a_panel_leaves_the_others_session() {
                     http::header::COOKIE,
                     format!("{admin}; {portal}; {}={csrf}", tablo::csrf::COOKIE_NAME),
                 )
-                .body(Body::from(format!("csrf_token={csrf}")))
+                .body(Body::from(format!("csrf_token={masked}")))
                 .unwrap(),
         )
         .await;

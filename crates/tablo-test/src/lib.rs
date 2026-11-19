@@ -287,11 +287,12 @@ impl<'a> TestClient<'a> {
         .await
     }
 
-    /// Posts the urlencoded `body` as a panel form does: with the CSRF token in both the cookie
-    /// and the `csrf_token` field, the one [`csrf`](Self::csrf) attached, else a fresh one.
+    /// Posts the urlencoded `body` as a panel form does: with the CSRF token in the cookie and
+    /// [masked](tablo_core::csrf::mask) in the `csrf_token` field, the one
+    /// [`csrf`](Self::csrf) attached, else a fresh one.
     pub async fn submit(&self, uri: &str, body: &str) -> http::Response<Body> {
         let token = self.csrf_token();
-        let field = form_body(&[("csrf_token", &token)]);
+        let field = form_body(&[("csrf_token", &tablo_core::csrf::mask(&token))]);
         let body = if body.is_empty() {
             field
         } else {
@@ -301,7 +302,8 @@ impl<'a> TestClient<'a> {
     }
 
     /// Posts [`multipart_body`]'s `parts` as a panel form with a file input does: with the CSRF
-    /// token in both the cookie and a `csrf_token` part, as [`submit`](Self::submit) picks it.
+    /// token in the cookie and masked in a `csrf_token` part, as [`submit`](Self::submit) picks
+    /// it.
     pub async fn submit_multipart(
         &self,
         uri: &str,
@@ -309,8 +311,9 @@ impl<'a> TestClient<'a> {
     ) -> http::Response<Body> {
         const BOUNDARY: &str = "tablo-test-boundary";
         let token = self.csrf_token();
+        let field = tablo_core::csrf::mask(&token);
         let mut parts = parts.to_vec();
-        parts.push(("csrf_token", None, &token));
+        parts.push(("csrf_token", None, &field));
         let body = multipart_body(BOUNDARY, &parts);
         self.csrf(&token).post_multipart(uri, BOUNDARY, body).await
     }

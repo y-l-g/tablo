@@ -157,11 +157,13 @@ the panel.
   replaces the policy, for assets on another origin or a panel framed by an intranet, and lists
   the responses the headers miss. Behind a proxy that serves HTTPS only, turn on HSTS with
   [`Panel::strict_transport_security`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html#method.strict_transport_security).
-- **Compression.** Pages are compressed, and a page holds its CSRF token beside text the URL
-  chooses, such as a search. An observer of the encrypted traffic who also makes the browser load
-  chosen URLs can guess such a token from response sizes (BREACH). The panel's cookies are
-  `SameSite=Lax`, so another site's scripted requests arrive signed out, and the token alone
-  writes nothing without the session cookie. `Compression::disable()` on the router turns
+- **Compression.** Pages are compressed, and a page shows text the URL chooses, such as a
+  search. An observer of the encrypted traffic who also makes the browser load chosen URLs can
+  guess, from response sizes, a value that repeats on every load of such a page (BREACH). The
+  panel's own secrets change on each render: a form carries the CSRF token masked afresh
+  ([`csrf::mask`](https://y-l.fr/tablo/nightly/api/tablo/csrf/fn.mask.html)), and an upload's URL
+  is signed under a new nonce. A record's values do repeat, so a column showing a secret, such as
+  an API key, exposes it on the list page. `Compression::disable()` on the router turns
   compression off; a proxy that compresses has the same exposure.
 - **Search engines** neither index a panel's pages nor follow their links, per the `robots` tag
   [`Panel`](https://y-l.fr/tablo/nightly/api/tablo/struct.Panel.html) documents.

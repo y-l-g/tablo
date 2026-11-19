@@ -137,7 +137,8 @@ pub fn auth(cx: &Cx, page: AuthPage) -> Option<String> {
 /// router, and `path` itself otherwise.
 ///
 /// Call it only on a page that has checked the user may see the record storing `path`: the URL
-/// opens the file for whoever holds it, for up to two hours.
+/// opens the file for whoever holds it, for two hours. Each call signs under a fresh nonce, so
+/// two calls for the same path return different URLs.
 ///
 /// ```rust,no_run
 /// # let cx: &topcoat::context::Cx = todo!();

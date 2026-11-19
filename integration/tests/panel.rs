@@ -222,11 +222,13 @@ async fn a_session_belongs_to_the_panel_that_signed_it_in() {
     let router = two_panels(db.clone(), Auth::password);
 
     let csrf = new_csrf();
+
+    let masked = tablo::csrf::mask(&csrf);
     let login = post_form(
         &router,
         "/admin/login",
         &[(tablo::csrf::COOKIE_NAME, csrf.clone())],
-        format!("email=ada%40example.com&password=opensesame&csrf_token={csrf}"),
+        format!("email=ada%40example.com&password=opensesame&csrf_token={masked}"),
     )
     .await;
     assert!(login.status().is_redirection(), "the sign-in succeeds");

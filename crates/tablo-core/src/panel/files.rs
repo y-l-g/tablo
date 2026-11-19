@@ -27,6 +27,8 @@ impl Panel {
     /// link, a [`FileColumn`](crate::FileColumn)'s and an [`ImageColumn`](crate::ImageColumn)'s
     /// thumbnail when it renders them, on a page whose tenant and policy let the user see the
     /// record; a page of the app's own signs a stored path with [`url::file`](crate::url::file).
+    /// Each render signs under a fresh nonce, so a compressed page never repeats a signature for
+    /// an observer to guess from response sizes; the browser caches no file across renders.
     /// The key derives from the router's cookie `Key`, else from one drawn per process, so
     /// without a shared `Key` a link opens only on the instance that rendered it. Any other
     /// request answers 404. The files carry [`serve_dir`](Self::serve_dir)'s hardening headers.

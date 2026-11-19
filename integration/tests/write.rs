@@ -219,7 +219,7 @@ async fn forged_delete_runs_no_record_query() {
     .expect("panel builds");
     let client = TestClient::new(&router);
     let delete_url = format!("/admin/countings/{}/delete", rec.id);
-    let csrf = uuid::Uuid::new_v4().to_string();
+    let csrf = tablo::csrf::mask(&uuid::Uuid::new_v4().to_string());
     let cookie_mismatch = uuid::Uuid::new_v4().to_string();
 
     let resp = client.submit(&delete_url, "confirm=1").await;

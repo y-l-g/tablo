@@ -60,6 +60,7 @@ async fn bulk_delete_caps_ids_and_checks_the_token() {
     let router = mount(db, panel_for::<KeyedResource>()).expect("panel builds");
     // The primary key resolves the row.
     let token = uuid::Uuid::new_v4().to_string();
+    let field = crate::csrf::mask(&token);
     let ok = router
         .handle(
             http::Request::builder()
@@ -74,7 +75,7 @@ async fn bulk_delete_caps_ids_and_checks_the_token() {
                     format!("{}={token}", crate::csrf::COOKIE_NAME),
                 )
                 .body(Body::from(format!(
-                    "ids={}&confirm=1&csrf_token={token}",
+                    "ids={}&confirm=1&csrf_token={field}",
                     row.id
                 )))
                 .unwrap(),
@@ -104,7 +105,7 @@ async fn bulk_delete_caps_ids_and_checks_the_token() {
                     format!("{}={token}", crate::csrf::COOKIE_NAME),
                 )
                 .body(Body::from(format!(
-                    "ids={big}&confirm=1&csrf_token={token}"
+                    "ids={big}&confirm=1&csrf_token={field}"
                 )))
                 .unwrap(),
         )
@@ -188,6 +189,7 @@ async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
         .join(",");
     let router = mount(db.clone(), panel_for::<FlakyBulkResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
+    let field = crate::csrf::mask(&token);
     let resp = router
         .handle(
             http::Request::builder()
@@ -202,7 +204,7 @@ async fn bulk_delete_mid_loop_failure_deletes_zero_rows() {
                     format!("{}={token}", crate::csrf::COOKIE_NAME),
                 )
                 .body(Body::from(format!(
-                    "ids={ids}&confirm=1&csrf_token={token}"
+                    "ids={ids}&confirm=1&csrf_token={field}"
                 )))
                 .unwrap(),
         )
@@ -267,12 +269,13 @@ async fn bulk_delete_keeps_a_key_holding_the_separator_whole() {
     }
     let router = mount(db.clone(), panel_for::<TagResource>()).expect("panel builds");
     let token = uuid::Uuid::new_v4().to_string();
+    let field = crate::csrf::mask(&token);
     // The wire two checked rows write, each key one token, in the form encoding a browser posts
     // the hidden `ids` field with.
     let mut body = form_urlencoded::Serializer::new(String::new());
     body.append_pair("ids", ",Doe%2C%20John,,Ada,")
         .append_pair("confirm", "1")
-        .append_pair("csrf_token", &token);
+        .append_pair("csrf_token", &field);
     let response = router
         .handle(
             http::Request::builder()
