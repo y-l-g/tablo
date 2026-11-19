@@ -43,6 +43,35 @@ pub trait DateValue: Sized + Send + Sync + 'static {
             .map(|day| day.to_string())
             .unwrap_or_default()
     }
+
+    /// The value's calendar day as a [`DateColumn`] cell spells it: in the request's locale,
+    /// `Oct 14, 2026` in English, and a timestamp's in the request's
+    /// [`time_zone`](crate::time_zone). Empty when it holds none. For a page, a widget or a mail
+    /// that shows a date in the reader's words rather than as ISO text in UTC.
+    ///
+    /// ```rust,no_run
+    /// use tablo_core::DateValue;
+    /// # let cx: &topcoat::context::Cx = todo!();
+    /// let renews: jiff::Timestamp = "2026-10-14T09:30:00Z".parse().unwrap();
+    /// let line = renews.format_in(cx); // "Oct 14, 2026", "14 oct. 2026" in French
+    /// ```
+    fn format_in(&self, cx: &Cx) -> String {
+        spell_day(cx, self.calendar_date(&crate::time_zone(cx)))
+    }
+}
+
+/// `day` as the request's locale spells a calendar day, or empty for none.
+fn spell_day(cx: &Cx, day: Option<jiff::civil::Date>) -> String {
+    day.map(|day| {
+        crate::t!(
+            cx,
+            "tablo-column-date",
+            year = day.year(),
+            month = day.month(),
+            day = day.day()
+        )
+    })
+    .unwrap_or_default()
 }
 
 impl DateValue for jiff::civil::Date {
@@ -118,21 +147,7 @@ where
     }
 
     fn cell<'a>(&self, cx: &'a Cx, row: &M) -> BoxView<'a> {
-        let day = self
-            .lens
-            .read(row)
-            .calendar_date(&crate::time_zone(cx))
-            .map(|day| {
-                crate::t!(
-                    cx,
-                    "tablo-column-date",
-                    year = day.year(),
-                    month = day.month(),
-                    day = day.day()
-                )
-            })
-            .unwrap_or_default();
-        crate::schema::value_cell(cx, &day)
+        crate::schema::value_cell(cx, &self.lens.read(row).format_in(cx))
     }
 
     fn order_by(&self, descending: bool) -> Option<OrderByExpr> {
