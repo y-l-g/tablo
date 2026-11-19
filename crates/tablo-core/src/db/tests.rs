@@ -55,3 +55,22 @@ async fn the_guard_holds_only_for_the_request_that_opened_the_write() {
     let (_, bump) = counter();
     assert!(after_write_commits(other.id(), bump).is_err());
 }
+
+/// A count through a transaction sees the rows it wrote, and one over a filter that matches
+/// nothing reads 0 rather than failing.
+#[tokio::test]
+async fn a_count_in_a_transaction_sees_its_own_rows() {
+    use crate::test_support::{User, memory_db};
+
+    let mut db = memory_db(toasty::models!(User)).await;
+    let mut tx = db.transaction().await.unwrap();
+    User::create().name("Ada").exec(&mut tx).await.unwrap();
+    User::create().name("Grace").exec(&mut tx).await.unwrap();
+
+    assert_eq!(count_in(&mut tx, User::all()).await.unwrap(), 2);
+    let ada = User::fields().name().eq("Ada");
+    let none = User::filter(ada.clone().and(User::fields().name().eq("Grace")));
+    assert_eq!(count_in(&mut tx, none).await.unwrap(), 0);
+    assert_eq!(count_in(&mut tx, User::filter(ada)).await.unwrap(), 1);
+    tx.commit().await.unwrap();
+}
