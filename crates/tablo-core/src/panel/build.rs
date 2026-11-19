@@ -40,6 +40,7 @@ use crate::{
 mod handle;
 mod shared;
 
+pub(crate) use self::handle::HandlePanel;
 pub use self::handle::PanelHandle;
 use self::{handle::request_mounts, shared::install_shared};
 
@@ -343,6 +344,7 @@ impl Panel {
                 .try_context::<NotificationBus>()
                 .cloned()
                 .unwrap_or_else(NotificationBus::new),
+            base_url: builder.try_context::<topcoat::context::BaseUrl>().cloned(),
         };
         // The builder lends no mutable access: copy the list of handles and register it again.
         let mut panels = builder.context::<Panels>().clone();

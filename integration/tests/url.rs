@@ -8,7 +8,7 @@ use tablo::{
 use toasty::Db;
 use topcoat::{
     Result,
-    context::Cx,
+    context::{BaseUrl, Cx, try_base_url},
     router::{Router, RouterBuilderDiscoverExt},
     view::{View, view},
 };
@@ -93,4 +93,38 @@ async fn a_panel_without_auth_has_no_auth_url() {
         urls(&TestClient::new(&router), "/admin/urls").await,
         "- - - - - -"
     );
+}
+
+/// A router's handle answers the page, panel and auth helpers in its context, and carries the
+/// router's base URL for an absolute link; a handle no router mounts knows none of them.
+#[tokio::test]
+async fn a_handle_context_answers_the_panel_urls_and_the_base_url() {
+    let db = db().await;
+    let panel = || {
+        Panel::new("back-office")
+            .auth(Auth::password().registration(PasswordSignUp::pending()))
+            .page::<Urls>()
+    };
+    let mut builder = Router::builder()
+        .discover()
+        .with(db.clone())
+        .with(BaseUrl::new("https://example.com").expect("a valid base URL"));
+    let handle = builder.panel(panel()).expect("the panel mounts");
+    let cx = handle.context();
+
+    let page = url::page::<Urls>(&cx);
+    assert_eq!(page.as_deref(), Some("/back-office/urls"));
+    assert_eq!(url::panel(&cx).as_deref(), Some("/back-office"));
+    assert_eq!(
+        url::auth(&cx, AuthPage::Register).as_deref(),
+        Some("/back-office/register")
+    );
+    assert_eq!(
+        try_base_url(&cx).map(|base| base.join(&page.unwrap_or_default())),
+        Some("https://example.com/back-office/urls".to_owned())
+    );
+
+    let unmounted = panel().handle(&db).expect("the panel builds").context();
+    assert_eq!(url::page::<Urls>(&unmounted), None);
+    assert!(try_base_url(&unmounted).is_none());
 }

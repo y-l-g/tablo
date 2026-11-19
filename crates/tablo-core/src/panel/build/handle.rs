@@ -5,7 +5,7 @@ use std::sync::Arc;
 use toasty::Db;
 use topcoat::{
     Result,
-    context::Cx,
+    context::{BaseUrl, Cx},
     view::{BoxView, View, ViewExt},
 };
 
@@ -60,6 +60,8 @@ pub struct PanelHandle {
     pub(super) prefix: String,
     /// The router's bus, or one no bell listens on for [`Panel::handle`]'s.
     pub(super) bus: NotificationBus,
+    /// The router's base URL when it declared one before mounting the panel.
+    pub(super) base_url: Option<BaseUrl>,
 }
 
 impl PanelHandle {
@@ -75,15 +77,38 @@ impl PanelHandle {
     /// job writing to someone in another language adds theirs, `cx.with(locale)`, which reads the
     /// panel's best match for it.
     ///
+    /// For a handle a router gives, the [`url`](crate::url) helpers answer with the panel's URLs,
+    /// and the context carries the router's [`BaseUrl`] when the router declared one before
+    /// mounting the panel, so a job mails an absolute link:
+    ///
+    /// ```rust,no_run
+    /// # use tablo_core::{Page, PanelHandle, url};
+    /// # struct BillingPage;
+    /// # impl Page for BillingPage {}
+    /// # fn link(app: &PanelHandle) -> Option<String> {
+    /// let cx = app.context();
+    /// // "/app/settings/billing", then "https://example.com/app/settings/billing"
+    /// let billing = url::page::<BillingPage>(&cx)?;
+    /// Some(topcoat::context::try_base_url(&cx)?.join(&billing))
+    /// # }
+    /// ```
+    ///
     /// The context is one unit of work, as a request is: loads it memoizes stay cached for its
     /// lifetime, so a job builds one per run. A context built with no panel at all knows no
     /// resource: every entry point that reads a mounted def answers as for a resource the panel
     /// does not mount.
     pub fn context(&self) -> Cx {
-        validation_cx(&self.db, &self.mounts).with_many((
+        let mut cx = validation_cx(&self.db, &self.mounts).with_many((
             HeldCatalog(Arc::clone(&self.catalog)),
             CatalogSource(held_catalog),
-        ))
+        ));
+        if let Some(panel) = &self.panel {
+            cx = cx.with(HandlePanel(Arc::clone(panel)));
+        }
+        if let Some(base_url) = &self.base_url {
+            cx = cx.with(base_url.clone());
+        }
+        cx
     }
 
     /// `cx` answering as this panel, for a request outside every panel's prefix, such as a
@@ -188,6 +213,10 @@ pub(super) fn request_mounts(cx: &Cx) -> Option<&Mounts> {
     }
 }
 
+/// The mounted panel whose URLs the [`url`](crate::url) helpers answer in a
+/// [`PanelHandle::context`].
+pub(crate) struct HandlePanel(pub(crate) Arc<PanelState>);
+
 /// The catalog [`PanelHandle::context`] renders words from, outside every request.
 struct HeldCatalog(Arc<Catalog>);
 
@@ -249,6 +278,7 @@ impl Panel {
             id: crate::PanelId::new(&prefix),
             prefix,
             bus: NotificationBus::new(),
+            base_url: None,
         })
     }
 }

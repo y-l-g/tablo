@@ -5,9 +5,16 @@
 //! [`PanelHandle::enter`](crate::PanelHandle::enter).
 //! A resource or page that panel does not register has no URL there, and the
 //! helper returns `None`. [`auth`] answers for the pages auth serves: sign-in, profile,
-//! two-factor and the rest of [`AuthPage`]. The record helpers, [`record`], [`edit`],
-//! [`record_page`], [`delete`], [`create`], [`action`] and [`bulk_action`], also answer in a
-//! [`PanelHandle::context`](crate::PanelHandle::context).
+//! two-factor and the rest of [`AuthPage`].
+//!
+//! Every helper but [`file`](fn@file) also answers in a
+//! [`PanelHandle::context`](crate::PanelHandle::context), so a job or a test spells no path: a
+//! page, a resource, an auth page or a record. A handle [`Panel::handle`](crate::Panel::handle)
+//! gives, which no router mounts, knows only its records' URLs.
+//!
+//! Each helper answers a path. An absolute URL, for a mail or a payment provider's return,
+//! joins it to the router's [`BaseUrl`](topcoat::context::BaseUrl), which a handle's context
+//! carries too: `topcoat::context::try_base_url(cx)?.join(&path)`.
 //!
 //! ```rust,no_run
 //! # use tablo_core::{NoForm, Page, Resource};
@@ -33,7 +40,7 @@ use std::any::TypeId;
 
 use topcoat::context::Cx;
 
-use super::state::current;
+use super::state::{PanelState, current};
 pub(crate) use crate::naming::{
     CREATE_ROUTE_SEGMENT, DASH_ROUTE_SEGMENT, create_page_url, list_route,
 };
@@ -43,9 +50,17 @@ use crate::{
     topcoat_compat::href,
 };
 
+/// The panel the helpers answer for: the request's, or a handle's in its context.
+fn serving(cx: &Cx) -> Option<&std::sync::Arc<PanelState>> {
+    current(cx).or_else(|| {
+        topcoat::context::try_context::<super::build::HandlePanel>(cx)
+            .map(|super::build::HandlePanel(panel)| panel)
+    })
+}
+
 /// The request's panel prefix, e.g. `/admin`.
 pub fn panel(cx: &Cx) -> Option<String> {
-    current(cx).map(|panel| panel.realm.prefix.clone())
+    serving(cx).map(|panel| panel.realm.prefix.clone())
 }
 
 /// `R`'s list URL in the request's panel, e.g. `/admin/posts`.
@@ -107,7 +122,7 @@ pub enum AuthPage {
 /// let profile = url::auth(cx, AuthPage::Profile); // Some("/admin/profile")
 /// ```
 pub fn auth(cx: &Cx, page: AuthPage) -> Option<String> {
-    let realm = &current(cx)?.realm;
+    let realm = &serving(cx)?.realm;
     let (prefix, auth) = (&realm.prefix, &realm.auth);
     let under = |served: bool, path: &str| served.then(|| format!("{prefix}/{path}"));
     match page {
@@ -163,16 +178,14 @@ pub fn file(cx: &Cx, path: &str) -> String {
 }
 
 fn registered<T: 'static>(cx: &Cx) -> Option<String> {
-    current(cx).and_then(|panel| panel.urls.get(&TypeId::of::<T>()).cloned())
+    serving(cx).and_then(|panel| panel.urls.get(&TypeId::of::<T>()).cloned())
 }
 
 /// `record`'s detail page in the context's panel, e.g. `/admin/posts/42`, or `None` when `R`
 /// declares no detail.
 ///
-/// This and the other record helpers answer in a
-/// [`PanelHandle::context`](crate::PanelHandle::context) too, so a job or a test spells no record
-/// path. They return `None` when the panel does not mount `R`, when `R`'s key has no URL form,
-/// or when the panel serves no such route for `R`.
+/// This and the other record helpers return `None` when the panel does not mount `R`, when `R`'s
+/// key has no URL form, or when the panel serves no such route for `R`.
 pub fn record<R: Resource>(cx: &Cx, record: &R::Model) -> Option<String> {
     keyed::<R>(cx, record, Mounted::viewed).map(|(list, key)| row_view_url(&list, &key))
 }

@@ -98,8 +98,10 @@ the panel again. Add a tenant with `.with(Tenant(id))`:
 
 A context is one unit of work, as a request is, so build one per job run; it carries no
 signed-in user. [`PanelHandle::context`](https://y-l.fr/tablo/nightly/api/tablo/struct.PanelHandle.html#method.context) says what it
-holds and what a policy sees. `Panel::handle(&db)` builds the same handle from a panel no router
-mounts, such as a test's.
+holds and what a policy sees. The `url` helpers answer in it, so a job's mail links to
+`url::page::<BillingPage>(&cx)` rather than a spelled path, and the context carries the router's
+`BaseUrl` to make that link absolute. `Panel::handle(&db)` builds the same handle from a panel no
+router mounts, such as a test's.
 
 ## Schema setup
 
