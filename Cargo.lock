@@ -3893,6 +3893,7 @@ dependencies = [
  "http-body-util",
  "jiff",
  "rust_decimal",
+ "serde",
  "serde_json",
  "tablo",
  "toasty",

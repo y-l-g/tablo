@@ -51,11 +51,23 @@ impl Schedule {
             .exec(&mut db)
             .await?
         else {
-            JobSchedule::upsert_by_kind(self.kind)
-                .on_create(|create| create.next_run_at(next))
-                .or_ignore()
+            // A plain insert, not an upsert MySQL refuses. A worker that loses the race to create
+            // the row fails it, and finds the winner's row.
+            let created = JobSchedule::create()
+                .kind(self.kind)
+                .next_run_at(next)
                 .exec(&mut db)
-                .await?;
+                .await;
+            if let Err(error) = created {
+                let taken = JobSchedule::filter_by_kind(self.kind)
+                    .first()
+                    .exec(&mut db)
+                    .await?
+                    .is_some();
+                if !taken {
+                    return Err(error.into());
+                }
+            }
             return Ok(());
         };
         if row.next_run_at > now {

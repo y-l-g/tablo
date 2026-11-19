@@ -1,16 +1,20 @@
-//! `tablo::jobs::AuthMailQueue`: a panel's auth letter queued sealed with its token, and sent by
-//! the worker.
+//! `tablo::jobs`: a panel's auth letter queued sealed with its token and sent by the worker, and
+//! the queue's dedupe and schedules on the backend under test.
 
+use std::time::Duration;
+
+use serde::{Deserialize, Serialize};
 use tablo::{
     Auth, AuthMail, NoForm, Panel, PanelHandle, PasswordAuth, PasswordReset, ReadOnly, Resource,
     ResourceDef, RouterBuilderPanelExt, Table, TextColumn,
     auth::{AdminUser, AuthSession, AuthToken, create_admin, verify_password},
-    jobs::{AuthMailQueue, JobSchedule, JobState, QueuedJob, Worker},
+    jobs::{AuthMailQueue, Job, JobSchedule, JobState, QueuedJob, Worker, enqueue},
     lens,
     testing::form_body,
 };
 use toasty::Db;
 use topcoat::{
+    context::Cx,
     cookie::Key,
     mail::{Mailbox, Mailer, MemoryTransport},
     router::{Router, RouterBuilderDiscoverExt},
@@ -129,4 +133,61 @@ async fn a_queued_reset_letter_is_sealed_and_sent_by_the_worker() {
         .unwrap()
         .unwrap();
     assert!(verify_password(password, Some(&stored.password_hash)).await);
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct Tick;
+
+impl Job for Tick {
+    const KIND: &'static str = "integration-tick";
+
+    async fn run(self, _: &Cx) -> topcoat::Result<()> {
+        Ok(())
+    }
+}
+
+/// A burst under one dedupe key queues one job, and a worker creates its schedules' rows, on
+/// every backend: MySQL has no upsert to lean on.
+#[tokio::test]
+async fn a_dedupe_key_and_a_schedule_hold_on_this_backend() {
+    let db = test_db(toasty::models!(
+        Note,
+        AdminUser,
+        AuthSession,
+        AuthToken,
+        QueuedJob,
+        JobSchedule
+    ))
+    .await;
+    for _ in 0..3 {
+        enqueue(&Tick)
+            .dedupe("tick")
+            .exec(&mut db.clone())
+            .await
+            .unwrap();
+    }
+    let jobs = QueuedJob::all().exec(&mut db.clone()).await.unwrap();
+    assert_eq!(jobs.len(), 1);
+
+    let (_, panel) = queueing(&db, &AuthMailQueue::new(&Key::generate())).await;
+    Worker::new(&panel)
+        .unwrap()
+        .every(Duration::from_hours(1), Tick)
+        .drain()
+        .await
+        .unwrap();
+
+    let job = QueuedJob::filter_by_id(jobs[0].id)
+        .first()
+        .exec(&mut db.clone())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(job.state, JobState::Succeeded);
+    let schedule = JobSchedule::filter_by_kind(Tick::KIND)
+        .first()
+        .exec(&mut db.clone())
+        .await
+        .unwrap();
+    assert!(schedule.is_some(), "the worker created the schedule's row");
 }

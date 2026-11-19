@@ -68,13 +68,29 @@ impl<J: Job> Enqueue<'_, J> {
         let now = Timestamp::now();
         let run_at = now.checked_add(SignedDuration::try_from(self.delay)?)?;
         let payload = serde_json::to_string(self.job)?;
-        let dedupe_key = self.dedupe_key.unwrap_or_else(|| id.to_string());
-        QueuedJob::upsert_by_dedupe_key(dedupe_key)
-            .on_create(|create| {
-                create
-                    .id(id)
+        let create = |key: String| {
+            QueuedJob::create()
+                .id(id)
+                .kind(J::KIND.to_string())
+                .payload(payload.clone())
+                .state(JobState::Queued)
+                .lane(self.job.lane())
+                .dedupe_key(key)
+                .attempts(0)
+                .max_attempts(u64::from(J::MAX_ATTEMPTS))
+                .run_at(run_at)
+                .created_at(now)
+        };
+        let Some(key) = self.dedupe_key.clone() else {
+            // A fresh key meets no other: a plain insert, on every driver.
+            create(id.to_string()).exec(ex).await?;
+            return Ok(());
+        };
+        let upserted = QueuedJob::upsert_by_dedupe_key(key.clone())
+            .on_create(|row| {
+                row.id(id)
                     .kind(J::KIND.to_string())
-                    .payload(payload)
+                    .payload(payload.clone())
                     .state(JobState::Queued)
                     .lane(self.job.lane())
                     .attempts(0)
@@ -84,7 +100,32 @@ impl<J: Job> Enqueue<'_, J> {
             })
             .or_ignore()
             .exec(ex)
-            .await?;
-        Ok(())
+            .await;
+        match upserted {
+            Ok(_) => Ok(()),
+            // MySQL has no targeted upsert, and Toasty refuses it before any SQL runs.
+            Err(error) if error.is_unsupported_feature() => {
+                if waiting(ex, &key).await? {
+                    return Ok(());
+                }
+                match create(key.clone()).exec(ex).await {
+                    Ok(_) => Ok(()),
+                    // A racing enqueue wrote the key first. MySQL rolls back the statement, not
+                    // the transaction, so the look-up still runs.
+                    Err(_) if waiting(ex, &key).await? => Ok(()),
+                    Err(error) => Err(error.into()),
+                }
+            }
+            Err(error) => Err(error.into()),
+        }
     }
+}
+
+/// Whether a job holding `key` waits in the queue.
+async fn waiting(ex: &mut dyn toasty::Executor, key: &str) -> topcoat::Result<bool> {
+    Ok(QueuedJob::filter_by_dedupe_key(key)
+        .first()
+        .exec(ex)
+        .await?
+        .is_some())
 }

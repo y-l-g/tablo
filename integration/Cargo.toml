@@ -50,6 +50,8 @@ jiff.workspace = true
 bigdecimal.workspace = true
 rust_decimal.workspace = true
 tablo = { path = "../crates/tablo", features = ["testing", "rust_decimal", "bigdecimal", "audit", "jobs"] }
+# A test job's payload.
+serde.workspace = true
 serde_json.workspace = true
 toasty = { workspace = true, features = ["sqlite"] }
 tokio = { workspace = true, features = ["net", "sync", "time"] }
