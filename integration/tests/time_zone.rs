@@ -1,17 +1,21 @@
 //! The time zone a request reads and shows wall-clock times in, from the signed-in user, else the
 //! panel: a timestamp's control, in a repeater's rows too, its `DateColumn` day and its
-//! `DateFilter` days.
+//! `DateFilter` days, and `DateValue::format_in`.
 
 use jiff::{
     Timestamp,
     tz::{Offset, TimeZone},
 };
 use tablo::{
-    Allow, Auth, Authenticator, DateColumn, DateFilter, Panel, PanelUser, Resource, ResourceDef,
-    Table, TextColumn, auth::AuthSession, lens,
+    Allow, Auth, Authenticator, DateColumn, DateFilter, DateValue, Page, Panel, PanelUser,
+    Resource, ResourceDef, Table, TextColumn, auth::AuthSession, lens,
 };
 use toasty::Db;
-use topcoat::{context::Cx, router::Router};
+use topcoat::{
+    context::Cx,
+    router::Router,
+    view::{View, view},
+};
 use uuid::Uuid;
 
 use crate::common::{TestClient, body_string, input_value, mount, rows, test_db};
@@ -312,4 +316,44 @@ async fn an_untouched_time_in_a_repeated_hour_keeps_its_instant() {
     let night = stored_shift(&db, "Night").await;
     assert_eq!(night.starts_at, second, "the untouched timestamp");
     assert_eq!(night.breaks[0].starts_at, second, "the untouched row");
+}
+
+/// A page spelling a timestamp late on Oct 20 UTC, and a civil date, with `DateValue::format_in`.
+struct DaysPage;
+
+impl Page for DaysPage {
+    async fn render(cx: &Cx) -> topcoat::Result<impl View> {
+        let late: Timestamp = "2026-10-20T23:30:00Z".parse().unwrap();
+        let civil = jiff::civil::date(2026, 10, 20);
+        let none: Option<Timestamp> = None;
+        Ok(view! {
+            <p id="late">(late.format_in(cx))</p>
+            <p id="civil">(civil.format_in(cx))</p>
+            <p id="none">(none.format_in(cx))</p>
+        })
+    }
+}
+
+/// `format_in` spells a day as the `DateColumn` cell does: a timestamp's in the panel's zone,
+/// a civil date's whatever the zone.
+#[tokio::test]
+async fn format_in_spells_the_day_in_the_zone() {
+    let db = db().await;
+    let router = mount(
+        db.clone(),
+        Panel::new("admin")
+            .auth(Auth::disabled())
+            .time_zone(hours(2))
+            .page::<DaysPage>(),
+    )
+    .expect("panel builds");
+    let html = body_string(TestClient::new(&router).get("/admin/days").await).await;
+    let text = |id: &str| {
+        let open = format!(r#"<p id="{id}">"#);
+        let (_, rest) = html.split_once(&open).expect("the paragraph");
+        rest.split_once("</p>").expect("its end").0.to_owned()
+    };
+    assert_eq!(text("late"), "Oct 21, 2026");
+    assert_eq!(text("civil"), "Oct 20, 2026");
+    assert_eq!(text("none"), "");
 }
