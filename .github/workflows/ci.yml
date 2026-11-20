@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:18
+        image: postgres:19
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: tablo
@@ -135,7 +135,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:18
+        image: postgres:19
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: tablo
