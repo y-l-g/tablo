@@ -33,7 +33,7 @@ pub(super) fn trail<R: Resource>(mounted: &Mounted<R>, url: String) -> ResourceT
                 foreign_key: match &relation.kind {
                     RelationKind::HasMany { foreign_key }
                     | RelationKind::HasOne { foreign_key } => Some(foreign_key.clone()),
-                    RelationKind::ManyToMany(_) => None,
+                    RelationKind::ManyToMany(_) | RelationKind::Through { .. } => None,
                 },
                 tab: None,
             })

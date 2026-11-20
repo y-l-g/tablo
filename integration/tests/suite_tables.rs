@@ -24,6 +24,7 @@ mod many_to_many;
 mod panel_model;
 mod query;
 mod relations;
+mod relations_through;
 mod relationship_options;
 mod search;
 mod soft_delete;

@@ -173,6 +173,16 @@ action and no create button: a record created there would link nothing.
 [`Relation::belongs_to_many`](https://y-l.fr/tablo/nightly/api/tablo/struct.Relation.html#method.belongs_to_many) has the routes, the
 hooks and the mount checks.
 
+### Relations through other relations
+
+A customer's payments belong to its orders, not to the customer. Toasty reaches them with a
+`#[has_many(via = orders.payments)]` field on `Customer`, and
+`Relation::through::<PaymentResource>(Customer::fields().payments())` lists them on the customer's
+page. The table is `PaymentResource`'s own, with its policy and actions, and it offers no create
+button and no Attach: no column of a payment holds the customer, so the table only reads.
+[`Relation::through`](https://y-l.fr/tablo/nightly/api/tablo/struct.Relation.html#method.through)
+has the rules.
+
 ### One child per record
 
 A record's one child, such as a user's profile, takes no table.
