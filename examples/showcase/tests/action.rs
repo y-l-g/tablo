@@ -208,7 +208,9 @@ async fn publish_reaches_every_matching_draft_past_the_page() {
 }
 
 /// The Tag action asks for tags first: its POST renders the input page, a submit without tags is
-/// refused on the page, and a submit adds the tags to the post's own, each once.
+/// refused on the page, Tag adds the tags to the post's own, each once, and Replace tags, its
+/// second button, replaces them. Neither page renders a control for `replace`, which only that
+/// button posts.
 #[tokio::test]
 async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
     use showcase::models::Post;
@@ -228,10 +230,15 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
     let page = posts.action::<TagPosts>(&post).submit().await;
     let page = page.html();
     assert!(
-        page.contains("name=\"tags\"")
-            && page.contains("placeholder=\"rust, async\"")
-            && page.contains("Replace existing tags"),
+        page.contains("name=\"tags\"") && page.contains("placeholder=\"rust, async\""),
         "an empty submission renders the input page: {page}"
+    );
+    assert_eq!(tablo::testing::action_submits(page), ["replace"]);
+    assert!(
+        !page
+            .split('<')
+            .any(|tag| tag.starts_with("input") && tag.contains("name=\"replace\"")),
+        "no control posts `replace` beside the button: {page}"
     );
 
     let refused = posts
@@ -244,11 +251,11 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
         "{}",
         refused.html()
     );
+    assert_eq!(tablo::testing::action_submits(refused.html()), ["replace"]);
 
     let reply = posts
         .action::<TagPosts>(&post)
         .set_key("tags", "async, tokio")
-        .set_key("replace", "false")
         .submit()
         .await;
     assert_eq!(reply.status(), 303);
@@ -269,8 +276,9 @@ async fn tagging_a_post_asks_for_the_tags_then_merges_them() {
     assert_eq!(after.tags, "news", "replacing drops the post's own tags");
 }
 
-/// Each page offering Tag asks for the tags in a dialog over itself: the list, and a post's detail
-/// and edit pages, whose form posts `tags` too. No DOM id repeats on any of them.
+/// Each page offering Tag asks for the tags in a dialog over itself, beside its Replace tags
+/// button: the list, and a post's detail and edit pages, whose form posts `tags` too. No DOM id
+/// repeats on any of them.
 #[tokio::test]
 async fn the_post_pages_ask_for_tags_in_a_dialog_with_ids_of_their_own() {
     use showcase::models::Post;
@@ -300,6 +308,11 @@ async fn the_post_pages_ask_for_tags_in_a_dialog_with_ids_of_their_own() {
         let dialog = &html[html[..start].rfind("<dialog").unwrap()..];
         let dialog = &dialog[..dialog.find("</dialog>").unwrap()];
         assert!(dialog.contains("name=\"tags\""), "{url}: {dialog}");
+        assert_eq!(
+            tablo::testing::action_submits(dialog),
+            ["replace"],
+            "{url}: {dialog}"
+        );
         let mut ids: Vec<&str> = html
             .split(" id=\"")
             .skip(1)

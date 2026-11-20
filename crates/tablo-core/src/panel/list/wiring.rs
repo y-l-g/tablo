@@ -7,8 +7,7 @@ use topcoat::{context::Cx, icon::IconData};
 use super::TableSignals;
 use crate::{
     Color,
-    resource::Trashed,
-    schema::Schema,
+    resource::{InputSpec, Trashed},
     table::{BoxColumn, ColumnChoice, Table, TableState},
 };
 
@@ -77,7 +76,7 @@ pub(crate) struct TableAction<M> {
     /// The colour its buttons are tinted in.
     pub(crate) color: Color,
     /// The action's input form, when it asks for one: its buttons open the input's dialog.
-    pub(crate) input: Option<fn() -> Schema>,
+    pub(crate) input: Option<InputSpec>,
     /// The records it takes: the live ones, or a soft-deleting resource's trashed ones.
     pub(crate) trashed: Trashed,
     pub(crate) allowed: Arc<dyn Fn(&M) -> bool + Send + Sync>,

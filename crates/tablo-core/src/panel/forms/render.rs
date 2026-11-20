@@ -67,6 +67,8 @@ pub(crate) struct FormChrome<'a> {
     editing: bool,
     /// Whether a second submit button saves and lands on a fresh create form.
     another: bool,
+    /// An action's buttons beside its own, each posting a checkbox of its input checked.
+    submits: Vec<crate::resource::SubmitSpec>,
     /// The relationship seeds of the create page's query, which the form posts back to and a
     /// create-another save lands on.
     seed: Vec<(String, String)>,
@@ -106,6 +108,7 @@ impl<'a> FormChrome<'a> {
             options: Some(options_url(&resource.url)),
             editing: false,
             another: !picking,
+            submits: Vec::new(),
             seed: seed_pairs(cx, resource),
             relations: Vec::new(),
             navigation: Vec::new(),
@@ -144,6 +147,7 @@ impl<'a> FormChrome<'a> {
             options: Some(options_url(&resource.url)),
             editing: true,
             another: false,
+            submits: Vec::new(),
             seed: Vec::new(),
             relations: Vec::new(),
             navigation: record_navigation(cx, resource, record),
@@ -194,6 +198,7 @@ impl<'a> FormChrome<'a> {
             options: None,
             editing: true,
             another: false,
+            submits: Vec::new(),
             seed: Vec::new(),
             relations: Vec::new(),
             navigation: Vec::new(),
@@ -208,6 +213,14 @@ impl<'a> FormChrome<'a> {
     /// The chrome with `actions` in its header: a settings page's header actions.
     pub(crate) fn with_actions(mut self, actions: ActionBar) -> Self {
         self.actions = actions;
+        self
+    }
+
+    /// The chrome of an action's input page for `input`: its submits after the action's own
+    /// button, and no control for the checkboxes they post.
+    pub(crate) fn with_input(mut self, input: &crate::resource::InputSpec) -> Self {
+        self.submits = (input.submits)();
+        self.mask = input.mask();
         self
     }
 
@@ -239,6 +252,7 @@ impl<'a> FormChrome<'a> {
             options: Some(options),
             editing: false,
             another: false,
+            submits: Vec::new(),
             seed: Vec::new(),
             relations: Vec::new(),
             navigation: Vec::new(),
@@ -275,6 +289,7 @@ pub(crate) async fn render_form_page<'a>(
         options,
         editing,
         another,
+        submits,
         seed,
         relations,
         related,
@@ -375,6 +390,9 @@ pub(crate) async fn render_form_page<'a>(
                     attrs: attributes! { type="submit" },
                     (submit_label)
                 )
+                for submit in crate::panel::input::submit_buttons(cx, submits) {
+                    (submit)
+                }
                 if another {
                     tablo_ui::button(
                         variant: tablo_ui::ButtonVariant::Outline,

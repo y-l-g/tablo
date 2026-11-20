@@ -1,7 +1,7 @@
 //! The post list's actions: publishing, from a row, for the selection or from the header, and
 //! tagging.
 
-use tablo::{Action, ActionDef, HeaderAction, HeaderActionDef, filter_keys, scoped_query};
+use tablo::{Action, ActionDef, HeaderAction, HeaderActionDef, Submits, filter_keys, scoped_query};
 use topcoat::{Result, context::Cx};
 
 use crate::{
@@ -71,12 +71,12 @@ impl HeaderAction for PublishAllDrafts {
     }
 }
 
-/// What tagging asks for: the tags, and whether they replace the post's own.
+/// What tagging asks for: the tags, and whether they replace the post's own, which the dialog's
+/// Replace tags button posts.
 #[derive(tablo::FormInput)]
 pub struct Tagging {
     #[form(label = "Tags", placeholder = "rust, async")]
     pub tags: String,
-    #[form(label = "Replace existing tags")]
     pub replace: bool,
 }
 
@@ -89,6 +89,10 @@ impl Action<PostResource> for TagPosts {
 
     fn declare() -> ActionDef<PostResource> {
         ActionDef::new().icon(tablo::ui::icons::TAG)
+    }
+
+    fn submits(submits: Submits<Tagging>) -> Submits<Tagging> {
+        submits.add("Replace tags", |f| f.replace)
     }
 
     async fn run(

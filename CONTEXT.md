@@ -73,6 +73,7 @@ for its forms and a **Detail** for its detail page, and writes through its recor
 | Place | Where a record action's button renders: a row, the detail page, the edit page, the bulk bar. | Location, Context, Surface |
 | Form input | A typed value a form posts under keys no column binds, from `FormInput`: an action input, a sign-up, a repeater's item. | Input (alone), Params, Form object |
 | Action input | The typed value an action asks for before it runs, in a dialog over the page, or on its input page after a refusal. Its fields bind no column. | Action form, Parameters, Payload |
+| Submit | A second button of an action's input dialog and page, running the same action with one `bool` field of its input checked, which the dialog renders no control for. | Extra footer action, Modal action, Secondary button |
 | Authenticator | The trait that loads a panel user from credentials or a session id. | Provider, LoginManager |
 | Password account | A user model that signs in by email and password, implementing `PasswordAccount`, which `PasswordAuth` signs in, edits, resets and verifies. | Credentials model, Authenticatable, UserProvider |
 | External auth | The trait a host app implements to sign a panel's users in itself, set by `Auth::external`: it names the request's user and the app's login page. | SSO provider, Guard, RemoteAuth |

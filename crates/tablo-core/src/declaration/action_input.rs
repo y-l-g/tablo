@@ -24,6 +24,11 @@ pub enum ActionInputFault {
     ///
     /// Drop `depends_on`.
     DependentChoice(String),
+    /// A [`Submits`](crate::Submits) button picking a field that renders no checkbox, which the
+    /// button could not post `true` to.
+    ///
+    /// Pick a `bool` field.
+    SubmitNotCheckbox(String),
 }
 
 /// [`DeclarationErrorKind::ActionInput`](super::DeclarationErrorKind::ActionInput)'s sentence.
@@ -52,6 +57,11 @@ pub(super) fn fmt_action_input(
             f,
             "action '{action}' declares a dependent choice '{field}' in its input, whose \
              options only a resource's form refreshes: drop `depends_on`"
+        ),
+        ActionInputFault::SubmitNotCheckbox(field) => write!(
+            f,
+            "action '{action}' declares a submit checking '{field}', which renders no \
+             checkbox in its input: pick a `bool` field"
         ),
     }
 }
