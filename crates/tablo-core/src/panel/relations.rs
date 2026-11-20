@@ -70,6 +70,9 @@ pub(crate) struct BoundRelation {
     pub(crate) creates: bool,
     /// Where a many-to-many relation's table attaches and detaches, when the user may.
     pub(crate) linking: Option<Linking>,
+    /// Whether the table wires the related resource's custom actions: not a many-to-many one's,
+    /// whose bulk bar posts Detach to the owner's routes.
+    pub(crate) actions: bool,
     /// The path of the record's page that renders the table: its detail or its edit page.
     pub(crate) page: String,
 }
@@ -124,8 +127,10 @@ pub(crate) fn render_relation<'a, R: Resource>(
     // A trashed owner takes no writes: every write loads it among the live records.
     let live = !resource.is_trashed(owner);
     let (scope, value) = relation.bind(owner);
-    let (seed, linking) = match &relation.kind {
-        RelationKind::HasMany { foreign_key } => (Some((foreign_key.clone(), value)), None),
+    let (seed, linking, actions) = match &relation.kind {
+        RelationKind::HasMany { foreign_key } => (Some((foreign_key.clone(), value)), None, true),
+        // No column of a new child would hold the owner.
+        RelationKind::Through { .. } => (None, None, true),
         // Its form edits the record's one child on the edit page.
         RelationKind::HasOne { .. } => return None,
         // Linking writes the owner's relations, which its edit asks `Update` for; a composite key
@@ -140,6 +145,7 @@ pub(crate) fn render_relation<'a, R: Resource>(
                 url: relation_url(&resource.url, &resource.table.key_of(owner), &child.slug),
                 input: *input,
             }),
+            false,
         ),
     };
     Some((child.render)(
@@ -154,6 +160,7 @@ pub(crate) fn render_relation<'a, R: Resource>(
             seed,
             creates: live,
             linking,
+            actions,
             page,
         },
     ))
@@ -193,12 +200,11 @@ pub(crate) fn relation_table<C: Resource>(cx: &Cx, relation: BoundRelation) -> B
             seed,
             creates,
             linking,
+            actions,
             page,
         } = relation;
         let mut chrome = declared_chrome(cx, &resource);
-        // A table wires its custom actions under one route; a many-to-many relation's posts
-        // Detach to the owner's, so it wires none of the related resource's own.
-        chrome.actions = seed.is_some();
+        chrome.actions = actions;
         let mut table = choose_columns(
             cx,
             &resource,

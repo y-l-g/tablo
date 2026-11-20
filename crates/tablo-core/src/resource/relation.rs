@@ -10,15 +10,16 @@ use super::{
 };
 use crate::{
     BoxFuture,
-    form::{FieldError, FormValues},
-    policy::Ability,
-    schema::{Field, Schema},
     toasty_compat::{
-        join::{JoinTable, linked_to},
-        model::{self, AppSchema, ModelPath},
+        join::linked_to,
+        model::{self, ModelPath},
         pk,
     },
 };
+
+mod links;
+
+use links::{attach, attach_schema, detach, parse_attach};
 
 /// One relation of a parent resource's records.
 ///
@@ -63,6 +64,9 @@ use crate::{
 ///   any other create;
 /// - a [`belongs_to_many`](Self::belongs_to_many) table keeps View, Edit and Delete, and offers no
 ///   custom action and no create button, since a record created there would link nothing;
+/// - a [`through`](Self::through) table carries the related resource's View, Edit, Delete and
+///   custom actions and its bulk bar, and no create button, since no column of a record created
+///   there would hold the owner;
 /// - writes started from the table carry `?return=` and land back on the page, which the panel
 ///   follows only to a path under its own prefix;
 /// - its URL parameters take the related resource's slug as a prefix, as in `?comments.q=`, so
@@ -97,6 +101,9 @@ pub(crate) enum RelationKind<P> {
     HasOne { foreign_key: String },
     /// The owner links child records through a join model, which the table attaches and detaches.
     ManyToMany(Links<P>),
+    /// The owner reaches child records through other relations, which the table only reads; the
+    /// owner's field.
+    Through { field: String },
 }
 
 /// An owner's rows filter on the child.
@@ -296,6 +303,69 @@ where
         }
     }
 
+    /// Declare a child resource whose records the owner reaches through `via`, its
+    /// `#[has_many(via = ..)]` field: the records at the end of a path of relations, such as a
+    /// customer's payments through its orders, which the table reads but never links.
+    ///
+    /// ```rust
+    /// # use tablo_core::{NoForm, Relation, Resource};
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+    /// # struct Customer {
+    /// #     #[key] #[auto] id: uuid::Uuid,
+    /// #     #[has_many]
+    /// #     orders: toasty::Deferred<Vec<Order>>,
+    /// #     #[has_many(via = orders.payments)]
+    /// #     payments: toasty::Deferred<Vec<Payment>>,
+    /// # }
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+    /// # struct Order {
+    /// #     #[key] #[auto] id: uuid::Uuid,
+    /// #     #[index] customer_id: uuid::Uuid,
+    /// #     #[belongs_to(key = customer_id, references = id)]
+    /// #     customer: toasty::Deferred<Customer>,
+    /// #     #[has_many]
+    /// #     payments: toasty::Deferred<Vec<Payment>>,
+    /// # }
+    /// # #[derive(Debug, Clone, toasty::Model, tablo_core::PanelModel)]
+    /// # struct Payment {
+    /// #     #[key] #[auto] id: uuid::Uuid,
+    /// #     #[index] order_id: uuid::Uuid,
+    /// #     #[belongs_to(key = order_id, references = id)]
+    /// #     order: toasty::Deferred<Order>,
+    /// # }
+    /// # struct PaymentResource;
+    /// # impl Resource for PaymentResource { type Model = Payment; type Form = NoForm<Payment>; }
+    /// let payments: Relation<Customer> =
+    ///     Relation::through::<PaymentResource>(Customer::fields().payments());
+    /// ```
+    ///
+    /// The table lists each record the path reaches once, through the related resource's own
+    /// query and policy as any relation table does, so a record of another tenant, or one the
+    /// related resource leaves out, never shows, whatever the records along the path hold. The
+    /// records along the path go through no resource: a soft-deleted order still leads to its
+    /// payments. A direct `#[has_many]` field works too, as a `has_many` table with no create
+    /// button. The path needs a SQL driver, as Toasty's `via` does.
+    pub fn through<C>(via: impl Into<Path<P, List<C::Model>>>) -> Self
+    where
+        C: Resource,
+        P: Send + Sync,
+    {
+        let via: Path<P, List<C::Model>> = via.into();
+        let (field, misdeclared) = match model::field::<P>(&ModelPath::of(&via)) {
+            Ok(field) => (field.name, None),
+            Err(error) => (String::new(), Some(error)),
+        };
+        Self {
+            child: TypeId::of::<C>(),
+            child_name: std::any::type_name::<C>(),
+            label: None,
+            tab: false,
+            kind: RelationKind::Through { field },
+            misdeclared,
+            bind: Arc::new(move |owner| (linked_to(owner, via.clone()), pk::pk_text(owner))),
+        }
+    }
+
     /// Declare a many-to-many child resource whose records the owner links through `via`, its
     /// `#[has_many(via = joins.target)]` field: the owner's linked records, which the table
     /// attaches and detaches as join rows.
@@ -383,117 +453,6 @@ where
     }
 }
 
-/// The attach dialog's input: one searchable choice of `C`'s records.
-fn attach_schema<C: Resource>() -> Schema {
-    Schema::new(
-        Field::choice_input(ATTACH_KEY)
-            .label(crate::Text::model::<C::Model>())
-            .relationship::<C>()
-            .searchable(),
-    )
-}
-
-/// The key the attach dialog's choice posts: the schema's check proved it one of the choice's
-/// records.
-fn parse_attach(_cx: &Cx, values: &FormValues) -> InputResult {
-    match values.text(ATTACH_KEY).map(str::trim) {
-        Some(key) if !key.is_empty() => Ok(Box::new(key.to_string()) as ErasedInput),
-        _ => Err(vec![FieldError::required(ATTACH_KEY)]),
-    }
-}
-
-/// The join model behind `owner`'s `field`.
-fn join_table<P: toasty::schema::Model>(cx: &Cx, field: &str) -> Result<JoinTable> {
-    let schema = AppSchema::of(cx).ok_or_else(|| {
-        crate::error::declaration(crate::DeclarationErrorKind::MissingDb.to_string())
-    })?;
-    JoinTable::of::<P>(&schema, field).map_err(|fault| {
-        crate::error::declaration(
-            crate::DeclarationErrorKind::ManyToMany {
-                field: field.to_string(),
-                fault,
-            }
-            .to_string(),
-        )
-    })
-}
-
-/// Links `owner` to the record `key` names, unless they are linked already.
-async fn attach<P, C>(
-    cx: &Cx,
-    owner: &P,
-    via: Path<P, List<C::Model>>,
-    field: &str,
-    key: String,
-    ex: &mut dyn toasty::Executor,
-) -> Result<String>
-where
-    P: toasty::schema::Model + IntoExpr<P>,
-    C: Resource,
-{
-    let join = join_table::<P>(cx, field)?;
-    let (Some(key), Some(record)) = (
-        pk::canonical_key::<C::Model>(&key),
-        pk::pk_eq_expr::<C::Model>(&key),
-    ) else {
-        return Err(topcoat::router::error::not_found().into());
-    };
-    let linked = scoped_query::<C>(cx)?
-        .filter(record)
-        .filter(linked_to(owner, via))
-        .first()
-        .exec(&mut *ex)
-        .await
-        .map_err(crate::error::unavailable)?;
-    if linked.is_none() {
-        join.link(owner, std::slice::from_ref(&key), ex)
-            .await
-            .map_err(|error| -> topcoat::Error { error.into() })?;
-    }
-    Ok(key)
-}
-
-/// Unlinks `owner` from the records `keys` names.
-async fn detach<P, C>(
-    cx: &Cx,
-    owner: &P,
-    via: Path<P, List<C::Model>>,
-    field: &str,
-    keys: Vec<String>,
-    ex: &mut dyn toasty::Executor,
-) -> Result<Vec<String>>
-where
-    P: toasty::schema::Model + IntoExpr<P>,
-    C: Resource,
-{
-    let join = join_table::<P>(cx, field)?;
-    let ids: Vec<&str> = keys.iter().map(String::as_str).collect();
-    let Some(records) = pk::pk_in_expr::<C::Model>(&ids) else {
-        return Err(topcoat::router::error::not_found().into());
-    };
-    // A trashed record stays linked, and the relation table offers to unlink it.
-    let linked = scoped_query_in::<C>(cx, Trashed::With)?
-        .filter(records)
-        .filter(linked_to(owner, via))
-        .exec(&mut *ex)
-        .await
-        .map_err(crate::error::unavailable)?;
-    if linked.len() != keys.len() {
-        return Err(topcoat::router::error::not_found().into());
-    }
-    // A record the user cannot view cannot be unlinked by guessing its key.
-    if linked
-        .iter()
-        .any(|record| !can::<C>(cx, Ability::View(record)))
-    {
-        return Err(topcoat::router::error::forbidden().into());
-    }
-    join.unlink(owner, &keys, ex)
-        .await
-        .map_err(|error| -> topcoat::Error { error.into() })?;
-    Ok(linked.iter().map(pk::pk_text).collect())
-}
-
 impl<P> Relation<P> {
     /// Titles the section `label` instead of the related resource's label: its plural one over a
     /// table, its singular one over a `has_one` relation's form.
@@ -529,7 +488,9 @@ impl<P> Relation<P> {
     pub(crate) fn links(&self) -> Option<&Links<P>> {
         match &self.kind {
             RelationKind::ManyToMany(links) => Some(links),
-            RelationKind::HasMany { .. } | RelationKind::HasOne { .. } => None,
+            RelationKind::HasMany { .. }
+            | RelationKind::HasOne { .. }
+            | RelationKind::Through { .. } => None,
         }
     }
 
@@ -537,7 +498,9 @@ impl<P> Relation<P> {
     pub(crate) fn has_one_key(&self) -> Option<&str> {
         match &self.kind {
             RelationKind::HasOne { foreign_key } => Some(foreign_key),
-            RelationKind::HasMany { .. } | RelationKind::ManyToMany(_) => None,
+            RelationKind::HasMany { .. }
+            | RelationKind::ManyToMany(_)
+            | RelationKind::Through { .. } => None,
         }
     }
 }
@@ -553,6 +516,7 @@ impl<P> std::fmt::Debug for Relation<P> {
                 debug.field("foreign_key", foreign_key)
             }
             RelationKind::ManyToMany(links) => debug.field("via", &links.field),
+            RelationKind::Through { field } => debug.field("through", field),
         };
         debug.finish_non_exhaustive()
     }
