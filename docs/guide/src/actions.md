@@ -150,6 +150,13 @@ Its button opens the input's form in a dialog over the page instead of running. 
 each field's control and its required mark as a record form does; `FormInput` lists its field
 attributes and the names an input may not use.
 
+A dialog that runs the action two ways, such as Ship and Ship and notify, keeps one action and
+gives its input a `bool` field the second button checks:
+`fn submits(submits: Submits<Shipping>) -> Submits<Shipping> { submits.add("Ship and notify", |f| f.notify) }`.
+The dialog renders no checkbox for `notify`, so the action's own button posts it `false` and the
+second button `true`, and `run` reads which one ran it. Both go through the same route and
+checks; [`Submits`](https://y-l.fr/tablo/nightly/api/tablo_core/struct.Submits.html) has the rules.
+
 A refusal lands on the input, never on a half-written record. `validate_input` refuses before the
 transaction opens and sees no record, as `ChangeStatus` refuses to feature a draft. Its errors
 are keyed by the input, `FieldErrors::<StatusChange>::new()`, and each picks the field it refuses

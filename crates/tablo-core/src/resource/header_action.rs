@@ -96,6 +96,13 @@ pub trait HeaderAction: 'static {
         FieldErrors::new()
     }
 
+    /// The input dialog's buttons beside the action's own, each running the action with one
+    /// checkbox of the input checked, as [`Action::submits`](crate::Action::submits)' do.
+    /// Defaults to none.
+    fn submits(submits: crate::Submits<Self::Input>) -> crate::Submits<Self::Input> {
+        submits
+    }
+
     /// Perform the action with the parsed `input`, through the framework's transaction `ex`,
     /// and say what the response does once it commits: [`Outcome::done`](crate::Outcome::done)
     /// for the [`HeaderActionDef::success`] notification, landing back on the list or page.
@@ -243,7 +250,9 @@ impl HeaderActions {
             name: A::NAME,
             label: Arc::new(move || label.clone()),
             can_run: refused_while_writes_are(def.can_run),
-            input: InputSpec::of::<A::Input>(parse_header_input::<A>),
+            input: InputSpec::of::<A::Input>(parse_header_input::<A>, || {
+                super::action::erase_submits(A::submits)
+            }),
             run: run_header_erased::<A>,
             success: Arc::new(move || success.clone()),
             confirm: def.confirm,

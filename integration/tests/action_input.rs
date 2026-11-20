@@ -500,7 +500,7 @@ async fn a_confirming_action_with_input_confirms_in_its_dialog_and_on_its_page()
     assert_eq!(ticket(&db, alpha.id).await.reason, "purged");
 }
 
-/// An input field named like a key the action's POST carries.
+/// An input field named like a key the action's POST carries, which a submit checks too.
 #[derive(FormInput)]
 struct Selecting {
     #[allow(dead_code, reason = "only its name matters")]
@@ -612,6 +612,10 @@ impl Action<SelectResource> for Select {
         ActionDef::new().label("Select")
     }
 
+    fn submits(submits: tablo::Submits<Selecting>) -> tablo::Submits<Selecting> {
+        submits.add("Select all", |f| f.ids)
+    }
+
     async fn run(
         _: &Cx,
         _: &[Ticket],
@@ -652,6 +656,10 @@ async fn an_input_that_cannot_be_served_fails_the_build() {
             DeclarationErrorKind::ActionInput {
                 action: "select",
                 fault: ActionInputFault::ReservedField("ids".to_string()),
+            },
+            DeclarationErrorKind::ActionInput {
+                action: "select",
+                fault: ActionInputFault::SubmitNotCheckbox("ids".to_string()),
             },
             DeclarationErrorKind::EmptyChoice {
                 field: "title".to_string(),

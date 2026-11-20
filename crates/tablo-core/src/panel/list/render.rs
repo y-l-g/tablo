@@ -35,7 +35,7 @@ use super::{TableSignals, WiredTable};
 use crate::{
     Color,
     panel::url::with_return,
-    schema::Schema,
+    resource::InputSpec,
     table::{ActionLayout, Alignment, ColumnWidth, TableState, query_of},
 };
 
@@ -117,7 +117,7 @@ struct InputAction<'t> {
     name: &'static str,
     label: &'t str,
     confirm: bool,
-    input: fn() -> Schema,
+    input: InputSpec,
 }
 
 impl<M> WiredTable<M> {

@@ -366,6 +366,7 @@ where
                     schema: attach_schema::<C>,
                     takes_input: true,
                     parse: parse_attach,
+                    submits: Vec::new,
                 },
                 attach: Arc::new(move |cx, owner, key, ex| {
                     let (via, field) = (attach_via.clone(), attach_field.clone());

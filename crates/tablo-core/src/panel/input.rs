@@ -22,7 +22,8 @@ use topcoat::{
 use crate::{
     form::FieldErrors,
     panel::actions::MATCHING,
-    schema::{Schema, Source},
+    resource::{InputSpec, SubmitSpec},
+    schema::Source,
     topcoat_compat::async_page,
 };
 
@@ -36,8 +37,8 @@ pub(crate) struct InputDialog {
     /// Whether the action confirms: the dialog says it cannot be undone, and its submit renders
     /// destructive and carries the confirmation.
     pub(crate) confirm: bool,
-    /// The input's form.
-    pub(crate) input: fn() -> Schema,
+    /// The input: its form, and the buttons beside the action's own.
+    pub(crate) input: InputSpec,
     /// The action's options route, which its searchable choices fetch from.
     pub(crate) options: String,
 }
@@ -75,13 +76,15 @@ impl InputDialog {
                 input,
                 options,
             } = self;
-            let schema = input();
+            let schema = (input.schema)();
             let (values, errors) = (schema.defaults(), FieldErrors::new());
             // The fields' ids sit under their own prefix, so a field named `title` never takes
             // the dialog title's id.
             let source = Source::form(&values, &errors)
                 .scoped(format!("{id}-field"))
-                .options_at(options);
+                .options_at(options)
+                .masked(input.mask());
+            let submits = submit_buttons(cx, (input.submits)());
             let fields = schema.render(cx, source).await?;
             let csrf = crate::csrf::current_token(cx);
             let dialog_id = id.clone();
@@ -194,6 +197,9 @@ impl InputDialog {
                                     attrs: attributes! { type="submit" },
                                     (label)
                                 )
+                                for submit in submits {
+                                    (submit)
+                                }
                             )
                         )
                     </form>
@@ -202,6 +208,24 @@ impl InputDialog {
             .boxed())
         })
     }
+}
+
+/// The buttons of an action's `submits`, after its own: each posts its checkbox's key as `true`.
+pub(crate) fn submit_buttons<'a>(cx: &'a Cx, submits: Vec<SubmitSpec>) -> Vec<BoxView<'a>> {
+    submits
+        .into_iter()
+        .map(|SubmitSpec { label, key }| {
+            view! {
+                button(
+                    variant: ButtonVariant::Outline,
+                    size: ButtonSize::Md,
+                    attrs: attributes! { type="submit" name=(key) value="true" data-submit=(key) },
+                    (label)
+                )
+            }
+            .boxed()
+        })
+        .collect()
 }
 
 /// A table's bulk selection as its write forms post it: the rows checked, or every record the

@@ -11,10 +11,13 @@ mod builtin;
 mod def;
 mod keys;
 mod places;
+mod submit;
 
 pub use def::ActionDef;
 pub use keys::filter_keys;
 pub use places::Places;
+pub(crate) use submit::SubmitSpec;
+pub use submit::Submits;
 
 use super::{Mounted, Resource, WriteError};
 use crate::{
@@ -192,6 +195,13 @@ pub trait Action<R: Resource>: 'static {
         FieldErrors::new()
     }
 
+    /// The input dialog's buttons beside the action's own, each running the action with one
+    /// checkbox of the input checked, such as "Ship and notify" beside "Ship": see [`Submits`].
+    /// Defaults to none.
+    fn submits(submits: Submits<Self::Input>) -> Submits<Self::Input> {
+        submits
+    }
+
     /// Perform the action on `records`, the records of the row or selection that
     /// passed [`Ability::Run`] and [`ActionDef::can_run`], with the parsed `input`, through
     /// the framework's transaction `ex`, and say what the response does once it commits:
@@ -235,15 +245,21 @@ pub(crate) struct InputSpec {
     pub(crate) takes_input: bool,
     /// Parses and validates the input from a submission, as the value `run` takes.
     pub(crate) parse: fn(&Cx, &FormValues) -> InputResult,
+    /// The dialog's buttons beside the action's own, each posting one checkbox checked.
+    pub(crate) submits: fn() -> Vec<SubmitSpec>,
 }
 
 impl InputSpec {
-    /// The input of type `I`, parsed and validated by `parse`.
-    pub(crate) fn of<I: FormInput>(parse: fn(&Cx, &FormValues) -> InputResult) -> Self {
+    /// The input of type `I`, parsed and validated by `parse`, with `submits`' buttons.
+    pub(crate) fn of<I: FormInput>(
+        parse: fn(&Cx, &FormValues) -> InputResult,
+        submits: fn() -> Vec<SubmitSpec>,
+    ) -> Self {
         Self {
             schema: I::schema,
             takes_input: !I::schema().is_empty(),
             parse,
+            submits,
         }
     }
 
@@ -253,8 +269,25 @@ impl InputSpec {
             schema: Schema::empty,
             takes_input: false,
             parse: parse_nothing,
+            submits: Vec::new,
         }
     }
+
+    /// The input's form as its dialog and page render it: without the checkboxes a submit posts.
+    pub(crate) fn mask(&self) -> crate::schema::FormMask {
+        (self.submits)()
+            .iter()
+            .fold(crate::schema::FormMask::default(), |mask, submit| {
+                mask.hiding(submit.key)
+            })
+    }
+}
+
+/// The buttons `declare` adds, past the input's type.
+pub(crate) fn erase_submits<I: FormInput>(
+    declare: fn(Submits<I>) -> Submits<I>,
+) -> Vec<SubmitSpec> {
+    declare(Submits::new()).into_specs()
 }
 
 /// The actions a [`Resource`] declares, in button order.
@@ -325,7 +358,9 @@ impl<R: Resource> Actions<R> {
             can_run: can_run_erased::<R, A>,
             disabled: disabled_erased::<R>(A::NAME, state.clone(), def.disabled_reason),
             state,
-            input: InputSpec::of::<A::Input>(parse_input_erased::<R, A>),
+            input: InputSpec::of::<A::Input>(parse_input_erased::<R, A>, || {
+                erase_submits(A::submits)
+            }),
             run: run_erased::<R, A>,
             success,
             change: Reports::Acted,

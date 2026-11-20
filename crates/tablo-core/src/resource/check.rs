@@ -150,7 +150,7 @@ fn check_actions<R: Resource>(cx: &Cx, declared: &Mounted<R>, errors: &mut Vec<D
 
 /// Each of `T`'s actions has a name no other shares, and an input that declares no misdeclared
 /// field, none the action's POST carries itself and no file field; an input with no field parses
-/// an empty submission.
+/// an empty submission, and each submit checks a checkbox of the input.
 pub(crate) fn check_inputs<T: 'static>(
     cx: &Cx,
     actions: impl Iterator<Item = (&'static str, InputSpec)>,
@@ -188,6 +188,16 @@ pub(crate) fn check_inputs<T: 'static>(
                 }
             })
             .collect();
+        faults.extend(
+            (spec.submits)()
+                .into_iter()
+                .filter(|submit| {
+                    !input
+                        .fields()
+                        .any(|field| field.name() == submit.key && field.is_checkbox())
+                })
+                .map(|submit| ActionInputFault::SubmitNotCheckbox(submit.key.to_string())),
+        );
         if !spec.takes_input && (spec.parse)(cx, &crate::form::FormValues::new()).is_err() {
             faults.push(ActionInputFault::RefusesEmpty);
         }

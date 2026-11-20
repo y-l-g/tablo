@@ -92,3 +92,13 @@ pub fn disabled_actions(html: &str) -> Vec<DisabledAction> {
         })
         .collect()
 }
+
+/// The input keys the action submits in `html` post checked, in document order: one per button an
+/// action's [`submits`](tablo_core::Action::submits) declare, in each dialog or input page.
+pub fn action_submits(html: &str) -> Vec<String> {
+    open_tags(html)
+        .into_iter()
+        .filter(|(tag, _, _)| tag == "button")
+        .filter_map(|(_, attrs, _)| attr_value(&attrs, "data-submit"))
+        .collect()
+}

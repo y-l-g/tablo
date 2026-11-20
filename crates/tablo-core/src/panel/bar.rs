@@ -333,7 +333,7 @@ impl ActionButton {
                 title: confirm_label.clone(),
                 label: confirm_label,
                 confirm,
-                input: spec.schema,
+                input: spec,
                 options,
             }
             .render(cx, Posts::To(url.clone()));

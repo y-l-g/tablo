@@ -553,7 +553,7 @@ impl InputPage {
         render_form_page(
             cx,
             &(spec.schema)(),
-            chrome,
+            chrome.with_input(spec),
             &self.values,
             &self.errors,
             &Default::default(),

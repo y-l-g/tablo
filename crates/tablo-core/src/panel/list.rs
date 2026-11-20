@@ -226,7 +226,7 @@ fn wire_custom_actions<R: Resource>(
                     )
                 }),
                 color: action.color,
-                input: action.input.takes_input.then_some(action.input.schema),
+                input: action.input.takes_input.then_some(action.input),
                 trashed: action.trashed,
                 allowed: Arc::new(move |record: &R::Model| {
                     policy.can(&policy_cx, Ability::View(record))

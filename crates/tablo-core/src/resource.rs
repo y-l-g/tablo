@@ -26,9 +26,9 @@ mod soft_delete;
 mod write;
 mod write_error;
 
-pub use action::{Action, ActionDef, Places, filter_keys};
+pub use action::{Action, ActionDef, Places, Submits, filter_keys};
 pub(crate) use action::{
-    ActionEntry, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS, Reports,
+    ActionEntry, Actions, ErasedInput, InputResult, InputSpec, RESERVED_KEYS, Reports, SubmitSpec,
     parse_validated,
 };
 pub(crate) use check::{ResourceCheck, ServesTenants, check_inputs, check_resource};
