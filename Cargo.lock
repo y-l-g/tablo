@@ -2680,7 +2680,7 @@ dependencies = [
  "md-5",
  "memchr",
  "rand 0.10.3",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "stringprep",
 ]
 
@@ -3425,9 +3425,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.11.1"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47d7069beb7d6ac7b9acd1039986e73443f24234f41074da099d6f994ac9ad19"
+checksum = "5b0e5c7d67bc53f435386b2130fdc900488c5703770f6d8a4633060e34288a27"
 dependencies = [
  "cfg-if",
  "cpufeatures 0.3.1",
@@ -3664,7 +3664,7 @@ dependencies = [
  "rand 0.10.3",
  "rsa",
  "sha1 0.11.0",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "sqlx-core",
  "thiserror",
  "time",
@@ -3866,7 +3866,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha1 0.11.0",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "subtle",
  "tablo-macros",
  "tablo-ui",
@@ -3915,7 +3915,7 @@ dependencies = [
  "jiff",
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "tablo-core",
  "toasty",
  "tokio",
@@ -3947,7 +3947,7 @@ dependencies = [
  "percent-encoding",
  "serde_json",
  "sha1 0.11.0",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "tablo-core",
  "toasty",
  "tokio",
@@ -4329,7 +4329,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c2ad44aa0ae96db89c4742212ed41645b2f597311ff6e1945542a4d9fadc2fb"
 dependencies = [
  "rustls",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "tokio",
  "tokio-postgres",
  "tokio-rustls",
@@ -4492,7 +4492,7 @@ dependencies = [
  "memchr",
  "percent-encoding",
  "serde",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "thiserror",
  "tokio",
  "toml",
@@ -4819,7 +4819,7 @@ checksum = "d705011dbdf07ea9e3f74397f177cf3224a2fa0ff600a2514c11837ef04e1858"
 dependencies = [
  "base64 0.22.1",
  "getrandom 0.4.3",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "thiserror",
  "tokio",
  "topcoat-cookie",
@@ -4833,7 +4833,7 @@ version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "076ac4b4d97d250fd9748215409cda7cbddcfadd32dab5eafbf7ce6be8b7e51b"
 dependencies = [
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "thiserror",
  "topcoat-core",
  "ureq",
@@ -4847,7 +4847,7 @@ checksum = "a0d8805553b4a9152658bfb639e16e51223b74884badf4f4fc83731e14c4a0a1"
 dependencies = [
  "serde",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "thiserror",
  "toml",
 ]
@@ -5838,7 +5838,7 @@ version = "0.11.1"
 dependencies = [
  "anyhow",
  "serde_json",
- "sha2 0.11.1",
+ "sha2 0.11.2",
  "topcoat-ui",
  "topcoat-ui-registry",
 ]
