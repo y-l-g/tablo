@@ -252,7 +252,7 @@ jobs:
       # `-D warnings` promotes every rustdoc lint to a failure.
       - run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
       - name: Install mdBook and mdbook-linkcheck2
-        uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
+        uses: taiki-e/install-action@073e1fd0bc889c9aee68dbaaa927cde1b5653a83 # v2.90.11
         with:
           tool: mdbook@0.5.2,mdbook-linkcheck2@0.13.0
       # Build the book here too: docs.yml only runs on master, so linkcheck catches a bad link
